@@ -1,0 +1,460 @@
+// ============================================================
+// Prisma Schema — xCloudPMIS v2.0（Phase 3 進階功能）
+//
+// 變更說明（Phase 3 新增）：
+//   - task_dependencies：任務依賴關係
+//   - milestones：專案里程碑
+//   - time_entries：工時計時記錄
+//   - attachments：任務檔案附件
+//   - comments：任務評論（支援回覆串）
+//   - tags + task_tags：彩色標籤（多對多）
+//   - notifications：使用者通知
+//   - activity_logs：任務變更歷史
+//
+//   既有表格修改：
+//   - Task：新增 actualHours、startedAt、completedAt
+// ============================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ════════════════════════════════════════════════════════════
+// 既有模型（Phase 1，此次有修改的部分）
+// ════════════════════════════════════════════════════════════
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  logoUrl   String?  @map("logo_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users    User[]
+  projects Project[]
+  tags     Tag[]      // ← Phase 3 新增：公司共用標籤庫
+
+  @@map("companies")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  companyId    Int       @map("company_id")
+  name         String    @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash")
+  role         Role      @default(member)
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ownedProjects Project[]
+  assignedTasks Task[]         @relation("TaskAssignee")
+  createdTasks  Task[]         @relation("TaskCreator")
+
+  // ── Phase 3 新增的關聯 ────────────────────────────────
+  timeEntries   TimeEntry[]    // 這個人的所有工時記錄
+  attachments   Attachment[]   // 這個人上傳的所有附件
+  comments      Comment[]      // 這個人發的所有評論
+  notifications Notification[] // 這個人收到的所有通知
+  activityLogs  ActivityLog[]  // 這個人造成的所有變更記錄
+
+  @@index([companyId])
+  @@index([email])
+  @@map("users")
+}
+
+enum Role {
+  admin
+  pm
+  member
+}
+
+model Project {
+  id          Int           @id @default(autoincrement())
+  companyId   Int           @map("company_id")
+  ownerId     Int?          @map("owner_id")
+  name        String        @db.VarChar(255)
+  description String        @default("")
+  status      ProjectStatus @default(active)
+  budget      Decimal?      @db.Decimal(15, 2)
+  startDate   DateTime?     @map("start_date") @db.Date
+  endDate     DateTime?     @map("end_date") @db.Date
+  deletedAt   DateTime?     @map("deleted_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  owner      User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  milestones Milestone[] // ← Phase 3 新增：里程碑
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  planning
+  active
+  on_hold
+  completed
+  cancelled
+}
+
+// ── 任務表（Phase 3 新增三個欄位 + 多個新關聯）─────────────
+model Task {
+  id             Int        @id @default(autoincrement())
+  projectId      Int        @map("project_id")
+  assigneeId     Int?       @map("assignee_id")
+  createdById    Int?       @map("created_by")
+  title          String     @db.VarChar(500)
+  description    String     @default("")
+  status         TaskStatus @default(todo)
+  priority       Priority   @default(medium)
+  estimatedHours Decimal?   @map("estimated_hours") @db.Decimal(6, 2)
+
+  // ── Phase 3 新增欄位 ──────────────────────────────────
+  /// 實際花費工時（從 time_entries 匯總，方便快速查詢不用每次計算）
+  actualHours    Decimal?   @map("actual_hours") @db.Decimal(6, 2)
+  /// 任務實際開始時間（第一次把狀態改為 in_progress 的時間）
+  startedAt      DateTime?  @map("started_at")
+  /// 任務實際完成時間（把狀態改為 done 的時間）
+  completedAt    DateTime?  @map("completed_at")
+  // ─────────────────────────────────────────────────────
+
+  dueDate        DateTime?  @map("due_date") @db.Date
+  position       Int        @default(0)
+  deletedAt      DateTime?  @map("deleted_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy    User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // ── Phase 3 新增的關聯 ────────────────────────────────
+  /// 這個任務「依賴哪些前置任務」（例：Task A 必須先完成，我才能開始）
+  dependencies    TaskDependency[] @relation("TaskDependencies")
+  /// 「哪些後續任務依賴我」（反向查詢用）
+  dependents      TaskDependency[] @relation("TaskDependents")
+
+  timeEntries     TimeEntry[]   // 這個任務上的所有計時記錄
+  attachments     Attachment[]  // 這個任務的所有附件
+  comments        Comment[]     // 這個任務的所有評論
+  activityLogs    ActivityLog[] // 這個任務的所有變更歷史
+  taskTags        TaskTag[]     // 這個任務的所有標籤（多對多）
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  done
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+// ════════════════════════════════════════════════════════════
+// Phase 3 新增模型
+// ════════════════════════════════════════════════════════════
+
+// ── 表格 5：task_dependencies（任務依賴關係）────────────────
+//
+// 什麼是任務依賴？
+//   假設：「部署上線」必須等「測試通過」完成後才能開始
+//   這就是：部署上線 depends_on 測試通過（finish_to_start）
+//
+// 三種依賴類型：
+//   finish_to_start  = A 完成後，B 才能開始（最常見）
+//   start_to_start   = A 開始後，B 才能開始（同步開始）
+//   finish_to_finish = A 完成後，B 才能完成（同步結束）
+//
+// 循環依賴防護：
+//   A→B→C→A 這樣的循環是不允許的！
+//   要在應用程式層用 DFS（深度優先搜尋）演算法檢查
+//   （詳見 backend/src/utils/dependencyCheck.js）
+// ─────────────────────────────────────────────────────────
+model TaskDependency {
+  id              Int            @id @default(autoincrement())
+  taskId          Int            @map("task_id")          // 後置任務（需要等待的那個）
+  dependsOnTaskId Int            @map("depends_on_task_id") // 前置任務（必須先做的那個）
+  dependencyType  DependencyType @default(finish_to_start) @map("dependency_type")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  task          Task @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTask Task @relation("TaskDependents", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  // 防止同樣的依賴關係被建立兩次
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+enum DependencyType {
+  finish_to_start  // 完成才能開始（最常用）
+  start_to_start   // 同時開始
+  finish_to_finish // 同時完成
+}
+
+// ── 表格 6：milestones（里程碑）─────────────────────────────
+//
+// 什麼是里程碑？
+//   專案中的重要檢查點，例如：「Beta 版發布」、「UAT 驗收完成」
+//   在甘特圖上顯示為菱形標記（◆）
+// ─────────────────────────────────────────────────────────
+model Milestone {
+  id          Int            @id @default(autoincrement())
+  projectId   Int            @map("project_id")
+  name        String         @db.VarChar(255)    // 里程碑名稱
+  description String         @default("")
+  dueDate     DateTime       @map("due_date") @db.Date  // 預定達成日期
+  isAchieved  Boolean        @default(false) @map("is_achieved") // 是否已達成
+  achievedAt  DateTime?      @map("achieved_at") // 實際達成時間
+  color       MilestoneColor @default(green)     // 顏色標籤（紅=延誤風險、黃=注意、綠=正常）
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([dueDate])
+  @@map("milestones")
+}
+
+enum MilestoneColor {
+  red    // 紅色：高風險、已延誤
+  yellow // 黃色：需注意
+  green  // 綠色：正常進行
+}
+
+// ── 表格 7：time_entries（工時計時記錄）─────────────────────
+//
+// 計時流程：
+//   1. 按「開始計時」→ 建立一筆 ended_at = NULL 的記錄
+//   2. 按「停止計時」→ 填入 ended_at，計算 duration_minutes
+//
+// 防止重複計時：
+//   同一個 user_id 不能同時有兩筆 ended_at = NULL 的記錄
+//   （在應用程式層檢查）
+// ─────────────────────────────────────────────────────────
+model TimeEntry {
+  id              Int       @id @default(autoincrement())
+  taskId          Int       @map("task_id")
+  userId          Int       @map("user_id")
+  startedAt       DateTime  @map("started_at")  // 計時開始時間
+  endedAt         DateTime? @map("ended_at")    // 計時結束時間（null = 計時進行中）
+  durationMinutes Int?      @map("duration_minutes") // 總時長（分鐘），停止後才填入
+  description     String    @default("")        // 工作描述（可以空白）
+  date            DateTime  @db.Date            // 記錄日期（方便按日統計）
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([date])           // 常用：統計某日期範圍的工時
+  @@index([endedAt])        // 常用：查詢進行中的計時（endedAt IS NULL）
+  @@map("time_entries")
+}
+
+// ── 表格 8：attachments（任務檔案附件）──────────────────────
+//
+// 檔案命名策略：
+//   originalName = 使用者上傳的原始檔名（如：企劃書.pdf）
+//   storedName   = 儲存時用 UUID 重新命名（如：550e8400-e29b-...pdf）
+//   好處：避免檔名衝突、避免路徑遍歷攻擊（Path Traversal）
+// ─────────────────────────────────────────────────────────
+model Attachment {
+  id            Int      @id @default(autoincrement())
+  taskId        Int      @map("task_id")
+  uploadedById  Int      @map("uploaded_by")
+  originalName  String   @map("original_name") @db.VarChar(255) // 原始檔名
+  storedName    String   @map("stored_name") @db.VarChar(255)   // 儲存檔名（UUID）
+  filePath      String   @map("file_path")                       // 完整路徑或 S3 URL
+  mimeType      String   @map("mime_type") @db.VarChar(100)     // 例如 image/jpeg、application/pdf
+  fileSizeBytes Int      @map("file_size_bytes")                 // 檔案大小（位元組）
+  thumbnailPath String?  @map("thumbnail_path")                  // 縮圖路徑（只有圖片才有）
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([uploadedById])
+  @@map("attachments")
+}
+
+// ── 表格 9：comments（評論與回覆串）─────────────────────────
+//
+// 巢狀評論結構：
+//   頂層評論：parentId = NULL
+//   回覆某評論：parentId = 那則評論的 ID
+//   注意：只支援一層回覆（不支援無限巢狀，Asana 也是這樣）
+//
+// @提及功能：
+//   mentions 欄位儲存被提及的 user IDs 陣列
+//   例如：[2, 5] 代表提及了 ID 為 2 和 5 的使用者
+//   同時會在 notifications 表建立通知記錄
+// ─────────────────────────────────────────────────────────
+model Comment {
+  id        Int       @id @default(autoincrement())
+  taskId    Int       @map("task_id")
+  userId    Int       @map("user_id")    // 留言的人
+  parentId  Int?      @map("parent_id") // 回覆哪則留言（null = 頂層留言）
+  content   String    @db.Text          // 留言內容
+  /// 被提及的使用者 ID 陣列，例如 [2, 5]
+  /// 儲存格式：PostgreSQL JSONB（可以索引、可以查詢）
+  mentions  Json      @default("[]")
+  isEdited  Boolean   @default(false) @map("is_edited")  // 是否已被編輯過
+  editedAt  DateTime? @map("edited_at")                  // 最後編輯時間
+  deletedAt DateTime? @map("deleted_at")                 // 軟刪除
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  task    Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies Comment[] @relation("CommentReplies") // 這則留言的所有回覆
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+// ── 表格 10：tags（標籤）────────────────────────────────────
+//
+// 每間公司有自己的標籤庫
+// 標籤和任務是多對多關係（一個任務可以有多個標籤，一個標籤可以用在多個任務）
+// ─────────────────────────────────────────────────────────
+model Tag {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String   @db.VarChar(50)          // 標籤名稱，例如「Bug」、「功能需求」
+  color     String   @default("#6b7280") @db.VarChar(20) // 十六進位顏色碼，例如 #ef4444
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  taskTags TaskTag[]
+
+  @@unique([companyId, name])   // 同一公司內標籤名稱不能重複
+  @@index([companyId])
+  @@map("tags")
+}
+
+// ── 表格 11：task_tags（任務-標籤 多對多中間表）─────────────
+model TaskTag {
+  taskId    Int      @map("task_id")
+  tagId     Int      @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])  // 複合主鍵：一個任務不能有兩個相同標籤
+  @@map("task_tags")
+}
+
+// ── 表格 12：notifications（使用者通知）─────────────────────
+//
+// 何時產生通知？
+//   task_assigned       → 某任務被指派給你
+//   deadline_approaching → 任務 24 小時內到期（排程任務觸發）
+//   mentioned           → 評論中被 @提及
+//   comment_added       → 你的任務有新評論
+//   task_completed      → 你指派的任務完成了
+//   milestone_achieved  → 里程碑達成
+// ─────────────────────────────────────────────────────────
+model Notification {
+  id           Int              @id @default(autoincrement())
+  recipientId  Int              @map("recipient_id")  // 通知接收者
+  type         NotificationType                        // 通知類型
+  title        String           @db.VarChar(255)      // 通知標題（簡短）
+  message      String           @db.Text              // 通知內容（詳細）
+  isRead       Boolean          @default(false) @map("is_read")
+  readAt       DateTime?        @map("read_at")
+  /// 通知來源的資源類型：'task' | 'project' | 'comment'
+  resourceType String?          @map("resource_type") @db.VarChar(50)
+  resourceId   Int?             @map("resource_id")   // 點擊通知要跳轉到的資源 ID
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([isRead])       // 常用：查詢未讀通知
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  task_assigned        // 被指派任務
+  deadline_approaching // 截止日期快到了
+  mentioned            // 在評論中被@提及
+  comment_added        // 你的任務有新評論
+  task_completed       // 你建立的任務完成了
+  milestone_achieved   // 里程碑達成
+}
+
+// ── 表格 13：activity_logs（任務變更歷史）───────────────────
+//
+// 記錄任務的所有變更，讓使用者可以看到「誰在什麼時候改了什麼」
+//
+// 例子：
+//   action: 'status_changed'
+//   oldValue: { "status": "todo" }
+//   newValue: { "status": "in_progress" }
+//
+// 為什麼用 JSONB？
+//   不同的操作（status_changed、priority_changed、assigned 等）
+//   有不同的欄位格式，用 JSONB 最靈活
+//   PostgreSQL 的 JSONB 可以做索引和查詢，比 TEXT 好很多
+// ─────────────────────────────────────────────────────────
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  taskId    Int      @map("task_id")
+  userId    Int      @map("user_id")  // 誰做了這個動作
+  /// 動作類型：created | status_changed | priority_changed |
+  ///          assigned | commented | file_uploaded | due_date_changed | deleted
+  action    String   @db.VarChar(50)
+  /// 變更前的值（JSONB），例如 {"status": "todo"}
+  /// 建立時沒有舊值，所以可以是 null
+  oldValue  Json?    @map("old_value")
+  /// 變更後的值（JSONB），例如 {"status": "in_progress"}
+  newValue  Json?    @map("new_value")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
