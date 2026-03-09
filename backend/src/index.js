@@ -15,6 +15,7 @@ const ganttRouter         = require('./routes/gantt');
 const timeTrackingRouter  = require('./routes/time-tracking');
 const reportsRouter       = require('./routes/reports');
 const teamRouter          = require('./routes/team');
+const settingsRouter      = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -134,6 +135,9 @@ app.use('/api/reports', reportsRouter);
 // ── 團隊管理路由 ─────────────────────────────────────────────
 app.use('/api/team', teamRouter);
 
+// ── 系統設定路由 ─────────────────────────────────────────────
+app.use('/api/settings', settingsRouter);
+
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下
 // 實際路徑是 /api/projects/tasks 與 /api/projects/users
@@ -183,5 +187,8 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/team`);
   console.log(`  GET  http://localhost:${PORT}/api/team/:id`);
   console.log(`  POST http://localhost:${PORT}/api/team`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/company`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/profile`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/system`);
   console.log('');
 });

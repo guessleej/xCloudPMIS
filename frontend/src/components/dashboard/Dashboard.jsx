@@ -24,6 +24,7 @@ import GanttPage          from '../gantt/GanttPage';
 import TimeTrackingPage   from '../timetracking/TimeTrackingPage';
 import ReportsPage        from '../reports/ReportsPage';
 import TeamPage           from '../team/TeamPage';
+import SettingsPage       from '../settings/SettingsPage';
 
 // ── 側邊欄導覽項目 ──────────────────────────────────────────
 const NAV_ITEMS = [
@@ -245,6 +246,7 @@ export default function Dashboard() {
     if (activeNav === 'time')     return <TimeTrackingPage />;
     if (activeNav === 'reports')  return <ReportsPage />;
     if (activeNav === 'team')     return <TeamPage />;
+    if (activeNav === 'settings') return <SettingsPage />;
     // 其他頁面：顯示「開發中」提示（之後逐步補上）
     if (activeNav !== 'dashboard') return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '16px', color: '#9ca3af' }}>
