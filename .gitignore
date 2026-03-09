@@ -1,0 +1,16 @@
+# 環境變數（含密碼，絕對不能提交）
+.env
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# 編譯輸出
+dist/
+build/
+
+# 編輯器
+.DS_Store
+.vscode/settings.json
+*.swp

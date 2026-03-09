@@ -1,0 +1,181 @@
+# ============================================================
+# xCloudPMIS - 企業級專案管理系統 Docker 開發環境
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # 1. PostgreSQL 15 — 主要資料庫
+  #    負責儲存所有業務資料（專案、任務、用戶等）
+  # ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: pmis-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pmis_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pmis_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pmis_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # 使用 Named Volume 確保資料永久保存
+      - postgres_data:/var/lib/postgresql/data
+      # 初始化 SQL 腳本（首次啟動時執行）
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pmis_user} -d ${POSTGRES_DB:-pmis_db}"]
+      interval: 10s      # 每 10 秒檢查一次
+      timeout: 5s        # 逾時 5 秒
+      retries: 5         # 失敗 5 次後標記為不健康
+      start_period: 30s  # 啟動後等 30 秒再開始檢查
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 2. pgAdmin 4 — 資料庫管理介面
+  #    透過瀏覽器視覺化管理 PostgreSQL，不需要安裝任何工具
+  # ──────────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pmis-pgadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@pmis.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'  # 單用戶模式，開發時更方便
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy  # 等 PostgreSQL 健康後才啟動
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 3. Redis 7 — 快取伺服器
+  #    加速讀取頻繁的資料（如：用戶 Session、API 回應快取）
+  # ──────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: pmis-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # --appendonly yes：開啟 AOF 持久化，確保 Redis 重啟後資料不遺失
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 4. Node.js Express — 後端 API 服務
+  #    提供 RESTful API，處理業務邏輯
+  # ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pmis-backend
+    restart: unless-stopped
+    ports:
+      - "3010:3000"   # host:container（3000 已被其他專案佔用，改用 3010）
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # 資料庫連線設定（使用服務名稱 'postgres' 當作主機名）
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-pmis_db}
+      DB_USER: ${POSTGRES_USER:-pmis_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-pmis_password}
+      # Prisma 需要的完整資料庫連線字串（格式：postgresql://用戶:密碼@主機:埠/資料庫）
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
+      # Redis 連線設定
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      # JWT 金鑰（之後實作認證時使用）
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+    volumes:
+      # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
+      - ./backend:/app
+      # 排除 node_modules（使用容器內的版本，避免 OS 差異問題）
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 5. React + Vite — 前端開發服務
+  #    提供現代化的前端開發環境，支援熱更新 (HMR)
+  # ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pmis-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      # 前端呼叫後端 API 的位址
+      VITE_API_URL: http://localhost:3010
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => process.exit(r.statusCode < 400 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - pmis-network
+
+# ============================================================
+# 網路設定：所有服務在同一個虛擬網路中互相溝通
+# ============================================================
+networks:
+  pmis-network:
+    driver: bridge
+    name: pmis-network
+
+# ============================================================
+# Volume 設定：確保資料在容器重啟後不遺失
+# ============================================================
+volumes:
+  postgres_data:
+    name: pmis-postgres-data
+  pgadmin_data:
+    name: pmis-pgadmin-data
+  redis_data:
+    name: pmis-redis-data
