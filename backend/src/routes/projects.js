@@ -324,7 +324,7 @@ router.patch('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
-  const { name, description, status, budget, startDate, endDate } = req.body;
+  const { name, description, status, budget, startDate, endDate, ownerId } = req.body;
 
   try {
     const data = {};
@@ -334,6 +334,9 @@ router.patch('/:id', async (req, res) => {
     if (budget      !== undefined) data.budget      = budget ? parseFloat(budget) : null;
     if (startDate   !== undefined) data.startDate   = startDate ? new Date(startDate) : null;
     if (endDate     !== undefined) data.endDate     = endDate   ? new Date(endDate)   : null;
+    if (ownerId     !== undefined) data.ownerId     = ownerId   ? parseInt(ownerId)   : null;
+
+    if (Object.keys(data).length === 0) return err(res, '沒有要更新的欄位', 400);
 
     const project = await prisma.project.update({
       where: { id },
@@ -342,6 +345,33 @@ router.patch('/:id', async (req, res) => {
     });
 
     ok(res, project);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/:id
+// 軟刪除專案（設定 deletedAt，不實際移除資料）
+// ════════════════════════════════════════════════════════════
+router.delete('/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    // 確認專案存在且尚未刪除
+    const existing = await prisma.project.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) return err(res, `找不到專案 #${id}`, 404);
+
+    await prisma.project.update({
+      where: { id },
+      data:  { deletedAt: new Date() },
+    });
+
+    res.json({ success: true, message: `專案「${existing.name}」已刪除` });
   } catch (e) {
     console.error(e);
     err(res, e.message);
