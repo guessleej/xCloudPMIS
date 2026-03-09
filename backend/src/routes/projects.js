@@ -496,4 +496,31 @@ router.patch('/tasks/:taskId', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId
+// 軟刪除任務（設定 deletedAt，不實際移除資料）
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const existing = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      select: { id: true, title: true },
+    });
+    if (!existing) return err(res, `找不到任務 #${taskId}`, 404);
+
+    await prisma.task.update({
+      where: { id: taskId },
+      data:  { deletedAt: new Date() },
+    });
+
+    res.json({ success: true, message: `任務「${existing.title}」已刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
 module.exports = router;
