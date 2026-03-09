@@ -13,6 +13,7 @@ const dashboardRouter     = require('./routes/dashboard');
 const projectsRouter      = require('./routes/projects');
 const ganttRouter         = require('./routes/gantt');
 const timeTrackingRouter  = require('./routes/time-tracking');
+const reportsRouter       = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -126,6 +127,9 @@ app.use('/api/gantt', ganttRouter);
 // ── 工時記錄路由 ─────────────────────────────────────────────
 app.use('/api/time-tracking', timeTrackingRouter);
 
+// ── 報表匯出路由 ─────────────────────────────────────────────
+app.use('/api/reports', reportsRouter);
+
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下
 // 實際路徑是 /api/projects/tasks 與 /api/projects/users
@@ -168,5 +172,9 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/time-tracking/tasks`);
   console.log(`  POST http://localhost:${PORT}/api/time-tracking/start`);
   console.log(`  POST http://localhost:${PORT}/api/time-tracking`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/projects`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/tasks`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/timelog`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/milestones`);
   console.log('');
 });
