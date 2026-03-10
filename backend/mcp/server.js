@@ -64,11 +64,17 @@ function getAiAgent() {
   return _aiAgent;
 }
 
+// ── 自主代理工具（Phase 1：AI 虛擬專案經理）─────────────────
+const { AUTONOMOUS_TOOLS, handleAutonomousTool } = require('./autonomousTools');
+
 // ════════════════════════════════════════════════════════════
 // 工具定義（Tool Definitions）
 // ════════════════════════════════════════════════════════════
 
 const TOOLS = [
+  // ── Phase 1：AI 自主代理工具（11 個）─────────────────────
+  ...AUTONOMOUS_TOOLS,
+  // ── 原有工具（保留）──────────────────────────────────────
   // ─────────────────────────────────────────────────────────
   // 工具 1：查詢專案狀態
   // ─────────────────────────────────────────────────────────
@@ -1374,8 +1380,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'analyze_project_health':  return await handleAnalyzeProjectHealth(args);
       case 'suggest_task_breakdown':  return await handleSuggestTaskBreakdown(args);
       case 'optimize_schedule':       return await handleOptimizeSchedule(args);
-      default:
+      // ── Phase 1 自主代理工具（delegated to autonomousTools）
+      default: {
+        const autonomousResult = await handleAutonomousTool(name, args);
+        if (autonomousResult !== null) {
+          return { content: autonomousResult };
+        }
         throw new McpError(ErrorCode.MethodNotFound, `未知工具：${name}`);
+      }
     }
   } catch (err) {
     // McpError 直接往上拋，其他錯誤包裝成 McpError

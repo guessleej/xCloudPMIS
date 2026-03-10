@@ -458,3 +458,112 @@ model ActivityLog {
   @@index([createdAt])
   @@map("activity_logs")
 }
+
+// ════════════════════════════════════════════════════════════
+// Phase AI：自主代理決策記錄
+// ════════════════════════════════════════════════════════════
+
+// ── AI 決策記錄（包含完整 Chain of Thought）──────────────────
+//
+// 每一個 AI 自主決策都記錄在此：
+//   - Observe：收集的原始資料
+//   - Reason ：AI 的推理過程（CoT）
+//   - Plan   ：計劃執行的動作
+//   - Act    ：實際執行的動作（含影響範圍）
+//   - Reflect：反思與學習
+//
+// 回滾機制：
+//   snapshotData 儲存執行前的快照
+//   一鍵還原只需要 status = 'rolled_back' + 從 snapshotData 還原
+//
+// 審核流程（Human-in-the-Loop）：
+//   riskLevel 1 → AI 自動執行
+//   riskLevel 2 → 建議人類批准（approvedById 填入後執行）
+//   riskLevel 3 → 必須人類審查修改
+//   riskLevel 4 → 人類主導，AI 輔助
+// ─────────────────────────────────────────────────────────
+model AiDecision {
+  id            Int              @id @default(autoincrement())
+  sessionId     String           @map("session_id") @db.VarChar(100) // Agent 執行 session UUID
+  agentType     String           @map("agent_type") @db.VarChar(50)  // scheduler|risk|communication|quality
+  decisionType  String           @map("decision_type") @db.VarChar(100) // auto_firefight|resource_balance|...
+  projectId     Int?             @map("project_id")  // 關聯專案（可選）
+  taskId        Int?             @map("task_id")      // 關聯任務（可選）
+
+  // ── ReAct 推理鏈（Chain of Thought）──────────────────────
+  observations  Json             // Observe：收集的資料快照（任務狀態、工時等）
+  reasoning     String           @db.Text  // Reason：GPT-4 推理過程（完整 CoT 文字）
+  plan          Json             // Plan：計劃執行的動作列表
+  actions       Json             @default("[]") // Act：實際執行的動作結果
+  reflection    String?          @db.Text  // Reflect：反思（決策效果、改進建議）
+
+  // ── 執行狀態 ──────────────────────────────────────────────
+  status        AiDecisionStatus @default(pending)
+  riskLevel     Int              @map("risk_level") @default(1) // 1~4
+
+  // ── 回滾支援 ──────────────────────────────────────────────
+  snapshotData  Json?            @map("snapshot_data")  // 執行前狀態快照（用於回滾）
+  rolledBackAt  DateTime?        @map("rolled_back_at")
+  rolledBackBy  Int?             @map("rolled_back_by") // 誰執行回滾
+
+  // ── 人類審核 ──────────────────────────────────────────────
+  approvedById  Int?             @map("approved_by_id")
+  approvedAt    DateTime?        @map("approved_at")
+  rejectedAt    DateTime?        @map("rejected_at")
+  rejectionNote String?          @map("rejection_note") @db.Text
+
+  // ── 效果追蹤（強化學習用）────────────────────────────────
+  humanAdopted  Boolean?         @map("human_adopted")  // 人類是否採納此決策
+  outcomeScore  Int?             @map("outcome_score")  // 結果評分 0-100（事後評估）
+  outcomeNote   String?          @map("outcome_note") @db.Text
+
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // ── 關聯 ──────────────────────────────────────────────────
+  logs          AiAgentLog[]     // 每個決策對應多條工具呼叫日誌
+
+  @@index([sessionId])
+  @@index([agentType])
+  @@index([decisionType])
+  @@index([status])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([createdAt])
+  @@map("ai_decisions")
+}
+
+enum AiDecisionStatus {
+  pending      // 等待執行
+  staging      // 已寫入 Staging，等待人類批准
+  approved     // 已批准，準備執行
+  executing    // 執行中
+  completed    // 執行完成
+  rejected     // 被拒絕（人類否決）
+  rolled_back  // 已回滾（人類發現問題）
+  failed       // 執行失敗（系統錯誤）
+}
+
+// ── AI 代理執行日誌（細粒度操作記錄）────────────────────────
+//
+// 每個 AiDecision 對應多個 AiAgentLog（每次 tool call 一條記錄）
+// 讓人類清楚看到 AI 做了哪些原子操作
+// ─────────────────────────────────────────────────────────
+model AiAgentLog {
+  id           Int        @id @default(autoincrement())
+  decisionId   Int        @map("decision_id")
+  toolName     String     @map("tool_name") @db.VarChar(100) // 呼叫的 MCP tool 名稱
+  toolInput    Json       @map("tool_input")   // 傳入的參數
+  toolOutput   Json?      @map("tool_output")  // 回傳結果
+  success      Boolean    @default(true)
+  errorMessage String?    @map("error_message") @db.Text
+  executedAt   DateTime   @default(now()) @map("executed_at")
+  durationMs   Int?       @map("duration_ms")  // 執行時間（毫秒）
+
+  decision     AiDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId])
+  @@index([toolName])
+  @@index([executedAt])
+  @@map("ai_agent_logs")
+}
