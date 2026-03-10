@@ -133,7 +133,84 @@ services:
       - pmis-network
 
   # ──────────────────────────────────────────────────────────
-  # 5. React + Vite — 前端開發服務
+  # 5. Yjs Hocuspocus — 即時協作 WebSocket 服務
+  #    提供 Google Docs 式多人同時編輯能力
+  #    - CRDT（Yjs）確保衝突自由合併
+  #    - Redis 快取 Yjs 二進位狀態（快速重連，TTL 7 天）
+  #    - PostgreSQL 持久化純文字（供 REST API 讀取）
+  #    - AI 建議透過 Yjs 共享 Map 推播給所有用戶
+  # ──────────────────────────────────────────────────────────
+  collaboration:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pmis-collaboration
+    restart: unless-stopped
+    # 覆寫 Dockerfile 的 CMD：執行 Yjs 協作伺服器（不是 Express API）
+    command: node services/collaboration/yjsServer.js
+    ports:
+      - "1234:1234"     # Yjs WebSocket 協定（y-websocket 標準埠）
+    environment:
+      NODE_ENV: development
+      COLLAB_PORT: 1234
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      # AI 建議（選填，有設定才啟用）
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 6. AI 監控代理 — Phase 3 背景風險掃描
+  #    自動偵測高風險任務，建立風險管理任務並發送 Email 通知
+  # ──────────────────────────────────────────────────────────
+  monitor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pmis-monitor
+    restart: unless-stopped
+    command: node jobs/monitorAgent.js
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CRON_AI_RISK_SCAN: ${CRON_AI_RISK_SCAN:-0 3 * * *}
+      AI_RISK_THRESHOLD: ${AI_RISK_THRESHOLD:-70}
+      AI_RISK_TASK_DEFAULT_ASSIGNEE: ${AI_RISK_TASK_DEFAULT_ASSIGNEE:-1}
+      SCHEDULER_COMPANY_ID: ${SCHEDULER_COMPANY_ID:-}
+      TZ: Asia/Taipei
+      O365_CLIENT_ID: ${O365_CLIENT_ID:-}
+      O365_CLIENT_SECRET: ${O365_CLIENT_SECRET:-}
+      O365_TENANT_ID: ${O365_TENANT_ID:-}
+      O365_SENDER_EMAIL: ${O365_SENDER_EMAIL:-}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 7. React + Vite — 前端開發服務
   #    提供現代化的前端開發環境，支援熱更新 (HMR)
   # ──────────────────────────────────────────────────────────
   frontend:
@@ -147,11 +224,14 @@ services:
     environment:
       # 前端呼叫後端 API 的位址
       VITE_API_URL: http://localhost:3010
+      # Yjs 即時協作 WebSocket 位址
+      VITE_COLLAB_WS_URL: ws://localhost:1234
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend
+      - collaboration
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => process.exit(r.statusCode < 400 ? 0 : 1))"]
       interval: 30s
