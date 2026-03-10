@@ -22,13 +22,151 @@
  * 樣式：使用 inline style（與專案其他元件風格一致，不依賴 Tailwind）
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, Component } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
 
 import { useRealtimeTask } from '../hooks/useRealtimeTask';
+
+// ════════════════════════════════════════════════════════════
+// Error Boundary — 防止協作編輯器崩潰影響整個頁面
+// ════════════════════════════════════════════════════════════
+
+/**
+ * RealtimeEditorErrorBoundary
+ *
+ * 捕捉 RealtimeEditor 內部的 React 渲染錯誤（如 Tiptap extension 初始化失敗、
+ * Yjs 套件未載入等），顯示友善的降級 UI，防止整個 Kanban 頁面白屏。
+ *
+ * 使用情境：
+ *   - 容器重啟後 node_modules 不完整 → @tiptap/react import 失敗
+ *   - Yjs WebSocket 連線異常導致的 Provider 錯誤
+ *   - CollaborationCursor extension 初始化失敗
+ */
+class RealtimeEditorErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({ errorInfo });
+    // 記錄到 console（生產環境可接 Sentry 等監控服務）
+    console.error('[RealtimeEditor] 渲染錯誤（Error Boundary 已捕捉）:', error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    const isImportError = this.state.error?.message?.includes('Failed to resolve import') ||
+                          this.state.error?.message?.includes('Cannot find module');
+
+    return (
+      <div style={errorBoundaryStyles.wrapper}>
+        <div style={errorBoundaryStyles.icon}>⚠️</div>
+        <div style={errorBoundaryStyles.title}>即時編輯器載入失敗</div>
+        <div style={errorBoundaryStyles.message}>
+          {isImportError
+            ? '協作編輯套件未正確載入（可能是 node_modules 不完整）。\n請重新整理頁面或聯繫管理員重建前端容器。'
+            : '即時協作編輯器發生錯誤，已切換到文字輸入模式。'}
+        </div>
+
+        {/* 降級方案：純文字 textarea */}
+        <textarea
+          defaultValue={this.props.fallbackValue || ''}
+          onChange={(e) => this.props.onSave?.(e.target.value)}
+          placeholder="輸入任務描述⋯"
+          style={errorBoundaryStyles.fallbackTextarea}
+        />
+
+        <div style={errorBoundaryStyles.actions}>
+          <button onClick={this.handleRetry} style={errorBoundaryStyles.retryBtn}>
+            🔄 重試載入編輯器
+          </button>
+          {process.env.NODE_ENV === 'development' && (
+            <details style={errorBoundaryStyles.errorDetails}>
+              <summary style={{ cursor: 'pointer', fontSize: 11, color: '#9ca3af' }}>
+                錯誤詳情（開發模式）
+              </summary>
+              <pre style={errorBoundaryStyles.errorPre}>
+                {this.state.error?.toString()}
+                {'\n'}
+                {this.state.errorInfo?.componentStack}
+              </pre>
+            </details>
+          )}
+        </div>
+      </div>
+    );
+  }
+}
+
+const errorBoundaryStyles = {
+  wrapper: {
+    display:       'flex',
+    flexDirection: 'column',
+    alignItems:    'center',
+    gap:           12,
+    padding:       '24px 16px',
+    border:        '1px solid #fecaca',
+    borderRadius:  8,
+    background:    '#fef2f2',
+    minHeight:     200,
+  },
+  icon:    { fontSize: 32 },
+  title:   { fontSize: 15, fontWeight: 700, color: '#991b1b' },
+  message: {
+    fontSize:   13,
+    color:      '#b91c1c',
+    textAlign:  'center',
+    lineHeight: 1.6,
+    whiteSpace: 'pre-line',
+  },
+  fallbackTextarea: {
+    width:        '100%',
+    minHeight:    120,
+    padding:      '10px 12px',
+    border:       '1px solid #fca5a5',
+    borderRadius: 6,
+    fontSize:     14,
+    fontFamily:   '-apple-system, BlinkMacSystemFont, sans-serif',
+    resize:       'vertical',
+    outline:      'none',
+    boxSizing:    'border-box',
+  },
+  actions:      { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%' },
+  retryBtn: {
+    padding:      '8px 20px',
+    background:   '#ef4444',
+    color:        '#fff',
+    border:       'none',
+    borderRadius: 6,
+    cursor:       'pointer',
+    fontSize:     13,
+    fontWeight:   600,
+  },
+  errorDetails: { width: '100%', marginTop: 4 },
+  errorPre: {
+    fontSize:    10,
+    color:       '#6b7280',
+    background:  '#f3f4f6',
+    padding:     8,
+    borderRadius: 4,
+    overflow:    'auto',
+    maxHeight:   150,
+    whiteSpace:  'pre-wrap',
+  },
+};
 
 // ════════════════════════════════════════════════════════════
 // 主元件
@@ -43,7 +181,7 @@ import { useRealtimeTask } from '../hooks/useRealtimeTask';
  * @param {Function} [props.onSave]  — 純文字內容變更回調（可選）
  * @param {string}   [props.placeholder] — 空白提示文字
  */
-export default function RealtimeEditor({
+function RealtimeEditorInner({
   taskId,
   token,
   user,
@@ -384,6 +522,28 @@ const styles = {
     display:    'block',
   },
 };
+
+// ════════════════════════════════════════════════════════════
+// 公開 export — 以 Error Boundary 包裹主元件
+// ════════════════════════════════════════════════════════════
+
+/**
+ * RealtimeEditor（含 Error Boundary 包裹）
+ *
+ * 對外唯一的 export。若 RealtimeEditorInner 發生渲染錯誤，
+ * Error Boundary 會捕捉後顯示降級 UI（純文字 textarea + 重試按鈕），
+ * 避免整個 Kanban 頁面因協作編輯器崩潰而白屏。
+ */
+export default function RealtimeEditor(props) {
+  return (
+    <RealtimeEditorErrorBoundary
+      onSave={props.onSave}
+      fallbackValue=""
+    >
+      <RealtimeEditorInner {...props} />
+    </RealtimeEditorErrorBoundary>
+  );
+}
 
 // ── 協作游標 CSS（必須注入到頁面，Tiptap CollaborationCursor 需要）────
 // 動態插入一次即可（不依賴全域 CSS 檔案）

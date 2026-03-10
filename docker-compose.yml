@@ -1,6 +1,15 @@
 # ============================================================
 # xCloudPMIS - 企業級專案管理系統 Docker 開發環境
 # ============================================================
+#
+# node_modules 策略（重要）：
+#   ❌ 舊寫法 - /app/node_modules（匿名 Volume）
+#      問題：容器被刪除後 Volume 遺失，重啟後 node_modules 消失
+#   ✅ 新寫法 - backend_node_modules:/app/node_modules（Named Volume）
+#      優點：Named Volume 持久保存，容器重啟後依然完整
+#      首次啟動：docker-entrypoint.sh 自動安裝缺失套件
+#      重建依賴：docker-compose down -v && docker-compose up --build
+# ============================================================
 
 services:
 
@@ -116,8 +125,9 @@ services:
     volumes:
       # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
       - ./backend:/app
-      # 排除 node_modules（使用容器內的版本，避免 OS 差異問題）
-      - /app/node_modules
+      # ✅ Named Volume（取代舊的匿名 Volume）
+      #    確保 node_modules 在容器重啟後持久存在
+      - backend_node_modules:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -162,7 +172,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./backend:/app
-      - /app/node_modules
+      # 與 backend 共用同一個 Named Volume（相同 node_modules）
+      - backend_node_modules:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -200,7 +211,8 @@ services:
       O365_SENDER_EMAIL: ${O365_SENDER_EMAIL:-}
     volumes:
       - ./backend:/app
-      - /app/node_modules
+      # 與 backend 共用同一個 Named Volume（相同 node_modules）
+      - backend_node_modules:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -228,7 +240,10 @@ services:
       VITE_COLLAB_WS_URL: ws://localhost:1234
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      # ✅ Named Volume（修復匿名 Volume 遺失問題）
+      #    - 容器重啟後 @tiptap、yjs 等套件保持完整
+      #    - docker-entrypoint.sh 啟動時自動驗證完整性
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
       - collaboration
@@ -251,6 +266,16 @@ networks:
 
 # ============================================================
 # Volume 設定：確保資料在容器重啟後不遺失
+#
+# 重要：Named Volume vs 匿名 Volume
+#   匿名 Volume（舊）：- /app/node_modules
+#     → Docker 自動命名，docker-compose down 後容易被刪除
+#   Named Volume（新）：- xxx_node_modules:/app/node_modules
+#     → 明確命名，docker-compose down 不會自動刪除
+#
+# 強制重建 node_modules（升級依賴時使用）：
+#   docker-compose down -v   # 刪除所有 Volume（含資料！請先備份）
+#   docker-compose up --build
 # ============================================================
 volumes:
   postgres_data:
@@ -259,3 +284,8 @@ volumes:
     name: pmis-pgadmin-data
   redis_data:
     name: pmis-redis-data
+  # ── node_modules Named Volumes（新增，防止重啟後遺失）──────
+  backend_node_modules:
+    name: pmis-backend-node-modules
+  frontend_node_modules:
+    name: pmis-frontend-node-modules
