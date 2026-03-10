@@ -465,7 +465,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
   const taskId = parseInt(req.params.taskId);
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
 
-  const { title, status, priority, assigneeId, dueDate, description } = req.body;
+  const { title, status, priority, assigneeId, dueDate, description, planStart, planEnd } = req.body;
 
   try {
     const data = {};
@@ -479,6 +479,8 @@ router.patch('/tasks/:taskId', async (req, res) => {
     if (priority    !== undefined) data.priority    = priority;
     if (assigneeId  !== undefined) data.assigneeId  = assigneeId ? parseInt(assigneeId) : null;
     if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
+    if (planStart   !== undefined) data.planStart   = planStart ? new Date(planStart) : null;
+    if (planEnd     !== undefined) data.planEnd     = planEnd   ? new Date(planEnd)   : null;
 
     const task = await prisma.task.update({
       where:   { id: taskId },

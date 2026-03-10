@@ -7,6 +7,7 @@
  *   - 支援縮放（1個月 / 3個月 / 6個月 / 全部）
  *   - 點擊專案可展開 / 收合任務清單
  *   - 紅色今日標記線、里程碑菱形（◆）標示
+ *   - 滑鼠懸停列時顯示編輯 / 刪除按鈕
  *
  * 版面架構：
  *   ┌──────────────────────────────────────────────────────┐
@@ -70,6 +71,13 @@ const PRIORITY_COLOR = {
   high:   '#f97316',
   medium: '#3b82f6',
   low:    '#22c55e',
+};
+
+const PRIORITY_LABEL = {
+  urgent: '🔴 緊急',
+  high:   '🟠 高',
+  medium: '🔵 中',
+  low:    '🟢 低',
 };
 
 const MILESTONE_COLOR_MAP = {
@@ -181,17 +189,470 @@ const btnSt = (bg, fg, extra = {}) => ({
   ...extra,
 });
 
+// ── 模態框共用樣式 ──────────────────────────────────────────
+const overlayStyle = {
+  position:       'fixed',
+  inset:          0,
+  background:     'rgba(0,0,0,0.45)',
+  display:        'flex',
+  alignItems:     'center',
+  justifyContent: 'center',
+  zIndex:         9999,
+};
+const modalStyle = {
+  background:  'white',
+  borderRadius: 12,
+  padding:      28,
+  width:        480,
+  maxWidth:     '92vw',
+  maxHeight:    '85vh',
+  overflowY:    'auto',
+  boxShadow:    '0 20px 60px rgba(0,0,0,0.25)',
+};
+
+// ── 共用表單 Input 樣式 ─────────────────────────────────────
+const inputSt = {
+  width:        '100%',
+  padding:      '8px 10px',
+  border:       '1px solid #d1d5db',
+  borderRadius: 6,
+  fontSize:     13,
+  outline:      'none',
+  boxSizing:    'border-box',
+  fontFamily:   'inherit',
+};
+
+// ── 共用欄位標籤樣式 ────────────────────────────────────────
+const LabelRow = ({ label, required, children }) => (
+  <div style={{ marginBottom: 14 }}>
+    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+      {label}{required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
+    </div>
+    {children}
+  </div>
+);
+
+// ════════════════════════════════════════════════════════════
+// 子元件：EditProjectModal — 編輯專案
+// ════════════════════════════════════════════════════════════
+function EditProjectModal({ project, users, onClose, onSaved }) {
+  const [form, setForm]       = useState({
+    name: '', description: '', status: 'active',
+    budget: '', startDate: '', endDate: '', ownerId: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
+
+  // 取得完整專案資料（含 description / budget）
+  useEffect(() => {
+    fetch(`${API_BASE}/projects/${project.id}`)
+      .then(r => r.json())
+      .then(resp => {
+        const d = resp.data || resp;
+        setForm({
+          name:        d.name        || '',
+          description: d.description || '',
+          status:      d.status      || 'active',
+          budget:      d.budget != null ? d.budget : '',
+          startDate:   d.startDate   ? d.startDate.slice(0, 10) : '',
+          endDate:     d.endDate     ? d.endDate.slice(0, 10)   : '',
+          ownerId:     d.ownerId     || (d.owner?.id ?? ''),
+        });
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [project.id]);
+
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const save = async () => {
+    if (!form.name.trim()) { setError('專案名稱不能為空'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/projects/${project.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:        form.name.trim(),
+          description: form.description.trim() || null,
+          status:      form.status,
+          budget:      form.budget !== '' ? parseFloat(form.budget) : null,
+          startDate:   form.startDate || null,
+          endDate:     form.endDate   || null,
+          ownerId:     form.ownerId   ? parseInt(form.ownerId) : null,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || '更新失敗');
+      }
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+        {/* 標題列 */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>✏️ 編輯專案</h3>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '30px 0', color: '#9ca3af' }}>載入中...</div>
+        ) : (
+          <>
+            <LabelRow label="專案名稱" required>
+              <input style={inputSt} value={form.name} onChange={e => set('name', e.target.value)} placeholder="專案名稱" />
+            </LabelRow>
+
+            <LabelRow label="描述">
+              <textarea
+                style={{ ...inputSt, minHeight: 72, resize: 'vertical' }}
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="專案說明（選填）"
+              />
+            </LabelRow>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <LabelRow label="狀態">
+                <select style={inputSt} value={form.status} onChange={e => set('status', e.target.value)}>
+                  <option value="planning">規劃中</option>
+                  <option value="active">進行中</option>
+                  <option value="on_hold">暫停</option>
+                  <option value="completed">已完成</option>
+                  <option value="cancelled">已取消</option>
+                </select>
+              </LabelRow>
+              <LabelRow label="預算（元）">
+                <input style={inputSt} type="number" value={form.budget} onChange={e => set('budget', e.target.value)} placeholder="0" />
+              </LabelRow>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <LabelRow label="開始日期">
+                <input style={inputSt} type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)} />
+              </LabelRow>
+              <LabelRow label="結束日期">
+                <input style={inputSt} type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} />
+              </LabelRow>
+            </div>
+
+            <LabelRow label="負責人">
+              <select style={inputSt} value={form.ownerId} onChange={e => set('ownerId', e.target.value)}>
+                <option value="">（未指定）</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </LabelRow>
+
+            {error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
+              <button onClick={save} disabled={saving} style={btnSt('#3b82f6', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
+                {saving ? '儲存中...' : '💾 儲存'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// 子元件：DeleteProjectModal — 刪除專案確認
+// ════════════════════════════════════════════════════════════
+function DeleteProjectModal({ project, onClose, onDeleted }) {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const confirm = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/projects/${project.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || '刪除失敗');
+      }
+      onDeleted();
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
+
+  const taskCount = project.taskCount || project.tasks?.length || 0;
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={{ ...modalStyle, width: 420 }} onClick={e => e.stopPropagation()}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 44, marginBottom: 8 }}>🗑️</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#111827' }}>刪除專案</h3>
+          <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>確定要刪除以下專案嗎？</p>
+        </div>
+
+        {/* 專案資訊卡 */}
+        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: '#111827', fontSize: 14, marginBottom: 4 }}>{project.name}</div>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>
+            狀態：{PROJECT_STATUS_LABEL[project.status] || project.status}
+            {taskCount > 0 && <span style={{ marginLeft: 12 }}>任務：{taskCount} 個</span>}
+          </div>
+        </div>
+
+        {taskCount > 0 && (
+          <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 6, padding: '8px 12px', color: '#c2410c', fontSize: 12, marginBottom: 14 }}>
+            ⚠️ 此專案包含 {taskCount} 個任務，刪除後將一併隱藏。
+          </div>
+        )}
+
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+          ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
+        </div>
+
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
+          <button onClick={confirm} disabled={loading} style={btnSt('#ef4444', 'white', { padding: '8px 18px', opacity: loading ? 0.7 : 1 })}>
+            {loading ? '刪除中...' : '🗑️ 確認刪除'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// 子元件：EditTaskModal — 編輯任務
+// ════════════════════════════════════════════════════════════
+function EditTaskModal({ task, project, users, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title:      task.title      || '',
+    status:     task.status     || 'todo',
+    priority:   task.priority   || 'medium',
+    assigneeId: task.assignee?.id || '',
+    planStart:  task.planStart  ? task.planStart.slice(0, 10) : '',
+    planEnd:    task.planEnd    ? task.planEnd.slice(0, 10)   : '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  const save = async () => {
+    if (!form.title.trim()) { setError('任務標題不能為空'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/projects/tasks/${task.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:      form.title.trim(),
+          status:     form.status,
+          priority:   form.priority,
+          assigneeId: form.assigneeId ? parseInt(form.assigneeId) : null,
+          planStart:  form.planStart || null,
+          planEnd:    form.planEnd   || null,
+        }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || '更新失敗');
+      }
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+        {/* 標題列 */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h3 style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: '#111827' }}>✏️ 編輯任務</h3>
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>專案：{project.name}</div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+        </div>
+
+        <LabelRow label="任務標題" required>
+          <input style={inputSt} value={form.title} onChange={e => set('title', e.target.value)} placeholder="任務標題" />
+        </LabelRow>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <LabelRow label="狀態">
+            <select style={inputSt} value={form.status} onChange={e => set('status', e.target.value)}>
+              <option value="todo">待辦</option>
+              <option value="in_progress">進行中</option>
+              <option value="review">審核中</option>
+              <option value="done">已完成</option>
+            </select>
+          </LabelRow>
+          <LabelRow label="優先度">
+            <select style={inputSt} value={form.priority} onChange={e => set('priority', e.target.value)}>
+              <option value="low">🟢 低</option>
+              <option value="medium">🔵 中</option>
+              <option value="high">🟠 高</option>
+              <option value="urgent">🔴 緊急</option>
+            </select>
+          </LabelRow>
+        </div>
+
+        <LabelRow label="負責人">
+          <select style={inputSt} value={form.assigneeId} onChange={e => set('assigneeId', e.target.value)}>
+            <option value="">（未指定）</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </LabelRow>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <LabelRow label="計劃開始">
+            <input style={inputSt} type="date" value={form.planStart} onChange={e => set('planStart', e.target.value)} />
+          </LabelRow>
+          <LabelRow label="計劃結束">
+            <input style={inputSt} type="date" value={form.planEnd} onChange={e => set('planEnd', e.target.value)} />
+          </LabelRow>
+        </div>
+
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
+          <button onClick={save} disabled={saving} style={btnSt('#3b82f6', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
+            {saving ? '儲存中...' : '💾 儲存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// 子元件：DeleteTaskModal — 刪除任務確認
+// ════════════════════════════════════════════════════════════
+function DeleteTaskModal({ task, project, onClose, onDeleted }) {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const confirm = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/projects/tasks/${task.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || '刪除失敗');
+      }
+      onDeleted();
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
+
+  const pc = PRIORITY_COLOR[task.priority] || '#9ca3af';
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={{ ...modalStyle, width: 400 }} onClick={e => e.stopPropagation()}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🗑️</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#111827' }}>刪除任務</h3>
+          <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>確定要刪除以下任務嗎？</p>
+        </div>
+
+        {/* 任務資訊卡 */}
+        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>專案：{project.name}</div>
+          <div style={{ fontWeight: 700, color: '#111827', fontSize: 14, marginBottom: 6 }}>{task.title}</div>
+          <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+            <span style={{ background: `${pc}20`, color: pc, borderRadius: 4, padding: '2px 7px', fontWeight: 600 }}>
+              {PRIORITY_LABEL[task.priority] || task.priority}
+            </span>
+            {task.assignee && (
+              <span style={{ background: '#e5e7eb', color: '#6b7280', borderRadius: 4, padding: '2px 7px' }}>
+                👤 {task.assignee.name}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+          ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
+        </div>
+
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
+          <button onClick={confirm} disabled={loading} style={btnSt('#ef4444', 'white', { padding: '8px 18px', opacity: loading ? 0.7 : 1 })}>
+            {loading ? '刪除中...' : '🗑️ 確認刪除'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ════════════════════════════════════════════════════════════
 // 主元件：GanttPage
 // ════════════════════════════════════════════════════════════
 export default function GanttPage() {
-  const [data,     setData]     = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [zoom,     setZoom]     = useState('3m');
-  const [expanded, setExpanded] = useState(new Set()); // 已展開的專案 ID
+  const [data,          setData]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState(null);
+  const [zoom,          setZoom]          = useState('3m');
+  const [expanded,      setExpanded]      = useState(new Set()); // 已展開的專案 ID
+  const [users,         setUsers]         = useState([]);         // 公司成員清單
+  const [hoveredRow,    setHoveredRow]    = useState(null);       // {type:'project'|'task', id}
+  const [editProject,   setEditProject]   = useState(null);       // 待編輯的專案
+  const [deleteProject, setDeleteProject] = useState(null);       // 待刪除的專案
+  const [editTask,      setEditTask]      = useState(null);       // {task, project}
+  const [deleteTask,    setDeleteTask]    = useState(null);       // {task, project}
+  const [toast,         setToast]         = useState('');         // Toast 訊息
   const containerRef = useRef(null);
+
+  // ── Toast 輔助函式 ──────────────────────────────────────
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
 
   // ── 載入甘特圖資料 ──────────────────────────────────────
   const load = async () => {
@@ -211,7 +672,17 @@ export default function GanttPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // ── 載入成員列表 ────────────────────────────────────────
+  const loadUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/projects/users?companyId=2`);
+      if (!res.ok) return;
+      const json = await res.json();
+      setUsers(Array.isArray(json) ? json : (json.users || []));
+    } catch {}
+  };
+
+  useEffect(() => { load(); loadUsers(); }, []);
 
   // ── 計算每日寬度（px） ──────────────────────────────────
   const dayW = useMemo(() => {
@@ -248,6 +719,28 @@ export default function GanttPage() {
   });
   const expandAll   = () => data && setExpanded(new Set(data.projects.map(p => p.id)));
   const collapseAll = () => setExpanded(new Set());
+
+  // ── 操作完成後的處理（重新載入資料） ───────────────────
+  const handleProjectSaved = () => {
+    setEditProject(null);
+    load();
+    showToast('✅ 專案已更新');
+  };
+  const handleProjectDeleted = () => {
+    setDeleteProject(null);
+    load();
+    showToast('🗑️ 專案已刪除');
+  };
+  const handleTaskSaved = () => {
+    setEditTask(null);
+    load();
+    showToast('✅ 任務已更新');
+  };
+  const handleTaskDeleted = () => {
+    setDeleteTask(null);
+    load();
+    showToast('🗑️ 任務已刪除');
+  };
 
   // ── 載入中 ──────────────────────────────────────────────
   if (loading) return (
@@ -405,25 +898,31 @@ export default function GanttPage() {
 
           {/* ── 資料列 ─────────────────────────────────────── */}
           {data.projects.map((project, pi) => {
-            const isExpanded = expanded.has(project.id);
-            const hasTasks   = project.tasks.length > 0;
-            const pColor     = PROJECT_STATUS_COLOR[project.status] || '#6b7280';
-            const pBar       = calcBar(project.startDate, project.endDate, data.range.start, dayW);
-            const pct        = project.taskCount > 0
+            const isExpanded  = expanded.has(project.id);
+            const hasTasks    = project.tasks.length > 0;
+            const pColor      = PROJECT_STATUS_COLOR[project.status] || '#6b7280';
+            const pBar        = calcBar(project.startDate, project.endDate, data.range.start, dayW);
+            const pct         = project.taskCount > 0
               ? Math.round(project.doneCount / project.taskCount * 100)
               : 0;
-            const rowBg = pi % 2 === 0 ? '#fafafa' : 'white';
+            const rowBg       = pi % 2 === 0 ? '#fafafa' : 'white';
+            const isProjHover = hoveredRow?.type === 'project' && hoveredRow?.id === project.id;
 
             return (
               <div key={project.id}>
 
                 {/* ── 專案列 ─────────────────────────────── */}
-                <div style={{
-                  display:      'flex',
-                  height:       ROW_H,
-                  background:   rowBg,
-                  borderBottom: '1px solid #e9eef5',
-                }}>
+                <div
+                  style={{
+                    display:      'flex',
+                    height:       ROW_H,
+                    background:   isProjHover ? '#eff6ff' : rowBg,
+                    borderBottom: '1px solid #e9eef5',
+                    transition:   'background 0.1s',
+                  }}
+                  onMouseEnter={() => setHoveredRow({ type: 'project', id: project.id })}
+                  onMouseLeave={() => setHoveredRow(null)}
+                >
                   {/* 左欄：專案名稱（水平 sticky） */}
                   <div style={{
                     width:       LEFT_COL,
@@ -431,7 +930,7 @@ export default function GanttPage() {
                     position:    'sticky',
                     left:        0,
                     zIndex:      10,
-                    background:  rowBg,
+                    background:  isProjHover ? '#eff6ff' : rowBg,
                     height:      '100%',
                     display:     'flex',
                     alignItems:  'center',
@@ -439,6 +938,7 @@ export default function GanttPage() {
                     gap:         6,
                     borderRight: '2px solid #e2e8f0',
                     boxSizing:   'border-box',
+                    transition:  'background 0.1s',
                   }}>
                     {/* 展開/收合按鈕 */}
                     <button
@@ -484,10 +984,43 @@ export default function GanttPage() {
                       {project.name}
                     </span>
 
-                    {/* 任務完成數 */}
-                    <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>
-                      {project.doneCount}/{project.taskCount}
-                    </span>
+                    {/* 懸停時顯示操作按鈕，否則顯示任務完成數 */}
+                    {isProjHover ? (
+                      <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditProject(project); }}
+                          title="編輯專案"
+                          style={{
+                            background:   '#e0f2fe',
+                            color:        '#0369a1',
+                            border:       'none',
+                            borderRadius: 4,
+                            padding:      '2px 6px',
+                            fontSize:     11,
+                            cursor:       'pointer',
+                            fontWeight:   600,
+                          }}
+                        >✏️</button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteProject(project); }}
+                          title="刪除專案"
+                          style={{
+                            background:   '#fee2e2',
+                            color:        '#dc2626',
+                            border:       'none',
+                            borderRadius: 4,
+                            padding:      '2px 6px',
+                            fontSize:     11,
+                            cursor:       'pointer',
+                            fontWeight:   600,
+                          }}
+                        >🗑️</button>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>
+                        {project.doneCount}/{project.taskCount}
+                      </span>
+                    )}
                   </div>
 
                   {/* 右欄：甘特條區 */}
@@ -581,18 +1114,26 @@ export default function GanttPage() {
 
                 {/* ── 任務列（展開後才顯示） ───────────────── */}
                 {isExpanded && project.tasks.map((task) => {
-                  const tBar    = calcBar(task.planStart || task.actualStart, task.planEnd, data.range.start, dayW);
-                  const tc      = TASK_STATUS_COLOR[task.status] || '#9ca3af';
-                  const pc      = PRIORITY_COLOR[task.priority]  || '#9ca3af';
-                  const isDone  = task.status === 'done';
+                  const tBar       = calcBar(task.planStart || task.actualStart, task.planEnd, data.range.start, dayW);
+                  const tc         = TASK_STATUS_COLOR[task.status] || '#9ca3af';
+                  const pc         = PRIORITY_COLOR[task.priority]  || '#9ca3af';
+                  const isDone     = task.status === 'done';
+                  const isTaskHover = hoveredRow?.type === 'task' && hoveredRow?.id === task.id;
+                  const taskBg     = isTaskHover ? '#f0fdf4' : '#f8fafc';
 
                   return (
-                    <div key={task.id} style={{
-                      display:      'flex',
-                      height:       ROW_H,
-                      background:   '#f8fafc',
-                      borderBottom: '1px solid #f1f5f9',
-                    }}>
+                    <div
+                      key={task.id}
+                      style={{
+                        display:      'flex',
+                        height:       ROW_H,
+                        background:   taskBg,
+                        borderBottom: '1px solid #f1f5f9',
+                        transition:   'background 0.1s',
+                      }}
+                      onMouseEnter={() => setHoveredRow({ type: 'task', id: task.id })}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
                       {/* 左欄：任務名稱（水平 sticky） */}
                       <div style={{
                         width:       LEFT_COL,
@@ -600,7 +1141,7 @@ export default function GanttPage() {
                         position:    'sticky',
                         left:        0,
                         zIndex:      10,
-                        background:  '#f8fafc',
+                        background:  taskBg,
                         height:      '100%',
                         display:     'flex',
                         alignItems:  'center',
@@ -608,6 +1149,7 @@ export default function GanttPage() {
                         gap:         6,
                         borderRight: '2px solid #e2e8f0',
                         boxSizing:   'border-box',
+                        transition:  'background 0.1s',
                       }}>
                         {/* 優先度色點 */}
                         <div style={{
@@ -631,18 +1173,51 @@ export default function GanttPage() {
                           {task.title}
                         </span>
 
-                        {/* 負責人縮寫 */}
-                        {task.assignee && (
-                          <span style={{
-                            fontSize:     10,
-                            color:        '#6b7280',
-                            background:   '#e5e7eb',
-                            borderRadius: 4,
-                            padding:      '1px 5px',
-                            flexShrink:   0,
-                          }}>
-                            {task.assignee.name.slice(0, 2)}
-                          </span>
+                        {/* 懸停時顯示操作按鈕，否則顯示負責人縮寫 */}
+                        {isTaskHover ? (
+                          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); setEditTask({ task, project }); }}
+                              title="編輯任務"
+                              style={{
+                                background:   '#e0f2fe',
+                                color:        '#0369a1',
+                                border:       'none',
+                                borderRadius: 4,
+                                padding:      '2px 6px',
+                                fontSize:     11,
+                                cursor:       'pointer',
+                                fontWeight:   600,
+                              }}
+                            >✏️</button>
+                            <button
+                              onClick={e => { e.stopPropagation(); setDeleteTask({ task, project }); }}
+                              title="刪除任務"
+                              style={{
+                                background:   '#fee2e2',
+                                color:        '#dc2626',
+                                border:       'none',
+                                borderRadius: 4,
+                                padding:      '2px 6px',
+                                fontSize:     11,
+                                cursor:       'pointer',
+                                fontWeight:   600,
+                              }}
+                            >🗑️</button>
+                          </div>
+                        ) : (
+                          task.assignee && (
+                            <span style={{
+                              fontSize:     10,
+                              color:        '#6b7280',
+                              background:   '#e5e7eb',
+                              borderRadius: 4,
+                              padding:      '1px 5px',
+                              flexShrink:   0,
+                            }}>
+                              {task.assignee.name.slice(0, 2)}
+                            </span>
+                          )
                         )}
                       </div>
 
@@ -744,6 +1319,11 @@ export default function GanttPage() {
           <span>今日</span>
         </div>
 
+        {/* 懸停提示 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#9ca3af' }}>
+          <span>💡 滑鼠懸停列可編輯 / 刪除</span>
+        </div>
+
         {/* 更新時間 */}
         <span style={{ marginLeft: 'auto', color: '#d1d5db', fontSize: 10 }}>
           更新：{data.generatedAt
@@ -751,6 +1331,61 @@ export default function GanttPage() {
             : '—'}
         </span>
       </div>
+
+      {/* ══ 模態框 ══════════════════════════════════════════ */}
+      {editProject && (
+        <EditProjectModal
+          project={editProject}
+          users={users}
+          onClose={() => setEditProject(null)}
+          onSaved={handleProjectSaved}
+        />
+      )}
+      {deleteProject && (
+        <DeleteProjectModal
+          project={deleteProject}
+          onClose={() => setDeleteProject(null)}
+          onDeleted={handleProjectDeleted}
+        />
+      )}
+      {editTask && (
+        <EditTaskModal
+          task={editTask.task}
+          project={editTask.project}
+          users={users}
+          onClose={() => setEditTask(null)}
+          onSaved={handleTaskSaved}
+        />
+      )}
+      {deleteTask && (
+        <DeleteTaskModal
+          task={deleteTask.task}
+          project={deleteTask.project}
+          onClose={() => setDeleteTask(null)}
+          onDeleted={handleTaskDeleted}
+        />
+      )}
+
+      {/* ══ Toast 通知 ══════════════════════════════════════ */}
+      {toast && (
+        <div style={{
+          position:     'fixed',
+          bottom:       28,
+          right:        28,
+          background:   '#1e293b',
+          color:        'white',
+          borderRadius: 8,
+          padding:      '10px 18px',
+          fontSize:     13,
+          fontWeight:   600,
+          boxShadow:    '0 4px 20px rgba(0,0,0,0.25)',
+          zIndex:       99999,
+          animation:    'fadeIn 0.2s ease',
+        }}>
+          {toast}
+        </div>
+      )}
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }
