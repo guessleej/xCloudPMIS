@@ -25,6 +25,7 @@ import TimeTrackingPage   from '../timetracking/TimeTrackingPage';
 import ReportsPage        from '../reports/ReportsPage';
 import TeamPage           from '../team/TeamPage';
 import SettingsPage       from '../settings/SettingsPage';
+import AiDecisionCenter   from '../ai/AiDecisionCenter';
 
 // ── 側邊欄導覽項目 ──────────────────────────────────────────
 const NAV_ITEMS = [
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { id: 'reports',      icon: '📄', label: '報表匯出' },
   { id: 'team',         icon: '👥', label: '團隊管理' },
   { id: 'settings',     icon: '⚙️', label: '系統設定' },
+  { id: 'ai-center',    icon: '🤖', label: 'AI 決策中心', divider: true },
 ];
 
 // ── 側邊欄元件 ──────────────────────────────────────────────
@@ -63,36 +65,49 @@ function Sidebar({ active, onChange }) {
       {/* 導覽選單 */}
       <nav style={{ flex: 1, padding: '12px 8px' }}>
         {NAV_ITEMS.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onChange(item.id)}
-            style={{
-              width:        '100%',
-              display:      'flex',
-              alignItems:   'center',
-              gap:          '10px',
-              padding:      '10px 12px',
-              borderRadius: '8px',
-              border:       'none',
-              background:   active === item.id ? 'rgba(255,255,255,0.12)' : 'transparent',
-              color:        active === item.id ? 'white' : '#94a3b8',
-              fontSize:     '14px',
-              fontWeight:   active === item.id ? '600' : '400',
-              cursor:       'pointer',
-              textAlign:    'left',
-              marginBottom: '2px',
-              transition:   'all 0.15s',
-            }}
-            onMouseOver={e => {
-              if (active !== item.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-            }}
-            onMouseOut={e => {
-              if (active !== item.id) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <span style={{ fontSize: '16px' }}>{item.icon}</span>
-            {item.label}
-          </button>
+          <div key={item.id}>
+            {/* AI 功能區分隔線 */}
+            {item.divider && (
+              <div style={{
+                margin:     '8px 4px',
+                borderTop:  '1px solid rgba(255,255,255,0.1)',
+                paddingTop: 6,
+              }}>
+                <div style={{ fontSize: 10, color: '#475569', padding: '0 8px 4px', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  AI 功能
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => onChange(item.id)}
+              style={{
+                width:        '100%',
+                display:      'flex',
+                alignItems:   'center',
+                gap:          '10px',
+                padding:      '10px 12px',
+                borderRadius: '8px',
+                border:       'none',
+                background:   active === item.id ? 'rgba(255,255,255,0.12)' : 'transparent',
+                color:        active === item.id ? 'white' : '#94a3b8',
+                fontSize:     '14px',
+                fontWeight:   active === item.id ? '600' : '400',
+                cursor:       'pointer',
+                textAlign:    'left',
+                marginBottom: '2px',
+                transition:   'all 0.15s',
+              }}
+              onMouseOver={e => {
+                if (active !== item.id) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+              }}
+              onMouseOut={e => {
+                if (active !== item.id) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>{item.icon}</span>
+              {item.label}
+            </button>
+          </div>
         ))}
       </nav>
 
@@ -246,7 +261,8 @@ export default function Dashboard() {
     if (activeNav === 'time')     return <TimeTrackingPage />;
     if (activeNav === 'reports')  return <ReportsPage />;
     if (activeNav === 'team')     return <TeamPage />;
-    if (activeNav === 'settings') return <SettingsPage />;
+    if (activeNav === 'settings')  return <SettingsPage />;
+    if (activeNav === 'ai-center') return <AiDecisionCenter />;
     // 其他頁面：顯示「開發中」提示（之後逐步補上）
     if (activeNav !== 'dashboard') return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '16px', color: '#9ca3af' }}>

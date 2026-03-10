@@ -16,6 +16,7 @@ const timeTrackingRouter  = require('./routes/time-tracking');
 const reportsRouter       = require('./routes/reports');
 const teamRouter          = require('./routes/team');
 const settingsRouter      = require('./routes/settings');
+const aiDecisionsRouter   = require('./routes/aiDecisions');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -137,6 +138,9 @@ app.use('/api/team', teamRouter);
 
 // ── 系統設定路由 ─────────────────────────────────────────────
 app.use('/api/settings', settingsRouter);
+
+// ── AI 決策中心路由（Human-in-the-Loop 控制台）───────────────
+app.use('/api/ai', aiDecisionsRouter);
 
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下
