@@ -104,6 +104,110 @@ const DATE_RANGES = [
   { id: 'month', label: '本月',  getRange: () => ({ start: monthStartStr(), end: todayStr() }) },
 ];
 
+// ── 共用樣式物件 ─────────────────────────────────────────────
+const labelStyle = {
+  display:     'block',
+  fontSize:    '13px',
+  fontWeight:  '600',
+  color:       '#374151',
+  marginBottom: '6px',
+};
+const inputStyle = {
+  width:        '100%',
+  padding:      '9px 12px',
+  border:       '1px solid #d1d5db',
+  borderRadius: '8px',
+  fontSize:     '14px',
+  color:        '#111827',
+  outline:      'none',
+  boxSizing:    'border-box',
+};
+const selectStyle = {
+  ...inputStyle,
+  cursor: 'pointer',
+  background: 'white',
+};
+const primaryBtnStyle = {
+  background:   '#3b82f6',
+  color:        'white',
+  border:       'none',
+  borderRadius: '8px',
+  padding:      '9px 20px',
+  fontSize:     '14px',
+  fontWeight:   '600',
+  cursor:       'pointer',
+};
+const cancelBtnStyle = {
+  background:   '#f3f4f6',
+  color:        '#374151',
+  border:       'none',
+  borderRadius: '8px',
+  padding:      '9px 20px',
+  fontSize:     '14px',
+  fontWeight:   '500',
+  cursor:       'pointer',
+};
+const dangerBtnStyle = {
+  background:   '#ef4444',
+  color:        'white',
+  border:       'none',
+  borderRadius: '8px',
+  padding:      '9px 20px',
+  fontSize:     '14px',
+  fontWeight:   '600',
+  cursor:       'pointer',
+};
+
+// ════════════════════════════════════════════════════════════
+// Modal 容器（遮罩）
+// ════════════════════════════════════════════════════════════
+function ModalOverlay({ children, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position:   'fixed',
+        inset:      0,
+        background: 'rgba(0,0,0,0.4)',
+        display:    'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex:     1000,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background:   'white',
+          borderRadius: '16px',
+          boxShadow:    '0 20px 60px rgba(0,0,0,0.2)',
+          position:     'relative',
+        }}
+      >
+        {/* 關閉按鈕 */}
+        <button
+          onClick={onClose}
+          style={{
+            position:     'absolute',
+            top:          '16px',
+            right:        '16px',
+            background:   'none',
+            border:       'none',
+            fontSize:     '20px',
+            cursor:       'pointer',
+            color:        '#9ca3af',
+            lineHeight:   1,
+            padding:      '2px',
+          }}
+        >
+          ×
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // 統計卡片元件
 // ════════════════════════════════════════════════════════════
@@ -317,7 +421,7 @@ function ManualAddModal({ tasks, onClose, onSubmit }) {
     endTime:     '10:00',
     description: '',
   });
-  const [submitting,  setSubmitting]  = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
   const [durationPreview, setDurationPreview] = useState('');
 
   // 更新時長預覽
@@ -453,112 +557,300 @@ function ManualAddModal({ tasks, onClose, onSubmit }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Modal 容器（遮罩）
+// 編輯工時記錄 Modal
 // ════════════════════════════════════════════════════════════
-function ModalOverlay({ children, onClose }) {
+function EditEntryModal({ entry, tasks, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    taskId:      String(entry.taskId),
+    date:        entry.date,
+    startTime:   fmtTime(entry.startedAt),
+    endTime:     entry.endedAt ? fmtTime(entry.endedAt) : '',
+    description: entry.description || '',
+  });
+  const [submitting,      setSubmitting]      = useState(false);
+  const [durationPreview, setDurationPreview] = useState('');
+  const [error,           setError]           = useState('');
+
+  const isActive = entry.isActive; // 計時中的記錄
+
+  // 更新時長預覽
+  useEffect(() => {
+    if (!isActive && form.startTime && form.endTime) {
+      const start = new Date(`${form.date}T${form.startTime}:00`);
+      const end   = new Date(`${form.date}T${form.endTime}:00`);
+      const mins  = Math.ceil((end - start) / 60000);
+      setDurationPreview(mins > 0 ? fmtMinutes(mins) : '⚠️ 結束時間必須晚於開始時間');
+    }
+  }, [form.date, form.startTime, form.endTime, isActive]);
+
+  const update = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
+
+  const handleSave = async () => {
+    setError('');
+
+    // 組合更新資料
+    const payload = {
+      description: form.description,
+      taskId:      parseInt(form.taskId),
+    };
+
+    if (!isActive) {
+      // 已完成記錄：也更新時間
+      if (!form.taskId || !form.date || !form.startTime || !form.endTime) {
+        setError('請填寫所有必填欄位');
+        return;
+      }
+      const startedAt = new Date(`${form.date}T${form.startTime}:00`);
+      const endedAt   = new Date(`${form.date}T${form.endTime}:00`);
+      if (endedAt <= startedAt) {
+        setError('結束時間必須晚於開始時間');
+        return;
+      }
+      payload.startedAt = startedAt.toISOString();
+      payload.endedAt   = endedAt.toISOString();
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/time-tracking/${entry.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '更新失敗');
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isValid = isActive
+    ? !!form.taskId
+    : form.taskId && form.date && form.startTime && form.endTime
+      && new Date(`${form.date}T${form.endTime}:00`) > new Date(`${form.date}T${form.startTime}:00`);
+
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position:   'fixed',
-        inset:      0,
-        background: 'rgba(0,0,0,0.4)',
-        display:    'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex:     1000,
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background:   'white',
-          borderRadius: '16px',
-          boxShadow:    '0 20px 60px rgba(0,0,0,0.2)',
-          position:     'relative',
-        }}
-      >
-        {/* 關閉按鈕 */}
-        <button
-          onClick={onClose}
-          style={{
-            position:     'absolute',
-            top:          '16px',
-            right:        '16px',
-            background:   'none',
-            border:       'none',
-            fontSize:     '20px',
-            cursor:       'pointer',
-            color:        '#9ca3af',
-            lineHeight:   1,
-            padding:      '2px',
-          }}
-        >
-          ×
-        </button>
-        {children}
+    <ModalOverlay onClose={onClose}>
+      <div style={{ padding: '24px', minWidth: '460px' }}>
+        <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+          ✏️ 編輯工時記錄
+        </h2>
+        {isActive && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '8px 12px',
+            background: '#eff6ff',
+            borderRadius: '6px',
+            fontSize: '12px',
+            color: '#1d4ed8',
+          }}>
+            ⏱️ 計時進行中 — 只能編輯任務與描述，停止後才可修改時間
+          </div>
+        )}
+
+        {/* 任務 */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>選擇任務 *</label>
+          <select value={form.taskId} onChange={e => update('taskId', e.target.value)} style={selectStyle}>
+            <option value="">— 請選擇任務 —</option>
+            {tasks.map(t => (
+              <option key={t.id} value={t.id}>
+                [{t.project.name}] {t.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* 已完成記錄才能改時間 */}
+        {!isActive && (
+          <>
+            {/* 日期 */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={labelStyle}>日期 *</label>
+              <input
+                type="date"
+                value={form.date}
+                onChange={e => update('date', e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* 時間範圍 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label style={labelStyle}>開始時間 *</label>
+                <input
+                  type="time"
+                  value={form.startTime}
+                  onChange={e => update('startTime', e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>結束時間 *</label>
+                <input
+                  type="time"
+                  value={form.endTime}
+                  onChange={e => update('endTime', e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* 時長預覽 */}
+            {durationPreview && (
+              <div style={{
+                marginBottom: '16px',
+                padding: '8px 12px',
+                background: durationPreview.startsWith('⚠️') ? '#fef2f2' : '#f0fdf4',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: durationPreview.startsWith('⚠️') ? '#dc2626' : '#16a34a',
+                fontWeight: '500',
+              }}>
+                {durationPreview.startsWith('⚠️') ? durationPreview : `🕐 時長：${durationPreview}`}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 描述 */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>工作描述（選填）</label>
+          <input
+            type="text"
+            value={form.description}
+            onChange={e => update('description', e.target.value)}
+            placeholder="說明完成了哪些工作..."
+            style={inputStyle}
+          />
+        </div>
+
+        {/* 錯誤訊息 */}
+        {error && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '8px 12px',
+            background: '#fef2f2',
+            borderRadius: '6px',
+            color: '#dc2626',
+            fontSize: '13px',
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* 按鈕列 */}
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={cancelBtnStyle}>取消</button>
+          <button
+            onClick={handleSave}
+            disabled={!isValid || submitting}
+            style={{
+              ...primaryBtnStyle,
+              opacity: (!isValid || submitting) ? 0.5 : 1,
+              cursor:  (!isValid || submitting) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {submitting ? '⏳ 儲存中...' : '💾 儲存'}
+          </button>
+        </div>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
-// ── 共用樣式物件 ─────────────────────────────────────────────
-const labelStyle = {
-  display:     'block',
-  fontSize:    '13px',
-  fontWeight:  '600',
-  color:       '#374151',
-  marginBottom: '6px',
-};
-const inputStyle = {
-  width:        '100%',
-  padding:      '9px 12px',
-  border:       '1px solid #d1d5db',
-  borderRadius: '8px',
-  fontSize:     '14px',
-  color:        '#111827',
-  outline:      'none',
-  boxSizing:    'border-box',
-};
-const selectStyle = {
-  ...inputStyle,
-  cursor: 'pointer',
-  background: 'white',
-};
-const primaryBtnStyle = {
-  background:   '#3b82f6',
-  color:        'white',
-  border:       'none',
-  borderRadius: '8px',
-  padding:      '9px 20px',
-  fontSize:     '14px',
-  fontWeight:   '600',
-  cursor:       'pointer',
-};
-const cancelBtnStyle = {
-  background:   '#f3f4f6',
-  color:        '#374151',
-  border:       'none',
-  borderRadius: '8px',
-  padding:      '9px 20px',
-  fontSize:     '14px',
-  fontWeight:   '500',
-  cursor:       'pointer',
-};
+// ════════════════════════════════════════════════════════════
+// 刪除工時記錄確認 Modal
+// ════════════════════════════════════════════════════════════
+function DeleteEntryModal({ entry, onClose, onConfirmed }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    await onConfirmed(entry.id);
+    setLoading(false);
+  };
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div style={{ padding: '28px 24px', minWidth: '380px', maxWidth: '440px' }}>
+        {/* 圖示 + 標題 */}
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '44px', marginBottom: '10px' }}>🗑️</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: '#111827' }}>
+            刪除工時記錄
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>確定要刪除以下工時記錄嗎？</p>
+        </div>
+
+        {/* 記錄資訊卡 */}
+        <div style={{
+          background:   '#f9fafb',
+          border:       '1px solid #e5e7eb',
+          borderRadius: '10px',
+          padding:      '14px 16px',
+          marginBottom: '18px',
+        }}>
+          <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '4px' }}>
+            {entry.taskTitle}
+          </div>
+          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '6px' }}>
+            {entry.projectName}
+          </div>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
+            <span>
+              🕐 {fmtTime(entry.startedAt)}
+              {entry.endedAt ? ` – ${fmtTime(entry.endedAt)}` : ' – 進行中'}
+            </span>
+            {entry.durationMinutes > 0 && (
+              <span>⏱ {fmtMinutes(entry.durationMinutes)}</span>
+            )}
+          </div>
+          {entry.description && (
+            <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+              「{entry.description}」
+            </div>
+          )}
+        </div>
+
+        {entry.isActive && (
+          <div style={{
+            background:   '#fff7ed',
+            border:       '1px solid #fed7aa',
+            borderRadius: '6px',
+            padding:      '8px 12px',
+            color:        '#c2410c',
+            fontSize:     '12px',
+            marginBottom: '16px',
+          }}>
+            ⚠️ 此為計時進行中的記錄，刪除後計時將立即停止。
+          </div>
+        )}
+
+        {/* 按鈕列 */}
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={cancelBtnStyle}>取消</button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            style={{ ...dangerBtnStyle, opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? '⏳ 刪除中...' : '🗑️ 確認刪除'}
+          </button>
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
 
 // ════════════════════════════════════════════════════════════
 // 工時記錄列（單筆）
 // ════════════════════════════════════════════════════════════
-function EntryRow({ entry, onDelete }) {
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDelete = async () => {
-    if (!window.confirm(`確定要刪除這筆工時記錄嗎？\n任務：${entry.taskTitle}`)) return;
-    setDeleting(true);
-    await onDelete(entry.id);
-    setDeleting(false);
-  };
-
+function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
   return (
     <div style={{
       display:    'flex',
@@ -619,26 +911,47 @@ function EntryRow({ entry, onDelete }) {
         }
       </div>
 
-      {/* 刪除按鈕 */}
-      <button
-        onClick={handleDelete}
-        disabled={deleting}
-        title="刪除此記錄"
-        style={{
-          background:   'none',
-          border:       'none',
-          color:        '#d1d5db',
-          cursor:       deleting ? 'not-allowed' : 'pointer',
-          fontSize:     '16px',
-          padding:      '4px',
-          borderRadius: '4px',
-          lineHeight:   1,
-        }}
-        onMouseOver={e => e.currentTarget.style.color = '#dc2626'}
-        onMouseOut={e => e.currentTarget.style.color = '#d1d5db'}
-      >
-        🗑
-      </button>
+      {/* 操作按鈕：✏️ 編輯 + 🗑 刪除 */}
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        <button
+          onClick={() => onEditRequest(entry)}
+          title="編輯此記錄"
+          style={{
+            background:   'none',
+            border:       '1px solid #e5e7eb',
+            color:        '#9ca3af',
+            cursor:       'pointer',
+            fontSize:     '13px',
+            padding:      '4px 8px',
+            borderRadius: '6px',
+            lineHeight:   1,
+            transition:   'all 0.15s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; e.currentTarget.style.borderColor = '#bae6fd'; }}
+          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+        >
+          ✏️
+        </button>
+        <button
+          onClick={() => onDeleteRequest(entry)}
+          title="刪除此記錄"
+          style={{
+            background:   'none',
+            border:       '1px solid #e5e7eb',
+            color:        '#9ca3af',
+            cursor:       'pointer',
+            fontSize:     '13px',
+            padding:      '4px 8px',
+            borderRadius: '6px',
+            lineHeight:   1,
+            transition:   'all 0.15s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca'; }}
+          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+        >
+          🗑
+        </button>
+      </div>
     </div>
   );
 }
@@ -656,7 +969,7 @@ function ActiveDuration({ startedAt }) {
 // ════════════════════════════════════════════════════════════
 // 日期群組（一天的所有記錄）
 // ════════════════════════════════════════════════════════════
-function DateGroup({ date, entries, onDelete }) {
+function DateGroup({ date, entries, onEditRequest, onDeleteRequest }) {
   // 計算已完成的當日合計分鐘
   const totalMins = entries
     .filter(e => !e.isActive)
@@ -708,7 +1021,12 @@ function DateGroup({ date, entries, onDelete }) {
 
       {/* 記錄列表 */}
       {entries.map(entry => (
-        <EntryRow key={entry.id} entry={entry} onDelete={onDelete} />
+        <EntryRow
+          key={entry.id}
+          entry={entry}
+          onEditRequest={onEditRequest}
+          onDeleteRequest={onDeleteRequest}
+        />
       ))}
     </div>
   );
@@ -719,14 +1037,23 @@ function DateGroup({ date, entries, onDelete }) {
 // ════════════════════════════════════════════════════════════
 export default function TimeTrackingPage() {
   // ── 狀態 ─────────────────────────────────────────────────
-  const [entries,       setEntries]       = useState([]);
-  const [summary,       setSummary]       = useState(null);
-  const [tasks,         setTasks]         = useState([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState(null);
-  const [activeRange,   setActiveRange]   = useState('today'); // today / week / month
-  const [showStartModal, setShowStartModal] = useState(false);
-  const [showAddModal,   setShowAddModal]   = useState(false);
+  const [entries,          setEntries]          = useState([]);
+  const [summary,          setSummary]          = useState(null);
+  const [tasks,            setTasks]            = useState([]);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState(null);
+  const [activeRange,      setActiveRange]      = useState('today');
+  const [showStartModal,   setShowStartModal]   = useState(false);
+  const [showAddModal,     setShowAddModal]     = useState(false);
+  const [editEntry,        setEditEntry]        = useState(null); // 待編輯的記錄
+  const [deleteEntry,      setDeleteEntry]      = useState(null); // 待刪除的記錄
+  const [toast,            setToast]            = useState('');   // Toast 通知
+
+  // ── Toast 輔助函式 ────────────────────────────────────────
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
 
   // ── 資料載入 ─────────────────────────────────────────────
   const loadData = useCallback(async (rangeId = activeRange) => {
@@ -736,7 +1063,6 @@ export default function TimeTrackingPage() {
       const range = DATE_RANGES.find(r => r.id === rangeId) || DATE_RANGES[0];
       const { start, end } = range.getRange();
 
-      // 不傳 userId → 顯示整個公司所有成員的工時（管理者視角）
       const [entriesRes, tasksRes] = await Promise.all([
         fetch(`${API_BASE}/api/time-tracking?companyId=${COMPANY_ID}&startDate=${start}&endDate=${end}`),
         fetch(`${API_BASE}/api/time-tracking/tasks?companyId=${COMPANY_ID}`),
@@ -761,11 +1087,6 @@ export default function TimeTrackingPage() {
     loadData(activeRange);
   }, [activeRange]);
 
-  // ── 切換日期範圍 ─────────────────────────────────────────
-  const handleRangeChange = (rangeId) => {
-    setActiveRange(rangeId);
-  };
-
   // ── 開始計時 ─────────────────────────────────────────────
   const handleStartTimer = async (data) => {
     try {
@@ -781,6 +1102,7 @@ export default function TimeTrackingPage() {
       }
       setShowStartModal(false);
       await loadData(activeRange);
+      showToast('▶ 計時已開始');
     } catch {
       alert('網路錯誤，請稍後再試');
     }
@@ -796,6 +1118,7 @@ export default function TimeTrackingPage() {
         return;
       }
       await loadData(activeRange);
+      showToast('⏹ 計時已停止');
     } catch {
       alert('網路錯誤，請稍後再試');
     }
@@ -816,13 +1139,21 @@ export default function TimeTrackingPage() {
       }
       setShowAddModal(false);
       await loadData(activeRange);
+      showToast('✅ 工時記錄已新增');
     } catch {
       alert('網路錯誤，請稍後再試');
     }
   };
 
-  // ── 刪除記錄 ─────────────────────────────────────────────
-  const handleDelete = async (id) => {
+  // ── 編輯記錄（Modal 呼叫完 API 後的 callback） ───────────
+  const handleEditSaved = async () => {
+    setEditEntry(null);
+    await loadData(activeRange);
+    showToast('✅ 工時記錄已更新');
+  };
+
+  // ── 刪除記錄（DeleteEntryModal 確認後呼叫） ──────────────
+  const handleDeleteConfirmed = async (id) => {
     try {
       const res = await fetch(`${API_BASE}/api/time-tracking/${id}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -830,7 +1161,9 @@ export default function TimeTrackingPage() {
         alert(json.error || '刪除失敗');
         return;
       }
+      setDeleteEntry(null);
       await loadData(activeRange);
+      showToast('🗑️ 工時記錄已刪除');
     } catch {
       alert('網路錯誤，請稍後再試');
     }
@@ -844,7 +1177,6 @@ export default function TimeTrackingPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(e);
     }
-    // 依日期降冪排序（最新日期在前）
     return Array.from(map.entries())
       .sort((a, b) => b[0].localeCompare(a[0]));
   };
@@ -857,11 +1189,8 @@ export default function TimeTrackingPage() {
   // 渲染
   // ═══════════════════════════════════════════════════════
   return (
-    <div style={{
-      background:  '#f8fafc',
-      minHeight:   '100vh',
-      padding:     '0',
-    }}>
+    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '0' }}>
+
       {/* ── 頁面標題列 ─────────────────────────────────── */}
       <div style={{
         background:     'white',
@@ -927,11 +1256,7 @@ export default function TimeTrackingPage() {
 
         {/* 統計卡片 */}
         {summary && (
-          <div style={{
-            display: 'flex',
-            gap:     '12px',
-            marginBottom: '20px',
-          }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
             <SummaryCard
               icon="☀️"
               label="今日工時"
@@ -985,7 +1310,7 @@ export default function TimeTrackingPage() {
             {DATE_RANGES.map(r => (
               <button
                 key={r.id}
-                onClick={() => handleRangeChange(r.id)}
+                onClick={() => setActiveRange(r.id)}
                 style={{
                   background:   activeRange === r.id ? '#3b82f6' : 'transparent',
                   color:        activeRange === r.id ? 'white' : '#6b7280',
@@ -1037,12 +1362,7 @@ export default function TimeTrackingPage() {
           }}>
             <div style={{ fontSize: '32px' }}>😢</div>
             <div>{error}</div>
-            <button
-              onClick={() => loadData(activeRange)}
-              style={primaryBtnStyle}
-            >
-              重試
-            </button>
+            <button onClick={() => loadData(activeRange)} style={primaryBtnStyle}>重試</button>
           </div>
         ) : grouped.length === 0 ? (
           <div style={{
@@ -1063,13 +1383,14 @@ export default function TimeTrackingPage() {
               key={date}
               date={date}
               entries={dayEntries}
-              onDelete={handleDelete}
+              onEditRequest={setEditEntry}
+              onDeleteRequest={setDeleteEntry}
             />
           ))
         )}
       </div>
 
-      {/* ── Modal ──────────────────────────────────────── */}
+      {/* ── 所有 Modal ─────────────────────────────────── */}
       {showStartModal && (
         <StartTimerModal
           tasks={tasks}
@@ -1084,6 +1405,42 @@ export default function TimeTrackingPage() {
           onSubmit={handleManualAdd}
         />
       )}
+      {editEntry && (
+        <EditEntryModal
+          entry={editEntry}
+          tasks={tasks}
+          onClose={() => setEditEntry(null)}
+          onSaved={handleEditSaved}
+        />
+      )}
+      {deleteEntry && (
+        <DeleteEntryModal
+          entry={deleteEntry}
+          onClose={() => setDeleteEntry(null)}
+          onConfirmed={handleDeleteConfirmed}
+        />
+      )}
+
+      {/* ── Toast 通知 ─────────────────────────────────── */}
+      {toast && (
+        <div style={{
+          position:     'fixed',
+          bottom:       28,
+          right:        28,
+          background:   '#1e293b',
+          color:        'white',
+          borderRadius: 8,
+          padding:      '10px 18px',
+          fontSize:     13,
+          fontWeight:   600,
+          boxShadow:    '0 4px 20px rgba(0,0,0,0.25)',
+          zIndex:       99999,
+          animation:    'fadeIn 0.2s ease',
+        }}>
+          {toast}
+        </div>
+      )}
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }

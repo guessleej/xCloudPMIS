@@ -233,24 +233,48 @@ router.patch('/:id/stop', async (req, res) => {
 
 /**
  * PATCH /api/time-tracking/:id
- * 更新工時記錄（描述）
- * Body: { description }
+ * 更新工時記錄（支援描述、任務、開始／結束時間）
+ * Body: { description?, taskId?, startedAt?, endedAt? }
+ *
+ * 若同時傳入 startedAt / endedAt，會自動重算 durationMinutes 與 date
  */
 router.patch('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { description } = req.body;
+    const { description, taskId, startedAt, endedAt } = req.body;
 
     const entry = await prisma.timeEntry.findUnique({ where: { id } });
     if (!entry) {
       return res.status(404).json({ error: `找不到工時記錄 #${id}` });
     }
 
+    const data = {};
+
+    // 描述
+    if (description !== undefined) data.description = description.trim();
+
+    // 任務
+    if (taskId !== undefined) data.taskId = parseInt(taskId);
+
+    // 時間欄位（需要重算 durationMinutes 與 date）
+    const newStart = startedAt !== undefined ? new Date(startedAt) : entry.startedAt;
+    const newEnd   = endedAt   !== undefined ? new Date(endedAt)   : entry.endedAt;
+
+    if (startedAt !== undefined) {
+      data.startedAt = newStart;
+      data.date      = startOfDay(newStart); // date 跟隨開始時間
+    }
+    if (endedAt !== undefined) {
+      data.endedAt = newEnd;
+    }
+    // 只要時間有任何一個改變，且 endedAt 不是 null，就重算時長
+    if ((startedAt !== undefined || endedAt !== undefined) && newEnd) {
+      data.durationMinutes = diffMinutes(newStart, newEnd);
+    }
+
     const updated = await prisma.timeEntry.update({
       where: { id },
-      data: {
-        ...(description !== undefined && { description: description.trim() }),
-      },
+      data,
       include: {
         task: {
           select: {
