@@ -47,7 +47,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-const { Server: Hocuspocus } = require('@hocuspocus/server');
+const { Hocuspocus } = require('@hocuspocus/server');
 const { PrismaClient }        = require('@prisma/client');
 const { createClient }        = require('redis');
 const jwt                     = require('jsonwebtoken');

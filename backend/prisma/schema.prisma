@@ -98,6 +98,7 @@ model Project {
   owner      User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   tasks      Task[]
   milestones Milestone[] // ← Phase 3 新增：里程碑
+  aiDecisions AiDecision[] // ← AI 自主代理決策記錄
 
   @@index([companyId])
   @@index([ownerId])
@@ -156,6 +157,7 @@ model Task {
   comments        Comment[]     // 這個任務的所有評論
   activityLogs    ActivityLog[] // 這個任務的所有變更歷史
   taskTags        TaskTag[]     // 這個任務的所有標籤（多對多）
+  aiDecisions     AiDecision[]  // ← AI 自主代理決策記錄
 
   @@index([projectId])
   @@index([assigneeId])
@@ -522,6 +524,8 @@ model AiDecision {
 
   // ── 關聯 ──────────────────────────────────────────────────
   logs          AiAgentLog[]     // 每個決策對應多條工具呼叫日誌
+  project       Project?         @relation(fields: [projectId],  references: [id], onDelete: SetNull)
+  task          Task?            @relation(fields: [taskId],     references: [id], onDelete: SetNull)
 
   @@index([sessionId])
   @@index([agentType])

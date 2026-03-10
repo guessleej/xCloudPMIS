@@ -24,29 +24,36 @@
   },
   "dependencies": {
     "@azure/msal-node": "^2.6.0",
+    "@hocuspocus/server": "^2.13.4",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@prisma/client": "^5.8.1",
     "axios": "^1.6.7",
-    "openai": "^4.47.1",
-    "@hocuspocus/server": "^2.13.4",
-    "yjs": "^13.6.18",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
+    "openai": "^4.47.1",
     "pg": "^8.11.3",
     "redis": "^4.6.13",
-    "winston": "^3.11.0"
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "yjs": "^13.6.18"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
     "prisma": "^5.8.1"
   },
   "nodemonConfig": {
-    "watch": ["src"],
+    "watch": [
+      "src"
+    ],
     "ext": "js,json",
-    "ignore": ["node_modules", "prisma"]
+    "ignore": [
+      "node_modules",
+      "prisma"
+    ]
   }
 }
