@@ -12,9 +12,15 @@
  *   │  ○ 里程碑報表         │  ┌─ 摘要卡片 ────────────────┐  │
  *   │                      │  └───────────────────────────┘  │
  *   │                      │  ┌─ 資料表格 ────────────────┐  │
- *   │                      │  │  … 分頁 …                 │  │
+ *   │                      │  │  含行內編輯/刪除操作        │  │
  *   │                      │  └───────────────────────────┘  │
  *   └──────────────────────┴────────────────────────────────┘
+ *
+ * 行內操作支援：
+ *   - 專案進度報表：編輯專案、刪除專案
+ *   - 任務統計報表：編輯任務、刪除任務
+ *   - 工時統計報表：彙總資料，無行級操作
+ *   - 里程碑報表：編輯里程碑、刪除里程碑
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -91,6 +97,581 @@ const MILESTONE_BADGE = {
 };
 
 // ════════════════════════════════════════════════════════════
+// 彈跳視窗共用樣式
+// ════════════════════════════════════════════════════════════
+const modalOverlay = {
+  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  zIndex: 1000, padding: '20px',
+};
+const modalBox = {
+  background: 'white', borderRadius: '12px',
+  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  width: '100%', maxWidth: '520px',
+  maxHeight: '85vh', overflow: 'auto',
+};
+const inputSt = {
+  width: '100%', padding: '8px 10px',
+  border: '1px solid #d1d5db', borderRadius: '7px',
+  fontSize: '13px', color: '#111827',
+  boxSizing: 'border-box', background: 'white',
+};
+const labelSt = {
+  display: 'block', fontSize: '12px', fontWeight: '600',
+  color: '#374151', marginBottom: '5px',
+};
+
+// ── 彈跳視窗共用子元件 ──────────────────────────────────────
+function ModalHeader({ title, onClose }) {
+  return (
+    <div style={{
+      padding: '18px 20px 16px', borderBottom: '1px solid #e5e7eb',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    }}>
+      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+        {title}
+      </h3>
+      <button onClick={onClose} style={{
+        background: 'none', border: 'none', fontSize: '20px',
+        cursor: 'pointer', color: '#9ca3af', lineHeight: 1,
+      }}>✕</button>
+    </div>
+  );
+}
+
+function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor = '#3b82f6', saving }) {
+  return (
+    <div style={{
+      padding: '14px 20px', borderTop: '1px solid #e5e7eb',
+      display: 'flex', justifyContent: 'flex-end', gap: '8px',
+    }}>
+      <button onClick={onClose} disabled={saving} style={{
+        padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: '8px',
+        background: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer',
+      }}>
+        取消
+      </button>
+      <button onClick={onConfirm} disabled={saving} style={{
+        padding: '8px 18px', border: 'none', borderRadius: '8px',
+        background: saving ? '#9ca3af' : confirmColor, color: 'white',
+        fontSize: '13px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer',
+      }}>
+        {saving ? '處理中...' : confirmLabel}
+      </button>
+    </div>
+  );
+}
+
+function ErrBox({ msg }) {
+  if (!msg) return null;
+  return (
+    <div style={{
+      background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '7px',
+      padding: '10px 14px', color: '#dc2626', fontSize: '13px',
+    }}>{msg}</div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// EditProjectModal — 編輯專案
+// 需先拉 /api/projects/:id 取得 ownerId 與 description
+// ════════════════════════════════════════════════════════════
+function EditProjectModal({ row, users, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name: '', status: 'active', ownerId: '',
+    startDate: '', endDate: '', budget: '', description: '',
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/projects/${row.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const p = d.data || d;
+        setForm({
+          name:        p.name        || '',
+          status:      p.status      || 'active',
+          ownerId:     p.ownerId     ? String(p.ownerId) : '',
+          startDate:   p.startDate   ? String(p.startDate).slice(0, 10) : '',
+          endDate:     p.endDate     ? String(p.endDate).slice(0, 10)   : '',
+          budget:      p.budget !== null && p.budget !== undefined ? String(p.budget) : '',
+          description: p.description || '',
+        });
+      })
+      .catch(() => setError('無法載入專案資料'))
+      .finally(() => setLoading(false));
+  }, [row.id]);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { setError('請輸入專案名稱'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:        form.name.trim(),
+          status:      form.status,
+          ownerId:     form.ownerId ? parseInt(form.ownerId) : null,
+          startDate:   form.startDate || null,
+          endDate:     form.endDate   || null,
+          budget:      form.budget !== '' ? parseFloat(form.budget) : null,
+          description: form.description,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '儲存失敗');
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={modalBox}>
+        <ModalHeader title="✏️ 編輯專案" onClose={onClose} />
+        <div style={{ padding: '16px 20px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>載入中...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <ErrBox msg={error} />
+              <div>
+                <label style={labelSt}>專案名稱 *</label>
+                <input style={inputSt} value={form.name}
+                  onChange={e => set('name', e.target.value)} placeholder="輸入專案名稱" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelSt}>狀態</label>
+                  <select style={inputSt} value={form.status} onChange={e => set('status', e.target.value)}>
+                    <option value="planning">規劃中</option>
+                    <option value="active">進行中</option>
+                    <option value="on_hold">暫停</option>
+                    <option value="completed">已完成</option>
+                    <option value="cancelled">已取消</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelSt}>負責人</label>
+                  <select style={inputSt} value={form.ownerId} onChange={e => set('ownerId', e.target.value)}>
+                    <option value="">未指定</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelSt}>開始日期</label>
+                  <input type="date" style={inputSt} value={form.startDate}
+                    onChange={e => set('startDate', e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelSt}>結束日期</label>
+                  <input type="date" style={inputSt} value={form.endDate}
+                    onChange={e => set('endDate', e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={labelSt}>預算（NT$）</label>
+                <input type="number" style={inputSt} value={form.budget}
+                  onChange={e => set('budget', e.target.value)} placeholder="輸入預算金額" />
+              </div>
+              <div>
+                <label style={labelSt}>說明</label>
+                <textarea
+                  style={{ ...inputSt, minHeight: '72px', resize: 'vertical' }}
+                  value={form.description}
+                  onChange={e => set('description', e.target.value)}
+                  placeholder="輸入專案說明（選填）"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        {!loading && (
+          <ModalFooter onClose={onClose} onConfirm={handleSave} confirmLabel="儲存" saving={saving} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// DeleteProjectModal — 刪除專案
+// ════════════════════════════════════════════════════════════
+function DeleteProjectModal({ row, onClose, onDeleted }) {
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const handleDelete = async () => {
+    setSaving(true); setError('');
+    try {
+      const res  = await fetch(`${API_BASE}/api/projects/${row.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
+      onDeleted();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalBox, maxWidth: '420px' }}>
+        <ModalHeader title="🗑️ 刪除專案" onClose={onClose} />
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ErrBox msg={error} />
+          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+            確定要刪除此專案嗎？此操作無法復原。
+          </p>
+          <div style={{
+            background: '#fafafa', border: '1px solid #e5e7eb',
+            borderRadius: '8px', padding: '12px 14px',
+          }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+              {row.name}
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              狀態：{row.status}　任務數：{row.total} 個　完成率：{row.doneRate}%
+            </div>
+          </div>
+          {row.total > 0 && (
+            <div style={{
+              background: '#fff7ed', border: '1px solid #fed7aa',
+              borderRadius: '7px', padding: '10px 14px', fontSize: '12px', color: '#c2410c',
+            }}>
+              ⚠️ 此專案含有 {row.total} 個任務，刪除後將一併移除。
+            </div>
+          )}
+        </div>
+        <ModalFooter
+          onClose={onClose} onConfirm={handleDelete}
+          confirmLabel="確認刪除" confirmColor="#dc2626" saving={saving}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// EditTaskModal — 編輯任務
+// ════════════════════════════════════════════════════════════
+function EditTaskModal({ row, users, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title:      row.title       || '',
+    status:     row.statusRaw   || 'todo',
+    priority:   row.priorityRaw || 'medium',
+    assigneeId: row.assigneeId  ? String(row.assigneeId) : '',
+    dueDate:    row.dueDate     || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.title.trim()) { setError('請輸入任務名稱'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/tasks/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:      form.title.trim(),
+          status:     form.status,
+          priority:   form.priority,
+          assigneeId: form.assigneeId ? parseInt(form.assigneeId) : null,
+          dueDate:    form.dueDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '儲存失敗');
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={modalBox}>
+        <ModalHeader title="✏️ 編輯任務" onClose={onClose} />
+        <div style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>
+            所屬專案：{row.projectName}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <ErrBox msg={error} />
+            <div>
+              <label style={labelSt}>任務名稱 *</label>
+              <input style={inputSt} value={form.title}
+                onChange={e => set('title', e.target.value)} placeholder="輸入任務名稱" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={labelSt}>狀態</label>
+                <select style={inputSt} value={form.status} onChange={e => set('status', e.target.value)}>
+                  <option value="todo">待處理</option>
+                  <option value="in_progress">進行中</option>
+                  <option value="review">審查中</option>
+                  <option value="done">已完成</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelSt}>優先度</label>
+                <select style={inputSt} value={form.priority} onChange={e => set('priority', e.target.value)}>
+                  <option value="low">低</option>
+                  <option value="medium">中</option>
+                  <option value="high">高</option>
+                  <option value="urgent">緊急</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={labelSt}>負責人</label>
+                <select style={inputSt} value={form.assigneeId} onChange={e => set('assigneeId', e.target.value)}>
+                  <option value="">未指定</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelSt}>到期日</label>
+                <input type="date" style={inputSt} value={form.dueDate}
+                  onChange={e => set('dueDate', e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <ModalFooter onClose={onClose} onConfirm={handleSave} confirmLabel="儲存" saving={saving} />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// DeleteTaskModal — 刪除任務
+// ════════════════════════════════════════════════════════════
+function DeleteTaskModal({ row, onClose, onDeleted }) {
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const handleDelete = async () => {
+    setSaving(true); setError('');
+    try {
+      const res  = await fetch(`${API_BASE}/api/projects/tasks/${row.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
+      onDeleted();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalBox, maxWidth: '420px' }}>
+        <ModalHeader title="🗑️ 刪除任務" onClose={onClose} />
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ErrBox msg={error} />
+          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+            確定要刪除此任務嗎？此操作無法復原。
+          </p>
+          <div style={{
+            background: '#fafafa', border: '1px solid #e5e7eb',
+            borderRadius: '8px', padding: '12px 14px',
+          }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+              {row.title}
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              專案：{row.projectName}　狀態：{row.status}　優先度：{row.priority}
+            </div>
+            {row.assignee && row.assignee !== '未指定' && (
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                負責人：{row.assignee}
+              </div>
+            )}
+          </div>
+        </div>
+        <ModalFooter
+          onClose={onClose} onConfirm={handleDelete}
+          confirmLabel="確認刪除" confirmColor="#dc2626" saving={saving}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// EditMilestoneModal — 編輯里程碑
+// ════════════════════════════════════════════════════════════
+function EditMilestoneModal({ row, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:        row.name        || '',
+    dueDate:     row.dueDate     || '',
+    color:       row.colorRaw    || 'green',
+    isAchieved:  Boolean(row.isAchieved),
+    description: row.description || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { setError('請輸入里程碑名稱'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/milestones/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:        form.name.trim(),
+          dueDate:     form.dueDate || null,
+          color:       form.color,
+          isAchieved:  form.isAchieved,
+          description: form.description,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '儲存失敗');
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={modalBox}>
+        <ModalHeader title="✏️ 編輯里程碑" onClose={onClose} />
+        <div style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>
+            所屬專案：{row.projectName}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <ErrBox msg={error} />
+            <div>
+              <label style={labelSt}>里程碑名稱 *</label>
+              <input style={inputSt} value={form.name}
+                onChange={e => set('name', e.target.value)} placeholder="輸入里程碑名稱" />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={labelSt}>預計達成日期</label>
+                <input type="date" style={inputSt} value={form.dueDate}
+                  onChange={e => set('dueDate', e.target.value)} />
+              </div>
+              <div>
+                <label style={labelSt}>風險等級</label>
+                <select style={inputSt} value={form.color} onChange={e => set('color', e.target.value)}>
+                  <option value="green">綠（正常）</option>
+                  <option value="yellow">黃（需注意）</option>
+                  <option value="red">紅（高風險）</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={{
+                ...labelSt, display: 'flex', alignItems: 'center',
+                gap: '8px', cursor: 'pointer', fontWeight: '400',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={form.isAchieved}
+                  onChange={e => set('isAchieved', e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span style={{ fontWeight: '600', color: '#374151' }}>標記為已達成</span>
+              </label>
+            </div>
+            <div>
+              <label style={labelSt}>說明</label>
+              <textarea
+                style={{ ...inputSt, minHeight: '72px', resize: 'vertical' }}
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="輸入里程碑說明（選填）"
+              />
+            </div>
+          </div>
+        </div>
+        <ModalFooter onClose={onClose} onConfirm={handleSave} confirmLabel="儲存" saving={saving} />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// DeleteMilestoneModal — 刪除里程碑（硬刪除）
+// ════════════════════════════════════════════════════════════
+function DeleteMilestoneModal({ row, onClose, onDeleted }) {
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const handleDelete = async () => {
+    setSaving(true); setError('');
+    try {
+      const res  = await fetch(`${API_BASE}/api/projects/milestones/${row.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
+      onDeleted();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...modalBox, maxWidth: '420px' }}>
+        <ModalHeader title="🗑️ 刪除里程碑" onClose={onClose} />
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ErrBox msg={error} />
+          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+            確定要刪除此里程碑嗎？此操作無法復原。
+          </p>
+          <div style={{
+            background: '#fafafa', border: '1px solid #e5e7eb',
+            borderRadius: '8px', padding: '12px 14px',
+          }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+              {row.name}
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              專案：{row.projectName}　狀態：{row.statusLabel}
+              {row.dueDate ? `　預計日期：${row.dueDate}` : ''}
+            </div>
+          </div>
+        </div>
+        <ModalFooter
+          onClose={onClose} onConfirm={handleDelete}
+          confirmLabel="確認刪除" confirmColor="#dc2626" saving={saving}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 // 摘要卡片列
 // ════════════════════════════════════════════════════════════
 function SummaryCards({ type, summary }) {
@@ -160,11 +741,14 @@ function SummaryCards({ type, summary }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// 資料表格
+// 資料表格（支援 onEditRow / onDeleteRow 操作欄）
 // ════════════════════════════════════════════════════════════
-function DataTable({ columns, rows, currentPage, onPageChange }) {
-  const totalPages = Math.ceil(rows.length / PAGE_SIZE);
-  const pageRows   = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDeleteRow }) {
+  const [hoveredRow, setHoveredRow] = useState(null);
+
+  const totalPages  = Math.ceil(rows.length / PAGE_SIZE);
+  const pageRows    = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const hasActions  = Boolean(onEditRow || onDeleteRow);
 
   const renderCell = (col, row) => {
     const val = row[col.key];
@@ -180,13 +764,10 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
             <div style={{
               width: `${pct}%`, height: '100%',
               background: pct >= 80 ? '#10b981' : pct >= 50 ? '#3b82f6' : '#f59e0b',
-              borderRadius: '3px',
-              transition: 'width 0.3s',
+              borderRadius: '3px', transition: 'width 0.3s',
             }} />
           </div>
-          <span style={{ fontSize: '12px', color: '#374151', minWidth: '32px' }}>
-            {pct}%
-          </span>
+          <span style={{ fontSize: '12px', color: '#374151', minWidth: '32px' }}>{pct}%</span>
         </div>
       );
     }
@@ -228,25 +809,20 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
       const colorMap = { '紅（高風險）': '#dc2626', '黃（需注意）': '#d97706', '綠（正常）': '#16a34a' };
       const color = colorMap[val] || '#6b7280';
       return (
-        <span style={{ color, fontWeight: '500', fontSize: '13px' }}>
-          ● {val}
-        </span>
+        <span style={{ color, fontWeight: '500', fontSize: '13px' }}>● {val}</span>
       );
     }
 
     if (col.type === 'number') {
       return (
-        <span style={{ fontFamily: 'tabular-nums', color: '#374151' }}>
-          {val ?? '—'}
-        </span>
+        <span style={{ fontFamily: 'tabular-nums', color: '#374151' }}>{val ?? '—'}</span>
       );
     }
 
     return (
       <span style={{
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        display: 'block', maxWidth: '280px',
-        color: '#374151',
+        display: 'block', maxWidth: '280px', color: '#374151',
       }}>
         {val || '—'}
       </span>
@@ -257,43 +833,52 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
     <div>
       {/* 表格 */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{
-          width:           '100%',
-          borderCollapse:  'collapse',
-          fontSize:        '13px',
-        }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
               {columns.map(col => (
                 <th key={col.key} style={{
-                  padding:   '10px 14px',
-                  textAlign: col.type === 'number' || col.type === 'percent' ? 'center' : 'left',
+                  padding:    '10px 14px',
+                  textAlign:  col.type === 'number' || col.type === 'percent' ? 'center' : 'left',
                   fontWeight: '600',
-                  color:     '#6b7280',
-                  fontSize:  '12px',
+                  color:      '#6b7280',
+                  fontSize:   '12px',
                   whiteSpace: 'nowrap',
                 }}>
                   {col.label}
                 </th>
               ))}
+              {hasActions && (
+                <th style={{
+                  padding: '10px 14px', textAlign: 'center',
+                  fontWeight: '600', color: '#6b7280', fontSize: '12px',
+                  whiteSpace: 'nowrap', width: '80px',
+                }}>
+                  操作
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} style={{
-                  padding: '40px', textAlign: 'center', color: '#9ca3af',
-                }}>
+                <td
+                  colSpan={columns.length + (hasActions ? 1 : 0)}
+                  style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}
+                >
                   無資料
                 </td>
               </tr>
             ) : pageRows.map((row, i) => (
-              <tr key={row.id ?? i} style={{
-                borderBottom: '1px solid #f3f4f6',
-                background:   i % 2 === 0 ? 'white' : '#fafafa',
-              }}
-                onMouseOver={e => e.currentTarget.style.background = '#eff6ff'}
-                onMouseOut={e => e.currentTarget.style.background = i % 2 === 0 ? 'white' : '#fafafa'}
+              <tr
+                key={row.id ?? i}
+                style={{
+                  borderBottom: '1px solid #f3f4f6',
+                  background:   hoveredRow === i ? '#eff6ff' : i % 2 === 0 ? 'white' : '#fafafa',
+                  transition:   'background 0.1s',
+                }}
+                onMouseEnter={() => setHoveredRow(i)}
+                onMouseLeave={() => setHoveredRow(null)}
               >
                 {columns.map(col => (
                   <td key={col.key} style={{
@@ -303,6 +888,48 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
                     {renderCell(col, row)}
                   </td>
                 ))}
+                {hasActions && (
+                  <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    {row.id && (
+                      <div style={{
+                        display: 'flex', justifyContent: 'center', gap: '4px',
+                        opacity:    hoveredRow === i ? 1 : 0,
+                        transition: 'opacity 0.15s',
+                      }}>
+                        {onEditRow && (
+                          <button
+                            onClick={() => onEditRow(row)}
+                            title="編輯"
+                            style={{
+                              background: 'none', border: '1px solid #bfdbfe',
+                              borderRadius: '5px', padding: '3px 8px',
+                              cursor: 'pointer', fontSize: '13px', color: '#3b82f6',
+                            }}
+                            onMouseOver={e => e.currentTarget.style.background = '#dbeafe'}
+                            onMouseOut={e => e.currentTarget.style.background = 'none'}
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        {onDeleteRow && (
+                          <button
+                            onClick={() => onDeleteRow(row)}
+                            title="刪除"
+                            style={{
+                              background: 'none', border: '1px solid #fecaca',
+                              borderRadius: '5px', padding: '3px 8px',
+                              cursor: 'pointer', fontSize: '13px', color: '#ef4444',
+                            }}
+                            onMouseOver={e => e.currentTarget.style.background = '#fee2e2'}
+                            onMouseOut={e => e.currentTarget.style.background = 'none'}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -323,17 +950,8 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
             共 {rows.length} 筆，第 {currentPage}/{totalPages} 頁
           </span>
           <div style={{ display: 'flex', gap: '4px' }}>
-            <PaginBtn
-              label="«"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(1)}
-            />
-            <PaginBtn
-              label="‹"
-              disabled={currentPage === 1}
-              onClick={() => onPageChange(currentPage - 1)}
-            />
-            {/* 頁碼（最多顯示 5 個） */}
+            <PaginBtn label="«" disabled={currentPage === 1} onClick={() => onPageChange(1)} />
+            <PaginBtn label="‹" disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} />
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               let page;
               if (totalPages <= 5) page = i + 1;
@@ -341,24 +959,12 @@ function DataTable({ columns, rows, currentPage, onPageChange }) {
               else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
               else page = currentPage - 2 + i;
               return (
-                <PaginBtn
-                  key={page}
-                  label={String(page)}
-                  active={page === currentPage}
-                  onClick={() => onPageChange(page)}
-                />
+                <PaginBtn key={page} label={String(page)}
+                  active={page === currentPage} onClick={() => onPageChange(page)} />
               );
             })}
-            <PaginBtn
-              label="›"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(currentPage + 1)}
-            />
-            <PaginBtn
-              label="»"
-              disabled={currentPage === totalPages}
-              onClick={() => onPageChange(totalPages)}
-            />
+            <PaginBtn label="›" disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} />
+            <PaginBtn label="»" disabled={currentPage === totalPages} onClick={() => onPageChange(totalPages)} />
           </div>
         </div>
       )}
@@ -391,8 +997,8 @@ function PaginBtn({ label, onClick, disabled, active }) {
 // 篩選列
 // ════════════════════════════════════════════════════════════
 function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
-  const today   = todayStr();
-  const ago30   = daysAgoStr(29);
+  const today = todayStr();
+  const ago30 = daysAgoStr(29);
 
   return (
     <div style={{
@@ -404,8 +1010,6 @@ function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
       background:   '#f8fafc',
       borderBottom: '1px solid #e5e7eb',
     }}>
-      {/* 依類型顯示不同篩選選項 */}
-
       {/* 任務報表：專案篩選 + 狀態篩選 */}
       {type === 'tasks' && (
         <>
@@ -522,11 +1126,12 @@ const filterInputStyle = {
 // ════════════════════════════════════════════════════════════
 export default function ReportsPage() {
   const [activeType,  setActiveType]  = useState('projects');
-  const [reportData,  setReportData]  = useState(null);  // { type, title, columns, rows, summary }
+  const [reportData,  setReportData]  = useState(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState(null);
   const [page,        setPage]        = useState(1);
   const [projects,    setProjects]    = useState([]);
+  const [users,       setUsers]       = useState([]);
   const [filters,     setFilters]     = useState({
     projectId: null,
     status:    null,
@@ -535,12 +1140,18 @@ export default function ReportsPage() {
     groupBy:   'project',
   });
   const [exporting,   setExporting]   = useState(false);
+  const [editItem,    setEditItem]    = useState(null);   // 正在編輯的列資料
+  const [deleteItem,  setDeleteItem]  = useState(null);  // 正在刪除的列資料
+  const [toast,       setToast]       = useState(null);  // { msg, type }
 
-  // 載入篩選選項（專案清單）
+  // 載入篩選選項（專案清單 + 成員清單）
   useEffect(() => {
     fetch(`${API_BASE}/api/reports/filter-options?companyId=${COMPANY_ID}`)
       .then(r => r.json())
-      .then(d => setProjects(d.projects || []))
+      .then(d => {
+        setProjects(d.projects || []);
+        setUsers(d.users || []);
+      })
       .catch(() => {});
   }, []);
 
@@ -581,6 +1192,26 @@ export default function ReportsPage() {
     }
   }, [activeType, filters]);
 
+  // 顯示 Toast 提示
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // 儲存後回呼：關閉彈窗、重新載入報表、顯示提示
+  const handleSaved = () => {
+    setEditItem(null);
+    generateReport(activeType);
+    showToast('已成功儲存');
+  };
+
+  // 刪除後回呼：關閉彈窗、重新載入報表、顯示提示
+  const handleDeleted = () => {
+    setDeleteItem(null);
+    generateReport(activeType);
+    showToast('已成功刪除');
+  };
+
   // 匯出 CSV
   const handleExportCSV = async () => {
     setExporting(true);
@@ -594,7 +1225,6 @@ export default function ReportsPage() {
         url += `&startDate=${filters.startDate}&endDate=${filters.endDate}&groupBy=${filters.groupBy}`;
       }
 
-      // 使用 fetch + Blob 觸發下載（避免直接開新視窗被攔截）
       const res = await fetch(url);
       if (!res.ok) throw new Error('匯出失敗');
 
@@ -618,7 +1248,12 @@ export default function ReportsPage() {
   };
 
   const activeReportType = REPORT_TYPES.find(r => r.id === activeType);
-  const showFilters = activeType === 'tasks' || activeType === 'timelog';
+  const showFilters      = activeType === 'tasks' || activeType === 'timelog';
+
+  // 工時報表為彙總資料，不提供行級操作
+  const canEditRow   = reportData && reportData.type !== 'timelog';
+  const handleEditRow   = canEditRow ? (row) => setEditItem(row)   : undefined;
+  const handleDeleteRow = canEditRow ? (row) => setDeleteItem(row) : undefined;
 
   // ════════════════════════════════════════════════════════
   // 渲染
@@ -628,20 +1263,20 @@ export default function ReportsPage() {
 
       {/* ── 頁面標題列 ─────────────────────────────────── */}
       <div style={{
-        background:   'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding:      '14px 24px',
-        display:      'flex',
-        alignItems:   'center',
+        background:     'white',
+        borderBottom:   '1px solid #e5e7eb',
+        padding:        '14px 24px',
+        display:        'flex',
+        alignItems:     'center',
         justifyContent: 'space-between',
-        flexShrink:   0,
+        flexShrink:     0,
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827' }}>
             📄 報表匯出
           </h1>
           <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9ca3af' }}>
-            產生各類分析報表，支援 CSV 格式下載
+            產生各類分析報表，支援 CSV 格式下載；專案、任務、里程碑支援行內編輯與刪除
           </p>
         </div>
         {/* 匯出按鈕 */}
@@ -674,20 +1309,20 @@ export default function ReportsPage() {
 
         {/* 左側：報表類型選單 */}
         <div style={{
-          width:        '220px',
-          flexShrink:   0,
-          background:   'white',
-          borderRight:  '1px solid #e5e7eb',
-          padding:      '16px 12px',
-          overflowY:    'auto',
+          width:       '220px',
+          flexShrink:  0,
+          background:  'white',
+          borderRight: '1px solid #e5e7eb',
+          padding:     '16px 12px',
+          overflowY:   'auto',
         }}>
           <div style={{
-            fontSize:     '11px',
-            fontWeight:   '700',
-            color:        '#9ca3af',
+            fontSize:      '11px',
+            fontWeight:    '700',
+            color:         '#9ca3af',
             letterSpacing: '0.08em',
-            marginBottom: '8px',
-            paddingLeft:  '8px',
+            marginBottom:  '8px',
+            paddingLeft:   '8px',
           }}>
             報表類型
           </div>
@@ -721,11 +1356,11 @@ export default function ReportsPage() {
               </div>
               {activeType === rt.id && (
                 <div style={{
-                  fontSize:   '11px',
-                  color:      '#9ca3af',
-                  marginTop:  '4px',
+                  fontSize:    '11px',
+                  color:       '#9ca3af',
+                  marginTop:   '4px',
                   paddingLeft: '24px',
-                  lineHeight: 1.4,
+                  lineHeight:  1.4,
                 }}>
                   {rt.description}
                 </div>
@@ -791,8 +1426,7 @@ export default function ReportsPage() {
                   onClick={() => generateReport(activeType)}
                   style={{
                     background: '#3b82f6', color: 'white', border: 'none',
-                    borderRadius: '8px', padding: '8px 18px', cursor: 'pointer',
-                    fontWeight: '600',
+                    borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontWeight: '600',
                   }}
                 >
                   重試
@@ -840,7 +1474,6 @@ export default function ReportsPage() {
                           key={val}
                           onClick={() => {
                             updateFilter('groupBy', val);
-                            // 立即重新查詢
                             setTimeout(() => generateReport(activeType), 50);
                           }}
                           style={{
@@ -874,6 +1507,8 @@ export default function ReportsPage() {
                     rows={reportData.rows}
                     currentPage={page}
                     onPageChange={setPage}
+                    onEditRow={handleEditRow}
+                    onDeleteRow={handleDeleteRow}
                   />
                 </div>
               </>
@@ -892,6 +1527,78 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Toast 通知 ───────────────────────────────────── */}
+      {toast && (
+        <div style={{
+          position:     'fixed',
+          bottom:       '24px',
+          right:        '24px',
+          background:   toast.type === 'error' ? '#dc2626' : '#10b981',
+          color:        'white',
+          padding:      '12px 20px',
+          borderRadius: '10px',
+          fontSize:     '14px',
+          fontWeight:   '600',
+          boxShadow:    '0 4px 16px rgba(0,0,0,0.2)',
+          zIndex:       2000,
+          animation:    'fadeIn 0.2s ease',
+        }}>
+          {toast.type === 'error' ? '❌ ' : '✅ '}{toast.msg}
+        </div>
+      )}
+
+      {/* ── 編輯/刪除彈跳視窗 ────────────────────────────── */}
+
+      {/* 專案 */}
+      {editItem && reportData?.type === 'projects' && (
+        <EditProjectModal
+          row={editItem} users={users}
+          onClose={() => setEditItem(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {deleteItem && reportData?.type === 'projects' && (
+        <DeleteProjectModal
+          row={deleteItem}
+          onClose={() => setDeleteItem(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
+
+      {/* 任務 */}
+      {editItem && reportData?.type === 'tasks' && (
+        <EditTaskModal
+          row={editItem} users={users}
+          onClose={() => setEditItem(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {deleteItem && reportData?.type === 'tasks' && (
+        <DeleteTaskModal
+          row={deleteItem}
+          onClose={() => setDeleteItem(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
+
+      {/* 里程碑 */}
+      {editItem && reportData?.type === 'milestones' && (
+        <EditMilestoneModal
+          row={editItem}
+          onClose={() => setEditItem(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {deleteItem && reportData?.type === 'milestones' && (
+        <DeleteMilestoneModal
+          row={deleteItem}
+          onClose={() => setDeleteItem(null)}
+          onDeleted={handleDeleted}
+        />
+      )}
+
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );
 }

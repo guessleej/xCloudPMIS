@@ -257,6 +257,7 @@ router.get('/tasks', async (req, res) => {
       title:          t.title,
       projectName:    t.project.name,
       projectId:      t.project.id,
+      assigneeId:     t.assigneeId,
       assignee:       t.assignee?.name || '未指定',
       status:         TASK_STATUS[t.status] || t.status,
       statusRaw:      t.status,

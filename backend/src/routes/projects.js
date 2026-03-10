@@ -525,4 +525,62 @@ router.delete('/tasks/:taskId', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+// PATCH /api/projects/milestones/:milestoneId
+// 更新里程碑（名稱、到期日、顏色、說明、是否達成）
+// ════════════════════════════════════════════════════════════
+router.patch('/milestones/:milestoneId', async (req, res) => {
+  const milestoneId = parseInt(req.params.milestoneId);
+  if (isNaN(milestoneId)) return err(res, '無效的里程碑 ID', 400);
+
+  const { name, dueDate, color, description, isAchieved } = req.body;
+
+  try {
+    const existing = await prisma.milestone.findUnique({ where: { id: milestoneId } });
+    if (!existing) return err(res, `找不到里程碑 #${milestoneId}`, 404);
+
+    const data = {};
+    if (name        !== undefined) data.name        = name.trim();
+    if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
+    if (color       !== undefined) data.color       = color;
+    if (description !== undefined) data.description = description;
+    if (isAchieved  !== undefined) {
+      data.isAchieved = Boolean(isAchieved);
+      // 標為達成且原本未記錄達成時間 → 自動補上時間戳
+      if (Boolean(isAchieved) && !existing.achievedAt) data.achievedAt = new Date();
+      // 取消達成 → 清除達成時間
+      if (!Boolean(isAchieved)) data.achievedAt = null;
+    }
+
+    const updated = await prisma.milestone.update({ where: { id: milestoneId }, data });
+    ok(res, updated);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/milestones/:milestoneId
+// 刪除里程碑（里程碑無 deletedAt，直接硬刪除）
+// ════════════════════════════════════════════════════════════
+router.delete('/milestones/:milestoneId', async (req, res) => {
+  const milestoneId = parseInt(req.params.milestoneId);
+  if (isNaN(milestoneId)) return err(res, '無效的里程碑 ID', 400);
+
+  try {
+    const existing = await prisma.milestone.findUnique({
+      where:  { id: milestoneId },
+      select: { id: true, name: true },
+    });
+    if (!existing) return err(res, `找不到里程碑 #${milestoneId}`, 404);
+
+    await prisma.milestone.delete({ where: { id: milestoneId } });
+    res.json({ success: true, message: `里程碑「${existing.name}」已刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
 module.exports = router;
