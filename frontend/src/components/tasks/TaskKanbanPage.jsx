@@ -10,9 +10,16 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import RealtimeEditor from '../RealtimeEditor';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const API = 'http://localhost:3010/api/projects';
+
+/**
+ * 當前用戶（暫用佔位符，待整合認證系統後改為從 AuthContext 取得）
+ * 協作伺服器開發模式允許匿名（任意 id/name 均可）
+ */
+const CURRENT_USER = { id: 0, name: '我', color: '#4f46e5' };
 
 const COLUMNS = [
   { id: 'todo',        label: '待辦',   emoji: '📋', color: '#6b7280' },
@@ -462,7 +469,8 @@ function EditTaskModal({ task, users, onSave, onClose, onDeleteRequest }) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           title:       form.title.trim(),
-          description: form.description,
+          // 說明欄位由 Yjs 協作伺服器負責自動儲存（debounce 2s），
+          // 此處不送出 description，避免 PATCH 覆蓋 Yjs 最新版本。
           status:      form.status,
           priority:    form.priority,
           assigneeId:  form.assigneeId ? parseInt(form.assigneeId) : null,
@@ -488,7 +496,7 @@ function EditTaskModal({ task, users, onSave, onClose, onDeleteRequest }) {
     }} onClick={onClose}>
       <div style={{
         background: '#fff', borderRadius: 14,
-        width: 480, maxHeight: '85vh',
+        width: 720, maxHeight: '92vh',
         overflow: 'auto', padding: 28,
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
       }} onClick={e => e.stopPropagation()}>
@@ -531,12 +539,29 @@ function EditTaskModal({ task, users, onSave, onClose, onDeleteRequest }) {
               <input style={inputStyle} value={form.title}
                 onChange={e => set('title', e.target.value)} required autoFocus />
             </div>
+            {/* ── 即時協作說明編輯器 ── */}
             <div>
-              <label style={labelStyle}>說明</label>
-              <textarea style={{ ...inputStyle, height: 80, resize: 'vertical' }}
-                value={form.description}
-                onChange={e => set('description', e.target.value)} />
+              <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+                說明
+                <span style={{
+                  fontSize: '10px', fontWeight: 600,
+                  background: '#ede9fe', color: '#7c3aed',
+                  padding: '2px 7px', borderRadius: 10,
+                }}>
+                  🤝 即時協作
+                </span>
+                <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 400 }}>
+                  支援多人同時編輯・自動儲存・AI 建議
+                </span>
+              </label>
+              <RealtimeEditor
+                taskId={task.id}
+                user={CURRENT_USER}
+                onSave={(text) => set('description', text)}
+                placeholder="輸入任務描述⋯ 支援 Markdown 語法，其他協作者的修改會即時顯示"
+              />
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label style={labelStyle}>狀態</label>
