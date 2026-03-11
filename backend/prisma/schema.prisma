@@ -37,9 +37,10 @@ model Company {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users    User[]
-  projects Project[]
-  tags     Tag[]      // ← Phase 3 新增：公司共用標籤庫
+  users         User[]
+  projects      Project[]
+  tags          Tag[]           // ← Phase 3 新增：公司共用標籤庫
+  aiModelConfig AiModelConfig[] // ← Phase 4 新增：AI 模型設定
 
   @@map("companies")
 }
@@ -68,6 +69,9 @@ model User {
   comments      Comment[]      // 這個人發的所有評論
   notifications Notification[] // 這個人收到的所有通知
   activityLogs  ActivityLog[]  // 這個人造成的所有變更記錄
+
+  // ── OAuth 整合 ────────────────────────────────────────
+  oauthToken    OAuthToken?    // Microsoft 365 Delegated 授權 Token（每人最多一個）
 
   @@index([companyId])
   @@index([email])
@@ -98,6 +102,7 @@ model Project {
   owner      User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   tasks      Task[]
   milestones Milestone[] // ← Phase 3 新增：里程碑
+  aiDecisions AiDecision[] // ← AI 自主代理決策記錄
 
   @@index([companyId])
   @@index([ownerId])
@@ -156,6 +161,7 @@ model Task {
   comments        Comment[]     // 這個任務的所有評論
   activityLogs    ActivityLog[] // 這個任務的所有變更歷史
   taskTags        TaskTag[]     // 這個任務的所有標籤（多對多）
+  aiDecisions     AiDecision[]  // ← AI 自主代理決策記錄
 
   @@index([projectId])
   @@index([assigneeId])
@@ -457,4 +463,238 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// OAuth 整合：Microsoft 365 Delegated Permissions Token 管理
+// ════════════════════════════════════════════════════════════
+//
+// 為什麼要加密儲存 Token？
+//   - Access Token 短期有效（1 小時），洩露影響有限
+//   - Refresh Token 長期有效（最長 90 天），必須加密保護
+//   - 演算法：AES-256-GCM（帶 Auth Tag，防止篡改）
+//   - 加密 Key：OAUTH_TOKEN_ENCRYPTION_KEY 環境變數（64 hex chars = 32 bytes）
+//
+// Token 生命週期：
+//   Authorization Code → Access Token (1h) + Refresh Token (90d)
+//   Access Token 到期 → 用 Refresh Token 自動更新
+//   Refresh Token 失效 → isActive=false，提示用戶重新授權
+//
+// 與 Client Credentials Flow 並存：
+//   OAuthToken 存在且 isActive=true  → 用 Delegated（代表用戶）
+//   OAuthToken 不存在或 isActive=false → Fallback 到 Application（系統信箱）
+// ─────────────────────────────────────────────────────────
+
+model OAuthToken {
+  id              Int       @id @default(autoincrement())
+  /// 一個用戶只能連結一個 Microsoft 帳號（unique 確保）
+  userId          Int       @unique @map("user_id")
+  provider        String    @default("microsoft") @db.VarChar(50)
+
+  // ── 加密儲存的 Tokens（格式：base64(iv):base64(ciphertext):base64(authTag)）
+  accessToken     String    @map("access_token")  @db.Text  // 短期 Token（1 小時），仍加密（防 DB 洩露）
+  refreshToken    String    @map("refresh_token") @db.Text  // 長期 Token（90 天），AES-256-GCM 加密
+  idToken         String?   @map("id_token")      @db.Text  // OpenID Connect ID Token（含用戶基本資訊）
+
+  // ── Token 元資料 ──────────────────────────────────────
+  /// 已授權的 Scopes，空格分隔，例如 "openid Mail.Send Calendars.ReadWrite"
+  scopes          String    @db.Text
+  expiresAt       DateTime  @map("expires_at")             // Access Token 到期時間
+  tenantId        String?   @map("tenant_id") @db.VarChar(100) // Azure AD 租用戶 ID
+
+  // ── Microsoft 帳號資訊 ────────────────────────────────
+  microsoftUserId String?   @map("microsoft_user_id") @db.VarChar(200) // MS Graph 用戶 OID（物件識別碼）
+  microsoftEmail  String?   @map("microsoft_email")   @db.VarChar(255) // 對應的公司 Email
+
+  // ── 狀態管理 ──────────────────────────────────────────
+  isActive        Boolean   @default(true) @map("is_active")
+  revokedAt       DateTime? @map("revoked_at")             // 用戶主動撤銷時記錄
+  lastRefreshedAt DateTime? @map("last_refreshed_at")      // 最後一次 Token 更新時間
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider])
+  @@index([expiresAt])   // 排程 Token 更新時使用
+  @@map("oauth_tokens")
+}
+
+// ════════════════════════════════════════════════════════════
+// Phase AI：自主代理決策記錄
+// ════════════════════════════════════════════════════════════
+
+// ── AI 決策記錄（包含完整 Chain of Thought）──────────────────
+//
+// 每一個 AI 自主決策都記錄在此：
+//   - Observe：收集的原始資料
+//   - Reason ：AI 的推理過程（CoT）
+//   - Plan   ：計劃執行的動作
+//   - Act    ：實際執行的動作（含影響範圍）
+//   - Reflect：反思與學習
+//
+// 回滾機制：
+//   snapshotData 儲存執行前的快照
+//   一鍵還原只需要 status = 'rolled_back' + 從 snapshotData 還原
+//
+// 審核流程（Human-in-the-Loop）：
+//   riskLevel 1 → AI 自動執行
+//   riskLevel 2 → 建議人類批准（approvedById 填入後執行）
+//   riskLevel 3 → 必須人類審查修改
+//   riskLevel 4 → 人類主導，AI 輔助
+// ─────────────────────────────────────────────────────────
+model AiDecision {
+  id            Int              @id @default(autoincrement())
+  sessionId     String           @map("session_id") @db.VarChar(100) // Agent 執行 session UUID
+  agentType     String           @map("agent_type") @db.VarChar(50)  // scheduler|risk|communication|quality
+  decisionType  String           @map("decision_type") @db.VarChar(100) // auto_firefight|resource_balance|...
+  projectId     Int?             @map("project_id")  // 關聯專案（可選）
+  taskId        Int?             @map("task_id")      // 關聯任務（可選）
+
+  // ── ReAct 推理鏈（Chain of Thought）──────────────────────
+  observations  Json             // Observe：收集的資料快照（任務狀態、工時等）
+  reasoning     String           @db.Text  // Reason：GPT-4 推理過程（完整 CoT 文字）
+  plan          Json             // Plan：計劃執行的動作列表
+  actions       Json             @default("[]") // Act：實際執行的動作結果
+  reflection    String?          @db.Text  // Reflect：反思（決策效果、改進建議）
+
+  // ── 執行狀態 ──────────────────────────────────────────────
+  status        AiDecisionStatus @default(pending)
+  riskLevel     Int              @map("risk_level") @default(1) // 1~4
+
+  // ── 回滾支援 ──────────────────────────────────────────────
+  snapshotData  Json?            @map("snapshot_data")  // 執行前狀態快照（用於回滾）
+  rolledBackAt  DateTime?        @map("rolled_back_at")
+  rolledBackBy  Int?             @map("rolled_back_by") // 誰執行回滾
+
+  // ── 人類審核 ──────────────────────────────────────────────
+  approvedById  Int?             @map("approved_by_id")
+  approvedAt    DateTime?        @map("approved_at")
+  rejectedAt    DateTime?        @map("rejected_at")
+  rejectionNote String?          @map("rejection_note") @db.Text
+
+  // ── 效果追蹤（強化學習用）────────────────────────────────
+  humanAdopted  Boolean?         @map("human_adopted")  // 人類是否採納此決策
+  outcomeScore  Int?             @map("outcome_score")  // 結果評分 0-100（事後評估）
+  outcomeNote   String?          @map("outcome_note") @db.Text
+
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // ── 關聯 ──────────────────────────────────────────────────
+  logs          AiAgentLog[]     // 每個決策對應多條工具呼叫日誌
+  project       Project?         @relation(fields: [projectId],  references: [id], onDelete: SetNull)
+  task          Task?            @relation(fields: [taskId],     references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([agentType])
+  @@index([decisionType])
+  @@index([status])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([createdAt])
+  @@map("ai_decisions")
+}
+
+enum AiDecisionStatus {
+  pending      // 等待執行
+  staging      // 已寫入 Staging，等待人類批准
+  approved     // 已批准，準備執行
+  executing    // 執行中
+  completed    // 執行完成
+  rejected     // 被拒絕（人類否決）
+  rolled_back  // 已回滾（人類發現問題）
+  failed       // 執行失敗（系統錯誤）
+}
+
+// ── AI 代理執行日誌（細粒度操作記錄）────────────────────────
+//
+// 每個 AiDecision 對應多個 AiAgentLog（每次 tool call 一條記錄）
+// 讓人類清楚看到 AI 做了哪些原子操作
+// ─────────────────────────────────────────────────────────
+model AiAgentLog {
+  id           Int        @id @default(autoincrement())
+  decisionId   Int        @map("decision_id")
+  toolName     String     @map("tool_name") @db.VarChar(100) // 呼叫的 MCP tool 名稱
+  toolInput    Json       @map("tool_input")   // 傳入的參數
+  toolOutput   Json?      @map("tool_output")  // 回傳結果
+  success      Boolean    @default(true)
+  errorMessage String?    @map("error_message") @db.Text
+  executedAt   DateTime   @default(now()) @map("executed_at")
+  durationMs   Int?       @map("duration_ms")  // 執行時間（毫秒）
+
+  decision     AiDecision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@index([decisionId])
+  @@index([toolName])
+  @@index([executedAt])
+  @@map("ai_agent_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// Phase 4：AI 模型設定（OpenAI-Compatible API 設定）
+// ════════════════════════════════════════════════════════════
+
+// ── AI 模型設定（支援 OpenAI / Azure / Ollama / LM Studio / 自訂）────
+//
+// 設計目標：
+//   - 讓系統管理員透過 UI 設定 AI 模型，不需要修改 .env 再重啟
+//   - 支援任何 OpenAI-Compatible REST API（本地或雲端）
+//   - API Key 可為空（本地模型如 Ollama 不需要 Key）
+//   - 區分「複雜推理模型」與「輕量生成模型」，分別優化成本與品質
+//
+// 優先順序：資料庫設定 > 環境變數（ENV）
+//   有資料庫設定且 isActive=true → 使用資料庫設定
+//   否則 → 回退到 OPENAI_API_KEY 等環境變數
+//
+// Provider 預設：
+//   openai    → https://api.openai.com/v1
+//   azure     → https://{resource}.openai.azure.com/openai/deployments/{deployment}
+//   ollama    → http://localhost:11434/v1
+//   lm_studio → http://localhost:1234/v1
+//   groq      → https://api.groq.com/openai/v1
+//   custom    → 使用者自行輸入
+// ─────────────────────────────────────────────────────────
+model AiModelConfig {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+
+  // ── Provider 識別 ────────────────────────────────────────
+  /// 提供者識別符：openai|azure|ollama|lm_studio|groq|custom
+  provider    String   @default("openai") @db.VarChar(50)
+
+  // ── 連線設定 ─────────────────────────────────────────────
+  /// OpenAI-Compatible API 基底 URL，例如 https://api.openai.com/v1
+  baseUrl     String   @default("https://api.openai.com/v1") @map("base_url") @db.VarChar(500)
+  /// API 金鑰（本地模型可為空；儲存時請注意 DB 安全）
+  apiKey      String?  @map("api_key") @db.Text
+
+  // ── 模型選擇 ─────────────────────────────────────────────
+  /// 複雜推理模型（任務拆解、風險分析）：需要最高智能
+  modelHeavy  String   @default("gpt-4o") @map("model_heavy") @db.VarChar(100)
+  /// 輕量生成模型（週報、摘要）：優化速度與成本
+  modelLight  String   @default("gpt-4o-mini") @map("model_light") @db.VarChar(100)
+
+  // ── 推理參數 ─────────────────────────────────────────────
+  maxTokens   Int      @default(2000) @map("max_tokens")
+  temperature Float    @default(0.3)
+
+  // ── 狀態 ─────────────────────────────────────────────────
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // ── 連線測試記錄 ─────────────────────────────────────────
+  lastTestedAt DateTime? @map("last_tested_at")
+  /// 最後一次連線測試的結果，例如 "success:gpt-4o" 或 "error:Connection refused"
+  testResult   String?   @map("test_result") @db.VarChar(200)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([isActive])
+  @@map("ai_model_configs")
 }
