@@ -18,6 +18,7 @@ const teamRouter          = require('./routes/team');
 const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
+const microsoftAuthRouter = require('./routes/auth/microsoft');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -146,6 +147,13 @@ app.use('/api/ai', aiDecisionsRouter);
 // ── 健康檢查路由（Email / Graph API 連線狀態）────────────────
 app.use('/api/health', healthRouter);
 
+// ── Microsoft OAuth 2.0 Delegated 授權路由 ───────────────────
+// GET    /auth/microsoft            → 發起 OAuth 流程
+// GET    /auth/microsoft/callback   → OAuth 回呼（交換 Token）
+// GET    /auth/microsoft/status     → 查詢連線狀態
+// DELETE /auth/microsoft/revoke     → 撤銷授權
+app.use('/auth/microsoft', microsoftAuthRouter);
+
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下
 // 實際路徑是 /api/projects/tasks 與 /api/projects/users
@@ -198,5 +206,11 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/settings/company`);
   console.log(`  GET  http://localhost:${PORT}/api/settings/profile`);
   console.log(`  GET  http://localhost:${PORT}/api/settings/system`);
+  console.log('');
+  console.log('🔐 Microsoft OAuth 端點：');
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft/callback (OAuth 回呼)`);
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft/status   (連線狀態)`);
+  console.log(`  DELETE http://localhost:${PORT}/auth/microsoft/revoke   (撤銷授權)`);
   console.log('');
 });

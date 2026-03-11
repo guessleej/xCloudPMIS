@@ -69,6 +69,9 @@ model User {
   notifications Notification[] // 這個人收到的所有通知
   activityLogs  ActivityLog[]  // 這個人造成的所有變更記錄
 
+  // ── OAuth 整合 ────────────────────────────────────────
+  oauthToken    OAuthToken?    // Microsoft 365 Delegated 授權 Token（每人最多一個）
+
   @@index([companyId])
   @@index([email])
   @@map("users")
@@ -459,6 +462,63 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// OAuth 整合：Microsoft 365 Delegated Permissions Token 管理
+// ════════════════════════════════════════════════════════════
+//
+// 為什麼要加密儲存 Token？
+//   - Access Token 短期有效（1 小時），洩露影響有限
+//   - Refresh Token 長期有效（最長 90 天），必須加密保護
+//   - 演算法：AES-256-GCM（帶 Auth Tag，防止篡改）
+//   - 加密 Key：OAUTH_TOKEN_ENCRYPTION_KEY 環境變數（64 hex chars = 32 bytes）
+//
+// Token 生命週期：
+//   Authorization Code → Access Token (1h) + Refresh Token (90d)
+//   Access Token 到期 → 用 Refresh Token 自動更新
+//   Refresh Token 失效 → isActive=false，提示用戶重新授權
+//
+// 與 Client Credentials Flow 並存：
+//   OAuthToken 存在且 isActive=true  → 用 Delegated（代表用戶）
+//   OAuthToken 不存在或 isActive=false → Fallback 到 Application（系統信箱）
+// ─────────────────────────────────────────────────────────
+
+model OAuthToken {
+  id              Int       @id @default(autoincrement())
+  /// 一個用戶只能連結一個 Microsoft 帳號（unique 確保）
+  userId          Int       @unique @map("user_id")
+  provider        String    @default("microsoft") @db.VarChar(50)
+
+  // ── 加密儲存的 Tokens（格式：base64(iv):base64(ciphertext):base64(authTag)）
+  accessToken     String    @map("access_token")  @db.Text  // 短期 Token（1 小時），仍加密（防 DB 洩露）
+  refreshToken    String    @map("refresh_token") @db.Text  // 長期 Token（90 天），AES-256-GCM 加密
+  idToken         String?   @map("id_token")      @db.Text  // OpenID Connect ID Token（含用戶基本資訊）
+
+  // ── Token 元資料 ──────────────────────────────────────
+  /// 已授權的 Scopes，空格分隔，例如 "openid Mail.Send Calendars.ReadWrite"
+  scopes          String    @db.Text
+  expiresAt       DateTime  @map("expires_at")             // Access Token 到期時間
+  tenantId        String?   @map("tenant_id") @db.VarChar(100) // Azure AD 租用戶 ID
+
+  // ── Microsoft 帳號資訊 ────────────────────────────────
+  microsoftUserId String?   @map("microsoft_user_id") @db.VarChar(200) // MS Graph 用戶 OID（物件識別碼）
+  microsoftEmail  String?   @map("microsoft_email")   @db.VarChar(255) // 對應的公司 Email
+
+  // ── 狀態管理 ──────────────────────────────────────────
+  isActive        Boolean   @default(true) @map("is_active")
+  revokedAt       DateTime? @map("revoked_at")             // 用戶主動撤銷時記錄
+  lastRefreshedAt DateTime? @map("last_refreshed_at")      // 最後一次 Token 更新時間
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([provider])
+  @@index([expiresAt])   // 排程 Token 更新時使用
+  @@map("oauth_tokens")
 }
 
 // ════════════════════════════════════════════════════════════
