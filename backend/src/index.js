@@ -176,6 +176,16 @@ app.use((err, req, res, next) => {
 
 // ── 啟動伺服器 ──────────────────────────────────────────────
 app.listen(PORT, () => {
+  // 服務啟動後，恢復被中斷的 AI 決策執行（防止 nodemon/崩潰導致卡在 approved/executing 狀態）
+  try {
+    const SafetyGuard = require('./services/autonomous-agent/decisionEngine/safetyGuard');
+    SafetyGuard.recoverInterruptedDecisions().catch(err =>
+      console.error('[Startup] SafetyGuard 恢復任務失敗:', err.message)
+    );
+  } catch (err) {
+    console.error('[Startup] 無法載入 SafetyGuard:', err.message);
+  }
+
   console.log('');
   console.log('╔════════════════════════════════════╗');
   console.log('║   xCloudPMIS 後端服務已啟動         ║');
