@@ -104,10 +104,17 @@ async function saveAiSettings(payload) {
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
   });
+  const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `儲存失敗：HTTP ${res.status}`);
+    // 顯示後端詳細錯誤（details 欄位）
+    throw new Error(body.details || body.error || `儲存失敗：HTTP ${res.status}`);
   }
+  return body;
+}
+
+async function fetchOllamaModels(baseUrl) {
+  const url = `${API_BASE}/api/settings/ai/ollama-models?baseUrl=${encodeURIComponent(baseUrl)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
   return res.json();
 }
 
@@ -133,12 +140,14 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
   const [temperature,  setTemperature]  = useState(0.3);
 
   // ── UI 狀態 ───────────────────────────────────────────────
-  const [loading,      setLoading]      = useState(false);   // 載入中
-  const [saving,       setSaving]       = useState(false);   // 儲存中
-  const [testing,      setTesting]      = useState(false);   // 測試中
-  const [testResult,   setTestResult]   = useState(null);    // { success, message, latencyMs }
-  const [error,        setError]        = useState(null);    // 錯誤訊息
-  const [saved,        setSaved]        = useState(false);   // 儲存成功提示
+  const [loading,       setLoading]       = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [testing,       setTesting]       = useState(false);
+  const [testResult,    setTestResult]    = useState(null);
+  const [error,         setError]         = useState(null);
+  const [saved,         setSaved]         = useState(false);
+  const [ollamaModels,  setOllamaModels]  = useState([]);    // Ollama 可用模型清單
+  const [loadingModels, setLoadingModels] = useState(false); // 載入 Ollama 模型中
 
   const currentProvider = PROVIDERS.find(p => p.id === provider) || PROVIDERS[PROVIDERS.length - 1];
 
@@ -170,12 +179,35 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
   const handleProviderChange = useCallback((pid) => {
     setProvider(pid);
     setTestResult(null);
+    setOllamaModels([]);
     const p = PROVIDERS.find(x => x.id === pid);
     if (!p) return;
     if (p.baseUrl) setBaseUrl(p.baseUrl);
     if (p.heavy)   setModelHeavy(p.heavy);
     if (p.light)   setModelLight(p.light);
   }, []);
+
+  // ── 載入 Ollama 可用模型 ──────────────────────────────────
+  const handleLoadOllamaModels = useCallback(async () => {
+    setLoadingModels(true);
+    setOllamaModels([]);
+    try {
+      const result = await fetchOllamaModels(baseUrl);
+      if (result.models?.length > 0) {
+        setOllamaModels(result.models);
+        // 自動填入第一個可用模型（若目前欄位是預設值或空值）
+        const defaultHeavy = ['llama3.1', 'llama3.2', ''];
+        if (defaultHeavy.includes(modelHeavy)) setModelHeavy(result.models[0].name);
+        if (defaultHeavy.includes(modelLight)) setModelLight(result.models[result.models.length > 1 ? 1 : 0].name);
+      } else {
+        setError(result.error || 'Ollama 目前沒有已下載的模型，請先執行 ollama pull <model>');
+      }
+    } catch (err) {
+      setError('載入 Ollama 模型失敗：' + err.message);
+    } finally {
+      setLoadingModels(false);
+    }
+  }, [baseUrl, modelHeavy, modelLight]);
 
   // ── 測試連線 ──────────────────────────────────────────────
   const handleTest = useCallback(async () => {
@@ -427,6 +459,98 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
                 </p>
               </div>
 
+              {/* Ollama / LM Studio：載入已安裝模型 */}
+              {(provider === 'ollama' || provider === 'lmstudio') && (
+                <div className="space-y-2">
+                  {/* 載入按鈕 + 計數 */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleLoadOllamaModels}
+                      disabled={loadingModels}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: loadingModels ? 'rgba(255,255,255,0.04)' : 'rgba(99,102,241,0.15)',
+                        border: '1px solid rgba(99,102,241,0.35)',
+                        color: loadingModels ? 'rgba(255,255,255,0.3)' : '#a5b4fc',
+                        cursor: loadingModels ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {loadingModels ? (
+                        <>
+                          <span
+                            className="inline-block w-3 h-3 rounded-full border-2 animate-spin"
+                            style={{ borderColor: 'rgba(165,180,252,0.3)', borderTopColor: '#a5b4fc' }}
+                          />
+                          載入中⋯
+                        </>
+                      ) : (
+                        <>🔍 載入可用模型</>
+                      )}
+                    </button>
+                    {ollamaModels.length > 0 && (
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        找到 {ollamaModels.length} 個模型 ── 點名稱→主力　點「輕」→輕量
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 模型 Chips */}
+                  {ollamaModels.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {ollamaModels.map(m => (
+                        <span
+                          key={m.name}
+                          className="inline-flex items-center"
+                          style={{
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                          }}
+                        >
+                          {/* 名稱 → 設為主力模型 */}
+                          <button
+                            type="button"
+                            onClick={() => setModelHeavy(m.name)}
+                            className="px-2 py-1 text-xs font-mono transition-colors"
+                            style={{
+                              background: modelHeavy === m.name
+                                ? 'rgba(99,102,241,0.28)'
+                                : 'rgba(255,255,255,0.06)',
+                              color: modelHeavy === m.name ? '#a5b4fc' : 'rgba(255,255,255,0.7)',
+                              borderRight: '1px solid rgba(255,255,255,0.08)',
+                            }}
+                            title={`設為主力模型${m.size ? `（${m.size}）` : ''}`}
+                          >
+                            {m.name}
+                            {m.size && (
+                              <span style={{ marginLeft: 4, color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem' }}>
+                                {m.size}
+                              </span>
+                            )}
+                          </button>
+                          {/* 「輕」→ 設為輕量模型 */}
+                          <button
+                            type="button"
+                            onClick={() => setModelLight(m.name)}
+                            className="px-1.5 py-1 text-xs transition-colors"
+                            style={{
+                              background: modelLight === m.name
+                                ? 'rgba(139,92,246,0.25)'
+                                : 'rgba(255,255,255,0.03)',
+                              color: modelLight === m.name ? '#c4b5fd' : 'rgba(255,255,255,0.3)',
+                            }}
+                            title="設為輕量模型"
+                          >
+                            輕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 模型設定（兩欄） */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -451,6 +575,7 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
                   />
                   <datalist id="heavy-model-list">
                     {currentProvider.models.map(m => <option key={m} value={m} />)}
+                    {ollamaModels.map(m => <option key={`o-h-${m.name}`} value={m.name} />)}
                   </datalist>
                 </div>
                 <div>
@@ -475,6 +600,7 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
                   />
                   <datalist id="light-model-list">
                     {currentProvider.models.map(m => <option key={m} value={m} />)}
+                    {ollamaModels.map(m => <option key={`o-l-${m.name}`} value={m.name} />)}
                   </datalist>
                 </div>
               </div>
