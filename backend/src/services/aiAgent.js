@@ -37,6 +37,7 @@
 'use strict';
 
 const OpenAI = require('openai');
+const { PrismaClient } = require('@prisma/client');
 
 // ════════════════════════════════════════════════════════════
 // 設定
@@ -44,33 +45,114 @@ const OpenAI = require('openai');
 
 const LANGUAGE     = process.env.AI_LANGUAGE     || 'zh-TW（繁體中文）';
 const COMPANY_NAME = process.env.AI_COMPANY_NAME || '公司';
-const MAX_TOKENS   = parseInt(process.env.AI_MAX_TOKENS) || 2000;
 
-// 模型選擇
-const MODEL_HEAVY = 'gpt-4o';        // 複雜推理（任務拆解、風險分析）
-const MODEL_LIGHT = 'gpt-4o-mini';   // 文字生成（週報、摘要）
+// ── 動態模型設定（DB 優先，ENV 回退）──────────────────────────
+// 設定快取：30 秒 TTL，避免每次 AI 呼叫都查 DB
+const CONFIG_CACHE_TTL_MS = 30_000;
+let _configCache     = null;  // { baseUrl, apiKey, modelHeavy, modelLight, maxTokens }
+let _configExpiry    = 0;
 
-// 懶初始化 OpenAI 客戶端
-let _client = null;
+// 客戶端快取：只有設定改變時才重建
+let _client          = null;
+let _clientConfigKey = '';    // 用來偵測設定是否變更
 
-function getClient() {
-  if (_client) return _client;
+const _prisma = new PrismaClient();
 
-  if (!process.env.OPENAI_API_KEY) {
+/**
+ * 取得目前有效的模型設定（DB 優先，ENV 回退）
+ * @param {number} [companyId]  公司 ID（預設 1，多公司環境下傳入）
+ * @returns {Promise<{baseUrl:string|null, apiKey:string, modelHeavy:string, modelLight:string, maxTokens:number}>}
+ */
+async function getActiveConfig(companyId = 2) {
+  const now = Date.now();
+  if (_configCache && now < _configExpiry) return _configCache;
+
+  try {
+    const record = await _prisma.aiModelConfig.findFirst({
+      where:   { companyId, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+      select:  {
+        baseUrl:    true,
+        apiKey:     true,
+        modelHeavy: true,
+        modelLight: true,
+        maxTokens:  true,
+      },
+    });
+
+    _configCache = record
+      ? {
+          baseUrl:    record.baseUrl    || null,
+          apiKey:     record.apiKey     || process.env.OPENAI_API_KEY || '',
+          modelHeavy: record.modelHeavy || 'gpt-4o',
+          modelLight: record.modelLight || 'gpt-4o-mini',
+          maxTokens:  record.maxTokens  || 2000,
+        }
+      : _envFallbackConfig();
+
+  } catch (err) {
+    // DB 查詢失敗時靜默降級（不阻斷 AI 功能）
+    console.warn('[AI] 讀取模型設定失敗，使用環境變數預設值:', err.message);
+    _configCache = _envFallbackConfig();
+  }
+
+  _configExpiry = now + CONFIG_CACHE_TTL_MS;
+  return _configCache;
+}
+
+/** 從環境變數建構預設設定 */
+function _envFallbackConfig() {
+  return {
+    baseUrl:    null,    // null = 使用 OpenAI 預設 URL
+    apiKey:     process.env.OPENAI_API_KEY || '',
+    modelHeavy: 'gpt-4o',
+    modelLight: 'gpt-4o-mini',
+    maxTokens:  parseInt(process.env.AI_MAX_TOKENS) || 2000,
+  };
+}
+
+/**
+ * 清除模型設定快取（設定更新後由 settings 路由呼叫）
+ * 同時清除 OpenAI 客戶端快取，強制下次建立新連線
+ */
+function invalidateConfigCache() {
+  _configCache     = null;
+  _configExpiry    = 0;
+  _client          = null;
+  _clientConfigKey = '';
+  console.log('🔄 [AI] 模型設定快取已清除，下次呼叫將重新載入設定');
+}
+
+/**
+ * 根據設定取得或建立 OpenAI 客戶端
+ * @param {{ baseUrl, apiKey, modelHeavy, modelLight, maxTokens }} config
+ */
+function _getClientForConfig(config) {
+  // 以 baseUrl + apiKey 前 8 碼 作為快取 key，識別設定是否變更
+  const key = `${config.baseUrl || ''}|${(config.apiKey || '').slice(0, 8)}`;
+  if (_client && _clientConfigKey === key) return _client;
+
+  if (!config.apiKey) {
     throw new Error(
-      '❌ 缺少 OPENAI_API_KEY 環境變數\n' +
-      '   請至 https://platform.openai.com/api-keys 取得 API 金鑰'
+      '❌ AI 模型金鑰未設定\n' +
+      '   請至「AI 決策中心 → 模型設定」輸入 API 金鑰，\n' +
+      '   或設定環境變數 OPENAI_API_KEY。'
     );
   }
 
-  _client = new OpenAI({
-    apiKey:       process.env.OPENAI_API_KEY,
-    organization: process.env.OPENAI_ORG_ID || undefined,
-    timeout:      60_000,   // 60 秒 timeout
-    maxRetries:   2,        // 自動重試 2 次（rate limit / 網路問題）
-  });
+  const opts = {
+    apiKey:     config.apiKey,
+    timeout:    60_000,
+    maxRetries: 2,
+  };
+  // baseUrl 為 null 時使用 OpenAI 預設（https://api.openai.com/v1）
+  if (config.baseUrl) opts.baseURL = config.baseUrl;
 
-  console.log('✅ OpenAI 客戶端初始化完成');
+  _client = new OpenAI(opts);
+  _clientConfigKey = key;
+
+  const displayUrl = config.baseUrl || 'https://api.openai.com/v1（預設）';
+  console.log(`✅ [AI] 客戶端初始化：${displayUrl}`);
   return _client;
 }
 
@@ -174,14 +256,22 @@ function logUsage(functionName, usage, model) {
 
 /**
  * 估算 API 呼叫費用（USD，僅供參考）
+ * 非 OpenAI 模型（Ollama / LM Studio 等）費用為 $0.00
  */
 function estimateCost(model, promptTokens, completionTokens) {
   // 2025 年 OpenAI 定價（每 1M tokens 費用）
   const pricing = {
-    'gpt-4o':      { input: 2.50,  output: 10.00 },
-    'gpt-4o-mini': { input: 0.15,  output: 0.60  },
+    'gpt-4o':             { input: 2.50,  output: 10.00 },
+    'gpt-4o-mini':        { input: 0.15,  output: 0.60  },
+    'gpt-4-turbo':        { input: 10.00, output: 30.00 },
+    'gpt-3.5-turbo':      { input: 0.50,  output: 1.50  },
+    // Groq（快速推理，超低成本）
+    'llama-3.1-70b-versatile': { input: 0.059, output: 0.079 },
+    'llama-3.1-8b-instant':    { input: 0.005, output: 0.008 },
+    'mixtral-8x7b-32768':      { input: 0.024, output: 0.024 },
   };
-  const p = pricing[model] || pricing['gpt-4o-mini'];
+  const p = pricing[model];
+  if (!p) return 0; // 本地模型或未知模型 → 成本為 $0
   return (promptTokens * p.input + completionTokens * p.output) / 1_000_000;
 }
 
@@ -195,15 +285,25 @@ function safeParseJSON(text) {
 }
 
 /**
- * 統一呼叫 OpenAI Chat API
+ * 統一呼叫 OpenAI（相容）Chat API
+ *
+ * @param {object}  opts
+ * @param {string}  opts.model        - 模型名稱（由呼叫方從 config 中取得）
+ * @param {string}  opts.systemPrompt
+ * @param {string}  opts.userMessage
+ * @param {boolean} [opts.jsonMode]   - 是否要求 JSON 輸出（預設 true）
+ * @param {number}  [opts.temperature]
+ * @param {object}  [opts.config]     - 已取得的設定物件（避免呼叫方重複查 DB）
  */
-async function callOpenAI({ model, systemPrompt, userMessage, jsonMode = true, temperature = 0.3 }) {
-  const client = getClient();
+async function callOpenAI({ model, systemPrompt, userMessage, jsonMode = true, temperature = 0.3, config = null }) {
+  // config 可由呼叫方傳入（避免同一次請求重複查 DB）；若未傳入則自動取得
+  const activeConfig = config ?? await getActiveConfig();
+  const client       = _getClientForConfig(activeConfig);
 
   const response = await client.chat.completions.create({
     model,
     temperature,
-    max_tokens:      MAX_TOKENS,
+    max_tokens:      activeConfig.maxTokens,
     response_format: jsonMode ? { type: 'json_object' } : undefined,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -396,7 +496,11 @@ async function breakdownTask(projectGoal, options = {}) {
     duration        = null,
     taskCount       = '8 ~ 12',
     existingContext = null,
+    companyId       = 1,
   } = options;
+
+  // 取得動態模型設定（DB → ENV 回退）
+  const config = await getActiveConfig(companyId);
 
   // ── 動態建構 User Message ────────────────────────────────
   const contextLines = [];
@@ -418,7 +522,8 @@ ${contextLines.length ? '\n專案背景：\n' + contextLines.join('\n') : ''}
 `.trim();
 
   const response = await callOpenAI({
-    model:        MODEL_HEAVY,
+    model:        config.modelHeavy,
+    config,                           // 傳入已取得的設定，避免重複查 DB
     systemPrompt: buildSystemPrompt('breakdown'),
     userMessage,
     jsonMode:     true,
@@ -427,12 +532,12 @@ ${contextLines.length ? '\n專案背景：\n' + contextLines.join('\n') : ''}
 
   const raw    = response.choices[0].message.content;
   const result = safeParseJSON(raw);
-  logUsage('breakdownTask', response.usage, MODEL_HEAVY);
+  logUsage('breakdownTask', response.usage, config.modelHeavy);
 
   return {
     ...result,
     _meta: {
-      model:            MODEL_HEAVY,
+      model:            config.modelHeavy,
       promptTokens:     response.usage?.prompt_tokens,
       completionTokens: response.usage?.completion_tokens,
       generatedAt:      new Date().toISOString(),
@@ -467,6 +572,9 @@ ${contextLines.length ? '\n專案背景：\n' + contextLines.join('\n') : ''}
  * @property {object}   _meta           - API 用量記錄
  */
 async function analyzeRisk(projectData) {
+  // 取得動態模型設定
+  const config = await getActiveConfig(projectData.companyId ?? 1);
+
   // ── 計算客觀指標（減少 AI 幻覺，提供可信數據）───────────
   const now       = new Date();
   const tasks     = projectData.tasks || [];
@@ -553,7 +661,8 @@ ${projectData.team ? projectData.team.map(m =>
 `.trim();
 
   const response = await callOpenAI({
-    model:        MODEL_HEAVY,
+    model:        config.modelHeavy,
+    config,
     systemPrompt: buildSystemPrompt('risk'),
     userMessage,
     jsonMode:     true,
@@ -562,12 +671,12 @@ ${projectData.team ? projectData.team.map(m =>
 
   const raw    = response.choices[0].message.content;
   const result = safeParseJSON(raw);
-  logUsage('analyzeRisk', response.usage, MODEL_HEAVY);
+  logUsage('analyzeRisk', response.usage, config.modelHeavy);
 
   return {
     ...result,
     _meta: {
-      model:            MODEL_HEAVY,
+      model:            config.modelHeavy,
       analyzedAt:       new Date().toISOString(),
       projectId:        projectData.id,
       promptTokens:     response.usage?.prompt_tokens,
@@ -616,7 +725,11 @@ async function generateWeeklyReport(reportData) {
     nextWeekPlan      = [],
     audience          = '主管',
     style             = 'formal',
+    companyId         = 1,
   } = reportData;
+
+  // 取得動態模型設定
+  const config = await getActiveConfig(companyId);
 
   // ── 整理任務資料為可讀格式 ───────────────────────────────
   const formatTask = t =>
@@ -675,7 +788,8 @@ ${nextWeekPlan.length ? nextWeekPlan.map(p => `  - ${p}`).join('\n') : '  （待
 `.trim();
 
   const response = await callOpenAI({
-    model:        MODEL_LIGHT,          // 週報生成用較便宜的模型
+    model:        config.modelLight,    // 週報生成用較便宜的 light 模型
+    config,
     systemPrompt: buildSystemPrompt('report'),
     userMessage,
     jsonMode:     true,
@@ -684,12 +798,12 @@ ${nextWeekPlan.length ? nextWeekPlan.map(p => `  - ${p}`).join('\n') : '  （待
 
   const raw    = response.choices[0].message.content;
   const result = safeParseJSON(raw);
-  logUsage('generateWeeklyReport', response.usage, MODEL_LIGHT);
+  logUsage('generateWeeklyReport', response.usage, config.modelLight);
 
   return {
     ...result,
     _meta: {
-      model:            MODEL_LIGHT,
+      model:            config.modelLight,
       generatedAt:      new Date().toISOString(),
       promptTokens:     response.usage?.prompt_tokens,
       completionTokens: response.usage?.completion_tokens,
@@ -774,6 +888,9 @@ function computeHealthScore(projectData) {
  * @returns {Promise<ScheduleOptimization>}
  */
 async function optimizeSchedule(projectData) {
+  // 取得動態模型設定
+  const config = await getActiveConfig(projectData.companyId ?? 1);
+
   const tasks   = (projectData.tasks || []).filter(t => t.status !== 'done');
   const endDate = projectData.endDate;
   const now     = new Date();
@@ -827,7 +944,8 @@ ${projectData.team
 `.trim();
 
   const response = await callOpenAI({
-    model:        MODEL_HEAVY,
+    model:        config.modelHeavy,
+    config,
     systemPrompt: buildSystemPrompt('risk'),
     userMessage,
     jsonMode:     true,
@@ -836,12 +954,12 @@ ${projectData.team
 
   const raw    = response.choices[0].message.content;
   const result = safeParseJSON(raw);
-  logUsage('optimizeSchedule', response.usage, MODEL_HEAVY);
+  logUsage('optimizeSchedule', response.usage, config.modelHeavy);
 
   return {
     ...result,
     _meta: {
-      model:            MODEL_HEAVY,
+      model:            config.modelHeavy,
       analyzedAt:       new Date().toISOString(),
       promptTokens:     response.usage?.prompt_tokens,
       completionTokens: response.usage?.completion_tokens,
@@ -858,7 +976,10 @@ module.exports = {
   analyzeRisk,
   generateWeeklyReport,
   optimizeSchedule,
-  computeHealthScore,   // 同步版本，不呼叫 AI
+  computeHealthScore,         // 同步版本，不呼叫 AI
+
+  // 設定管理
+  invalidateConfigCache,      // 模型設定更新後呼叫，清除 30s 快取
 
   // 供測試使用
   _buildSystemPrompt: buildSystemPrompt,

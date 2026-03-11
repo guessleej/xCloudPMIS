@@ -20,6 +20,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAiDecisions } from '../../hooks/useAiDecisions';
+import AiModelSettingsModal from './AiModelSettingsModal';
 
 // ── 常數 ───────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -645,6 +646,9 @@ export default function AiDecisionCenter() {
 
   // 詳情彈窗狀態
   const [detailModal, setDetailModal] = useState(null);
+
+  // AI 模型設定 Modal
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [runMessage, setRunMessage] = useState('');
 
@@ -703,11 +707,26 @@ export default function AiDecisionCenter() {
             onClick={refresh}
             disabled={loading}
             style={{ ...s.btn.secondary }}
+            title="手動刷新"
           >
             🔄
           </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            style={{ ...s.btn.secondary }}
+            title="AI 模型設定"
+          >
+            ⚙️
+          </button>
         </div>
       </div>
+
+      {/* ── AI 模型設定 Modal ──────────────────────────────────── */}
+      <AiModelSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        companyId={2}
+      />
 
       {/* ── 操作結果提示 ──────────────────────────────────────── */}
       {runMessage && (

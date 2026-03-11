@@ -37,9 +37,10 @@ model Company {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  users    User[]
-  projects Project[]
-  tags     Tag[]      // ← Phase 3 新增：公司共用標籤庫
+  users         User[]
+  projects      Project[]
+  tags          Tag[]           // ← Phase 3 新增：公司共用標籤庫
+  aiModelConfig AiModelConfig[] // ← Phase 4 新增：AI 模型設定
 
   @@map("companies")
 }
@@ -630,4 +631,70 @@ model AiAgentLog {
   @@index([toolName])
   @@index([executedAt])
   @@map("ai_agent_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// Phase 4：AI 模型設定（OpenAI-Compatible API 設定）
+// ════════════════════════════════════════════════════════════
+
+// ── AI 模型設定（支援 OpenAI / Azure / Ollama / LM Studio / 自訂）────
+//
+// 設計目標：
+//   - 讓系統管理員透過 UI 設定 AI 模型，不需要修改 .env 再重啟
+//   - 支援任何 OpenAI-Compatible REST API（本地或雲端）
+//   - API Key 可為空（本地模型如 Ollama 不需要 Key）
+//   - 區分「複雜推理模型」與「輕量生成模型」，分別優化成本與品質
+//
+// 優先順序：資料庫設定 > 環境變數（ENV）
+//   有資料庫設定且 isActive=true → 使用資料庫設定
+//   否則 → 回退到 OPENAI_API_KEY 等環境變數
+//
+// Provider 預設：
+//   openai    → https://api.openai.com/v1
+//   azure     → https://{resource}.openai.azure.com/openai/deployments/{deployment}
+//   ollama    → http://localhost:11434/v1
+//   lm_studio → http://localhost:1234/v1
+//   groq      → https://api.groq.com/openai/v1
+//   custom    → 使用者自行輸入
+// ─────────────────────────────────────────────────────────
+model AiModelConfig {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+
+  // ── Provider 識別 ────────────────────────────────────────
+  /// 提供者識別符：openai|azure|ollama|lm_studio|groq|custom
+  provider    String   @default("openai") @db.VarChar(50)
+
+  // ── 連線設定 ─────────────────────────────────────────────
+  /// OpenAI-Compatible API 基底 URL，例如 https://api.openai.com/v1
+  baseUrl     String   @default("https://api.openai.com/v1") @map("base_url") @db.VarChar(500)
+  /// API 金鑰（本地模型可為空；儲存時請注意 DB 安全）
+  apiKey      String?  @map("api_key") @db.Text
+
+  // ── 模型選擇 ─────────────────────────────────────────────
+  /// 複雜推理模型（任務拆解、風險分析）：需要最高智能
+  modelHeavy  String   @default("gpt-4o") @map("model_heavy") @db.VarChar(100)
+  /// 輕量生成模型（週報、摘要）：優化速度與成本
+  modelLight  String   @default("gpt-4o-mini") @map("model_light") @db.VarChar(100)
+
+  // ── 推理參數 ─────────────────────────────────────────────
+  maxTokens   Int      @default(2000) @map("max_tokens")
+  temperature Float    @default(0.3)
+
+  // ── 狀態 ─────────────────────────────────────────────────
+  isActive    Boolean  @default(true) @map("is_active")
+
+  // ── 連線測試記錄 ─────────────────────────────────────────
+  lastTestedAt DateTime? @map("last_tested_at")
+  /// 最後一次連線測試的結果，例如 "success:gpt-4o" 或 "error:Connection refused"
+  testResult   String?   @map("test_result") @db.VarChar(200)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([isActive])
+  @@map("ai_model_configs")
 }

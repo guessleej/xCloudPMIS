@@ -13,7 +13,11 @@ const express = require('express');
 const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt  = require('bcryptjs');
+const OpenAI  = require('openai');
 const prisma  = new PrismaClient();
+
+// 延遲載入 aiAgent，避免循環依賴
+const getAiAgent = () => require('../services/aiAgent');
 
 // ════════════════════════════════════════════════════════════
 // GET /api/settings/company?companyId=2
@@ -352,6 +356,287 @@ router.get('/system', async (req, res) => {
   } catch (err) {
     console.error('❌ 系統資訊查詢失敗:', err);
     res.status(500).json({ error: '伺服器錯誤', details: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/settings/ai?companyId=2
+// 取得 AI 模型設定（API Key 遮罩，只顯示末 4 碼）
+// ════════════════════════════════════════════════════════════
+router.get('/ai', async (req, res) => {
+  try {
+    const companyId = parseInt(req.query.companyId) || 2;
+
+    const record = await prisma.aiModelConfig.findFirst({
+      where:   { companyId, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // ENV 預設值（當 DB 無紀錄時使用）
+    const defaults = {
+      provider:    'openai',
+      baseUrl:     'https://api.openai.com/v1',
+      apiKey:      '',
+      modelHeavy:  process.env.AI_MODEL_HEAVY  || 'gpt-4o',
+      modelLight:  process.env.AI_MODEL_LIGHT  || 'gpt-4o-mini',
+      maxTokens:   parseInt(process.env.AI_MAX_TOKENS) || 2000,
+      temperature: 0.3,
+    };
+
+    if (!record) {
+      // 沒有 DB 設定，回傳 ENV 預設值（Key 只顯示有無，不洩漏內容）
+      const envKey = process.env.OPENAI_API_KEY || '';
+      return res.json({
+        config: {
+          ...defaults,
+          apiKey:       envKey ? '•••••••••••' + envKey.slice(-4) : '',
+          apiKeyIsSet:  !!envKey,
+          source:       'env',
+          id:           null,
+          lastTestedAt: null,
+          testResult:   null,
+        },
+      });
+    }
+
+    // 遮罩 API Key
+    const rawKey    = record.apiKey || process.env.OPENAI_API_KEY || '';
+    const maskedKey = rawKey ? '•••••••••••' + rawKey.slice(-4) : '';
+
+    res.json({
+      config: {
+        id:          record.id,
+        provider:    record.provider,
+        baseUrl:     record.baseUrl,
+        apiKey:      maskedKey,
+        apiKeyIsSet: !!rawKey,
+        modelHeavy:  record.modelHeavy,
+        modelLight:  record.modelLight,
+        maxTokens:   record.maxTokens,
+        temperature: record.temperature,
+        lastTestedAt: record.lastTestedAt ? record.lastTestedAt.toISOString() : null,
+        testResult:   record.testResult,
+        source:       'db',
+        updatedAt:    record.updatedAt.toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('❌ 取得 AI 模型設定失敗:', err);
+    res.status(500).json({ error: '伺服器錯誤', details: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PUT /api/settings/ai
+// 儲存 AI 模型設定（upsert）
+// Body: { companyId, provider, baseUrl, apiKey?, modelHeavy, modelLight, maxTokens, temperature }
+// 注意：apiKey 若為遮罩格式（含 •），視為「不變更」
+// ════════════════════════════════════════════════════════════
+router.put('/ai', async (req, res) => {
+  try {
+    const {
+      companyId   = 2,
+      provider    = 'openai',
+      baseUrl     = 'https://api.openai.com/v1',
+      apiKey,
+      modelHeavy  = 'gpt-4o',
+      modelLight  = 'gpt-4o-mini',
+      maxTokens   = 2000,
+      temperature = 0.3,
+    } = req.body;
+
+    // 驗證必填欄位
+    if (!modelHeavy || !modelLight) {
+      return res.status(400).json({ error: '模型名稱（modelHeavy / modelLight）不能為空' });
+    }
+    if (maxTokens < 256 || maxTokens > 32000) {
+      return res.status(400).json({ error: 'maxTokens 需在 256 ~ 32000 之間' });
+    }
+    if (temperature < 0 || temperature > 2) {
+      return res.status(400).json({ error: 'temperature 需在 0 ~ 2 之間' });
+    }
+
+    // 驗證 companyId 存在
+    const company = await prisma.company.findUnique({ where: { id: parseInt(companyId) } });
+    if (!company) {
+      return res.status(404).json({ error: `找不到公司 #${companyId}` });
+    }
+
+    // 取得現有設定（判斷 API Key 是否需要更新）
+    const existing = await prisma.aiModelConfig.findFirst({
+      where:   { companyId: parseInt(companyId), isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // 若 apiKey 含遮罩符號（•），視為「不變更 Key」，保留舊值
+    const isKeyMasked = typeof apiKey === 'string' && apiKey.includes('•');
+    const newApiKey   = isKeyMasked ? (existing?.apiKey ?? null) : (apiKey ?? null);
+
+    // Upsert：有現有設定則更新，否則建立新紀錄
+    let record;
+    if (existing) {
+      record = await prisma.aiModelConfig.update({
+        where: { id: existing.id },
+        data: {
+          provider:    provider.trim(),
+          baseUrl:     baseUrl.trim(),
+          apiKey:      newApiKey,
+          modelHeavy:  modelHeavy.trim(),
+          modelLight:  modelLight.trim(),
+          maxTokens:   parseInt(maxTokens),
+          temperature: parseFloat(temperature),
+        },
+      });
+    } else {
+      record = await prisma.aiModelConfig.create({
+        data: {
+          companyId:   parseInt(companyId),
+          provider:    provider.trim(),
+          baseUrl:     baseUrl.trim(),
+          apiKey:      newApiKey,
+          modelHeavy:  modelHeavy.trim(),
+          modelLight:  modelLight.trim(),
+          maxTokens:   parseInt(maxTokens),
+          temperature: parseFloat(temperature),
+          isActive:    true,
+        },
+      });
+    }
+
+    // 清除 aiAgent 快取，讓下次 AI 呼叫立即使用新設定
+    try {
+      getAiAgent().invalidateConfigCache();
+    } catch (cacheErr) {
+      console.warn('⚠️  清除 AI 快取失敗（不影響儲存）:', cacheErr.message);
+    }
+
+    const rawKey    = record.apiKey || '';
+    const maskedKey = rawKey ? '•••••••••••' + rawKey.slice(-4) : '';
+
+    res.json({
+      config: {
+        id:          record.id,
+        provider:    record.provider,
+        baseUrl:     record.baseUrl,
+        apiKey:      maskedKey,
+        apiKeyIsSet: !!rawKey,
+        modelHeavy:  record.modelHeavy,
+        modelLight:  record.modelLight,
+        maxTokens:   record.maxTokens,
+        temperature: record.temperature,
+        updatedAt:   record.updatedAt.toISOString(),
+      },
+      message: 'AI 模型設定已儲存，快取已清除',
+    });
+  } catch (err) {
+    console.error('❌ 儲存 AI 模型設定失敗:', err);
+    res.status(500).json({ error: '伺服器錯誤', details: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/settings/ai/test
+// 測試 AI 模型連線（不儲存設定，純測試）
+// Body: { companyId?, baseUrl, apiKey, modelHeavy }
+// ════════════════════════════════════════════════════════════
+router.post('/ai/test', async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const {
+      companyId  = 2,
+      baseUrl    = null,
+      apiKey,
+      modelHeavy = 'gpt-4o',
+    } = req.body;
+
+    // 若 apiKey 是遮罩，從 DB 取實際值
+    let actualKey = apiKey;
+    if (!apiKey || apiKey.includes('•')) {
+      const existing = await prisma.aiModelConfig.findFirst({
+        where:   { companyId: parseInt(companyId), isActive: true },
+        orderBy: { updatedAt: 'desc' },
+        select:  { apiKey: true },
+      });
+      actualKey = existing?.apiKey || process.env.OPENAI_API_KEY || '';
+    }
+
+    if (!actualKey) {
+      return res.status(400).json({
+        success: false,
+        error:   'API 金鑰未設定，請先輸入 API Key',
+      });
+    }
+
+    // 建立臨時 OpenAI 客戶端進行測試
+    const opts = { apiKey: actualKey, timeout: 15_000, maxRetries: 0 };
+    if (baseUrl && !baseUrl.includes('•')) opts.baseURL = baseUrl.trim();
+
+    const client = new OpenAI(opts);
+
+    // 以最小 token 進行測試呼叫
+    const testResponse = await client.chat.completions.create({
+      model:      modelHeavy,
+      max_tokens: 5,
+      messages:   [{ role: 'user', content: 'hi' }],
+    });
+
+    const latencyMs  = Date.now() - startTime;
+    const testResult = `✅ 連線成功 | ${modelHeavy} | ${latencyMs}ms`;
+
+    // 更新 DB 測試紀錄（若有設定）
+    const existing = await prisma.aiModelConfig.findFirst({
+      where:   { companyId: parseInt(companyId), isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (existing) {
+      await prisma.aiModelConfig.update({
+        where: { id: existing.id },
+        data:  {
+          lastTestedAt: new Date(),
+          testResult:   testResult.slice(0, 200),
+        },
+      });
+    }
+
+    res.json({
+      success:    true,
+      latencyMs,
+      model:      testResponse.model,
+      testResult,
+      message:    `模型 ${modelHeavy} 連線測試成功（${latencyMs}ms）`,
+    });
+
+  } catch (err) {
+    const latencyMs  = Date.now() - startTime;
+    const isAuthErr  = err.status === 401 || err.code === 'authentication_error';
+    const isNotFound = err.status === 404;
+    const testResult = `❌ ${isAuthErr ? 'API Key 無效' : isNotFound ? '模型不存在' : err.message}`;
+
+    // 更新 DB 測試紀錄
+    try {
+      const { companyId = 2, modelHeavy = 'gpt-4o' } = req.body;
+      const existing = await prisma.aiModelConfig.findFirst({
+        where:   { companyId: parseInt(companyId), isActive: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (existing) {
+        await prisma.aiModelConfig.update({
+          where: { id: existing.id },
+          data:  { lastTestedAt: new Date(), testResult: testResult.slice(0, 200) },
+        });
+      }
+    } catch (_) { /* 測試失敗時更新 DB 的錯誤不向上傳 */ }
+
+    console.error('❌ AI 連線測試失敗:', err.message);
+    res.status(200).json({   // 回傳 200 讓前端能解析錯誤內容
+      success:    false,
+      latencyMs,
+      testResult,
+      error:      isAuthErr ? 'API Key 無效或已過期' : isNotFound ? `模型 "${req.body.modelHeavy}" 不存在` : err.message,
+      hint:       isAuthErr ? '請確認 API Key 正確且有效'
+                : isNotFound ? '請確認模型名稱正確（例如 gpt-4o、llama3.1）'
+                : '請確認 API Base URL 和網路連線',
+    });
   }
 });
 
