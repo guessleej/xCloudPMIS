@@ -314,7 +314,7 @@ router.post('/decisions/:id/approve', async (req, res) => {
       return fail(res, `此決策狀態為 ${STATUS_LABEL[decision.status]}，無法批准`, 409);
 
     // 呼叫 SafetyGuard 的批准流程
-    const SafetyGuard = require('../../services/autonomous-agent/decisionEngine/safetyGuard');
+    const SafetyGuard = require('../services/autonomous-agent/decisionEngine/safetyGuard');
     const result = await SafetyGuard.approveAction(id, userId);
 
     ok(res, {
@@ -350,7 +350,7 @@ router.post('/decisions/:id/reject', async (req, res) => {
     if (!['staging', 'pending'].includes(decision.status))
       return fail(res, `此決策狀態為 ${STATUS_LABEL[decision.status]}，無法拒絕`, 409);
 
-    const SafetyGuard = require('../../services/autonomous-agent/decisionEngine/safetyGuard');
+    const SafetyGuard = require('../services/autonomous-agent/decisionEngine/safetyGuard');
     await SafetyGuard.rejectAction(id, parseInt(userId), note.trim());
 
     ok(res, {
@@ -387,7 +387,7 @@ router.post('/decisions/:id/rollback', async (req, res) => {
     if (!decision.snapshotData)
       return fail(res, '此決策無快照資料，無法回滾', 422);
 
-    const SafetyGuard = require('../../services/autonomous-agent/decisionEngine/safetyGuard');
+    const SafetyGuard = require('../services/autonomous-agent/decisionEngine/safetyGuard');
     await SafetyGuard.rollback(id, userId);
 
     ok(res, {
@@ -428,7 +428,7 @@ router.post('/agent/run', async (req, res) => {
     // 背景執行（使用子進程避免阻塞主進程）
     const { fork } = require('child_process');
     const path = require('path');
-    const agentPath = path.join(__dirname, '../../services/autonomous-agent/core/agentLoop.js');
+    const agentPath = path.join(__dirname, '../services/autonomous-agent/core/agentLoop.js');
 
     const env = { ...process.env };
     if (companyId) env.AGENT_COMPANY_ID = String(companyId);
