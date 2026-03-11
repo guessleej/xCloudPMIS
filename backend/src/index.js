@@ -17,6 +17,7 @@ const reportsRouter       = require('./routes/reports');
 const teamRouter          = require('./routes/team');
 const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
+const healthRouter        = require('./routes/health');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -141,6 +142,9 @@ app.use('/api/settings', settingsRouter);
 
 // ── AI 決策中心路由（Human-in-the-Loop 控制台）───────────────
 app.use('/api/ai', aiDecisionsRouter);
+
+// ── 健康檢查路由（Email / Graph API 連線狀態）────────────────
+app.use('/api/health', healthRouter);
 
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下

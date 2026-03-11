@@ -11,6 +11,11 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:outlook": "jest test/integration/outlook.test.js --verbose",
+    "test:outlook:skip-send": "SKIP_SEND=true jest test/integration/outlook.test.js --verbose",
     "test:email": "node scripts/testEmail.js",
     "test:ai": "node scripts/testAiAgent.js",
     "scheduler": "node jobs/reminderJob.js",
@@ -18,6 +23,16 @@
     "collab": "node services/collaboration/yjsServer.js",
     "monitor": "node jobs/monitorAgent.js",
     "monitor:now": "node jobs/monitorAgent.js --run-now"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ],
+    "testTimeout": 60000,
+    "verbose": true,
+    "forceExit": true,
+    "detectOpenHandles": false
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -43,6 +58,7 @@
     "yjs": "^13.6.18"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "prisma": "^5.8.1"
   },
