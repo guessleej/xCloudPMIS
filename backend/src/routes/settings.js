@@ -534,6 +534,38 @@ router.put('/ai', async (req, res) => {
   }
 });
 
+// ── 輔助：判斷是否為本地端 URL（Ollama / LM Studio 等不需要 Key）
+function isLocalUrl(url) {
+  return /localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal/i.test(url || '');
+}
+
+// ════════════════════════════════════════════════════════════
+// GET /api/settings/ai/ollama-models?baseUrl=http://host.docker.internal:11434
+// 查詢 Ollama 可用模型清單（從後端呼叫 Ollama API）
+// ════════════════════════════════════════════════════════════
+router.get('/ai/ollama-models', async (req, res) => {
+  const baseUrl = (req.query.baseUrl || 'http://host.docker.internal:11434').replace(/\/v1\/?$/, '');
+  try {
+    const tagsUrl = `${baseUrl}/api/tags`;
+    const response = await fetch(tagsUrl, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) {
+      return res.status(502).json({ error: `Ollama 回應 HTTP ${response.status}`, models: [] });
+    }
+    const data = await response.json();
+    const models = (data.models || []).map(m => ({
+      name:   m.name,
+      size:   m.details?.parameter_size || '',
+      family: m.details?.family || '',
+    }));
+    res.json({ models, count: models.length, baseUrl });
+  } catch (err) {
+    const hint = isLocalUrl(baseUrl)
+      ? '請確認 Ollama 已啟動（OLLAMA_HOST=0.0.0.0 ollama serve）'
+      : '請確認 Ollama 服務位址正確';
+    res.status(502).json({ error: `無法連到 Ollama：${err.message}`, models: [], hint });
+  }
+});
+
 // ════════════════════════════════════════════════════════════
 // POST /api/settings/ai/test
 // 測試 AI 模型連線（不儲存設定，純測試）
@@ -560,11 +592,18 @@ router.post('/ai/test', async (req, res) => {
       actualKey = existing?.apiKey || process.env.OPENAI_API_KEY || '';
     }
 
+    // 本地端（Ollama / LM Studio）不需要真正的 API Key
+    // OpenAI 客戶端要求 apiKey 非空，用 "ollama" 作為佔位符
     if (!actualKey) {
-      return res.status(400).json({
-        success: false,
-        error:   'API 金鑰未設定，請先輸入 API Key',
-      });
+      if (isLocalUrl(baseUrl)) {
+        actualKey = 'ollama';   // Ollama / LM Studio 接受任意非空字串
+      } else {
+        return res.status(400).json({
+          success: false,
+          error:   'API 金鑰未設定，請先輸入 API Key',
+          hint:    '本地端 Ollama / LM Studio 可填入任意字元（如 "ollama"）',
+        });
+      }
     }
 
     // 建立臨時 OpenAI 客戶端進行測試
