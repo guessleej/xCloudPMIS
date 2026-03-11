@@ -55,18 +55,20 @@ const PROVIDERS = [
   {
     id:         'ollama',
     label:      'Ollama（本地端）',
-    baseUrl:    'http://localhost:11434/v1',
-    models:     ['llama3.1', 'llama3.2', 'qwen2.5', 'mistral', 'codellama'],
+    baseUrl:    'http://host.docker.internal:11434/v1',  // Docker→Host；純本地開發用 localhost
+    altUrl:     'http://localhost:11434/v1',              // 非 Docker 環境備用
+    models:     ['llama3.1', 'llama3.2', 'qwen2.5', 'mistral', 'codellama', 'deepseek-r1'],
     heavy:      'llama3.1',
     light:      'llama3.2',
-    keyHint:    '本地端不需要 API Key（可留空）',
+    keyHint:    '本地端不需要 API Key（可留空或填任意字元）',
     docsUrl:    'https://ollama.com',
     color:      '#333333',
   },
   {
     id:         'lmstudio',
     label:      'LM Studio（本地端）',
-    baseUrl:    'http://localhost:1234/v1',
+    baseUrl:    'http://host.docker.internal:1234/v1',   // Docker→Host；純本地開發用 localhost
+    altUrl:     'http://localhost:1234/v1',
     models:     ['（輸入已載入的模型名稱）'],
     heavy:      '',
     light:      '',
@@ -326,10 +328,61 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
                   onFocus={e  => e.target.style.borderColor = '#6366f1'}
                   onBlur={e   => e.target.style.borderColor = 'rgba(255,255,255,0.12)'}
                 />
+
+                {/* 本地端 Docker 網路說明 */}
                 {(provider === 'ollama' || provider === 'lmstudio') && (
-                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    💡 確認本地端服務已啟動並監聽此埠號
-                  </p>
+                  <div className="mt-2 rounded-lg px-3 py-2.5 text-xs space-y-1.5"
+                       style={{ background: 'rgba(255,200,50,0.07)', border: '1px solid rgba(255,200,50,0.2)' }}>
+                    <p style={{ color: '#fbbf24', fontWeight: 600 }}>
+                      🐳 Docker 後端連到 Host 的本地服務
+                    </p>
+                    <div className="space-y-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      <p>
+                        後端運行在 Docker 內，<code style={{ color: '#f9a8d4' }}>localhost</code> 指容器本身，
+                        需改用 <code style={{ color: '#86efac' }}>host.docker.internal</code> 才能連到 Host。
+                      </p>
+                      <div className="flex gap-2 pt-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setBaseUrl(currentProvider.baseUrl)}
+                          className="px-2 py-1 rounded text-xs font-mono transition-colors"
+                          style={{
+                            background: 'rgba(134,239,172,0.12)',
+                            border: '1px solid rgba(134,239,172,0.3)',
+                            color: '#86efac',
+                            cursor: 'pointer',
+                          }}
+                          title="Docker 環境（推薦）"
+                        >
+                          🐳 {currentProvider.baseUrl}
+                        </button>
+                        {currentProvider.altUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setBaseUrl(currentProvider.altUrl)}
+                            className="px-2 py-1 rounded text-xs font-mono transition-colors"
+                            style={{
+                              background: 'rgba(165,180,252,0.10)',
+                              border: '1px solid rgba(165,180,252,0.25)',
+                              color: '#a5b4fc',
+                              cursor: 'pointer',
+                            }}
+                            title="直接在 Host 執行（非 Docker）"
+                          >
+                            💻 {currentProvider.altUrl}
+                          </button>
+                        )}
+                      </div>
+                      {provider === 'ollama' && (
+                        <p className="pt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          ⚠️ Ollama 預設只監聽 <code>127.0.0.1</code>，需先設定：
+                          <code className="ml-1 px-1 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: '#fcd34d' }}>
+                            OLLAMA_HOST=0.0.0.0 ollama serve
+                          </code>
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 
