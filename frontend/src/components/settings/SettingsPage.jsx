@@ -1230,31 +1230,78 @@ function IntegrationsTab({ callbackState }) {
       {/* ── Azure 應用程式設定指引 ── */}
       <Card title="🔧 Azure 應用程式設定指引">
         <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }}>
-          <p style={{ margin: '0 0 12px', fontWeight: 600, color: '#111827' }}>設定步驟（僅需一次）：</p>
-          <ol style={{ margin: 0, paddingLeft: 20 }}>
+
+          {/* ── Step 1：Azure Portal ── */}
+          <p style={{ margin: '0 0 10px', fontWeight: 600, color: '#111827' }}>設定步驟（僅需一次）：</p>
+          <ol style={{ margin: '0 0 20px', paddingLeft: 20 }}>
             <li>
               登入{' '}
               <a href="https://portal.azure.com" target="_blank" rel="noreferrer"
-                style={{ color: '#2563eb' }}>Azure Portal</a>，進入「應用程式註冊」
+                style={{ color: '#2563eb' }}>Azure Portal</a>，進入「應用程式註冊」→「新增註冊」
             </li>
             <li>
-              建立新應用程式，選「Web」平台，重新導向 URI 填：
-              <code style={{ background: '#f3f4f6', padding: '1px 6px', borderRadius: 4, marginLeft: 6, fontSize: 13 }}>
-                http://localhost:3010/auth/microsoft/callback
-              </code>
+              選「Web」平台，「重新導向 URI」可同時填入多個（每行一筆）：
+              <div style={{
+                background: '#1e293b', color: '#e2e8f0', borderRadius: 7,
+                padding: '10px 14px', fontFamily: 'monospace', fontSize: 12,
+                lineHeight: 1.9, margin: '8px 0 4px',
+              }}>
+                <div style={{ color: '#94a3b8' }}># 開發環境</div>
+                <div style={{ color: '#86efac' }}>http://localhost:3010/auth/microsoft/callback</div>
+                <div style={{ color: '#94a3b8', marginTop: 6 }}># 正式環境（換成貴公司實際網域）</div>
+                <div style={{ color: '#38bdf8' }}>https://backend.your-company.com/auth/microsoft/callback</div>
+              </div>
+              <span style={{ fontSize: 12, color: '#6b7280' }}>
+                ✅ Azure 支援同時登錄多個 URI，開發 / 正式環境可共用同一個 App 設定。
+              </span>
             </li>
             <li>複製「應用程式（用戶端）識別碼」→ 填入 <code>.env</code> 的 <code>OAUTH_MICROSOFT_CLIENT_ID</code></li>
             <li>建立「用戶端密碼」→ 填入 <code>OAUTH_MICROSOFT_CLIENT_SECRET</code></li>
             <li>
               設定 <code>OAUTH_MICROSOFT_TENANT_ID</code>：
-              單一租用戶填租用戶 ID，多租用戶填 <code>common</code>
+              單一租用戶填租用戶 ID，多租用戶（含外部使用者）填 <code>common</code>
             </li>
             <li>
-              在「API 權限」加入委派權限：
+              在「API 權限」→「新增權限」→「Microsoft Graph」→「委派的權限」加入：
               User.Read、Mail.Read、Mail.Send、Calendars.ReadWrite、Files.Read.All
             </li>
             <li>重啟後端服務後，點擊上方「連接 Microsoft 帳號」</li>
           </ol>
+
+          {/* ── 正式環境 .env 設定範例 ── */}
+          <div style={{
+            background: '#fffbeb', border: '1px solid #fcd34d',
+            borderRadius: 8, padding: '12px 16px', marginBottom: 16,
+          }}>
+            <p style={{ margin: '0 0 8px', fontWeight: 600, color: '#92400e', fontSize: 13 }}>
+              🚀 部署到正式環境時，需同步更新 <code>.env</code> 的以下兩個變數：
+            </p>
+            <div style={{
+              background: '#1e293b', color: '#e2e8f0', borderRadius: 6,
+              padding: '10px 14px', fontFamily: 'monospace', fontSize: 12, lineHeight: 2,
+            }}>
+              <div>
+                <span style={{ color: '#94a3b8' }}># 後端 API 的對外網址（OAuth 回呼路徑）</span>
+              </div>
+              <div>
+                <span style={{ color: '#f59e0b' }}>OAUTH_REDIRECT_URI</span>
+                <span style={{ color: '#e2e8f0' }}>=</span>
+                <span style={{ color: '#38bdf8' }}>https://backend.your-company.com/auth/microsoft/callback</span>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <span style={{ color: '#94a3b8' }}># 前端的對外網址（OAuth 授權完成後跳回）</span>
+              </div>
+              <div>
+                <span style={{ color: '#f59e0b' }}>FRONTEND_URL</span>
+                <span style={{ color: '#e2e8f0' }}>=</span>
+                <span style={{ color: '#38bdf8' }}>https://app.your-company.com</span>
+              </div>
+            </div>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#92400e' }}>
+              ⚠️ <code>OAUTH_REDIRECT_URI</code> 必須與 Azure Portal 中登錄的 URI 完全一致（包含 http/https、port、路徑），否則 OAuth 會報錯。
+            </p>
+          </div>
+
         </div>
       </Card>
     </div>
