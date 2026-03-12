@@ -1,0 +1,142 @@
+# ============================================================
+# xCloudPMIS - MCP 開放平台 Docker 服務定義
+# ============================================================
+#
+# 用法（疊加在主 docker-compose.yml 上）：
+#   docker-compose -f docker-compose.yml -f docker-compose.mcp.yml up -d
+#
+# 僅啟動 MCP Server（不含主服務）：
+#   docker-compose -f docker-compose.mcp.yml up mcp-server
+#
+# 環境變數（.env 或 shell export）：
+#   OPENCLAW_BASE_URL=https://your-openclaw.com
+#   OPENCLAW_API_KEY=your-key
+#   OPENCLAW_HMAC_SECRET=your-secret
+#   MCP_ADMIN_SECRET=your-admin-secret
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # MCP External Server — 對外開放的 MCP 服務端點
+  #
+  # 功能：
+  #   - SSE 傳輸（/mcp/sse + /mcp/messages）
+  #   - 14 個核心 PMIS 工具 + 2 個 OpenClaw RPA 工具
+  #   - API Key 認證 + 多租戶隔離
+  #   - Redis 速率限制（滑動窗口）
+  #   - Webhook 接收（OpenClaw RPA 回調）
+  # ──────────────────────────────────────────────────────────
+  mcp-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pmis-mcp-server
+    restart: unless-stopped
+
+    # 覆寫 CMD：執行 MCP External Server（不是主 Express API）
+    command: node mcp-external-server/index.js
+
+    ports:
+      - "3100:3100"     # MCP SSE 端點（對外）
+
+    environment:
+      NODE_ENV: production
+      MCP_PORT: 3100
+
+      # ── 資料庫連線 ──────────────────────────────────────────
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
+
+      # ── Redis 連線（API Key 快取 + 速率限制）───────────────
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+
+      # ── OpenClaw RPA 整合 ───────────────────────────────────
+      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-}
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
+      OPENCLAW_HMAC_SECRET: ${OPENCLAW_HMAC_SECRET:-}
+
+      # ── 安全設定 ───────────────────────────────────────────
+      # MCP Admin 端點保護（管理 API Key 時需帶 X-Admin-Secret）
+      MCP_ADMIN_SECRET: ${MCP_ADMIN_SECRET:-change-me-in-production}
+
+      # ── 可選：服務自己的識別（Discovery 端點用）────────────
+      MCP_SERVER_VERSION: ${MCP_SERVER_VERSION:-1.0.0}
+      MCP_COMPANY_NAME: ${MCP_COMPANY_NAME:-xCloud PMIS}
+
+      # ── Timezone ───────────────────────────────────────────
+      TZ: Asia/Taipei
+
+    volumes:
+      # 掛載 backend 原始碼（含 mcp-external-server 子目錄）
+      - ./backend:/app
+      # 共用 backend 的 node_modules（避免重複安裝）
+      - backend_node_modules:/app/node_modules
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "node", "-e",
+        "require('http').get('http://localhost:3100/mcp/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    networks:
+      - pmis-network
+
+    # 資源限制（生產環境建議設定）
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.50'
+    #       memory: 512M
+    #     reservations:
+    #       memory: 128M
+
+  # ──────────────────────────────────────────────────────────
+  # MCP Monitor — 監控 MCP Server 健康狀態（選用）
+  #
+  # 功能：
+  #   - 定期呼叫 /mcp/health 確認存活
+  #   - 統計 Session 數量與 API Key 使用量
+  #   - 輸出到 stdout（可接 ELK/Datadog）
+  # ──────────────────────────────────────────────────────────
+  # mcp-monitor:
+  #   image: curlimages/curl:latest
+  #   container_name: pmis-mcp-monitor
+  #   restart: unless-stopped
+  #   command: >
+  #     sh -c "while true; do
+  #       curl -sf http://mcp-server:3100/mcp/health | jq .; sleep 60
+  #     done"
+  #   depends_on:
+  #     - mcp-server
+  #   networks:
+  #     - pmis-network
+
+# ============================================================
+# 共用主 docker-compose.yml 已定義的網路與 Volumes
+# （在 override 檔案中只需引用，不需重新定義 driver）
+# ============================================================
+networks:
+  pmis-network:
+    external: true
+    name: pmis-network
+
+volumes:
+  postgres_data:
+    external: true
+    name: pmis-postgres-data
+  redis_data:
+    external: true
+    name: pmis-redis-data
+  backend_node_modules:
+    external: true
+    name: pmis-backend-node-modules
