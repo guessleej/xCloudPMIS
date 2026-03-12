@@ -224,10 +224,20 @@ function OverviewTab({ data, chart, loading }) {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <StatCard icon="📞" label="今日工具呼叫"   value={stats.totalCallsToday}
           sub="次" color={COLORS.primary} />
-        <StatCard icon="✅" label="成功率"         value={`${stats.successRate}%`}
-          sub="最近 24 小時" color={COLORS.success} />
-        <StatCard icon="⚡" label="平均延遲"        value={`${stats.avgLatency}`}
-          sub="毫秒" color={COLORS.warning} />
+        <StatCard
+          icon={stats.successRate !== null ? '✅' : '➖'}
+          label="成功率"
+          value={stats.successRate !== null ? `${stats.successRate}%` : '—'}
+          sub={stats.successRate !== null ? '最近 24 小時' : '尚無呼叫記錄'}
+          color={stats.successRate !== null ? COLORS.success : COLORS.textLight}
+        />
+        <StatCard
+          icon="⚡"
+          label="平均延遲"
+          value={stats.avgLatency !== null ? `${stats.avgLatency}` : '—'}
+          sub={stats.avgLatency !== null ? '毫秒' : '尚無呼叫記錄'}
+          color={stats.avgLatency !== null ? COLORS.warning : COLORS.textLight}
+        />
         <StatCard icon="🔌" label="活躍連線"        value={stats.activeSessions}
           sub="個 SSE Session" color={COLORS.primary} />
         <StatCard icon="🤖" label="待審核 AI 決策"  value={services.aiAgent.pendingDecisions}
@@ -268,7 +278,7 @@ function OverviewTab({ data, chart, loading }) {
             status={services.aiAgent.status}
             meta={[
               `今日決策: ${services.aiAgent.todayDecisions} 件`,
-              `完成率: ${services.aiAgent.successRate}%`,
+              `完成率: ${services.aiAgent.successRate !== null ? services.aiAgent.successRate + '%' : '—'}`,
               `待審: ${services.aiAgent.pendingDecisions} 件`,
             ]}
           />

@@ -239,7 +239,7 @@ router.get('/status', async (req, res) => {
     const toolAgg = toolCallStats.status === 'fulfilled' ? toolCallStats.value : { _count: { id: 0 }, _sum: { durationMs: 0 } };
     const totalCalls   = toolAgg._count.id || 0;
     const totalDurMs   = toolAgg._sum.durationMs || 0;
-    const avgLatency   = totalCalls > 0 ? Math.round(totalDurMs / totalCalls) : 0;
+    const avgLatency   = totalCalls > 0 ? Math.round(totalDurMs / totalCalls) : null;
 
     // ── 最近活動 ────────────────────────────────────────────
     const recentActivity = (recentLogs.status === 'fulfilled' ? recentLogs.value : [])
@@ -253,11 +253,11 @@ router.get('/status', async (req, res) => {
         error:      log.errorMessage,
       }));
 
-    // ── 成功率計算 ──────────────────────────────────────────
+    // ── 成功率計算（無呼叫記錄時回傳 null，前端顯示「—」）──
     const successCount = recentActivity.filter(a => a.success).length;
     const successRate  = recentActivity.length > 0
       ? Math.round((successCount / recentActivity.length) * 100)
-      : 100;
+      : null;
 
     // ── 組合回應 ─────────────────────────────────────────────
     res.json({
@@ -276,7 +276,7 @@ router.get('/status', async (req, res) => {
           pendingDecisions: pendingDecisions.status === 'fulfilled' ? pendingDecisions.value : 0,
           todayDecisions:   totalDecisions,
           completedToday:   completedDecs,
-          successRate:      totalDecisions > 0 ? Math.round((completedDecs / totalDecisions) * 100) : 100,
+          successRate:      totalDecisions > 0 ? Math.round((completedDecs / totalDecisions) * 100) : null,
         },
         notify: notifyStatus.status === 'fulfilled' ? notifyStatus.value : {
           telegram: { configured: false, status: 'disconnected', botName: null, masked: null },
