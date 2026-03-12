@@ -26,6 +26,7 @@ import ReportsPage        from '../reports/ReportsPage';
 import TeamPage           from '../team/TeamPage';
 import SettingsPage       from '../settings/SettingsPage';
 import AiDecisionCenter   from '../ai/AiDecisionCenter';
+import McpConsolePage     from '../mcp/McpConsolePage';
 
 // ── 側邊欄導覽項目 ──────────────────────────────────────────
 const NAV_ITEMS = [
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { id: 'team',         icon: '👥', label: '團隊管理' },
   { id: 'settings',     icon: '⚙️', label: '系統設定' },
   { id: 'ai-center',    icon: '🤖', label: 'AI 決策中心', divider: true },
+  { id: 'mcp-console',  icon: '🌐', label: 'MCP 控制台' },
 ];
 
 // ── 側邊欄元件 ──────────────────────────────────────────────
@@ -262,7 +264,8 @@ export default function Dashboard() {
     if (activeNav === 'reports')  return <ReportsPage />;
     if (activeNav === 'team')     return <TeamPage />;
     if (activeNav === 'settings')  return <SettingsPage />;
-    if (activeNav === 'ai-center') return <AiDecisionCenter />;
+    if (activeNav === 'ai-center')   return <AiDecisionCenter />;
+    if (activeNav === 'mcp-console') return <McpConsolePage />;
     // 其他頁面：顯示「開發中」提示（之後逐步補上）
     if (activeNav !== 'dashboard') return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '16px', color: '#9ca3af' }}>

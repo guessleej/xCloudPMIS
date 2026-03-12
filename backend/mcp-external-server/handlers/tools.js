@@ -260,6 +260,42 @@ const TOOL_DEFINITIONS = [
     },
   },
 
+  // ── 通知整合（Telegram / LINE）───────────────────────────
+  {
+    name: 'notify_telegram',
+    description: '透過 Telegram Bot API 發送訊息至頻道或個人（需設定 TELEGRAM_BOT_TOKEN 環境變數）',
+    requiredScopes: ['write:notifications'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chatId:    { type: 'string',  description: 'Telegram Chat ID（頻道用 @channel_name，個人用數字 ID，必填）' },
+        message:   { type: 'string',  description: '訊息內容（支援 Markdown，必填）' },
+        parseMode: { type: 'string',  enum: ['Markdown','HTML','MarkdownV2'], description: '訊息格式（預設 Markdown）' },
+        projectId: { type: 'integer', description: '關聯專案 ID（可選，自動加入專案名稱前綴）' },
+        taskId:    { type: 'integer', description: '關聯任務 ID（可選，自動附加任務標題）' },
+      },
+      required: ['chatId', 'message'],
+    },
+  },
+
+  {
+    name: 'notify_line',
+    description: '透過 LINE Messaging API 推播訊息至 LINE 群組或個人（需設定 LINE_CHANNEL_ACCESS_TOKEN 環境變數）',
+    requiredScopes: ['write:notifications'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        userId:   { type: 'string',  description: 'LINE User ID 或 Group ID（必填）' },
+        message:  { type: 'string',  description: '訊息內容（必填）' },
+        type:     { type: 'string',  enum: ['text','flex'], description: '訊息類型（預設 text；flex 需傳 flexBody）' },
+        flexBody: { type: 'object',  description: 'LINE Flex Message 結構（type=flex 時必填）' },
+        projectId: { type: 'integer', description: '關聯專案 ID（可選）' },
+        taskId:    { type: 'integer', description: '關聯任務 ID（可選）' },
+      },
+      required: ['userId', 'message'],
+    },
+  },
+
   // ── OpenClaw RPA 整合 ─────────────────────────────────────
   {
     name: 'rpa_execute_flow',
@@ -945,6 +981,115 @@ const toolImpl = {
     });
 
     return ok({ notificationId: notification.id, recipient: user, title: args.title, createdAt: notification.createdAt });
+  },
+
+  // ── notify_telegram ───────────────────────────────────────
+  async notify_telegram(args, apiKeyInfo) {
+    requireScope(apiKeyInfo, 'write:notifications');
+    requireParams(args, ['chatId', 'message']);
+
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) return fail('TELEGRAM_BOT_TOKEN 未設定，請在環境變數中配置', 'CONFIG_ERROR');
+
+    const { chatId, message, parseMode = 'Markdown', projectId, taskId } = args;
+    let text = message;
+
+    // 附加專案 / 任務上下文
+    if (projectId || taskId) {
+      const prisma = db();
+      if (projectId) {
+        const project = await prisma.project.findFirst({
+          where: { id: projectId, companyId: apiKeyInfo.companyId },
+          select: { name: true },
+        });
+        if (project) text = `*[${project.name}]* ${text}`;
+      }
+      if (taskId) {
+        const task = await prisma.task.findFirst({
+          where: { id: taskId },
+          select: { title: true },
+        });
+        if (task) text += `\n🔗 任務：${task.title}`;
+      }
+    }
+
+    try {
+      const resp = await axios.post(
+        `https://api.telegram.org/bot${token}/sendMessage`,
+        { chat_id: chatId, text, parse_mode: parseMode },
+        { timeout: 10000 }
+      );
+      if (!resp.data.ok) {
+        return fail(`Telegram API 錯誤：${resp.data.description}`, 'TELEGRAM_ERROR');
+      }
+      return ok({
+        success:   true,
+        messageId: resp.data.result.message_id,
+        chatId,
+        sentAt:    new Date().toISOString(),
+      });
+    } catch (e) {
+      const detail = e.response?.data?.description || e.message;
+      return fail(`Telegram 發送失敗：${detail}`, 'TELEGRAM_ERROR');
+    }
+  },
+
+  // ── notify_line ───────────────────────────────────────────
+  async notify_line(args, apiKeyInfo) {
+    requireScope(apiKeyInfo, 'write:notifications');
+    requireParams(args, ['userId', 'message']);
+
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (!token) return fail('LINE_CHANNEL_ACCESS_TOKEN 未設定，請在環境變數中配置', 'CONFIG_ERROR');
+
+    const { userId, message, type = 'text', flexBody, projectId, taskId } = args;
+    let msgText = message;
+
+    // 附加專案 / 任務上下文
+    if (projectId || taskId) {
+      const prisma = db();
+      if (projectId) {
+        const project = await prisma.project.findFirst({
+          where: { id: projectId, companyId: apiKeyInfo.companyId },
+          select: { name: true },
+        });
+        if (project) msgText = `[${project.name}] ${msgText}`;
+      }
+      if (taskId) {
+        const task = await prisma.task.findFirst({
+          where: { id: taskId },
+          select: { title: true },
+        });
+        if (task) msgText += ` / 任務：${task.title}`;
+      }
+    }
+
+    const messageBody = type === 'flex' && flexBody
+      ? { type: 'flex', altText: msgText, contents: flexBody }
+      : { type: 'text', text: msgText };
+
+    try {
+      const resp = await axios.post(
+        'https://api.line.me/v2/bot/message/push',
+        { to: userId, messages: [messageBody] },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type':  'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+      return ok({
+        success:   true,
+        userId,
+        sentAt:    new Date().toISOString(),
+        requestId: resp.headers['x-line-request-id'] || null,
+      });
+    } catch (e) {
+      const errMsg = e.response?.data?.message || e.message;
+      return fail(`LINE 發送失敗：${errMsg}`, 'LINE_ERROR');
+    }
   },
 
   // ── rpa_execute_flow（OpenClaw RPA）───────────────────────

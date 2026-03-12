@@ -19,6 +19,7 @@ const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoft');
+const adminMcpRouter      = require('./routes/adminMcp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -146,6 +147,10 @@ app.use('/api/ai', aiDecisionsRouter);
 
 // ── 健康檢查路由（Email / Graph API 連線狀態）────────────────
 app.use('/api/health', healthRouter);
+
+// ── MCP 統一控制台 Admin API ─────────────────────────────────
+// status / sessions / tools / logs / api-keys
+app.use('/api/admin/mcp', adminMcpRouter);
 
 // ── Microsoft OAuth 2.0 Delegated 授權路由 ───────────────────
 // GET    /auth/microsoft            → 發起 OAuth 流程
