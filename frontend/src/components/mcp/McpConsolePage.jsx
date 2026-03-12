@@ -41,11 +41,11 @@ const COLORS = {
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
 
 const MS_SERVICES = [
-  { key: 'outlook',    icon: '📧', label: 'Outlook Mail',    desc: 'Mail.ReadWrite / Mail.Send' },
-  { key: 'teams',      icon: '💬', label: 'Microsoft Teams', desc: 'Chat.ReadWrite / ChannelMessage.Send' },
-  { key: 'sharepoint', icon: '📂', label: 'SharePoint',      desc: 'Sites.ReadWrite.All' },
-  { key: 'onedrive',   icon: '☁️', label: 'OneDrive',        desc: 'Files.ReadWrite.All' },
-  { key: 'loop',       icon: '🔄', label: 'Loop',            desc: 'Notes.ReadWrite.All' },
+  { key: 'outlook',    initial: 'O', bg: '#0078d4', label: 'Outlook Mail',    desc: 'Mail.ReadWrite / Mail.Send' },
+  { key: 'teams',      initial: 'T', bg: '#6264a7', label: 'Microsoft Teams', desc: 'Chat.ReadWrite / ChannelMessage.Send' },
+  { key: 'sharepoint', initial: 'S', bg: '#038387', label: 'SharePoint',      desc: 'Sites.ReadWrite.All' },
+  { key: 'onedrive',   initial: 'D', bg: '#0364b8', label: 'OneDrive',        desc: 'Files.ReadWrite.All' },
+  { key: 'loop',       initial: 'L', bg: '#7719aa', label: 'Microsoft Loop',  desc: 'Notes.ReadWrite.All' },
 ];
 
 const SUB_NAV = [
@@ -484,33 +484,53 @@ function MicrosoftTab({ data, loading }) {
       {/* 各服務狀態 */}
       <Card>
         <SectionTitle>🏢 Microsoft 365 服務整合</SectionTitle>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
           {MS_SERVICES.map(svc => {
             const svcData = ms?.services?.[svc.key] || { status: 'disconnected' };
+            const isActive = svcData.status === 'online';
             return (
               <div key={svc.key} style={{
-                background: COLORS.bg, borderRadius: 10, padding: '16px',
-                border: `1px solid ${svcData.status === 'online' ? COLORS.success + '44' : COLORS.border}`,
+                background: COLORS.bg,
+                borderRadius: 10,
+                padding: '14px 16px',
+                border: `1px solid ${isActive ? COLORS.success + '55' : COLORS.border}`,
                 transition: 'border 0.2s',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                {/* ── 卡片標頭：icon + 名稱 + 狀態徽章 ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  {/* 品牌色字母圖示（取代 emoji，避免 OS 渲染成 app icon） */}
                   <div style={{
-                    width: 44, height: 44, borderRadius: 10, fontSize: 22,
-                    background: COLORS.card, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', border: `1px solid ${COLORS.border}`,
+                    width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                    background: isActive ? svc.bg : COLORS.border,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, fontWeight: 800, color: '#fff',
+                    letterSpacing: '-0.5px',
+                    transition: 'background 0.2s',
                   }}>
-                    {svc.icon}
+                    {svc.initial}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.text }}>{svc.label}</div>
-                    <div style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>{svc.desc}</div>
+                  {/* 名稱 + Scope（flex: 1 + minWidth: 0 防止文字溢出撐寬） */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontWeight: 700, fontSize: 13, color: COLORS.text,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {svc.label}
+                    </div>
+                    <div style={{
+                      fontSize: 10, color: COLORS.textLight, marginTop: 1,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                      {svc.desc}
+                    </div>
                   </div>
-                  <div style={{ marginLeft: 'auto' }}>
+                  {/* 狀態徽章（flexShrink: 0 防止被擠壓換行） */}
+                  <div style={{ flexShrink: 0 }}>
                     <StatusLabel status={svcData.status} />
                   </div>
                 </div>
 
-                {/* MCP 工具功能說明 */}
+                {/* ── MCP 工具功能說明 ── */}
                 <MicrosoftToolHints service={svc.key} status={svcData.status} />
               </div>
             );
