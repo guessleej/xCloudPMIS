@@ -127,21 +127,32 @@ function invalidateConfigCache() {
  * 根據設定取得或建立 OpenAI 客戶端
  * @param {{ baseUrl, apiKey, modelHeavy, modelLight, maxTokens }} config
  */
-function _getClientForConfig(config) {
-  // 以 baseUrl + apiKey 前 8 碼 作為快取 key，識別設定是否變更
-  const key = `${config.baseUrl || ''}|${(config.apiKey || '').slice(0, 8)}`;
-  if (_client && _clientConfigKey === key) return _client;
+/** 判斷是否為本地端 URL（Ollama / LM Studio 等，不需要真實 API Key） */
+function _isLocalUrl(url) {
+  return /localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal/i.test(url || '');
+}
 
-  if (!config.apiKey) {
-    throw new Error(
-      '❌ AI 模型金鑰未設定\n' +
-      '   請至「AI 決策中心 → 模型設定」輸入 API 金鑰，\n' +
-      '   或設定環境變數 OPENAI_API_KEY。'
-    );
+function _getClientForConfig(config) {
+  // 本地端（Ollama / LM Studio）允許空 API Key，自動補佔位符
+  let apiKey = config.apiKey;
+  if (!apiKey) {
+    if (_isLocalUrl(config.baseUrl)) {
+      apiKey = 'ollama';  // Ollama / LM Studio 接受任意非空字串作為 API Key
+    } else {
+      throw new Error(
+        '❌ AI 模型金鑰未設定\n' +
+        '   請至「AI 決策中心 → 模型設定」輸入 API 金鑰，\n' +
+        '   或設定環境變數 OPENAI_API_KEY。'
+      );
+    }
   }
 
+  // 以 baseUrl + apiKey 前 8 碼 作為快取 key，識別設定是否變更
+  const key = `${config.baseUrl || ''}|${apiKey.slice(0, 8)}`;
+  if (_client && _clientConfigKey === key) return _client;
+
   const opts = {
-    apiKey:     config.apiKey,
+    apiKey,
     timeout:    60_000,
     maxRetries: 2,
   };

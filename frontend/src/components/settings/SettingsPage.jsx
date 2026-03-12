@@ -1015,16 +1015,30 @@ function IntegrationsTab({ callbackState }) {
         message: `✅ Microsoft 帳號已成功連線${callbackState.msEmail ? `（${callbackState.msEmail}）` : ''}`,
       });
     } else if (callbackState?.msError) {
-      const MAP = {
-        state_mismatch:   'OAuth 狀態驗證失敗，請重試',
-        no_code:          '未收到授權碼，請重試',
-        token_exchange:   'Token 交換失敗，請確認 Azure 應用程式設定',
-        no_pkce_verifier: 'PKCE 驗證失敗，請重試',
+      // 後端錯誤碼（大寫）→ 使用者可理解的中文說明
+      const ERROR_MAP = {
+        // ── 後端回呼處理錯誤 ──────────────────────────────────
+        MISSING_CALLBACK_PARAMS:   '回呼參數不完整，請重新點擊「連接 Microsoft 帳號」',
+        INVALID_OR_EXPIRED_STATE:  'OAuth 授權已逾時（需在 10 分鐘內完成），請重試',
+        STATE_PARSE_ERROR:         '授權狀態解析失敗，請重試',
+        INCOMPLETE_TOKEN_RESPONSE: 'Microsoft 回傳 Token 不完整，請重試',
+        TOKEN_SAVE_FAILED:         'Token 儲存失敗，請確認資料庫連線正常後重試',
+        STATE_COLLISION:           '狀態碼產生衝突，請重試',
+        OAUTH_NOT_CONFIGURED:      '⚠️ Azure AD 尚未完成設定，請先填入 OAUTH_MICROSOFT_CLIENT_ID 和 OAUTH_MICROSOFT_CLIENT_SECRET',
+        // ── Microsoft 回傳的 OAuth 錯誤（大寫化） ─────────────
+        ACCESS_DENIED:             '您已取消 Microsoft 帳號授權',
+        INVALID_CLIENT:            'Azure Client ID 無效，請確認 .env 中的 OAUTH_MICROSOFT_CLIENT_ID 設定正確',
+        UNAUTHORIZED_CLIENT:       'Azure 應用程式未授權此操作，請確認 API 權限設定',
+        CONSENT_REQUIRED:          '需要管理員授予同意（Admin Consent），請聯絡 IT 管理員',
+        INTERACTION_REQUIRED:      '需要用戶額外互動（可能需要 MFA），請重試',
+        TEMPORARILY_UNAVAILABLE:   'Microsoft 服務暫時不可用，請稍後重試',
+        SERVER_ERROR:              'Microsoft 伺服器發生錯誤，請稍後重試',
       };
-      setBanner({
-        type: 'error',
-        message: MAP[callbackState.msError] || `連線失敗：${callbackState.msError}`,
-      });
+      const errMsg = ERROR_MAP[callbackState.msError]
+        // ms_message 是後端 errorRedirect 附帶的詳細說明（備援）
+        || callbackState.msMessage
+        || `連線失敗（${callbackState.msError}）`;
+      setBanner({ type: 'error', message: errMsg });
     }
     (async () => {
       const token = await getJwt();
@@ -1038,7 +1052,7 @@ function IntegrationsTab({ callbackState }) {
     setConnecting(true);
     try {
       const token = jwtToken || await getJwt();
-      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動');
+      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動（docker-compose up）');
       const res  = await fetch(`${API_BASE}/auth/microsoft`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1046,8 +1060,13 @@ function IntegrationsTab({ callbackState }) {
         },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '無法取得授權連結');
-      if (!data.authorizationUrl) throw new Error('回應中缺少授權 URL');
+      if (!res.ok) {
+        // 後端回傳的結構化錯誤（含 detail 詳細說明）
+        const msg = data.detail || data.error || '無法取得授權連結';
+        throw new Error(msg);
+      }
+      if (!data.authorizationUrl) throw new Error('回應中缺少授權 URL，請確認後端設定');
+      // 導向 Microsoft 登入頁
       window.location.href = data.authorizationUrl;
     } catch (err) {
       setBanner({ type: 'error', message: err.message });

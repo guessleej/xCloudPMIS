@@ -411,17 +411,18 @@ export default function Dashboard() {
 
   // ── OAuth 回呼偵測：頁面載入時檢查 URL 參數 ────────────────
   // Microsoft OAuth 完成後會重導向至 /settings/integrations?ms_connected=1&ms_email=xxx
-  // 或 /settings/integrations?ms_error=state_mismatch 等
+  // 或 /settings/integrations?ms_error=MISSING_CALLBACK_PARAMS&ms_message=... 等
   useEffect(() => {
-    const params   = new URLSearchParams(window.location.search);
-    const msConn   = params.get('ms_connected');
-    const msError  = params.get('ms_error');
-    const msEmail  = params.get('ms_email');
+    const params     = new URLSearchParams(window.location.search);
+    const msConn     = params.get('ms_connected');
+    const msError    = params.get('ms_error');
+    const msEmail    = params.get('ms_email');
+    const msMessage  = params.get('ms_message');   // 後端附帶的詳細錯誤訊息
 
     if (msConn === '1' || msError) {
       // 切換到系統設定 → 整合服務 tab，並傳入回呼結果
       setActiveNav('settings');
-      setSettingsState({ initialTab: 'integrations', msConnected: msConn, msError, msEmail });
+      setSettingsState({ initialTab: 'integrations', msConnected: msConn, msError, msEmail, msMessage });
       // 清除 URL 參數（保留 SPA 乾淨的根路徑）
       window.history.replaceState({}, document.title, window.location.pathname.replace(/\/settings\/integrations\/?$/, '/') || '/');
     }

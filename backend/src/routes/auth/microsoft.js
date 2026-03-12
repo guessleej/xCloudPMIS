@@ -59,6 +59,47 @@ const TENANT_ID     = () => process.env.OAUTH_MICROSOFT_TENANT_ID || 'common';
 const REDIRECT_URI  = () => process.env.OAUTH_REDIRECT_URI;
 const FRONTEND_URL  = () => process.env.FRONTEND_URL || 'http://localhost:3001';
 
+// ── 佔位符偵測（.env 預設值尚未替換的常見格式）──────────────
+const PLACEHOLDER_PATTERNS = [
+  'your-azure-app-client-id',
+  'your-azure-app-client-secret',
+  'your_client_id',
+  'your_client_secret',
+  '<client_id>',
+  '<client_secret>',
+  'placeholder',
+  'changeme',
+  'your-',
+];
+
+/**
+ * 判斷字串是否仍是開發用佔位符（尚未填入真實值）
+ * @param {string|undefined} value
+ * @returns {boolean}
+ */
+function isPlaceholder(value) {
+  if (!value) return true;
+  const lower = value.toLowerCase().trim();
+  return PLACEHOLDER_PATTERNS.some(p => lower.includes(p));
+}
+
+/**
+ * 確認 OAuth 必要環境變數是否已設定（非空且非佔位符）
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+function checkOAuthConfig() {
+  if (!CLIENT_ID() || isPlaceholder(CLIENT_ID())) {
+    return { ok: false, reason: 'OAUTH_MICROSOFT_CLIENT_ID 尚未填入真實的 Azure 應用程式 (用戶端) 識別碼' };
+  }
+  if (!CLIENT_SECRET() || isPlaceholder(CLIENT_SECRET())) {
+    return { ok: false, reason: 'OAUTH_MICROSOFT_CLIENT_SECRET 尚未填入真實的用戶端密碼' };
+  }
+  if (!REDIRECT_URI()) {
+    return { ok: false, reason: 'OAUTH_REDIRECT_URI 未設定' };
+  }
+  return { ok: true };
+}
+
 // Delegated Permissions scopes
 const OAUTH_SCOPES = [
   'openid',
@@ -117,14 +158,15 @@ function generateState() {
  *   - 否則 → 302 重導向至 Microsoft 授權頁
  */
 router.get('/', requireAuth, async (req, res) => {
-  // 驗證必要環境變數
-  const missing = [];
-  if (!CLIENT_ID())    missing.push('OAUTH_MICROSOFT_CLIENT_ID');
-  if (!REDIRECT_URI()) missing.push('OAUTH_REDIRECT_URI');
-  if (missing.length > 0) {
+  // 驗證必要環境變數（含佔位符偵測）
+  const cfg = checkOAuthConfig();
+  if (!cfg.ok) {
     return res.status(500).json({
-      error:   'OAuth 設定不完整，請聯繫系統管理員',
-      missing,
+      error:      'Azure AD OAuth 尚未完成設定',
+      detail:     cfg.reason,
+      code:       'OAUTH_NOT_CONFIGURED',
+      configured: false,
+      hint:       '請在後端 .env 中填入真實的 OAUTH_MICROSOFT_CLIENT_ID 和 OAUTH_MICROSOFT_CLIENT_SECRET，並重啟後端服務',
     });
   }
 
@@ -339,14 +381,21 @@ router.get('/callback', async (req, res) => {
  * { connected: false, message: "尚未連接 Microsoft 帳號", authUrl: "/auth/microsoft" }
  */
 router.get('/status', requireAuth, async (req, res) => {
+  // ① 先判斷 Azure 是否已完成設定（CLIENT_ID / SECRET 非空且非佔位符）
+  const cfgCheck  = checkOAuthConfig();
+  const configured = cfgCheck.ok;
+
   try {
     const info = await getUserTokenInfo(req.user.userId);
 
     if (!info || !info.connected) {
       return res.json({
-        connected: false,
-        message:   '尚未連接 Microsoft 帳號',
-        authUrl:   '/auth/microsoft',
+        connected:  false,
+        configured,
+        message:    configured
+          ? '尚未連接 Microsoft 帳號'
+          : 'Azure AD 尚未設定，請填入 OAUTH_MICROSOFT_CLIENT_ID 和 OAUTH_MICROSOFT_CLIENT_SECRET 後重啟後端',
+        authUrl:    '/auth/microsoft',
       });
     }
 
@@ -357,6 +406,7 @@ router.get('/status', requireAuth, async (req, res) => {
 
     res.json({
       connected:       true,
+      configured:      true,
       microsoftEmail:  info.microsoftEmail,
       scopes:          info.scopes,
       connectedAt:     info.connectedAt,
@@ -367,7 +417,7 @@ router.get('/status', requireAuth, async (req, res) => {
 
   } catch (err) {
     console.error(`❌ 用戶 ${req.user.userId} OAuth 狀態查詢失敗:`, err.message);
-    res.status(500).json({ error: '查詢 Microsoft 連線狀態失敗' });
+    res.status(500).json({ error: '查詢 Microsoft 連線狀態失敗', configured });
   }
 });
 
