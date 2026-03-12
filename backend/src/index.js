@@ -19,6 +19,7 @@ const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoft');
+const devTokenRouter      = require('./routes/auth/devToken');
 const adminMcpRouter      = require('./routes/adminMcp');
 
 const app = express();
@@ -158,6 +159,10 @@ app.use('/api/admin/mcp', adminMcpRouter);
 // GET    /auth/microsoft/status     → 查詢連線狀態
 // DELETE /auth/microsoft/revoke     → 撤銷授權
 app.use('/auth/microsoft', microsoftAuthRouter);
+
+// ── 開發用 JWT 產生端點（正式環境請勿使用）────────────────────
+// GET /api/auth/dev-token → 回傳模擬使用者 JWT，供前端呼叫 requireAuth API
+app.use('/api/auth/dev-token', devTokenRouter);
 
 // ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
 // projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下

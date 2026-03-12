@@ -17,10 +17,11 @@ const CURRENT_USER_ID = 4;   // 模擬登入使用者：陳志明（admin）
 
 // ── 分頁定義 ─────────────────────────────────────────────────
 const TABS = [
-  { id: 'company',  icon: '🏢', label: '公司資訊' },
-  { id: 'profile',  icon: '👤', label: '個人資料' },
-  { id: 'system',   icon: '📊', label: '系統狀態' },
-  { id: 'stats',    icon: '🗄️', label: '資料統計' },
+  { id: 'company',      icon: '🏢', label: '公司資訊' },
+  { id: 'profile',      icon: '👤', label: '個人資料' },
+  { id: 'integrations', icon: '🔗', label: '整合服務' },
+  { id: 'system',       icon: '📊', label: '系統狀態' },
+  { id: 'stats',        icon: '🗄️', label: '資料統計' },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -941,10 +942,330 @@ function SystemStatsTab({ activeTab }) {
 }
 
 // ════════════════════════════════════════════════════════════
+// Tab 5：整合服務（Microsoft OAuth）
+// ════════════════════════════════════════════════════════════
+
+/** 資訊列（label + value 二欄） */
+function InfoRow({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 500, color: '#111827', wordBreak: 'break-all' }}>{value}</div>
+    </div>
+  );
+}
+
+/** 旋轉 Spinner（小尺寸） */
+function Spinner({ color = '#fff' }) {
+  return (
+    <span style={{
+      width: 12, height: 12,
+      border: `2px solid ${color}44`,
+      borderTop: `2px solid ${color}`,
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite',
+      display: 'inline-block',
+    }} />
+  );
+}
+
+function IntegrationsTab({ callbackState }) {
+  const [msStatus,   setMsStatus]   = useState(null);
+  const [loading,    setLoading]    = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [revoking,   setRevoking]   = useState(false);
+  const [banner,     setBanner]     = useState({ type: '', message: '' });
+  const [jwtToken,   setJwtToken]   = useState(null);
+
+  // ── 取得開發用 JWT ─────────────────────────────────────────
+  const getJwt = useCallback(async () => {
+    try {
+      const res  = await fetch(`${API_BASE}/api/auth/dev-token`);
+      const data = await res.json();
+      if (data.token) {
+        setJwtToken(data.token);
+        return data.token;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // ── 查詢 Microsoft 連線狀態 ────────────────────────────────
+  const fetchMsStatus = useCallback(async (token) => {
+    try {
+      const res  = await fetch(`${API_BASE}/auth/microsoft/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setMsStatus(data);
+    } catch {
+      setMsStatus({ connected: false, configured: false });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ── 掛載：讀取回呼狀態 + 初始化 ───────────────────────────
+  useEffect(() => {
+    if (callbackState?.msConnected === '1') {
+      setBanner({
+        type: 'success',
+        message: `✅ Microsoft 帳號已成功連線${callbackState.msEmail ? `（${callbackState.msEmail}）` : ''}`,
+      });
+    } else if (callbackState?.msError) {
+      const MAP = {
+        state_mismatch:   'OAuth 狀態驗證失敗，請重試',
+        no_code:          '未收到授權碼，請重試',
+        token_exchange:   'Token 交換失敗，請確認 Azure 應用程式設定',
+        no_pkce_verifier: 'PKCE 驗證失敗，請重試',
+      };
+      setBanner({
+        type: 'error',
+        message: MAP[callbackState.msError] || `連線失敗：${callbackState.msError}`,
+      });
+    }
+    (async () => {
+      const token = await getJwt();
+      if (token) await fetchMsStatus(token);
+      else setLoading(false);
+    })();
+  }, [callbackState, getJwt, fetchMsStatus]);
+
+  // ── 發起 OAuth 授權 ────────────────────────────────────────
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const token = jwtToken || await getJwt();
+      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動');
+      const res  = await fetch(`${API_BASE}/auth/microsoft`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept:        'application/json',
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '無法取得授權連結');
+      if (!data.authorizationUrl) throw new Error('回應中缺少授權 URL');
+      window.location.href = data.authorizationUrl;
+    } catch (err) {
+      setBanner({ type: 'error', message: err.message });
+      setConnecting(false);
+    }
+  };
+
+  // ── 撤銷授權 ──────────────────────────────────────────────
+  const handleRevoke = async () => {
+    if (!window.confirm('確定要解除 Microsoft 帳號授權嗎？\n解除後 AI Agent 將無法存取 Email 和行事曆。')) return;
+    setRevoking(true);
+    try {
+      const token = jwtToken || await getJwt();
+      const res   = await fetch(`${API_BASE}/auth/microsoft/revoke`, {
+        method:  'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '撤銷失敗');
+      setBanner({ type: 'success', message: '已成功解除 Microsoft 帳號授權' });
+      await fetchMsStatus(token);
+    } catch (err) {
+      setBanner({ type: 'error', message: err.message });
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  if (loading) return <p style={{ color: '#9ca3af', fontSize: 14 }}>載入連線狀態中…</p>;
+
+  const connected     = msStatus?.connected === true;
+  const isConfigured  = msStatus?.configured !== false;
+
+  return (
+    <div>
+      <Banner
+        type={banner.type}
+        message={banner.message}
+        onClose={() => setBanner({ type: '', message: '' })}
+      />
+
+      {/* ── Microsoft 365 連線卡片 ── */}
+      <Card
+        title="🔵 Microsoft 365 / Azure AD 連線"
+        extra={
+          <span style={{
+            padding:    '3px 10px',
+            borderRadius: 20,
+            fontSize:   12,
+            fontWeight: 600,
+            background: connected ? '#dcfce7' : '#f1f5f9',
+            color:      connected ? '#15803d' : '#64748b',
+            display:    'inline-flex',
+            alignItems: 'center',
+            gap:        5,
+          }}>
+            <span style={{
+              width: 7, height: 7,
+              borderRadius: '50%',
+              display: 'inline-block',
+              background: connected ? '#22c55e' : '#94a3b8',
+            }} />
+            {connected ? '已連線' : '未連線'}
+          </span>
+        }
+      >
+        {connected ? (
+          /* 已連線 */
+          <div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 14,
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: 10,
+              padding: '16px 20px',
+              marginBottom: 20,
+            }}>
+              <InfoRow label="帳號 Email"   value={msStatus.email        || '—'} />
+              <InfoRow label="顯示名稱"     value={msStatus.displayName  || '—'} />
+              <InfoRow label="Token 到期"   value={
+                msStatus.tokenExpiresAt
+                  ? new Date(msStatus.tokenExpiresAt).toLocaleString('zh-TW')
+                  : '—'
+              } />
+              <InfoRow label="授權範圍" value={
+                Array.isArray(msStatus.scopes) && msStatus.scopes.length > 0
+                  ? msStatus.scopes.join(', ')
+                  : (msStatus.scope || '—')
+              } />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleRevoke}
+                disabled={revoking}
+                style={{
+                  padding:      '8px 18px',
+                  background:   revoking ? '#f9fafb' : '#fef2f2',
+                  color:        revoking ? '#9ca3af' : '#dc2626',
+                  border:       '1px solid',
+                  borderColor:  revoking ? '#e5e7eb' : '#fca5a5',
+                  borderRadius: 8,
+                  fontSize:     14,
+                  fontWeight:   500,
+                  cursor:       revoking ? 'not-allowed' : 'pointer',
+                  display:      'inline-flex',
+                  alignItems:   'center',
+                  gap:          6,
+                }}
+              >
+                {revoking && <Spinner color="#dc2626" />}
+                {revoking ? '解除中…' : '🔓 解除授權'}
+              </button>
+              <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                解除後 AI Agent 將無法存取 Email 和行事曆
+              </span>
+            </div>
+          </div>
+        ) : (
+          /* 未連線 */
+          <div>
+            <p style={{ margin: '0 0 12px', fontSize: 14, color: '#374151', lineHeight: 1.7 }}>
+              連接 Microsoft 帳號後，AI Agent 可以代您：
+            </p>
+            <ul style={{ margin: '0 0 20px 0', paddingLeft: 22, fontSize: 14, color: '#374151', lineHeight: 2 }}>
+              <li>📬 讀取並摘要 Outlook 郵件（含附件分析）</li>
+              <li>📅 查詢 / 建立 Teams 行事曆邀請</li>
+              <li>📁 讀取 SharePoint / OneDrive 文件</li>
+              <li>👥 查詢同事資訊（Teams 通訊錄）</li>
+            </ul>
+
+            {!isConfigured && (
+              <div style={{
+                padding:      '12px 16px',
+                background:   '#fffbeb',
+                border:       '1px solid #fcd34d',
+                borderRadius: 8,
+                marginBottom: 16,
+                fontSize:     13,
+                color:        '#92400e',
+                lineHeight:   1.7,
+              }}>
+                ⚠️ <strong>Azure 應用程式尚未設定：</strong>
+                請先在 <code>.env</code> 中填入{' '}
+                <code>OAUTH_MICROSOFT_CLIENT_ID</code> 和{' '}
+                <code>OAUTH_MICROSOFT_CLIENT_SECRET</code>，
+                並參考下方設定指引完成 Azure Portal 設定後重啟後端服務。
+              </div>
+            )}
+
+            <PrimaryBtn
+              onClick={handleConnect}
+              disabled={connecting || !isConfigured}
+              loading={connecting}
+            >
+              {connecting ? '正在跳轉至 Microsoft 登入…' : '🔵 連接 Microsoft 帳號'}
+            </PrimaryBtn>
+          </div>
+        )}
+
+        {/* 所需授權範圍說明 */}
+        <div style={{
+          marginTop:    20,
+          padding:      '10px 14px',
+          background:   '#f8fafc',
+          border:       '1px solid #e2e8f0',
+          borderRadius: 8,
+          fontSize:     12,
+          color:        '#64748b',
+        }}>
+          <strong>所需授權範圍（Scopes）：</strong>
+          <span style={{ marginLeft: 6 }}>
+            User.Read、Mail.Read、Mail.Send、Calendars.ReadWrite、Files.Read.All、offline_access
+          </span>
+        </div>
+      </Card>
+
+      {/* ── Azure 應用程式設定指引 ── */}
+      <Card title="🔧 Azure 應用程式設定指引">
+        <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }}>
+          <p style={{ margin: '0 0 12px', fontWeight: 600, color: '#111827' }}>設定步驟（僅需一次）：</p>
+          <ol style={{ margin: 0, paddingLeft: 20 }}>
+            <li>
+              登入{' '}
+              <a href="https://portal.azure.com" target="_blank" rel="noreferrer"
+                style={{ color: '#2563eb' }}>Azure Portal</a>，進入「應用程式註冊」
+            </li>
+            <li>
+              建立新應用程式，選「Web」平台，重新導向 URI 填：
+              <code style={{ background: '#f3f4f6', padding: '1px 6px', borderRadius: 4, marginLeft: 6, fontSize: 13 }}>
+                http://localhost:3010/auth/microsoft/callback
+              </code>
+            </li>
+            <li>複製「應用程式（用戶端）識別碼」→ 填入 <code>.env</code> 的 <code>OAUTH_MICROSOFT_CLIENT_ID</code></li>
+            <li>建立「用戶端密碼」→ 填入 <code>OAUTH_MICROSOFT_CLIENT_SECRET</code></li>
+            <li>
+              設定 <code>OAUTH_MICROSOFT_TENANT_ID</code>：
+              單一租用戶填租用戶 ID，多租用戶填 <code>common</code>
+            </li>
+            <li>
+              在「API 權限」加入委派權限：
+              User.Read、Mail.Read、Mail.Send、Calendars.ReadWrite、Files.Read.All
+            </li>
+            <li>重啟後端服務後，點擊上方「連接 Microsoft 帳號」</li>
+          </ol>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
-export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('company');
+export default function SettingsPage({ initialTab, callbackState }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'company');
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
@@ -997,8 +1318,9 @@ export default function SettingsPage() {
       {/* 內容區域 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ maxWidth: 720 }}>
-          {activeTab === 'company' && <CompanyTab />}
-          {activeTab === 'profile' && <ProfileTab />}
+          {activeTab === 'company'      && <CompanyTab />}
+          {activeTab === 'profile'      && <ProfileTab />}
+          {activeTab === 'integrations' && <IntegrationsTab callbackState={callbackState} />}
           {(activeTab === 'system' || activeTab === 'stats') && (
             <SystemStatsTab activeTab={activeTab} />
           )}

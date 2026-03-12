@@ -11,7 +11,7 @@
  *   └─────────────────────────────────────────┘
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboard } from './useDashboard';
 import SummaryCards       from './SummaryCards';
 import HealthPieChart     from './HealthPieChart';
@@ -404,9 +404,28 @@ function ProfilePage({ onBack }) {
 // 主元件：Dashboard
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
-  const [activeNav,    setActiveNav]    = useState('dashboard');
-  const [healthFilter, setHealthFilter] = useState(null);
+  const [activeNav,     setActiveNav]     = useState('dashboard');
+  const [healthFilter,  setHealthFilter]  = useState(null);
+  const [settingsState, setSettingsState] = useState(null); // OAuth 回呼狀態
   const { summary, projects, workload, insights, loading, error, refresh } = useDashboard();
+
+  // ── OAuth 回呼偵測：頁面載入時檢查 URL 參數 ────────────────
+  // Microsoft OAuth 完成後會重導向至 /settings/integrations?ms_connected=1&ms_email=xxx
+  // 或 /settings/integrations?ms_error=state_mismatch 等
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search);
+    const msConn   = params.get('ms_connected');
+    const msError  = params.get('ms_error');
+    const msEmail  = params.get('ms_email');
+
+    if (msConn === '1' || msError) {
+      // 切換到系統設定 → 整合服務 tab，並傳入回呼結果
+      setActiveNav('settings');
+      setSettingsState({ initialTab: 'integrations', msConnected: msConn, msError, msEmail });
+      // 清除 URL 參數（保留 SPA 乾淨的根路徑）
+      window.history.replaceState({}, document.title, window.location.pathname.replace(/\/settings\/integrations\/?$/, '/') || '/');
+    }
+  }, []); // 僅執行一次
 
   // 篩選後的專案列表（圓餅圖點擊後篩選）
   const filteredProjects = healthFilter
@@ -421,7 +440,12 @@ export default function Dashboard() {
     if (activeNav === 'time')     return <TimeTrackingPage />;
     if (activeNav === 'reports')  return <ReportsPage />;
     if (activeNav === 'team')     return <TeamPage />;
-    if (activeNav === 'settings')  return <SettingsPage />;
+    if (activeNav === 'settings')  return (
+      <SettingsPage
+        initialTab={settingsState?.initialTab}
+        callbackState={settingsState}
+      />
+    );
     if (activeNav === 'ai-center')   return <AiDecisionCenter />;
     if (activeNav === 'mcp-console') return <McpConsolePage />;
     if (activeNav === 'profile')     return <ProfilePage onBack={() => setActiveNav('dashboard')} />;
