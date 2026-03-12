@@ -970,12 +970,16 @@ function Spinner({ color = '#fff' }) {
 }
 
 function IntegrationsTab({ callbackState }) {
-  const [msStatus,   setMsStatus]   = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [connecting, setConnecting] = useState(false);
-  const [revoking,   setRevoking]   = useState(false);
-  const [banner,     setBanner]     = useState({ type: '', message: '' });
-  const [jwtToken,   setJwtToken]   = useState(null);
+  const [msStatus,    setMsStatus]    = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [connecting,  setConnecting]  = useState(false);
+  const [revoking,    setRevoking]    = useState(false);
+  const [banner,      setBanner]      = useState({ type: '', message: '' });
+  const [jwtToken,    setJwtToken]    = useState(null);
+
+  // ── Azure OAuth 快速設定表單 ────────────────────────────────
+  const [oauthForm,    setOauthForm]    = useState({ clientId: '', clientSecret: '' });
+  const [savingConfig, setSavingConfig] = useState(false);
 
   // ── 取得開發用 JWT ─────────────────────────────────────────
   const getJwt = useCallback(async () => {
@@ -1095,6 +1099,45 @@ function IntegrationsTab({ callbackState }) {
     }
   };
 
+  // ── 儲存 Azure OAuth 設定 ──────────────────────────────────
+  const handleSaveConfig = async () => {
+    if (!oauthForm.clientId.trim()) {
+      setBanner({ type: 'error', message: '請填入「應用程式 (用戶端) 識別碼」' });
+      return;
+    }
+    if (!oauthForm.clientSecret.trim()) {
+      setBanner({ type: 'error', message: '請填入「用戶端密碼值」' });
+      return;
+    }
+    setSavingConfig(true);
+    try {
+      const token = jwtToken || await getJwt();
+      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動');
+      const res  = await fetch(`${API_BASE}/auth/microsoft/config`, {
+        method:  'POST',
+        headers: {
+          Authorization:  `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept:         'application/json',
+        },
+        body: JSON.stringify({
+          clientId:     oauthForm.clientId.trim(),
+          clientSecret: oauthForm.clientSecret.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '設定更新失敗');
+      setBanner({ type: 'success', message: data.message });
+      setOauthForm({ clientId: '', clientSecret: '' });
+      // 重新取得連線狀態（configured 應變為 true）
+      if (token) await fetchMsStatus(token);
+    } catch (err) {
+      setBanner({ type: 'error', message: err.message });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   if (loading) return <p style={{ color: '#9ca3af', fontSize: 14 }}>載入連線狀態中…</p>;
 
   const connected     = msStatus?.connected === true;
@@ -1201,22 +1244,73 @@ function IntegrationsTab({ callbackState }) {
             </ul>
 
             {!isConfigured && (
-              <div style={{
-                padding:      '12px 16px',
-                background:   '#fffbeb',
-                border:       '1px solid #fcd34d',
-                borderRadius: 8,
-                marginBottom: 16,
-                fontSize:     13,
-                color:        '#92400e',
-                lineHeight:   1.7,
-              }}>
-                ⚠️ <strong>Azure 應用程式尚未設定：</strong>
-                請先在 <code>.env</code> 中填入{' '}
-                <code>OAUTH_MICROSOFT_CLIENT_ID</code> 和{' '}
-                <code>OAUTH_MICROSOFT_CLIENT_SECRET</code>，
-                並參考下方設定指引完成 Azure Portal 設定後重啟後端服務。
-              </div>
+              <>
+                {/* 警告提示 */}
+                <div style={{
+                  padding:      '10px 14px',
+                  background:   '#fffbeb',
+                  border:       '1px solid #fcd34d',
+                  borderRadius: 8,
+                  marginBottom: 14,
+                  fontSize:     13,
+                  color:        '#92400e',
+                  lineHeight:   1.6,
+                }}>
+                  ⚠️ <strong>Azure 應用程式尚未設定。</strong>
+                  請至 <a href="https://portal.azure.com" target="_blank" rel="noreferrer"
+                    style={{ color: '#b45309' }}>Azure Portal</a> 取得憑證後填入下方表單，或參考「設定指引」手動編輯 <code>.env</code>。
+                </div>
+
+                {/* 快速設定表單 */}
+                <div style={{
+                  background:   '#f8fafc',
+                  border:       '1px solid #e2e8f0',
+                  borderRadius: 10,
+                  padding:      '16px 18px',
+                  marginBottom: 16,
+                }}>
+                  <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
+                    🔑 填入 Azure 應用程式憑證
+                  </p>
+
+                  <div style={{ maxWidth: 480 }}>
+                    <Field
+                      label="應用程式 (用戶端) 識別碼"
+                      hint="Azure Portal → 應用程式註冊 → 複製「應用程式 (用戶端) 識別碼」"
+                    >
+                      <Input
+                        value={oauthForm.clientId}
+                        onChange={e => setOauthForm({ ...oauthForm, clientId: e.target.value })}
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      />
+                    </Field>
+
+                    <Field
+                      label="用戶端密碼（Value）"
+                      hint="Azure Portal → 憑證及秘密 → 新增用戶端密碼 → 複製「值」欄（不是 ID）"
+                    >
+                      <Input
+                        type="password"
+                        value={oauthForm.clientSecret}
+                        onChange={e => setOauthForm({ ...oauthForm, clientSecret: e.target.value })}
+                        placeholder="請輸入密碼的「值」（Value），不是識別碼（ID）"
+                      />
+                    </Field>
+
+                    <PrimaryBtn
+                      onClick={handleSaveConfig}
+                      loading={savingConfig}
+                      disabled={!oauthForm.clientId.trim() || !oauthForm.clientSecret.trim()}
+                    >
+                      💾 儲存並立即套用
+                    </PrimaryBtn>
+
+                    <p style={{ margin: '10px 0 0', fontSize: 12, color: '#64748b' }}>
+                      💡 設定儲存後立即生效，無需重啟後端服務。
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
 
             <PrimaryBtn

@@ -42,6 +42,8 @@
 'use strict';
 
 const crypto  = require('crypto');
+const fs      = require('fs');
+const path    = require('path');
 const axios   = require('axios');
 const { Router } = require('express');
 
@@ -419,6 +421,83 @@ router.get('/status', requireAuth, async (req, res) => {
     console.error(`❌ 用戶 ${req.user.userId} OAuth 狀態查詢失敗:`, err.message);
     res.status(500).json({ error: '查詢 Microsoft 連線狀態失敗', configured });
   }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /auth/microsoft/config
+// 更新 OAuth 環境設定（CLIENT_ID / CLIENT_SECRET）
+// ════════════════════════════════════════════════════════════
+
+/**
+ * 需要：Authorization: Bearer <app-jwt>
+ *
+ * 雙重持久化：
+ *   ① 立即更新 process.env → 目前執行的 Node 程序即刻生效，無需重啟
+ *   ② 嘗試寫入 .env 檔案 → 確保下次重啟後依然有效
+ *
+ * .env 檔案位置（優先順序）：
+ *   - /app/.env （Docker 容器內 = host 的 ./backend/.env，由 volume 掛載）
+ *   - 本機開發時同路徑
+ *
+ * @body {{ clientId: string, clientSecret: string, tenantId?: string }}
+ */
+router.post('/config', requireAuth, (req, res) => {
+  const { clientId, clientSecret, tenantId } = req.body || {};
+
+  // ① 輸入驗證
+  if (!clientId?.trim()) {
+    return res.status(400).json({ error: 'clientId 不能為空' });
+  }
+  if (!clientSecret?.trim()) {
+    return res.status(400).json({ error: 'clientSecret 不能為空' });
+  }
+
+  const cid = clientId.trim();
+  const sec = clientSecret.trim();
+  const tid = tenantId?.trim() || null;
+
+  // ② 立即更新 process.env（目前程序即刻生效）
+  process.env.OAUTH_MICROSOFT_CLIENT_ID     = cid;
+  process.env.OAUTH_MICROSOFT_CLIENT_SECRET = sec;
+  if (tid) process.env.OAUTH_MICROSOFT_TENANT_ID = tid;
+
+  // ③ 嘗試持久化到 .env 檔案
+  //    __dirname = /app/src/routes/auth → ../../../.env = /app/.env (Docker)
+  //                                       or ./backend/.env (local)
+  const envFilePath = path.join(__dirname, '../../../.env');
+  let fileSaved = false;
+  try {
+    let content = '';
+    try { content = fs.readFileSync(envFilePath, 'utf8'); } catch { /* 檔案不存在，從空字串建立 */ }
+
+    /** 更新或新增指定 KEY=value 行 */
+    const setLine = (text, key, value) => {
+      const re = new RegExp(`^${key}=.*$`, 'm');
+      if (re.test(text)) return text.replace(re, `${key}=${value}`);
+      const nl = text && !text.endsWith('\n') ? '\n' : '';
+      return `${text}${nl}${key}=${value}\n`;
+    };
+
+    let updated = setLine(content, 'OAUTH_MICROSOFT_CLIENT_ID',     cid);
+    updated     = setLine(updated, 'OAUTH_MICROSOFT_CLIENT_SECRET',  sec);
+    if (tid)  updated = setLine(updated, 'OAUTH_MICROSOFT_TENANT_ID', tid);
+
+    fs.writeFileSync(envFilePath, updated, 'utf8');
+    fileSaved = true;
+    console.log(`✅ [OAuth Config] 用戶 ${req.user.userId} 更新設定並寫入 ${envFilePath}`);
+  } catch (err) {
+    console.warn(`⚠️ [OAuth Config] process.env 已更新，但 .env 寫入失敗（重啟後需重設）: ${err.message}`);
+  }
+
+  const cfg = checkOAuthConfig();
+  res.json({
+    success:    true,
+    configured: cfg.ok,
+    fileSaved,
+    message:    fileSaved
+      ? '✅ OAuth 設定已更新並寫入 .env，即刻生效（無需重啟後端）'
+      : '✅ OAuth 設定已套用至目前程序，但 .env 寫入失敗（重啟後需重新設定）',
+  });
 });
 
 // ════════════════════════════════════════════════════════════
