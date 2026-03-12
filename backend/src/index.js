@@ -3,6 +3,13 @@
  * 基於 Express 框架的 API 伺服器
  */
 
+// ── 環境變數載入（非 Docker 本機開發用）───────────────────────
+// Docker 環境已透過 docker-compose.yml environment 注入，不需要 dotenv
+// 但本機直接執行 `node src/index.js` 或 `nodemon` 時，需從 .env 載入
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') }); // worktree 根目錄
+require('dotenv').config({ path: path.join(__dirname, '../.env') });    // backend/ 目錄（備用）
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');

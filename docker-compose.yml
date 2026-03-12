@@ -120,8 +120,17 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      # JWT 金鑰（之後實作認證時使用）
+      # JWT 金鑰（通用認證使用）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      # App JWT（requireAuth middleware + 開發用 dev-token 端點）
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-app-jwt-secret-xcloud-pmis-2024}
+      # 前端服務位址（OAuth 回呼後重導向用）
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      # Microsoft OAuth 2.0（填入 Azure Portal 的真實值後才能啟用 MS 帳號連線）
+      OAUTH_MICROSOFT_CLIENT_ID: ${OAUTH_MICROSOFT_CLIENT_ID:-}
+      OAUTH_MICROSOFT_CLIENT_SECRET: ${OAUTH_MICROSOFT_CLIENT_SECRET:-}
+      OAUTH_MICROSOFT_TENANT_ID: ${OAUTH_MICROSOFT_TENANT_ID:-common}
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-http://localhost:3010/auth/microsoft/callback}
     volumes:
       # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
       - ./backend:/app
