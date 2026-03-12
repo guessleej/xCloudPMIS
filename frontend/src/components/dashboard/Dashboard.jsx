@@ -113,14 +113,33 @@ function Sidebar({ active, onChange }) {
         ))}
       </nav>
 
-      {/* 用戶資訊（底部） */}
+      {/* 用戶資訊（底部）— 可點擊前往個人資料 */}
       <div style={{
-        padding: '16px',
+        padding: '10px',
         borderTop: '1px solid rgba(255,255,255,0.1)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={() => onChange('profile')}
+          title="查看個人資料"
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '8px',
+            borderRadius: '8px',
+            border: 'none',
+            background: active === 'profile' ? 'rgba(255,255,255,0.12)' : 'transparent',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transition: 'background 0.15s',
+          }}
+          onMouseOver={e => {
+            if (active !== 'profile') e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+          }}
+          onMouseOut={e => {
+            if (active !== 'profile') e.currentTarget.style.background = 'transparent';
+          }}
+        >
           <div style={{
-            width: '36px', height: '36px',
+            width: '36px', height: '36px', flexShrink: 0,
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -128,11 +147,12 @@ function Sidebar({ active, onChange }) {
           }}>
             陳
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: 'white', fontSize: '13px', fontWeight: '600' }}>陳志明</div>
             <div style={{ color: '#64748b', fontSize: '11px' }}>系統管理員</div>
           </div>
-        </div>
+          <span style={{ color: '#475569', fontSize: '12px' }}>›</span>
+        </button>
       </div>
     </aside>
   );
@@ -243,6 +263,144 @@ function ErrorScreen({ error, onRetry }) {
 
 
 // ════════════════════════════════════════════════════════════
+// 個人資料頁面
+// ════════════════════════════════════════════════════════════
+function ProfilePage({ onBack }) {
+  const INFO_ROWS = [
+    { label: '姓名',     value: '陳志明' },
+    { label: '帳號',     value: 'admin@xcloud.com' },
+    { label: '角色',     value: '系統管理員' },
+    { label: '所屬公司', value: 'xCloud 科技' },
+    { label: '部門',     value: '資訊技術部' },
+    { label: '電話',     value: '+886 912-345-678' },
+    { label: '加入日期', value: '2023-01-15' },
+  ];
+
+  return (
+    <div style={{ maxWidth: '640px', margin: '40px auto', padding: '0 24px' }}>
+
+      {/* 返回按鈕 */}
+      <button
+        onClick={onBack}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          color: '#64748b', fontSize: '14px', marginBottom: '24px', padding: 0,
+        }}
+      >
+        ← 返回儀表板
+      </button>
+
+      {/* 頭像區 */}
+      <div style={{
+        background: 'white', borderRadius: '16px',
+        border: '1px solid #e5e7eb', padding: '32px',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+        marginBottom: '16px',
+        display: 'flex', alignItems: 'center', gap: '24px',
+      }}>
+        <div style={{
+          width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'white', fontWeight: '800', fontSize: '28px',
+          boxShadow: '0 4px 14px rgba(59,130,246,0.4)',
+        }}>
+          陳
+        </div>
+        <div>
+          <div style={{ fontSize: '22px', fontWeight: '800', color: '#111827' }}>陳志明</div>
+          <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>系統管理員 · xCloud 科技</div>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            marginTop: '8px', padding: '3px 10px',
+            background: '#dcfce7', color: '#16a34a',
+            borderRadius: '20px', fontSize: '12px', fontWeight: '600',
+          }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />
+            線上
+          </div>
+        </div>
+      </div>
+
+      {/* 基本資料 */}
+      <div style={{
+        background: 'white', borderRadius: '16px',
+        border: '1px solid #e5e7eb', overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+        marginBottom: '16px',
+      }}>
+        <div style={{
+          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+          fontSize: '13px', fontWeight: '700', color: '#374151',
+        }}>
+          👤 基本資料
+        </div>
+        {INFO_ROWS.map((row, i) => (
+          <div key={row.label} style={{
+            display: 'flex', alignItems: 'center',
+            padding: '12px 20px',
+            borderBottom: i < INFO_ROWS.length - 1 ? '1px solid #f1f5f9' : 'none',
+            background: i % 2 === 0 ? 'white' : '#fafafa',
+          }}>
+            <div style={{ width: '100px', fontSize: '13px', color: '#9ca3af', flexShrink: 0 }}>
+              {row.label}
+            </div>
+            <div style={{ fontSize: '13px', color: '#111827', fontWeight: '500' }}>
+              {row.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 快捷操作 */}
+      <div style={{
+        background: 'white', borderRadius: '16px',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+          fontSize: '13px', fontWeight: '700', color: '#374151',
+        }}>
+          ⚙️ 帳戶設定
+        </div>
+        {[
+          { icon: '🔒', label: '修改密碼',     desc: '定期更換密碼以保護帳戶安全' },
+          { icon: '🔔', label: '通知偏好',     desc: '設定 Email / App 通知類型' },
+          { icon: '🌐', label: '語言與時區',   desc: '繁體中文 / Asia/Taipei' },
+          { icon: '🚪', label: '登出',         desc: '結束目前登入階段', danger: true },
+        ].map((item, i, arr) => (
+          <button
+            key={item.label}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+              padding: '14px 20px',
+              borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none',
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              textAlign: 'left', transition: 'background 0.15s',
+            }}
+            onMouseOver={e => (e.currentTarget.style.background = item.danger ? '#fff5f5' : '#f8fafc')}
+            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <span style={{ fontSize: '20px', flexShrink: 0 }}>{item.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: item.danger ? '#ef4444' : '#111827' }}>
+                {item.label}
+              </div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '1px' }}>{item.desc}</div>
+            </div>
+            <span style={{ color: '#d1d5db', fontSize: '16px' }}>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════════
 // 主元件：Dashboard
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
@@ -266,6 +424,7 @@ export default function Dashboard() {
     if (activeNav === 'settings')  return <SettingsPage />;
     if (activeNav === 'ai-center')   return <AiDecisionCenter />;
     if (activeNav === 'mcp-console') return <McpConsolePage />;
+    if (activeNav === 'profile')     return <ProfilePage onBack={() => setActiveNav('dashboard')} />;
     // 其他頁面：顯示「開發中」提示（之後逐步補上）
     if (activeNav !== 'dashboard') return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '16px', color: '#9ca3af' }}>
