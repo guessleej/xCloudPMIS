@@ -60,24 +60,29 @@ function getPrisma() {
 // ── 初始化：確保 mcp_api_keys 表存在 ─────────────────────────
 async function ensureTable() {
   const prisma = getPrisma();
+  // Prisma $executeRawUnsafe 不支援多命令合併，需分開呼叫
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS mcp_api_keys (
-      id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      key_hash    VARCHAR(64) NOT NULL UNIQUE,
-      key_prefix  VARCHAR(16) NOT NULL,
-      system_name VARCHAR(128) NOT NULL,
-      company_id  INTEGER NOT NULL,
-      scopes      TEXT[] NOT NULL DEFAULT '{}',
-      ip_whitelist TEXT[] DEFAULT NULL,
-      rate_limit  INTEGER NOT NULL DEFAULT 100,
-      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      key_hash     VARCHAR(64)  NOT NULL UNIQUE,
+      key_prefix   VARCHAR(16)  NOT NULL,
+      system_name  VARCHAR(128) NOT NULL,
+      company_id   INTEGER      NOT NULL,
+      scopes       TEXT[]       NOT NULL DEFAULT '{}',
+      ip_whitelist TEXT[]       DEFAULT NULL,
+      rate_limit   INTEGER      NOT NULL DEFAULT 100,
+      is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
       last_used_at TIMESTAMPTZ,
-      expires_at  TIMESTAMPTZ,
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS idx_mcp_api_keys_hash ON mcp_api_keys (key_hash);
-    CREATE INDEX IF NOT EXISTS idx_mcp_api_keys_company ON mcp_api_keys (company_id);
+      expires_at   TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    )
   `);
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS idx_mcp_api_keys_hash    ON mcp_api_keys (key_hash)`
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS idx_mcp_api_keys_company ON mcp_api_keys (company_id)`
+  );
 }
 
 // 確保表格存在（應用啟動時）

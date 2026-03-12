@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Docker Compose (全部服務)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up"],
+      "port": 3001,
+      "autoPort": false
+    },
+    {
+      "name": "後端 API (Express · port 3000)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3010
+    },
+    {
+      "name": "前端 React (Vite · port 3001)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "MCP External Server (port 3100)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["backend/mcp-external-server/index.js"],
+      "port": 3100
+    }
+  ]
+}
