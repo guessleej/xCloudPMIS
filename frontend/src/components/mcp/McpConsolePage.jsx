@@ -895,13 +895,46 @@ function ExternalTab({ toolsData, loadingTools }) {
             <StatusLabel status={serverOnline ? 'online' : 'offline'} />
           </span>
         </SectionTitle>
-        <div style={{ fontSize: 13, color: COLORS.textLight }}>
-          端點：<code style={{ background: COLORS.bg, padding: '2px 6px', borderRadius: 4 }}>
-            http://localhost:3100
-          </code>
-          　SSE：<code style={{ background: COLORS.bg, padding: '2px 6px', borderRadius: 4 }}>
-            GET /mcp/sse
-          </code>
+
+        {/* ── 連線備注（端點速查） ── */}
+        <div style={{
+          background:   '#0f172a',
+          borderRadius: 10,
+          padding:      '16px 20px',
+          fontFamily:   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          fontSize:     13,
+          lineHeight:   1.9,
+          marginTop:    4,
+          border:       '1px solid #1e293b',
+          userSelect:   'text',
+        }}>
+          {/* Banner 標題列 */}
+          <div style={{ color: '#94a3b8', marginBottom: 6, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            ╔══ xCloudPMIS MCP External Server &nbsp;
+            <span style={{ color: '#38bdf8', fontWeight: 700 }}>v1.0.0</span>
+            &nbsp;══╗
+          </div>
+
+          {/* 端點列表 */}
+          {[
+            { method: 'GET ', color: '#4ade80', path: '/mcp/discovery', note: '服務發現（能力列表）' },
+            { method: 'GET ', color: '#4ade80', path: '/mcp/sse',       note: 'SSE 長連線（事件推播）' },
+            { method: 'POST', color: '#fb923c', path: '/mcp/messages',  note: '工具呼叫入口' },
+          ].map(({ method, color, path, note }) => (
+            <div key={path} style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
+              <span style={{ color: '#475569', minWidth: 18 }}>║ </span>
+              <span style={{ color, minWidth: 44, fontWeight: 700 }}>{method}</span>
+              <span style={{ color: '#e2e8f0' }}>
+                http://localhost:<span style={{ color: '#f59e0b' }}>3100</span>
+                <span style={{ color: '#a78bfa' }}>{path}</span>
+              </span>
+              <span style={{ color: '#475569', marginLeft: 10, fontSize: 11 }}>// {note}</span>
+            </div>
+          ))}
+
+          <div style={{ color: '#94a3b8', marginTop: 6, fontSize: 11 }}>
+            ╚═══════════════════════════════════════════════╝
+          </div>
         </div>
       </Card>
 
