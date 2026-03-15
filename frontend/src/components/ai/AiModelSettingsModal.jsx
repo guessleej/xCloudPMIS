@@ -244,13 +244,17 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
         temperature: Number(temperature),
       });
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      // 儲存成功後 1 秒自動收起面板
+      setTimeout(() => {
+        setSaved(false);
+        onClose();
+      }, 1000);
     } catch (err) {
       setError('儲存失敗：' + err.message);
     } finally {
       setSaving(false);
     }
-  }, [companyId, provider, baseUrl, apiKey, modelHeavy, modelLight, maxTokens, temperature]);
+  }, [companyId, provider, baseUrl, apiKey, modelHeavy, modelLight, maxTokens, temperature, onClose]);
 
   if (!open) return null;
 
