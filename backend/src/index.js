@@ -28,6 +28,8 @@ const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoft');
 const devTokenRouter      = require('./routes/auth/devToken');
 const adminMcpRouter      = require('./routes/adminMcp');
+const tasksRouter         = require('./routes/tasks');
+const usersRouter         = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -171,10 +173,13 @@ app.use('/auth/microsoft', microsoftAuthRouter);
 // GET /api/auth/dev-token → 回傳模擬使用者 JWT，供前端呼叫 requireAuth API
 app.use('/api/auth/dev-token', devTokenRouter);
 
-// ── 任務看板 & 使用者 API（跨專案，獨立路徑） ─────────────
-// projectsRouter 的 GET /tasks 和 GET /users 因為掛在 /api/projects 下
-// 實際路徑是 /api/projects/tasks 與 /api/projects/users
-// 前端直接用這個路徑呼叫即可
+// ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
+// GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
+app.use('/api/tasks', tasksRouter);
+
+// ── 使用者列表路由（ProjectsPage 指派人選單用）───────────────
+// GET /api/users?companyId=2 → 回傳 {success, data, meta} 格式
+app.use('/api/users', usersRouter);
 
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {
@@ -233,6 +238,8 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/settings/company`);
   console.log(`  GET  http://localhost:${PORT}/api/settings/profile`);
   console.log(`  GET  http://localhost:${PORT}/api/settings/system`);
+  console.log(`  GET  http://localhost:${PORT}/api/tasks`);
+  console.log(`  GET  http://localhost:${PORT}/api/users`);
   console.log('');
   console.log('🔐 Microsoft OAuth 端點：');
   console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);
