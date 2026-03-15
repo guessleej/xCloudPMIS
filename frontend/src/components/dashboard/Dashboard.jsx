@@ -630,15 +630,45 @@ function ProfilePage({ onBack, currentUser }) {
   );
 }
 
+// ── URL Hash 路由輔助 ────────────────────────────────────────
+const ALL_NAV_IDS = [
+  ...NAV_GROUPS.flatMap(g => g.items.map(i => i.id)),
+  'profile',
+];
+
+function readHashNav() {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return ALL_NAV_IDS.includes(hash) ? hash : 'dashboard';
+}
+
+function writeHashNav(id) {
+  const newHash = id === 'dashboard' ? '' : id;
+  // 用 pushState 讓瀏覽器上一頁/下一頁可用
+  window.history.pushState({ nav: id }, '', newHash ? `#${newHash}` : window.location.pathname);
+}
+
 // ════════════════════════════════════════════════════════════
 // 主元件：Dashboard
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
-  const [activeNav,     setActiveNav]     = useState('dashboard');
+  const [activeNav,     setActiveNav]     = useState(readHashNav);   // ← 從 hash 初始化
   const [healthFilter,  setHealthFilter]  = useState(null);
   const [settingsState, setSettingsState] = useState(null);
   const [currentUser,   setCurrentUser]   = useState(null);
   const { summary, projects, workload, insights, loading, error, refresh } = useDashboard();
+
+  // ── 監聽瀏覽器上一頁/下一頁（popstate）────────────────────
+  useEffect(() => {
+    const onPop = () => setActiveNav(readHashNav());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // ── 導覽函式：同時更新 state + URL hash ──────────────────
+  const navigate = (id) => {
+    setActiveNav(id);
+    writeHashNav(id);
+  };
 
   // ── 載入當前登入用戶（取第一位 admin 成員）──────────────
   useEffect(() => {
@@ -660,7 +690,7 @@ export default function Dashboard() {
     const msMessage = params.get('ms_message');
 
     if (msConn === '1' || msError) {
-      setActiveNav('settings');
+      navigate('settings');
       setSettingsState({ initialTab: 'integrations', msConnected: msConn, msError, msEmail, msMessage });
       window.history.replaceState({}, document.title,
         window.location.pathname.replace(/\/settings\/integrations\/?$/, '/') || '/');
@@ -685,7 +715,7 @@ export default function Dashboard() {
     );
     if (activeNav === 'ai-center')   return <AiDecisionCenter />;
     if (activeNav === 'mcp-console') return <McpConsolePage />;
-    if (activeNav === 'profile')     return <ProfilePage onBack={() => setActiveNav('dashboard')} currentUser={currentUser} />;
+    if (activeNav === 'profile')     return <ProfilePage onBack={() => navigate('dashboard')} currentUser={currentUser} />;
 
     const allItems = NAV_GROUPS.flatMap(g => g.items);
     if (activeNav !== 'dashboard') {
@@ -755,7 +785,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.pageBg }}>
-      <Sidebar active={activeNav} onChange={setActiveNav} currentUser={currentUser} />
+      <Sidebar active={activeNav} onChange={navigate} currentUser={currentUser} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
         <Topbar activeNav={activeNav} onRefresh={refresh} loading={loading} />
