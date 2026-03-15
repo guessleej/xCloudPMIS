@@ -1,14 +1,14 @@
 /**
- * Dashboard — 主管決策儀表板主頁
+ * Dashboard — xCloudPMIS 主框架
  *
- * UI 重設計 v5：New Asana Navigation
- *   - 雙欄側邊欄：圖示軌道 (60px) + 模式面板 (210px, 可收合)
- *   - 四大模式：Work / Strategy / Workflow / Company
- *   - 收藏星號功能（localStorage 持久化）
+ * UI v6：完整對齊 Asana 介面架構
+ *   - 扁平單欄側邊欄（220px）：首頁/我的任務/收件匣/深入解析/專案/工作流程
+ *   - Asana 風格首頁：個人化問候 + 我的任務 widget + 專案 widget
+ *   - 頂部全域搜尋列
  *   - 品牌色：xCloud 深紅 #C41230
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from './useDashboard';
 import SummaryCards          from './SummaryCards';
 import HealthPieChart        from './HealthPieChart';
@@ -34,245 +34,104 @@ import PortfoliosPage        from '../portfolios/PortfoliosPage';
 import WorkloadPage          from '../workload/WorkloadPage';
 import RulesPage             from '../rules/RulesPage';
 
-// ── Design Tokens — xCloud Brand ────────────────────────────
+// ── Design Tokens ─────────────────────────────────────────────
 const T = {
-  sbBg:     '#12090A',  // 深黑底帶暖調
-  railBg:   '#0D0507',  // 圖示軌道（更深）
-  panelBg:  '#17080B',  // 模式面板背景
-  sbHover:  '#1E0D10',  // 懸停暖色
-  sbActive: '#2C0E14',  // 選中深紅色底
-  accent:   '#C41230',  // xCloud 品牌紅
-  accent2:  '#F04060',  // 較亮的紅（深色背景上文字）
-  t1:       '#F5EFEF',  // 暖白色文字
-  t2:       '#9E8E90',  // 次要文字（暖灰）
-  t3:       '#5C4850',  // 更淡文字
-  div:      '#221215',  // 分隔線（暖深色）
-  pageBg:   '#F7F2F2',  // 頁面背景（極淺暖色）
+  sbBg:     '#1A0A0D',   // 側邊欄深色背景
+  sbHover:  '#2C1018',   // 懸停
+  sbActive: '#3D1520',   // 選中
+  accent:   '#C41230',   // xCloud 品牌紅
+  accent2:  '#F04060',   // 較亮紅（深色背景上）
+  t1:       '#F5EFEF',   // 主文字（暖白）
+  t2:       '#9E8890',   // 次要文字（暖灰）
+  t3:       '#5C4048',   // 更淡文字
+  div:      '#2A1218',   // 分隔線
+  pageBg:   '#F4F0F0',   // 頁面背景
+  cardBg:   '#FFFFFF',
+  border:   '#E2D8D8',
 };
 
-// ── SVG 圖示集 ──────────────────────────────────────────────
-const Icon = {
-  dashboard: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-    </svg>
-  ),
-  projects: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-    </svg>
-  ),
-  tasks: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 11 12 14 22 4"/>
-      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-    </svg>
-  ),
-  gantt: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-      <line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
-  ),
-  time: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <polyline points="12 6 12 12 16 14"/>
-    </svg>
-  ),
-  reports: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-      <polyline points="10 9 9 9 8 9"/>
-    </svg>
-  ),
-  team: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-    </svg>
-  ),
-  settings: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2"/>
-    </svg>
-  ),
-  ai: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  ),
-  mcp: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="2" y1="12" x2="22" y2="12"/>
-      <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
-    </svg>
-  ),
-  discovery: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-    </svg>
-  ),
-  workflow: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="6" height="5" rx="1.5"/>
-      <rect x="16" y="3" width="6" height="5" rx="1.5"/>
-      <line x1="8" y1="5.5" x2="16" y2="5.5"/>
-      <polyline points="14,3.5 16,5.5 14,7.5"/>
-      <rect x="9" y="16" width="6" height="5" rx="1.5"/>
-      <line x1="12" y1="8" x2="12" y2="16"/>
-      <polyline points="10,14 12,16 14,14"/>
-    </svg>
-  ),
-  refresh: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 4 23 10 17 10"/>
-      <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
-    </svg>
-  ),
-  search: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-  ),
-  bell: (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
-    </svg>
-  ),
-  dots: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-    </svg>
-  ),
-  arrowLeft: (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-    </svg>
-  ),
+// ── API ───────────────────────────────────────────────────────
+const API_BASE   = 'http://localhost:3010';
+const COMPANY_ID = 2;
 
-  // ── Mode icons（圖示軌道用，較大）─────────────────────────
-  modeWork: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="8" y="2" width="8" height="4" rx="1"/>
-      <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
-      <polyline points="9 12 11 14 15 10"/>
-    </svg>
-  ),
-  modeStrategy: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <circle cx="12" cy="12" r="5.5"/>
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-    </svg>
-  ),
-  modeWorkflowM: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3"/>
-      <circle cx="6" cy="12" r="3"/>
-      <circle cx="18" cy="19" r="3"/>
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-    </svg>
-  ),
-  modeCompany: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  ),
-  starEmpty: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  ),
-  starFilled: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  ),
-  home: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  ),
-  myTasks: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 14.66V20a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h5.34"/>
-      <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/>
-    </svg>
-  ),
-  forms: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="8" y1="13" x2="16" y2="13"/>
-      <line x1="8" y1="17" x2="16" y2="17"/>
-    </svg>
-  ),
-  customFields: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <line x1="3" y1="9" x2="21" y2="9"/>
-      <line x1="3" y1="15" x2="21" y2="15"/>
-      <line x1="9" y1="9" x2="9" y2="21"/>
-    </svg>
-  ),
-  panelToggle: (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <line x1="9" y1="3" x2="9" y2="21"/>
-    </svg>
-  ),
-  inbox: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
-      <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
-    </svg>
-  ),
-  goals: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <circle cx="12" cy="12" r="6"/>
-      <circle cx="12" cy="12" r="2"/>
-    </svg>
-  ),
-  portfolios: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="7" width="20" height="14" rx="2"/>
-      <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
-      <line x1="12" y1="12" x2="12" y2="16"/>
-      <line x1="10" y1="14" x2="14" y2="14"/>
-    </svg>
-  ),
-  workload: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-      <path d="M16 3.13a4 4 0 010 7.75"/>
-      <line x1="19" y1="10" x2="21" y2="12"/>
-      <line x1="21" y1="10" x2="19" y2="12"/>
-    </svg>
-  ),
-  rules: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-    </svg>
-  ),
+// ── 頁面標題映射 ──────────────────────────────────────────────
+const PAGE_TITLES = {
+  home:            { title: '首頁',        sub: '' },
+  inbox:           { title: '收件匣',      sub: '通知 · @提及 · 任務指派' },
+  'my-tasks':      { title: '我的任務',    sub: '個人任務總覽 · 跨專案統一檢視' },
+  projects:        { title: '專案',        sub: '管理所有進行中的專案' },
+  tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤' },
+  gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
+  reports:         { title: '報告',        sub: '資料分析與匯出' },
+  portfolios:      { title: '專案集',      sub: '多專案健康監控 · 進度一覽' },
+  goals:           { title: '目標',        sub: 'OKR 目標與關鍵結果追蹤' },
+  workload:        { title: '工作負載',    sub: '成員任務分配視覺化' },
+  rules:           { title: '自動化規則',  sub: '觸發條件 → 動作 · 工作流程自動化' },
+  forms:           { title: '表單',        sub: '標準化請求入口 · 提交即建任務' },
+  'custom-fields': { title: '自訂欄位',    sub: '追蹤優先度 · 階段 · 工時等資料' },
+  workflow:        { title: '工作流程圖',  sub: '泳道圖 · 視覺化流程設計' },
+  time:            { title: '工時記錄',    sub: '人員工時統計' },
+  team:            { title: '團隊',        sub: '成員與角色設定' },
+  settings:        { title: '設定',        sub: '偏好與整合設定' },
+  'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
+  'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
+  profile:         { title: '個人資料',    sub: '帳戶設定' },
 };
 
-// ── xCloud Logo SVG（品牌紅 + X 造型）──────────────────────
-function LogoIcon({ size = 36 }) {
+// ── 全部有效路由 ──────────────────────────────────────────────
+const ALL_NAV_IDS = [
+  'home','inbox','my-tasks','projects','tasks','gantt',
+  'reports','portfolios','goals','workload',
+  'rules','forms','custom-fields','workflow',
+  'time','team','settings','ai-center','mcp-console','profile',
+];
+
+function readHashNav() {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return ALL_NAV_IDS.includes(hash) ? hash : 'home';
+}
+function writeHashNav(id) {
+  const newHash = id === 'home' ? '' : id;
+  window.history.pushState({ nav: id }, '', newHash ? `#${newHash}` : window.location.pathname);
+}
+
+// ════════════════════════════════════════════════════════════
+// SVG 圖示
+// ════════════════════════════════════════════════════════════
+const Ic = {
+  home: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  myTasks: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 14.66V20a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>,
+  inbox: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>,
+  reports: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  portfolios: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>,
+  goals: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+  workload: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+  projects: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+  tasks: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>,
+  gantt: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  rules: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+  forms: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>,
+  customFields: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>,
+  workflow: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+  time: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  team: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+  settings: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>,
+  ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  mcp: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
+  search: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  bell: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  chevRight: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  chevDown: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+  dots: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>,
+  dotsH: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>,
+  arrowLeft: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  refresh: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
+};
+
+// ── xCloud Logo ───────────────────────────────────────────────
+function LogoIcon({ size = 28 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
       <rect width="40" height="40" rx="10" fill="#C41230"/>
@@ -284,675 +143,888 @@ function LogoIcon({ size = 36 }) {
   );
 }
 
-// ── 四大模式定義（對標 Asana New Navigation）────────────────
-const MODES = [
-  {
-    id:       'work',
-    label:    'Work',
-    labelCht: '工作',
-    modeIcon: 'modeWork',
-    items: [
-      { id: 'inbox',     icon: 'inbox',    label: '收件匣' },
-      { id: 'my-tasks',  icon: 'myTasks',  label: '我的任務' },
-      { id: 'projects',  icon: 'projects', label: '專案管理' },
-      { id: 'tasks',     icon: 'tasks',    label: '任務看板' },
-      { id: 'gantt',     icon: 'gantt',    label: '時程規劃' },
-    ],
-  },
-  {
-    id:       'strategy',
-    label:    'Strategy',
-    labelCht: '策略',
-    modeIcon: 'modeStrategy',
-    items: [
-      { id: 'dashboard',  icon: 'dashboard',  label: '儀表板' },
-      { id: 'goals',      icon: 'goals',      label: '目標管理' },
-      { id: 'portfolios', icon: 'portfolios', label: '專案組合' },
-      { id: 'workload',   icon: 'workload',   label: '工作負載' },
-      { id: 'reports',    icon: 'reports',    label: '報表匯出' },
-      { id: 'time',       icon: 'time',       label: '工時記錄' },
-      { id: 'ai-center',  icon: 'ai',         label: 'AI 決策中心' },
-    ],
-  },
-  {
-    id:       'workflow-mode',
-    label:    'Workflow',
-    labelCht: '流程',
-    modeIcon: 'modeWorkflowM',
-    items: [
-      { id: 'rules',         icon: 'rules',        label: '自動化規則' },
-      { id: 'forms',         icon: 'forms',         label: '表單' },
-      { id: 'custom-fields', icon: 'customFields',  label: '自訂欄位' },
-      { id: 'workflow',      icon: 'workflow',      label: '工作流程圖' },
-      { id: 'mcp-console',   icon: 'mcp',           label: 'MCP 控制台' },
-    ],
-  },
-  {
-    id:       'company',
-    label:    'Company',
-    labelCht: '組織',
-    modeIcon: 'modeCompany',
-    items: [
-      { id: 'team',     icon: 'team',     label: '團隊管理' },
-      { id: 'settings', icon: 'settings', label: '系統設定' },
-    ],
-  },
-];
+// ── 通用 Nav 按鈕 ─────────────────────────────────────────────
+function NavItem({ id, icon, label, active, onClick, badge, indent = false }) {
+  const [hov, setHov] = useState(false);
+  const isActive = active === id;
+  return (
+    <button
+      onClick={() => onClick(id)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center',
+        gap: '9px', padding: indent ? '6px 10px 6px 28px' : '6px 10px',
+        borderRadius: '7px', border: 'none',
+        background: isActive ? T.sbActive : hov ? T.sbHover : 'transparent',
+        color: isActive ? T.accent2 : hov ? T.t1 : T.t2,
+        fontSize: '13.5px', fontWeight: isActive ? '600' : '400',
+        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+        transition: 'background 0.12s, color 0.12s', position: 'relative',
+        boxSizing: 'border-box',
+      }}
+    >
+      {isActive && (
+        <span style={{
+          position: 'absolute', left: 0, top: '20%', height: '60%',
+          width: '3px', borderRadius: '0 2px 2px 0', background: T.accent,
+        }} />
+      )}
+      <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.75 }}>
+        {icon}
+      </span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {badge != null && badge > 0 && (
+        <span style={{
+          background: T.accent, color: 'white',
+          fontSize: '10px', fontWeight: '700',
+          padding: '1px 6px', borderRadius: '99px', flexShrink: 0,
+        }}>{badge}</span>
+      )}
+    </button>
+  );
+}
 
-// ── 頁面標題映射 ─────────────────────────────────────────────
-const PAGE_TITLES = {
-  inbox:           { title: '收件匣',      sub: '通知 · @提及 · 任務指派 · 留言更新' },
-  'my-tasks':      { title: '我的任務',    sub: '個人任務總覽 · 跨專案統一檢視' },
-  dashboard:       { title: '儀表板',      sub: '主管決策中心' },
-  projects:        { title: '專案管理',    sub: '管理所有進行中的專案' },
-  tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤 · 四欄式工作流' },
-  gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
-  workflow:        { title: '工作流程圖',  sub: '泳道圖 · 視覺化流程設計' },
-  rules:           { title: '自動化規則',  sub: '觸發條件 → 動作 · 自動化工作流程' },
-  time:            { title: '工時記錄',    sub: '人員工時統計' },
-  goals:           { title: '目標管理',    sub: 'OKR 目標與關鍵結果追蹤' },
-  portfolios:      { title: '專案組合',    sub: '多專案健康監控 · 進度與狀態一覽' },
-  workload:        { title: '工作負載',    sub: '成員任務分配視覺化 · 避免過載' },
-  reports:         { title: '報表匯出',    sub: '資料分析與匯出' },
-  team:            { title: '團隊管理',    sub: '成員與角色設定' },
-  settings:        { title: '系統設定',    sub: '偏好與整合設定' },
-  'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
-  'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
-  forms:           { title: '表單',        sub: '標準化請求入口 · 提交即建任務' },
-  'custom-fields': { title: '自訂欄位',    sub: '追蹤優先度 · 階段 · 工時等客製化資料' },
-  profile:         { title: '個人資料',    sub: '帳戶設定' },
-};
-
-// ── API 常數 ─────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
-const COMPANY_ID = 2;
+// ── Section 標頭 ──────────────────────────────────────────────
+function SectionHeader({ label, onAdd, collapsed, onToggle }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: '4px',
+        padding: '10px 10px 4px', userSelect: 'none',
+      }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <button
+        onClick={onToggle}
+        style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: '4px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: '11.5px', fontWeight: '700', color: T.t3,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          padding: 0, fontFamily: 'inherit', textAlign: 'left',
+        }}
+      >
+        <span style={{ opacity: hov ? 1 : 0.6, display: 'flex', alignItems: 'center', transition: 'opacity 0.15s' }}>
+          {collapsed ? Ic.chevRight : Ic.chevDown}
+        </span>
+        {label}
+      </button>
+      {onAdd && hov && (
+        <button
+          onClick={onAdd}
+          title={`新增${label}`}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: T.t2, display: 'flex', alignItems: 'center',
+            padding: '2px', borderRadius: '4px',
+            transition: 'color 0.12s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = T.t1}
+          onMouseLeave={e => e.currentTarget.style.color = T.t2}
+        >
+          {Ic.plus}
+        </button>
+      )}
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════
-// 側邊欄 — New Asana Navigation（雙欄：圖示軌道 + 模式面板）
+// Asana 風格側邊欄
 // ════════════════════════════════════════════════════════════
 function Sidebar({ active, onChange, currentUser }) {
+  const [collapsed, setCollapsed] = useState({ insights: false, projects: false, workflow: false, tools: false });
+  const [apiProjects, setApiProjects] = useState([]);
+  const [inboxCount, setInboxCount] = useState(0);
 
-  // 找出 active nav 對應的 mode
-  const getModeForNav = (navId) =>
-    MODES.find(m => m.items.some(i => i.id === navId))?.id ?? 'work';
+  // 展開/收合 section
+  const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const [activeMode, setActiveMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('xcloud-nav-mode');
-      if (saved && MODES.find(m => m.id === saved)) return saved;
-    } catch {}
-    return getModeForNav(active);
-  });
-
-  const [panelOpen, setPanelOpen] = useState(() => {
-    try { return localStorage.getItem('xcloud-panel-open') !== 'false'; }
-    catch { return true; }
-  });
-
-  const [starred, setStarred] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('xcloud-starred') || '[]'));
-    } catch { return new Set(); }
-  });
-
-  const [hoveredNavId, setHoveredNavId] = useState(null);
-
-  // 當 active page 切換時，同步 activeMode
-  // dashboard 固定對應 strategy mode
+  // 從 API 取得專案清單
   useEffect(() => {
-    if (active === 'dashboard') return; // 首頁按鈕不切換 mode panel
-    const mode = getModeForNav(active);
-    if (mode && mode !== activeMode) {
-      setActiveMode(mode);
-      localStorage.setItem('xcloud-nav-mode', mode);
-    }
-  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetch(`${API_BASE}/api/projects?companyId=${COMPANY_ID}`)
+      .then(r => r.json())
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d.data || d.projects || []);
+        setApiProjects(list.slice(0, 8));
+      })
+      .catch(() => {});
+  }, []);
 
-  const switchMode = (modeId) => {
-    if (modeId === activeMode) {
-      // 點同一 mode icon → 切換 panel 開關
-      const next = !panelOpen;
-      setPanelOpen(next);
-      localStorage.setItem('xcloud-panel-open', String(next));
-    } else {
-      setActiveMode(modeId);
-      localStorage.setItem('xcloud-nav-mode', modeId);
-      if (!panelOpen) {
-        setPanelOpen(true);
-        localStorage.setItem('xcloud-panel-open', 'true');
-      }
-    }
-  };
+  // 計算未讀收件匣數量
+  useEffect(() => {
+    try {
+      const read = new Set(JSON.parse(localStorage.getItem('xcloud-inbox-read') || '[]'));
+      const comments = Object.keys(localStorage).filter(k => k.startsWith('xcloud-comments-'));
+      let count = 0;
+      comments.forEach(k => {
+        try {
+          const items = JSON.parse(localStorage.getItem(k) || '[]');
+          count += items.filter(c => !read.has(c.id)).length;
+        } catch {}
+      });
+      setInboxCount(count);
+    } catch {}
+  }, [active]);
 
-  const toggleStar = (e, id) => {
-    e.stopPropagation();
-    setStarred(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      localStorage.setItem('xcloud-starred', JSON.stringify([...next]));
-      return next;
-    });
-  };
-
-  const currentMode       = MODES.find(m => m.id === activeMode) ?? MODES[0];
-  const starredInMode     = currentMode.items.filter(i => starred.has(i.id));
-  const hasStarred        = starredInMode.length > 0;
-
-  // ── Nav 項目渲染 ──────────────────────────────────────────
-  const renderNavItem = (item) => {
-    const isActive  = active === item.id;
-    const isStarred = starred.has(item.id);
-    const isHovered = hoveredNavId === item.id;
-
-    return (
-      <div
-        key={item.id}
-        onMouseEnter={() => setHoveredNavId(item.id)}
-        onMouseLeave={() => setHoveredNavId(null)}
-        style={{ position: 'relative' }}
-      >
-        <button
-          onClick={() => onChange(item.id)}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '7px 8px 7px 12px', borderRadius: '7px',
-            border: 'none',
-            background: isActive ? T.sbActive : isHovered ? T.sbHover : 'transparent',
-            color: isActive ? T.accent2 : isHovered ? T.t1 : T.t2,
-            fontSize: '13px', fontWeight: isActive ? '500' : '400',
-            cursor: 'pointer', textAlign: 'left',
-            position: 'relative', fontFamily: 'inherit',
-            transition: 'background 0.1s, color 0.1s',
-          }}
-        >
-          {isActive && (
-            <span style={{
-              position: 'absolute', left: 0, top: '20%', height: '60%',
-              width: '3px', background: T.accent,
-              borderRadius: '0 3px 3px 0',
-            }} />
-          )}
-          <span style={{
-            opacity: isActive ? 1 : 0.6,
-            display: 'flex', alignItems: 'center', flexShrink: 0,
-          }}>
-            {Icon[item.icon]}
-          </span>
-          <span style={{
-            flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.label}
-          </span>
-          {/* Star button */}
-          <button
-            onClick={(e) => toggleStar(e, item.id)}
-            title={isStarred ? '取消收藏' : '加入收藏'}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: '2px 3px', display: 'flex', alignItems: 'center',
-              color: isStarred ? '#F59E0B' : T.t3,
-              opacity: isStarred || isHovered ? 1 : 0,
-              transition: 'opacity 0.15s',
-              flexShrink: 0,
-            }}
-          >
-            {isStarred ? Icon.starFilled : Icon.starEmpty}
-          </button>
-        </button>
-      </div>
-    );
-  };
+  // 專案顏色
+  const PROJECT_COLORS = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
+  const projColor = (p) => PROJECT_COLORS[(p.id || 0) % PROJECT_COLORS.length];
 
   return (
     <aside style={{
-      display: 'flex',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-      flexShrink: 0,
+      width: '220px', minWidth: '220px', height: '100vh',
+      background: T.sbBg, display: 'flex', flexDirection: 'column',
+      position: 'sticky', top: 0, overflow: 'hidden', flexShrink: 0,
     }}>
 
-      {/* ══ Icon Rail (60px) ═══════════════════════════════ */}
+      {/* ── Logo 區 ─────────────────────────────────────── */}
       <div style={{
-        width: '60px', flexShrink: 0,
-        background: T.railBg,
-        height: '100%',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        borderRight: `1px solid ${T.div}`,
+        padding: '16px 14px 12px',
+        display: 'flex', alignItems: 'center', gap: '10px',
+        borderBottom: `1px solid ${T.div}`, flexShrink: 0,
       }}>
-        {/* Logo */}
-        <div style={{
-          width: '100%', padding: '13px 0',
-          display: 'flex', justifyContent: 'center',
-          borderBottom: `1px solid ${T.div}`,
-        }}>
-          <LogoIcon size={32} />
-        </div>
-
-        {/* ── 首頁按鈕（固定在軌道頂部）── */}
-        <div style={{ padding: '8px 0 4px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <button
-            onClick={() => onChange('dashboard')}
-            title="首頁 · 儀表板"
-            style={{
-              width: '46px', height: '46px', borderRadius: '10px',
-              border: 'none',
-              background: active === 'dashboard' ? T.accent : 'transparent',
-              color: active === 'dashboard' ? '#fff' : T.t2,
-              cursor: 'pointer',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: '3px',
-              transition: 'all 0.15s', fontFamily: 'inherit',
-              boxShadow: active === 'dashboard' ? '0 2px 8px rgba(196,18,48,0.5)' : 'none',
-            }}
-            onMouseOver={e => {
-              if (active !== 'dashboard') {
-                e.currentTarget.style.background = T.sbHover;
-                e.currentTarget.style.color = T.t1;
-              }
-            }}
-            onMouseOut={e => {
-              if (active !== 'dashboard') {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = T.t2;
-              }
-            }}
-          >
-            {Icon.home}
-            <span style={{
-              fontSize: '9px', fontWeight: '700', letterSpacing: '0.2px',
-              color: active === 'dashboard' ? 'rgba(255,255,255,0.9)' : T.t3, lineHeight: 1,
-            }}>首頁</span>
-          </button>
-          <div style={{ height: '1px', background: T.div, width: '36px', margin: '6px 0 2px' }} />
-        </div>
-
-        {/* Mode buttons */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', padding: '4px 0', gap: '2px',
-        }}>
-          {MODES.map(mode => {
-            const isModeActive = activeMode === mode.id;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => switchMode(mode.id)}
-                title={`${mode.label} · ${mode.labelCht}`}
-                style={{
-                  width: '46px', height: '50px', borderRadius: '10px',
-                  border: 'none',
-                  background: isModeActive ? T.sbActive : 'transparent',
-                  color: isModeActive ? T.accent2 : T.t2,
-                  cursor: 'pointer',
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center', gap: '4px',
-                  transition: 'all 0.15s', fontFamily: 'inherit',
-                  position: 'relative',
-                }}
-                onMouseOver={e => {
-                  if (!isModeActive) {
-                    e.currentTarget.style.background = T.sbHover;
-                    e.currentTarget.style.color = T.t1;
-                  }
-                }}
-                onMouseOut={e => {
-                  if (!isModeActive) {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = T.t2;
-                  }
-                }}
-              >
-                {isModeActive && (
-                  <span style={{
-                    position: 'absolute', left: 0, top: '20%', height: '60%',
-                    width: '3px', background: T.accent,
-                    borderRadius: '0 3px 3px 0',
-                  }} />
-                )}
-                {Icon[mode.modeIcon]}
-                <span style={{
-                  fontSize: '9px', fontWeight: '700', letterSpacing: '0.3px',
-                  color: isModeActive ? T.accent2 : T.t3, lineHeight: 1,
-                }}>
-                  {mode.labelCht}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bottom: panel toggle + avatar */}
-        <div style={{
-          padding: '8px 0 14px',
-          borderTop: `1px solid ${T.div}`,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-        }}>
-          {/* Panel toggle */}
-          <button
-            onClick={() => {
-              const next = !panelOpen;
-              setPanelOpen(next);
-              localStorage.setItem('xcloud-panel-open', String(next));
-            }}
-            title={panelOpen ? '收合功能列' : '展開功能列'}
-            style={{
-              width: '36px', height: '36px', borderRadius: '8px',
-              border: 'none',
-              background: panelOpen ? 'rgba(196,18,48,0.15)' : 'transparent',
-              color: panelOpen ? T.accent2 : T.t2,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.15s', fontFamily: 'inherit',
-            }}
-            onMouseOver={e => { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }}
-            onMouseOut={e => {
-              e.currentTarget.style.background = panelOpen ? 'rgba(196,18,48,0.15)' : 'transparent';
-              e.currentTarget.style.color = panelOpen ? T.accent2 : T.t2;
-            }}
-          >
-            {Icon.panelToggle}
-          </button>
-
-          {/* User avatar → profile */}
-          <button
-            onClick={() => onChange('profile')}
-            title={currentUser?.name ?? '個人資料'}
-            style={{
-              width: '34px', height: '34px', borderRadius: '50%',
-              border: `2px solid ${active === 'profile' ? T.accent : 'transparent'}`,
-              background: 'linear-gradient(135deg, #C41230, #8B0020)',
-              color: 'white', fontWeight: '700', fontSize: '13px',
-              cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontFamily: 'inherit',
-              transition: 'border-color 0.15s', boxSizing: 'border-box',
-            }}
-          >
-            {currentUser ? currentUser.name.slice(0, 1) : '?'}
-          </button>
+        <LogoIcon size={28} />
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+            xCloudPMIS
+          </div>
+          <div style={{ fontSize: '10.5px', color: T.t3, marginTop: '1px' }}>企業級專案管理</div>
         </div>
       </div>
 
-      {/* ══ Mode Panel (210px, collapsible) ════════════════ */}
-      <div style={{
-        width: panelOpen ? '210px' : '0',
-        overflow: 'hidden',
-        transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
-        flexShrink: 0,
-        background: T.panelBg,
-        borderRight: `1px solid ${T.div}`,
-        display: 'flex', flexDirection: 'column', height: '100%',
+      {/* ── 建立按鈕 ─────────────────────────────────────── */}
+      <div style={{ padding: '12px 12px 4px', flexShrink: 0 }}>
+        <button
+          onClick={() => onChange('projects')}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '7px', padding: '8px 0',
+            background: T.accent, color: 'white',
+            border: 'none', borderRadius: '8px',
+            fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
+            fontFamily: 'inherit', transition: 'background 0.15s',
+            boxShadow: '0 2px 8px rgba(196,18,48,0.35)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#A00E26'}
+          onMouseLeave={e => e.currentTarget.style.background = T.accent}
+        >
+          {Ic.plus}
+          建立
+        </button>
+      </div>
+
+      {/* ── 導覽項目（可捲動）─────────────────────────────── */}
+      <nav style={{
+        flex: 1, overflowY: 'auto', padding: '4px 8px 8px',
+        scrollbarWidth: 'thin', scrollbarColor: `${T.div} transparent`,
       }}>
-        {/* Inner fixed-width container prevents layout jump during animation */}
-        <div style={{ width: '210px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-          {/* Panel header */}
-          <div style={{
-            padding: '18px 14px 13px',
-            borderBottom: `1px solid ${T.div}`,
-            flexShrink: 0,
-          }}>
-            <div style={{
-              fontSize: '10px', color: T.t3, fontWeight: '700',
-              letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: '3px',
-            }}>
-              {currentMode.label}
-            </div>
-            <div style={{
-              fontSize: '16px', color: T.t1, fontWeight: '800', letterSpacing: '-0.4px',
-            }}>
-              {currentMode.labelCht}
-            </div>
-          </div>
-
-          {/* Nav items */}
-          <nav style={{
-            flex: 1, overflowY: 'auto', padding: '8px',
-            scrollbarWidth: 'thin', scrollbarColor: `${T.div} transparent`,
-          }}>
-
-            {/* ★ Starred section */}
-            {hasStarred && (
-              <div style={{ marginBottom: '4px' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  padding: '4px 10px 5px',
-                  fontSize: '10px', fontWeight: '700', color: T.t3,
-                  letterSpacing: '0.8px', textTransform: 'uppercase',
-                }}>
-                  <span style={{ color: '#F59E0B', display: 'flex', alignItems: 'center', lineHeight: 1 }}>
-                    {Icon.starFilled}
-                  </span>
-                  收藏
-                </div>
-                {starredInMode.map(item => renderNavItem(item))}
-                <div style={{ height: '1px', background: T.div, margin: '8px 6px 6px' }} />
-                <div style={{
-                  padding: '2px 10px 5px',
-                  fontSize: '10px', fontWeight: '700', color: T.t3,
-                  letterSpacing: '0.8px', textTransform: 'uppercase',
-                }}>
-                  全部
-                </div>
-              </div>
-            )}
-
-            {/* All items in current mode */}
-            {currentMode.items.map(item => renderNavItem(item))}
-          </nav>
-
-          {/* Panel footer: user info */}
-          <div style={{
-            padding: '10px 12px 12px',
-            borderTop: `1px solid ${T.div}`,
-            flexShrink: 0,
-          }}>
-            <button
-              onClick={() => onChange('profile')}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-                padding: '8px 9px', borderRadius: '8px',
-                border: 'none',
-                background: active === 'profile' ? T.sbActive : 'transparent',
-                cursor: 'pointer', textAlign: 'left',
-                transition: 'background 0.15s', fontFamily: 'inherit',
-              }}
-              onMouseOver={e => {
-                if (active !== 'profile') e.currentTarget.style.background = T.sbHover;
-              }}
-              onMouseOut={e => {
-                if (active !== 'profile') e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              <div style={{
-                width: '28px', height: '28px', flexShrink: 0, borderRadius: '50%',
-                background: 'linear-gradient(135deg, #C41230, #8B0020)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontWeight: '700', fontSize: '11px',
-              }}>
-                {currentUser ? currentUser.name.slice(0, 1) : '?'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  color: T.t1, fontSize: '12px', fontWeight: '500',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>
-                  {currentUser ? currentUser.name : '載入中⋯'}
-                </div>
-                <div style={{ color: T.t3, fontSize: '10.5px' }}>
-                  {currentUser
-                    ? (currentUser.role === 'admin' ? '系統管理員'
-                      : currentUser.role === 'pm' ? '專案經理' : '一般成員')
-                    : '—'}
-                </div>
-              </div>
-              <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Icon.dots}</span>
-            </button>
-          </div>
+        {/* 主要導覽 */}
+        <div style={{ marginBottom: '4px' }}>
+          <NavItem id="home"     icon={Ic.home}    label="首頁"   active={active} onClick={onChange} />
+          <NavItem id="my-tasks" icon={Ic.myTasks} label="我的任務" active={active} onClick={onChange} />
+          <NavItem id="inbox"    icon={Ic.inbox}   label="收件匣" active={active} onClick={onChange} badge={inboxCount} />
         </div>
+
+        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+
+        {/* 深入解析 */}
+        <SectionHeader
+          label="深入解析"
+          collapsed={collapsed.insights}
+          onToggle={() => toggleSection('insights')}
+        />
+        {!collapsed.insights && (
+          <div style={{ marginBottom: '4px' }}>
+            <NavItem id="reports"    icon={Ic.reports}    label="報告"    active={active} onClick={onChange} indent />
+            <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"  active={active} onClick={onChange} indent />
+            <NavItem id="goals"      icon={Ic.goals}      label="目標"    active={active} onClick={onChange} indent />
+            <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={onChange} indent />
+          </div>
+        )}
+
+        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+
+        {/* 專案 */}
+        <SectionHeader
+          label="專案"
+          onAdd={() => onChange('projects')}
+          collapsed={collapsed.projects}
+          onToggle={() => toggleSection('projects')}
+        />
+        {!collapsed.projects && (
+          <div style={{ marginBottom: '4px' }}>
+            <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={onChange} indent />
+            <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板"  active={active} onClick={onChange} indent />
+            <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃"  active={active} onClick={onChange} indent />
+            {/* 來自 API 的真實專案 */}
+            {apiProjects.map(p => (
+              <button
+                key={p.id}
+                onClick={() => onChange('projects')}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '5px 10px 5px 28px', borderRadius: '6px', border: 'none',
+                  background: 'transparent', color: T.t2,
+                  fontSize: '13px', cursor: 'pointer', textAlign: 'left',
+                  fontFamily: 'inherit', transition: 'background 0.1s',
+                  boxSizing: 'border-box',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: projColor(p), flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {p.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+
+        {/* 工作流程 */}
+        <SectionHeader
+          label="工作流程"
+          collapsed={collapsed.workflow}
+          onToggle={() => toggleSection('workflow')}
+        />
+        {!collapsed.workflow && (
+          <div style={{ marginBottom: '4px' }}>
+            <NavItem id="rules"         icon={Ic.rules}        label="自動化規則" active={active} onClick={onChange} indent />
+            <NavItem id="forms"         icon={Ic.forms}        label="表單"       active={active} onClick={onChange} indent />
+            <NavItem id="custom-fields" icon={Ic.customFields} label="自訂欄位"   active={active} onClick={onChange} indent />
+            <NavItem id="workflow"      icon={Ic.workflow}     label="工作流程圖" active={active} onClick={onChange} indent />
+          </div>
+        )}
+
+        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+
+        {/* 工具 */}
+        <SectionHeader
+          label="工具"
+          collapsed={collapsed.tools}
+          onToggle={() => toggleSection('tools')}
+        />
+        {!collapsed.tools && (
+          <div style={{ marginBottom: '4px' }}>
+            <NavItem id="time"        icon={Ic.time}     label="工時記錄"   active={active} onClick={onChange} indent />
+            <NavItem id="ai-center"   icon={Ic.ai}       label="AI 決策中心" active={active} onClick={onChange} indent />
+            <NavItem id="mcp-console" icon={Ic.mcp}      label="MCP 控制台" active={active} onClick={onChange} indent />
+          </div>
+        )}
+
+        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+
+        {/* 我的工作空間（Team） */}
+        <button
+          onClick={() => onChange('team')}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+            padding: '6px 10px', borderRadius: '7px', border: 'none',
+            background: active === 'team' ? T.sbActive : 'transparent',
+            color: active === 'team' ? T.accent2 : T.t2,
+            fontSize: '13.5px', fontWeight: active === 'team' ? '600' : '400',
+            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+            transition: 'background 0.12s', boxSizing: 'border-box',
+          }}
+          onMouseEnter={e => {
+            if (active !== 'team') { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }
+          }}
+          onMouseLeave={e => {
+            if (active !== 'team') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; }
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', opacity: 0.75 }}>{Ic.team}</span>
+          <span style={{ flex: 1 }}>我的工作空間</span>
+          <span style={{ opacity: 0.4 }}>{Ic.chevRight}</span>
+        </button>
+
+      </nav>
+
+      {/* ── 底部：設定 + 使用者 ─────────────────────────────── */}
+      <div style={{ padding: '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
+        <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} />
+
+        {/* 使用者資料列 */}
+        <button
+          onClick={() => onChange('profile')}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+            padding: '8px 10px', marginTop: '4px', borderRadius: '8px',
+            border: 'none',
+            background: active === 'profile' ? T.sbActive : 'transparent',
+            cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit',
+            boxSizing: 'border-box',
+          }}
+          onMouseEnter={e => { if (active !== 'profile') e.currentTarget.style.background = T.sbHover; }}
+          onMouseLeave={e => { if (active !== 'profile') e.currentTarget.style.background = 'transparent'; }}
+        >
+          <div style={{
+            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg,#C41230,#8B0020)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontWeight: '700', fontSize: '12px',
+          }}>
+            {currentUser ? currentUser.name.slice(0, 1) : '?'}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: T.t1, fontSize: '12.5px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {currentUser?.name ?? '載入中⋯'}
+            </div>
+            <div style={{ color: T.t3, fontSize: '10.5px' }}>
+              {currentUser?.role === 'admin' ? '系統管理員' : currentUser?.role === 'pm' ? '專案經理' : '一般成員'}
+            </div>
+          </div>
+          <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.dots}</span>
+        </button>
       </div>
     </aside>
   );
 }
 
-// ── Topbar ──────────────────────────────────────────────────
-function Topbar({ activeNav, onRefresh, loading, onNavigate }) {
+// ════════════════════════════════════════════════════════════
+// 頂部搜尋列（Asana 風格）
+// ════════════════════════════════════════════════════════════
+function Topbar({ activeNav, onNavigate }) {
+  const [searchVal, setSearchVal] = useState('');
+  const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('zh-TW', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
-  });
 
   return (
     <header style={{
-      background: 'white', borderBottom: '1px solid #E2E8F0',
-      padding: '0 28px', height: '60px',
-      display: 'flex', alignItems: 'center', gap: '16px',
+      background: 'white', borderBottom: `1px solid ${T.border}`,
+      padding: '0 24px', height: '56px',
+      display: 'flex', alignItems: 'center', gap: '14px',
       flexShrink: 0, position: 'sticky', top: 0, zIndex: 100,
     }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-          <span style={{ fontSize: '17px', fontWeight: '700', color: '#1e293b' }}>{page.title}</span>
-          {page.sub && (
-            <span style={{ fontSize: '12.5px', color: '#94A3B8' }}>/ {page.sub}</span>
+
+      {/* 頁面標題 */}
+      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: 0 }}>
+        <span style={{ fontSize: '16px', fontWeight: '700', color: '#111827', whiteSpace: 'nowrap' }}>
+          {page.title}
+        </span>
+        {page.sub && (
+          <span style={{ fontSize: '12px', color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+            / {page.sub}
+          </span>
+        )}
+      </div>
+
+      {/* 全域搜尋 */}
+      <div style={{ flex: 1, maxWidth: '480px', margin: '0 auto' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          background: searchFocus ? 'white' : '#F3F4F6',
+          borderRadius: '8px', padding: '7px 14px',
+          border: `1px solid ${searchFocus ? T.accent : 'transparent'}`,
+          transition: 'all 0.15s',
+        }}>
+          <span style={{ color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>{Ic.search}</span>
+          <input
+            value={searchVal}
+            onChange={e => setSearchVal(e.target.value)}
+            onFocus={() => setSearchFocus(true)}
+            onBlur={() => setSearchFocus(false)}
+            placeholder="搜尋專案、任務、成員⋯"
+            style={{
+              border: 'none', background: 'none', outline: 'none',
+              fontSize: '13.5px', color: '#374151',
+              width: '100%', fontFamily: 'inherit',
+            }}
+          />
+          {searchVal && (
+            <button
+              onClick={() => setSearchVal('')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '16px', lineHeight: 1, padding: 0 }}
+            >×</button>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* 搜尋列 */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          background: '#F1F5F9', borderRadius: '9px',
-          padding: '7px 13px', width: '220px',
-          border: '1px solid transparent', transition: 'all 0.15s',
-        }}>
-          <span style={{ color: '#94A3B8', display: 'flex', alignItems: 'center' }}>{Icon.search}</span>
-          <input
-            placeholder="搜尋⋯"
-            style={{
-              border: 'none', background: 'none', outline: 'none',
-              fontSize: '13px', color: '#334155',
-              width: '100%', fontFamily: 'inherit',
-            }}
-          />
-        </div>
-
-        <div style={{ fontSize: '12px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
-          {dateStr}
-        </div>
-
+      {/* 右側操作列 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        {/* 說明 */}
         <button
-          onClick={() => onNavigate && onNavigate('inbox')}
-          title="收件匣（通知）"
-          style={{
-            width: '34px', height: '34px', borderRadius: '8px',
-            border: 'none',
-            background: activeNav === 'inbox' ? '#FFF0F2' : '#F1F5F9',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: activeNav === 'inbox' ? T.accent : '#64748B',
-            transition: 'all 0.15s',
-          }}
-          onMouseOver={e => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#334155'; }}
-          onMouseOut={e => {
-            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF0F2' : '#F1F5F9';
-            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : '#64748B';
-          }}
+          title="說明"
+          style={{ width: '32px', height: '32px', borderRadius: '50%', border: `1px solid ${T.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#6B7280', fontWeight: '700' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+          onMouseLeave={e => e.currentTarget.style.background = 'white'}
         >
-          {Icon.bell}
+          ?
         </button>
 
-        {activeNav === 'dashboard' && (
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: loading ? '#F1F5F9' : T.accent,
-              color: loading ? '#94A3B8' : 'white',
-              border: 'none', borderRadius: '8px',
-              padding: '7px 14px',
-              fontSize: '12.5px', fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s', fontFamily: 'inherit',
-            }}
-            onMouseOver={e => { if (!loading) e.currentTarget.style.background = '#A00E26'; }}
-            onMouseOut={e => { if (!loading) e.currentTarget.style.background = loading ? '#F1F5F9' : T.accent; }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', opacity: loading ? 0.5 : 1 }}>{Icon.refresh}</span>
-            {loading ? '載入中⋯' : '重新整理'}
-          </button>
-        )}
+        {/* 通知鈴鐺 → 收件匣 */}
+        <button
+          onClick={() => onNavigate('inbox')}
+          title="收件匣"
+          style={{
+            width: '32px', height: '32px', borderRadius: '50%',
+            border: `1px solid ${activeNav === 'inbox' ? T.accent : T.border}`,
+            background: activeNav === 'inbox' ? '#FFF0F2' : 'white',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: activeNav === 'inbox' ? T.accent : '#6B7280',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#FFF0F2'; e.currentTarget.style.color = T.accent; }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF0F2' : 'white';
+            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : '#6B7280';
+          }}
+        >
+          {Ic.bell}
+        </button>
       </div>
     </header>
   );
 }
 
-// ── 卡片容器 ────────────────────────────────────────────────
-function Card({ children, style = {} }) {
-  return (
-    <div style={{
-      background: 'white', border: '1px solid #E2E8F0',
-      borderRadius: '14px', padding: '20px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-      ...style,
-    }}>
-      {children}
-    </div>
-  );
-}
+// ════════════════════════════════════════════════════════════
+// Asana 風格「首頁」
+// ════════════════════════════════════════════════════════════
+function HomePage({ currentUser, onNavigate, dashData }) {
+  const { summary, projects, workload, insights, loading, error, refresh } = dashData;
+  const [myTasksTab, setMyTasksTab] = useState('upcoming'); // upcoming / overdue / completed
+  const [myTasks, setMyTasks]       = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
 
-// ── 載入中畫面 ─────────────────────────────────────────────
-function LoadingScreen() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '400px', flexDirection: 'column', gap: '16px',
-    }}>
-      <div style={{
-        width: '40px', height: '40px', borderRadius: '50%',
-        border: `3px solid ${T.accent}`, borderTopColor: 'transparent',
-        animation: 'spin 0.8s linear infinite',
-      }} />
-      <div style={{ fontSize: '14px', color: '#94A3B8' }}>資料載入中，請稍候⋯</div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-}
+  // 時段問候
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? '早安' : hour < 18 ? '午安' : '晚安';
+  const dateStr = new Date().toLocaleDateString('zh-TW', {
+    month: 'long', day: 'numeric', weekday: 'long',
+  });
 
-// ── 錯誤畫面 ───────────────────────────────────────────────
-function ErrorScreen({ error, onRetry }) {
+  // 載入我的任務
+  useEffect(() => {
+    setTasksLoading(true);
+    fetch(`${API_BASE}/api/tasks?companyId=${COMPANY_ID}`)
+      .then(r => r.json())
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d.tasks || d.data || []);
+        setMyTasks(list);
+      })
+      .catch(() => setMyTasks([]))
+      .finally(() => setTasksLoading(false));
+  }, []);
+
+  const now = new Date();
+  const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const tabTasks = {
+    upcoming:  myTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) >= now && new Date(t.dueDate) <= weekEnd),
+    overdue:   myTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now),
+    completed: myTasks.filter(t => t.status === 'done').slice(0, 10),
+  };
+  const displayTasks = tabTasks[myTasksTab] || [];
+
+  const completedCount = myTasks.filter(t => {
+    if (t.status !== 'done') return false;
+    const d = t.updatedAt || t.dueDate;
+    if (!d) return false;
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    return new Date(d) >= weekAgo;
+  }).length;
+
+  const recentProjects = projects.slice(0, 6);
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '400px', flexDirection: 'column', gap: '14px',
-    }}>
-      <div style={{
-        width: '52px', height: '52px', borderRadius: '50%',
-        background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '22px',
-      }}>⚠️</div>
-      <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '15px' }}>資料載入失敗</div>
-      <div style={{ fontSize: '13px', color: '#94A3B8', maxWidth: '300px', textAlign: 'center' }}>{error}</div>
-      <button
-        onClick={onRetry}
-        style={{
-          background: T.accent, color: 'white',
-          border: 'none', borderRadius: '9px',
-          padding: '9px 22px', fontSize: '13.5px', fontWeight: '600',
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}
-      >
-        重試
-      </button>
+    <div style={{ minHeight: '100%', background: T.pageBg, padding: '32px 36px', boxSizing: 'border-box' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+
+        {/* ── 問候標題 ─────────────────────────────────────── */}
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px' }}>{dateStr}</div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', color: '#111827', letterSpacing: '-0.5px' }}>
+            {currentUser ? `${currentUser.name.split(' ').pop()}，${greeting}` : `${greeting}！`}
+          </h1>
+        </div>
+
+        {/* ── 快速統計列 ────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          marginBottom: '28px', flexWrap: 'wrap',
+        }}>
+          {[
+            {
+              icon: '📅',
+              label: '我的一週',
+              value: `${displayTasks.length} 項任務`,
+              sub: '即將到期',
+              color: '#374151',
+            },
+            {
+              icon: '✓',
+              value: `${completedCount} 個`,
+              label: '已完成任務',
+              sub: '本週',
+              color: '#16A34A',
+            },
+            {
+              icon: '👥',
+              value: `${(workload || []).length}`,
+              label: '位協作者',
+              sub: '',
+              color: '#2563EB',
+            },
+            {
+              icon: '📁',
+              value: `${recentProjects.length}`,
+              label: '個活躍專案',
+              sub: '',
+              color: '#7C3AED',
+            },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '8px 16px', background: 'white',
+              borderRadius: '8px', border: `1px solid ${T.border}`,
+              cursor: 'default',
+            }}>
+              <span style={{ fontSize: '16px' }}>{item.icon}</span>
+              <div>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: item.color }}>{item.value}</span>
+                <span style={{ fontSize: '13px', color: '#6B7280', marginLeft: '4px' }}>{item.label}</span>
+                {item.sub && <span style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '4px' }}>· {item.sub}</span>}
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => {}}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '8px 14px', background: 'white',
+              borderRadius: '8px', border: `1px solid ${T.border}`,
+              fontSize: '13px', color: '#6B7280', cursor: 'pointer',
+              fontFamily: 'inherit', transition: 'background 0.1s',
+              marginLeft: 'auto',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+            onMouseLeave={e => e.currentTarget.style.background = 'white'}
+          >
+            自訂
+          </button>
+        </div>
+
+        {/* ── 主要內容 2欄 ──────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+
+          {/* 我的任務 Widget */}
+          <div style={{
+            background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
+          }}>
+            {/* Widget Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px 12px', borderBottom: `1px solid #F3F4F6`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>✅</span>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>我的任務</span>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: '2px 6px' }}>
+                  ⋯
+                </button>
+              </div>
+              <button
+                onClick={() => onNavigate('my-tasks')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: 0, fontFamily: 'inherit' }}
+                onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+              >
+                查看全部 →
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', padding: '0 20px', borderBottom: `1px solid #F3F4F6`, gap: '0' }}>
+              {[
+                { key: 'upcoming', label: '即將截止', count: tabTasks.upcoming.length },
+                { key: 'overdue',  label: '逾期',     count: tabTasks.overdue.length },
+                { key: 'completed',label: '已完成',   count: tabTasks.completed.length },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setMyTasksTab(tab.key)}
+                  style={{
+                    padding: '10px 14px', fontSize: '13px', border: 'none', background: 'transparent',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    color: myTasksTab === tab.key ? T.accent : '#6B7280',
+                    fontWeight: myTasksTab === tab.key ? '600' : '400',
+                    borderBottom: myTasksTab === tab.key ? `2px solid ${T.accent}` : '2px solid transparent',
+                    marginBottom: '-1px', transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                  }}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span style={{
+                      background: myTasksTab === tab.key ? '#FFF0F2' : '#F3F4F6',
+                      color: myTasksTab === tab.key ? T.accent : '#9CA3AF',
+                      fontSize: '10.5px', fontWeight: '700',
+                      padding: '1px 6px', borderRadius: '99px',
+                    }}>{tab.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Task List */}
+            <div style={{ padding: '8px 0', minHeight: '180px', maxHeight: '320px', overflowY: 'auto' }}>
+              {/* 建立任務 */}
+              <button
+                onClick={() => onNavigate('my-tasks')}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+                  padding: '8px 20px', border: 'none', background: 'transparent',
+                  cursor: 'pointer', fontSize: '13px', color: '#9CA3AF',
+                  fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <span style={{ color: '#D1D5DB', display: 'flex' }}>{Ic.plus}</span>
+                建立任務
+              </button>
+
+              {tasksLoading ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>載入中⋯</div>
+              ) : displayTasks.length === 0 ? (
+                <div style={{ padding: '32px 20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>
+                    {myTasksTab === 'completed' ? '🎉' : '🎯'}
+                  </div>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                    {myTasksTab === 'upcoming' ? '本週沒有截止任務' :
+                     myTasksTab === 'overdue'  ? '沒有逾期任務，很棒！' : '本週尚未完成任務'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                    {myTasksTab === 'upcoming' ? '點擊上方建立任務' : '繼續保持！'}
+                  </div>
+                </div>
+              ) : (
+                displayTasks.map(task => (
+                  <button
+                    key={task.id}
+                    onClick={() => onNavigate('my-tasks')}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '8px 20px', border: 'none', background: 'transparent',
+                      cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {/* 勾選框 */}
+                    <div style={{
+                      width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                      border: `2px solid ${task.status === 'done' ? '#16A34A' : '#D1D5DB'}`,
+                      background: task.status === 'done' ? '#16A34A' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {task.status === 'done' && <span style={{ color: 'white', fontSize: '9px' }}>✓</span>}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '13px', color: task.status === 'done' ? '#9CA3AF' : '#111827',
+                        textDecoration: task.status === 'done' ? 'line-through' : 'none',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {task.title || task.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>
+                        {task.project?.name || '—'}
+                        {task.dueDate && (
+                          <span style={{
+                            marginLeft: '8px',
+                            color: new Date(task.dueDate) < now ? '#EF4444' : '#6B7280',
+                          }}>
+                            {new Date(task.dueDate).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* 專案 Widget */}
+          <div style={{
+            background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
+          }}>
+            {/* Widget Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px 12px', borderBottom: `1px solid #F3F4F6`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>📁</span>
+                <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>專案</span>
+                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: '2px 6px' }}>
+                  近期 ▾
+                </button>
+              </div>
+              <button
+                onClick={() => onNavigate('projects')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: 0, fontFamily: 'inherit' }}
+                onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+              >
+                查看全部 →
+              </button>
+            </div>
+
+            {/* Project List */}
+            <div style={{ padding: '8px 0', minHeight: '180px', maxHeight: '320px', overflowY: 'auto' }}>
+              {/* 建立專案 */}
+              <button
+                onClick={() => onNavigate('projects')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '10px 20px', border: 'none', background: 'transparent',
+                  cursor: 'pointer', fontSize: '13px', color: '#9CA3AF',
+                  fontFamily: 'inherit', transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  border: `1.5px dashed #D1D5DB`, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', color: '#D1D5DB', flexShrink: 0,
+                }}>
+                  {Ic.plus}
+                </div>
+                建立專案
+              </button>
+
+              {loading ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>載入中⋯</div>
+              ) : recentProjects.length === 0 ? (
+                <div style={{ padding: '32px 20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>📂</div>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151' }}>尚無專案</div>
+                </div>
+              ) : (
+                recentProjects.map((p, i) => {
+                  const colors = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488'];
+                  const color = colors[i % colors.length];
+                  const overdue = p.taskOverdue || 0;
+                  const total   = p.taskTotal || 0;
+                  const done    = p.taskDone  || 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => onNavigate('projects')}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 20px', border: 'none', background: 'transparent',
+                        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {/* 專案色塊 icon */}
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '8px',
+                        background: color, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ color: 'white', fontSize: '12px' }}>
+                          {Ic.projects}
+                        </span>
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
+                          {overdue > 0
+                            ? <span style={{ color: '#EF4444' }}>{overdue} 個任務即將截止</span>
+                            : total > 0
+                              ? `${done}/${total} 個任務完成`
+                              : '暫無任務'}
+                        </div>
+                      </div>
+
+                      {/* 進度 mini */}
+                      <div style={{ width: '36px', height: '36px', flexShrink: 0 }}>
+                        <svg width="36" height="36" style={{ transform: 'rotate(-90deg)' }}>
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#F3F4F6" strokeWidth="3" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke={color} strokeWidth="3"
+                            strokeDasharray={2 * Math.PI * 14}
+                            strokeDashoffset={2 * Math.PI * 14 * (1 - (p.completion || 0) / 100)}
+                            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.4s' }}
+                          />
+                        </svg>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 瞭解 xCloudPMIS（類 Asana 學習卡）──────────────── */}
+        <div style={{ background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>瞭解 xCloudPMIS</span>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '16px' }}>×</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0' }}>
+            {[
+              { icon: '🚀', title: '開始使用', desc: '瞭解基本資訊以及 xCloudPMIS 如何協助您完成工作', color: '#C41230', nav: 'my-tasks' },
+              { icon: '⚡', title: '使用規則將工作自動化', desc: '瞭解如何透過自動化規則來簡化工作', color: '#7C3AED', nav: 'rules' },
+              { icon: '📊', title: '使用專案集管理工作', desc: '在單一檢視中追蹤多個專案和關鍵計劃', color: '#D97706', nav: 'portfolios' },
+              { icon: '🎯', title: '透過目標管理成效', desc: '設定 OKR 目標並追蹤關鍵結果', color: '#16A34A', nav: 'goals' },
+            ].map((card, i) => (
+              <button
+                key={i}
+                onClick={() => onNavigate(card.nav)}
+                style={{
+                  padding: '20px', border: 'none',
+                  borderLeft: i > 0 ? '1px solid #F3F4F6' : 'none',
+                  background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                  fontFamily: 'inherit', transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{
+                  width: '48px', height: '48px', borderRadius: '12px',
+                  background: card.color, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '22px', marginBottom: '12px',
+                }}>
+                  {card.icon}
+                </div>
+                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>{card.title}</div>
+                <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>{card.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
 
 // ════════════════════════════════════════════════════════════
-// 個人資料頁面
+// 個人資料頁
 // ════════════════════════════════════════════════════════════
 function ProfilePage({ onBack, currentUser }) {
   const ROLE_LABEL = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
@@ -970,88 +1042,47 @@ function ProfilePage({ onBack, currentUser }) {
     <div style={{ maxWidth: '640px', margin: '32px auto', padding: '0 28px' }}>
       <button
         onClick={onBack}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: '7px',
-          color: '#64748B', fontSize: '13.5px', marginBottom: '22px',
-          padding: 0, fontFamily: 'inherit', transition: 'color 0.15s',
-        }}
-        onMouseOver={e => (e.currentTarget.style.color = '#1e293b')}
-        onMouseOut={e => (e.currentTarget.style.color = '#64748B')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', color: '#64748B', fontSize: '13.5px', marginBottom: '22px', padding: 0, fontFamily: 'inherit' }}
+        onMouseOver={e => e.currentTarget.style.color = '#1e293b'}
+        onMouseOut={e => e.currentTarget.style.color = '#64748B'}
       >
-        {Icon.arrowLeft} 返回儀表板
+        {Ic.arrowLeft} 返回首頁
       </button>
 
-      <div style={{
-        background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0',
-        padding: '28px', marginBottom: '14px',
-        display: 'flex', alignItems: 'center', gap: '22px',
-      }}>
-        <div style={{
-          width: '68px', height: '68px', flexShrink: 0, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #C41230, #8B0020)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'white', fontWeight: '800', fontSize: '26px',
-          boxShadow: '0 4px 14px rgba(196,18,48,0.35)',
-        }}>{currentUser ? currentUser.name.slice(0, 1) : '?'}</div>
+      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '28px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '22px' }}>
+        <div style={{ width: '68px', height: '68px', flexShrink: 0, borderRadius: '50%', background: 'linear-gradient(135deg,#C41230,#8B0020)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '26px', boxShadow: '0 4px 14px rgba(196,18,48,0.35)' }}>
+          {currentUser ? currentUser.name.slice(0, 1) : '?'}
+        </div>
         <div>
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{currentUser?.name ?? '—'}</div>
           <div style={{ fontSize: '13.5px', color: '#64748B', marginTop: '2px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · xCloud 科技</div>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '5px',
-            marginTop: '8px', padding: '3px 10px',
-            background: '#F0FDF4', color: '#16a34a',
-            borderRadius: '99px', fontSize: '11.5px', fontWeight: '600',
-          }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '8px', padding: '3px 10px', background: '#F0FDF4', color: '#16a34a', borderRadius: '99px', fontSize: '11.5px', fontWeight: '600' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-            線上
+            在線上
           </div>
         </div>
       </div>
 
-      <div style={{
-        background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0',
-        overflow: 'hidden', marginBottom: '14px',
-      }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '700', color: '#374151' }}>
-          基本資料
-        </div>
+      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden', marginBottom: '14px' }}>
         {INFO_ROWS.map((row, i) => (
-          <div key={row.label} style={{
-            display: 'flex', alignItems: 'center', padding: '11px 20px',
-            borderBottom: i < INFO_ROWS.length - 1 ? '1px solid #F8FAFC' : 'none',
-            background: i % 2 === 0 ? 'white' : '#FFF8F8',
-          }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < INFO_ROWS.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
             <div style={{ width: '96px', fontSize: '12.5px', color: '#94A3B8', flexShrink: 0 }}>{row.label}</div>
             <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>{row.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{
-        background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden',
-      }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '700', color: '#374151' }}>
-          帳戶設定
-        </div>
+      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '700', color: '#374151' }}>帳戶設定</div>
         {[
-          { label: '修改密碼',   desc: '定期更換密碼以保護帳戶安全' },
-          { label: '通知偏好',   desc: '設定 Email / App 通知類型' },
+          { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全' },
+          { label: '通知偏好', desc: '設定 Email / App 通知類型' },
           { label: '語言與時區', desc: '繁體中文 / Asia/Taipei' },
-          { label: '登出',       desc: '結束目前登入階段', danger: true },
+          { label: '登出', desc: '結束目前登入階段', danger: true },
         ].map((item, i, arr) => (
-          <button
-            key={item.label}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center',
-              padding: '13px 20px',
-              borderBottom: i < arr.length - 1 ? '1px solid #F8FAFC' : 'none',
-              border: 'none', background: 'transparent', cursor: 'pointer',
-              textAlign: 'left', transition: 'background 0.15s', fontFamily: 'inherit',
-            }}
-            onMouseOver={e => (e.currentTarget.style.background = item.danger ? '#FFF5F5' : '#F8FAFC')}
-            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-          >
+          <button key={item.label} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < arr.length - 1 ? '1px solid #F8FAFC' : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+            onMouseOver={e => e.currentTarget.style.background = item.danger ? '#FFF5F5' : '#F8FAFC'}
+            onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '13px', fontWeight: '600', color: item.danger ? '#EF4444' : '#1e293b' }}>{item.label}</div>
               <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '1px' }}>{item.desc}</div>
@@ -1064,46 +1095,26 @@ function ProfilePage({ onBack, currentUser }) {
   );
 }
 
-// ── URL Hash 路由輔助 ────────────────────────────────────────
-const ALL_NAV_IDS = [
-  ...new Set(MODES.flatMap(m => m.items.map(i => i.id))),
-  'profile',
-];
-
-function readHashNav() {
-  const hash = window.location.hash.replace(/^#\/?/, '');
-  return ALL_NAV_IDS.includes(hash) ? hash : 'dashboard';
-}
-
-function writeHashNav(id) {
-  const newHash = id === 'dashboard' ? '' : id;
-  window.history.pushState({ nav: id }, '', newHash ? `#${newHash}` : window.location.pathname);
-}
-
 // ════════════════════════════════════════════════════════════
-// 主元件：Dashboard
+// 主元件
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
   const [activeNav,     setActiveNav]     = useState(readHashNav);
-  const [healthFilter,  setHealthFilter]  = useState(null);
   const [settingsState, setSettingsState] = useState(null);
   const [currentUser,   setCurrentUser]   = useState(null);
-  const { summary, projects, workload, insights, loading, error, refresh } = useDashboard();
+  const dashData = useDashboard();
 
-  // ── 監聽瀏覽器上一頁/下一頁 ──────────────────────────────
   useEffect(() => {
     const onPop = () => setActiveNav(readHashNav());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // ── 導覽函式：同時更新 state + URL hash ──────────────────
-  const navigate = (id) => {
+  const navigate = useCallback((id) => {
     setActiveNav(id);
     writeHashNav(id);
-  };
+  }, []);
 
-  // ── 載入當前登入用戶 ──────────────────────────────────────
   useEffect(() => {
     fetch(`${API_BASE}/api/team?companyId=${COMPANY_ID}`)
       .then(r => r.json())
@@ -1114,114 +1125,48 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
-  // ── OAuth 回呼偵測 ──────────────────────────────────────
   useEffect(() => {
     const params    = new URLSearchParams(window.location.search);
     const msConn    = params.get('ms_connected');
     const msError   = params.get('ms_error');
     const msEmail   = params.get('ms_email');
     const msMessage = params.get('ms_message');
-
     if (msConn === '1' || msError) {
       navigate('settings');
       setSettingsState({ initialTab: 'integrations', msConnected: msConn, msError, msEmail, msMessage });
-      window.history.replaceState({}, document.title,
-        window.location.pathname.replace(/\/settings\/integrations\/?$/, '/') || '/');
+      window.history.replaceState({}, document.title, window.location.pathname.replace(/\/settings\/integrations\/?$/, '/') || '/');
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filteredProjects = healthFilter
-    ? projects.filter(p => p.health_status === healthFilter)
-    : projects;
-
   // ── 頁面路由 ──────────────────────────────────────────────
   const renderPage = () => {
-    if (activeNav === 'inbox')       return <InboxPage />;
-    if (activeNav === 'my-tasks')    return <MyTasksPage />;
-    if (activeNav === 'projects')    return <ProjectsPage />;
-    if (activeNav === 'tasks')       return <TaskKanbanPage />;
-    if (activeNav === 'gantt')       return <GanttPage />;
-    if (activeNav === 'workflow')    return <WorkflowDiagramPage />;
-    if (activeNav === 'rules')       return <RulesPage />;
-    if (activeNav === 'time')        return <TimeTrackingPage />;
-    if (activeNav === 'goals')       return <GoalsPage />;
-    if (activeNav === 'portfolios')  return <PortfoliosPage />;
-    if (activeNav === 'workload')    return <WorkloadPage />;
-    if (activeNav === 'reports')     return <ReportsPage />;
-    if (activeNav === 'team')        return <TeamPage />;
-    if (activeNav === 'settings')    return (
-      <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />
-    );
+    if (activeNav === 'home')          return <HomePage currentUser={currentUser} onNavigate={navigate} dashData={dashData} />;
+    if (activeNav === 'inbox')         return <InboxPage />;
+    if (activeNav === 'my-tasks')      return <MyTasksPage />;
+    if (activeNav === 'projects')      return <ProjectsPage />;
+    if (activeNav === 'tasks')         return <TaskKanbanPage />;
+    if (activeNav === 'gantt')         return <GanttPage />;
+    if (activeNav === 'workflow')      return <WorkflowDiagramPage />;
+    if (activeNav === 'rules')         return <RulesPage />;
+    if (activeNav === 'time')          return <TimeTrackingPage />;
+    if (activeNav === 'goals')         return <GoalsPage />;
+    if (activeNav === 'portfolios')    return <PortfoliosPage />;
+    if (activeNav === 'workload')      return <WorkloadPage />;
+    if (activeNav === 'reports')       return <ReportsPage />;
+    if (activeNav === 'team')          return <TeamPage />;
+    if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
     if (activeNav === 'ai-center')     return <AiDecisionCenter />;
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage />;
-    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('dashboard')} currentUser={currentUser} />;
+    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} />;
 
-    // 未知頁面 fallback
-    const allItems = MODES.flatMap(m => m.items);
-    if (activeNav !== 'dashboard') {
-      const item = allItems.find(n => n.id === activeNav);
-      return (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: '60vh', flexDirection: 'column', gap: '14px',
-        }}>
-          <div style={{
-            width: '60px', height: '60px', borderRadius: '14px',
-            background: '#FFF0F2', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '26px',
-          }}>🚧</div>
-          <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
-            {item?.label ?? activeNav} 開發中
-          </div>
-          <div style={{ fontSize: '13.5px', color: '#94A3B8' }}>此功能即將上線，敬請期待</div>
-        </div>
-      );
-    }
-
-    return loading ? (
-      <LoadingScreen />
-    ) : error ? (
-      <ErrorScreen error={error} onRetry={refresh} />
-    ) : (
-      <>
-        <SummaryCards summary={summary} />
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-          <Card><HealthPieChart summary={summary} onFilter={setHealthFilter} /></Card>
-          <Card><ActionableInsights insights={insights} /></Card>
-        </div>
-
-        <Card style={{ marginBottom: '16px' }}>
-          {healthFilter && (
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginBottom: '12px', padding: '8px 14px',
-              background: '#FFFBEB', borderRadius: '8px', fontSize: '13px', color: '#854D0E',
-              border: '1px solid #FCD34D',
-            }}>
-              <span>
-                篩選：
-                {healthFilter === 'red' ? '🔴 危險' : healthFilter === 'yellow' ? '🟡 需關注' : '🟢 正常'}
-                （{filteredProjects.length} 個專案）
-              </span>
-              <button
-                onClick={() => setHealthFilter(null)}
-                style={{
-                  background: 'none', border: 'none', color: '#854D0E',
-                  cursor: 'pointer', fontSize: '12.5px', textDecoration: 'underline', fontFamily: 'inherit',
-                }}
-              >
-                清除篩選
-              </button>
-            </div>
-          )}
-          <ProjectHealthList projects={filteredProjects} />
-        </Card>
-
-        <Card><WorkloadHeatmap workload={workload} /></Card>
-      </>
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ width: '60px', height: '60px', borderRadius: '14px', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>🚧</div>
+        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>開發中</div>
+        <div style={{ fontSize: '13.5px', color: '#94A3B8' }}>此功能即將上線，敬請期待</div>
+      </div>
     );
   };
 
@@ -1230,16 +1175,9 @@ export default function Dashboard() {
       <Sidebar active={activeNav} onChange={navigate} currentUser={currentUser} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
-        <Topbar activeNav={activeNav} onRefresh={refresh} loading={loading} onNavigate={navigate} />
+        <Topbar activeNav={activeNav} onNavigate={navigate} />
 
-        <main style={{
-          flex: 1,
-          padding: activeNav === 'dashboard' ? '24px 28px' : '0',
-          maxWidth: activeNav === 'dashboard' ? '1400px' : 'none',
-          width: '100%',
-          margin: activeNav === 'dashboard' ? '0 auto' : '0',
-          boxSizing: 'border-box',
-        }}>
+        <main style={{ flex: 1, minWidth: 0 }}>
           {renderPage()}
         </main>
       </div>
