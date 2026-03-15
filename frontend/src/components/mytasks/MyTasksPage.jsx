@@ -1,1327 +1,853 @@
 /**
  * MyTasksPage.jsx
- * 我的任務 — 個人任務檢視（類 Asana My Tasks）
- *
- * 顯示所有指派給當前使用者的跨專案任務
- * API：GET  /api/projects/tasks?companyId=2
- *      PATCH /api/projects/tasks/:id
- *      POST  /api/projects/:projectId/tasks
+ * 我的任務 — Asana 精確對齊版本
+ * API: http://localhost:3010
  */
-
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 // ── Design Tokens ────────────────────────────────────────────
-const T = {
-  accent:  '#C41230',
-  accentL: '#f8d7db',
-  pageBg:  '#F7F2F2',
+const C = {
+  accent: '#C41230',
+  accentHover: '#a30f28',
+  accentLight: '#fceef0',
+  pageBg: '#F7F2F2',
+  white: '#ffffff',
+  gray50: '#f9f9f9',
+  gray100: '#f3f4f6',
+  gray200: '#e5e7eb',
+  gray300: '#d1d5db',
+  gray400: '#9ca3af',
+  gray500: '#6b7280',
+  gray600: '#4b5563',
+  gray700: '#374151',
+  gray800: '#1f2937',
+  green: '#22c55e',
+  orange: '#f97316',
+  blue: '#3b82f6',
+  purple: '#8b5cf6',
+  teal: '#14b8a6',
 };
 
-const API = 'http://localhost:3010/api/projects';
+const API = 'http://localhost:3010';
 
-// ── 工具函式 ─────────────────────────────────────────────────
-function today() {
+// ── Date utilities ────────────────────────────────────────────
+function todayStart() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-function startOfWeek() {
-  const d = today();
-  d.setDate(d.getDate() - d.getDay() + 1); // Monday
-  return d;
-}
-
-function endOfWeek() {
-  const d = startOfWeek();
-  d.setDate(d.getDate() + 6);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function endOfNextTwoWeeks() {
-  const d = today();
-  d.setDate(d.getDate() + 14);
-  d.setHours(23, 59, 59, 999);
-  return d;
+function isOverdue(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  return d < todayStart();
 }
 
 function isToday(dateStr) {
   if (!dateStr) return false;
   const d = new Date(dateStr);
   d.setHours(0, 0, 0, 0);
-  return d.getTime() === today().getTime();
+  return d.getTime() === todayStart().getTime();
 }
 
-function isThisWeek(dateStr) {
+function isNextWeek(dateStr) {
   if (!dateStr) return false;
   const d = new Date(dateStr);
-  return d >= startOfWeek() && d <= endOfWeek();
-}
-
-function isOverdue(dateStr, status) {
-  if (!dateStr || status === 'done') return false;
-  const d = new Date(dateStr);
   d.setHours(0, 0, 0, 0);
-  return d < today();
+  const t = todayStart();
+  const next7 = new Date(t);
+  next7.setDate(t.getDate() + 7);
+  return d > t && d <= next7;
 }
 
-function isDoneThisWeek(task) {
-  if (task.status !== 'done' || !task.updatedAt) return false;
-  const d = new Date(task.updatedAt);
-  return d >= startOfWeek() && d <= endOfWeek();
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if (isToday(dateStr)) return `今天`;
+  return `${m} 月 ${day} 日`;
 }
 
-function dueDateLabel(dateStr, status) {
-  if (!dateStr) return null;
-  if (isOverdue(dateStr, status)) {
-    const days = Math.ceil((today() - new Date(dateStr)) / 86400000);
-    return { text: `逾期 ${days} 天`, color: '#dc2626' };
-  }
-  if (isToday(dateStr)) return { text: '今天到期', color: '#ea580c' };
-  const diff = Math.ceil((new Date(dateStr) - today()) / 86400000);
-  if (diff <= 3) return { text: `剩 ${diff} 天`, color: '#f59e0b' };
-  return {
-    text: new Date(dateStr).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
-    color: '#9ca3af',
-  };
-}
-
-function avatarChar(name) {
-  return name ? name.charAt(0).toUpperCase() : '?';
-}
-
-function avatarColor(name) {
-  const colors = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444'];
-  if (!name) return colors[0];
-  return colors[name.charCodeAt(0) % colors.length];
-}
-
-function projectBadgeColor(projectName) {
-  const pairs = [
-    { bg: '#ede9fe', color: '#7c3aed' },
-    { bg: '#dbeafe', color: '#1d4ed8' },
-    { bg: '#dcfce7', color: '#15803d' },
-    { bg: '#fef3c7', color: '#92400e' },
-    { bg: '#fce7f3', color: '#9d174d' },
-    { bg: '#e0f2fe', color: '#0369a1' },
-  ];
-  if (!projectName) return pairs[0];
-  return pairs[projectName.charCodeAt(0) % pairs.length];
-}
-
-const PRIORITY_MAP = {
-  urgent: { label: '緊急', bg: '#fee2e2', color: '#dc2626', dot: '#dc2626' },
-  high:   { label: '高',   bg: '#ffedd5', color: '#ea580c', dot: '#ea580c' },
-  medium: { label: '中',   bg: '#fef9c3', color: '#ca8a04', dot: '#ca8a04' },
-  low:    { label: '低',   bg: '#f3f4f6', color: '#6b7280', dot: '#9ca3af' },
-};
-
-const STATUS_MAP = {
-  todo:        { label: '待辦',   color: '#6b7280' },
-  in_progress: { label: '進行中', color: '#3b82f6' },
-  review:      { label: '審核中', color: '#f59e0b' },
-  done:        { label: '已完成', color: '#10b981' },
-};
-
-const SECTIONS = [
-  { id: 'all',      label: '全部',    icon: '◎' },
-  { id: 'today',    label: '今天到期', icon: '☀' },
-  { id: 'week',     label: '本週到期', icon: '📅' },
-  { id: 'overdue',  label: '已逾期',  icon: '⚠' },
-  { id: 'done',     label: '已完成',  icon: '✓' },
-];
-
-const SORT_OPTIONS = [
-  { id: 'dueDate',  label: '截止日期' },
-  { id: 'priority', label: '優先度' },
-  { id: 'project',  label: '專案' },
-];
-
-const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
-
-// ── Mock 資料（API 不可用時使用） ────────────────────────────
-const TODAY_STR = new Date().toISOString().slice(0, 10);
-function daysFromToday(n) {
+// ── Demo data ────────────────────────────────────────────────
+const TODAY_STR = new Date().toISOString().split('T')[0];
+const TOMORROW_STR = (() => {
   const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+})();
+const NEXT5_STR = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 5);
+  return d.toISOString().split('T')[0];
+})();
+const LATER_STR = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().split('T')[0];
+})();
+
+const DEMO_TASKS = [
+  { id: 'd1', title: '排定啟動會議', dueDate: TODAY_STR, project: 'xCloudinfo', projectColor: C.blue, assignee: 'JL', section: 'recent' },
+  { id: 'd2', title: '草擬專案簡介', dueDate: TOMORROW_STR, project: 'xCloudinfo', projectColor: C.blue, assignee: 'JL', section: 'recent' },
+  { id: 'd3', title: '確認需求規格書', dueDate: TODAY_STR, project: 'PMIS 開發', projectColor: C.purple, assignee: 'JL', section: 'today' },
+  { id: 'd4', title: '更新設計稿', dueDate: TODAY_STR, project: 'UI 設計', projectColor: C.teal, assignee: 'JL', section: 'today' },
+  { id: 'd5', title: '進行程式碼審查', dueDate: NEXT5_STR, project: 'PMIS 開發', projectColor: C.purple, assignee: 'JL', section: 'week' },
+  { id: 'd6', title: '撰寫單元測試', dueDate: NEXT5_STR, project: 'PMIS 開發', projectColor: C.purple, assignee: 'JL', section: 'week' },
+  { id: 'd7', title: '部署至測試環境', dueDate: LATER_STR, project: 'DevOps', projectColor: C.orange, assignee: 'JL', section: 'later' },
+  { id: 'd8', title: '準備季度報告', dueDate: LATER_STR, project: 'xCloudinfo', projectColor: C.blue, assignee: 'JL', section: 'later' },
+];
+
+// Classify tasks into sections
+function classifyTasks(tasks) {
+  const sections = { recent: [], today: [], week: [], later: [] };
+  tasks.forEach(t => {
+    if (t.section) {
+      sections[t.section] = [...(sections[t.section] || []), t];
+    } else if (!t.dueDate) {
+      sections.recent.push(t);
+    } else if (isToday(t.dueDate)) {
+      sections.today.push(t);
+    } else if (isNextWeek(t.dueDate)) {
+      sections.week.push(t);
+    } else {
+      sections.later.push(t);
+    }
+  });
+  return sections;
 }
 
-const MOCK_TASKS = [
-  {
-    id: 101, title: '完成 Q1 財務報告初稿', status: 'in_progress', priority: 'urgent',
-    dueDate: TODAY_STR,
-    project: { id: 1, name: '財務系統升級' },
-    assignee: { id: 1, name: '王大明' },
-    description: '包含損益表、資產負債表與現金流量表',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 102, title: '審核新版 UI 設計稿', status: 'todo', priority: 'high',
-    dueDate: TODAY_STR,
-    project: { id: 2, name: 'xCloud PMIS 開發' },
-    assignee: { id: 1, name: '王大明' },
-    description: '重點確認 Dashboard 的色彩系統與字型規格',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 103, title: '更新客戶資料庫欄位結構', status: 'todo', priority: 'medium',
-    dueDate: daysFromToday(2),
-    project: { id: 3, name: 'CRM 系統整合' },
-    assignee: { id: 1, name: '王大明' },
-    description: '新增電話、地址、統編欄位，並遷移舊資料',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 104, title: '撰寫 API 文件（v2.0）', status: 'in_progress', priority: 'medium',
-    dueDate: daysFromToday(4),
-    project: { id: 2, name: 'xCloud PMIS 開發' },
-    assignee: { id: 1, name: '王大明' },
-    description: '涵蓋所有 REST endpoints、請求/回應格式與範例',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 105, title: '辦理年度軟體授權續約', status: 'todo', priority: 'high',
-    dueDate: daysFromToday(5),
-    project: { id: 4, name: 'IT 採購管理' },
-    assignee: { id: 1, name: '王大明' },
-    description: 'Microsoft 365、Adobe CC、Figma Pro',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 106, title: '安排員工教育訓練', status: 'todo', priority: 'low',
-    dueDate: daysFromToday(8),
-    project: { id: 5, name: 'HR 人資管理' },
-    assignee: { id: 1, name: '王大明' },
-    description: '資安意識培訓 & 新版系統操作說明',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 107, title: '修復登入頁跑版 Bug', status: 'todo', priority: 'urgent',
-    dueDate: daysFromToday(-1),
-    project: { id: 2, name: 'xCloud PMIS 開發' },
-    assignee: { id: 1, name: '王大明' },
-    description: 'Safari 15 與 Firefox 118 有跑版問題',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 108, title: '確認伺服器備份設定', status: 'todo', priority: 'high',
-    dueDate: daysFromToday(-3),
-    project: { id: 4, name: 'IT 採購管理' },
-    assignee: { id: 1, name: '王大明' },
-    description: '確認異地備份是否正常啟用',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 109, title: '完成用戶訪談整理', status: 'done', priority: 'medium',
-    dueDate: daysFromToday(-5),
-    project: { id: 2, name: 'xCloud PMIS 開發' },
-    assignee: { id: 1, name: '王大明' },
-    description: '10 位受訪者的逐字稿與重點摘要',
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 110, title: '提交年度預算申請', status: 'done', priority: 'urgent',
-    dueDate: daysFromToday(-7),
-    project: { id: 4, name: 'IT 採購管理' },
-    assignee: { id: 1, name: '王大明' },
-    description: '含人力成本、軟硬體、差旅費',
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const MOCK_PROJECTS = [
-  { id: 1, name: '財務系統升級' },
-  { id: 2, name: 'xCloud PMIS 開發' },
-  { id: 3, name: 'CRM 系統整合' },
-  { id: 4, name: 'IT 採購管理' },
-  { id: 5, name: 'HR 人資管理' },
-];
-
-// ── 共用樣式 ─────────────────────────────────────────────────
-const inputStyle = {
-  width: '100%', padding: '7px 10px',
-  border: '1px solid #d1d5db', borderRadius: 6,
-  fontSize: '13px', boxSizing: 'border-box',
-  outline: 'none', background: '#fff',
-};
-
-// ════════════════════════════════════════════════════════════
-// 空狀態 SVG 插圖
-// ════════════════════════════════════════════════════════════
-function EmptyIllustration() {
+// ── Avatar component ─────────────────────────────────────────
+function Avatar({ name = 'JL', size = 28, color = C.accent }) {
+  const initials = name.slice(0, 2).toUpperCase();
   return (
-    <svg width="160" height="140" viewBox="0 0 160 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="80" cy="125" rx="52" ry="8" fill="#E8DEDF" opacity="0.6"/>
-      <rect x="30" y="28" width="100" height="82" rx="10" fill="#fff" stroke="#E5D8DA" strokeWidth="1.5"/>
-      <rect x="30" y="28" width="100" height="22" rx="10" fill="#F3EDED"/>
-      <rect x="30" y="40" width="100" height="10" fill="#F3EDED"/>
-      <circle cx="48" cy="39" r="5" fill={T.accent} opacity="0.15"/>
-      <circle cx="48" cy="39" r="2.5" fill={T.accent} opacity="0.6"/>
-      <rect x="58" y="36" width="50" height="5" rx="2.5" fill="#D1C4C6"/>
-      <rect x="42" y="62" width="8" height="8" rx="2" stroke="#D1C4C6" strokeWidth="1.5" fill="none"/>
-      <rect x="56" y="63" width="48" height="5" rx="2.5" fill="#E5D8DA"/>
-      <rect x="42" y="78" width="8" height="8" rx="2" stroke="#D1C4C6" strokeWidth="1.5" fill="none"/>
-      <rect x="56" y="79" width="36" height="5" rx="2.5" fill="#E5D8DA"/>
-      <rect x="42" y="94" width="8" height="8" rx="2" stroke="#D1C4C6" strokeWidth="1.5" fill="none"/>
-      <rect x="56" y="95" width="42" height="5" rx="2.5" fill="#E5D8DA"/>
-      <circle cx="113" cy="42" r="18" fill={T.accent} opacity="0.08"/>
-      <path d="M107 42 L112 47 L119 37" stroke={T.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: color, color: C.white,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.36, fontWeight: 600, flexShrink: 0,
+      userSelect: 'none',
+    }}>
+      {initials}
+    </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// 任務列（單筆任務列表項目）
-// ════════════════════════════════════════════════════════════
-function TaskRow({ task, onToggleDone, onOpenDetail }) {
+// ── Checkbox circle ──────────────────────────────────────────
+function TaskCircle({ done, onToggle }) {
   const [hovered, setHovered] = useState(false);
-  const isDone = task.status === 'done';
-  const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
-  const dueInfo = dueDateLabel(task.dueDate, task.status);
-  const projBadge = projectBadgeColor(task.project?.name);
-
-  // 從 localStorage 讀取 @mentions 與 deps
-  const mentionCount = (() => {
-    try {
-      const comments = JSON.parse(localStorage.getItem(`xcloud-comments-${task.id}`) || '[]');
-      return comments.filter(c => c.content && c.content.includes('@')).length;
-    } catch { return 0; }
-  })();
-
-  const hasDeps = (() => {
-    try {
-      const deps = JSON.parse(localStorage.getItem(`xcloud-deps-${task.id}`) || '[]');
-      return deps.length > 0;
-    } catch { return false; }
-  })();
-
   return (
     <div
+      onClick={e => { e.stopPropagation(); onToggle(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display:       'flex',
-        alignItems:    'center',
-        gap:           10,
-        padding:       '10px 16px',
-        background:    hovered ? '#fdf6f7' : '#fff',
-        borderBottom:  '1px solid #f3eded',
-        transition:    'background .12s',
-        cursor:        'default',
+        width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+        border: done ? 'none' : `2px solid ${hovered ? C.green : C.gray300}`,
+        background: done ? C.green : (hovered ? '#f0fdf4' : 'transparent'),
+        cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s',
       }}
     >
-      {/* 核取方塊 */}
-      <div
-        onClick={() => onToggleDone(task)}
-        title={isDone ? '標記為未完成' : '標記為完成'}
-        style={{
-          width:        18, height: 18,
-          borderRadius: '50%',
-          border:       `2px solid ${isDone ? '#10b981' : '#d1d5db'}`,
-          background:   isDone ? '#10b981' : 'transparent',
-          cursor:       'pointer',
-          flexShrink:   0,
-          display:      'flex',
-          alignItems:   'center',
-          justifyContent: 'center',
-          transition:   'all .15s',
-        }}
-      >
-        {isDone && (
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-            <polyline points="2,6 5,9 10,3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        )}
-      </div>
-
-      {/* 任務名稱 */}
-      <div
-        onClick={() => onOpenDetail(task)}
-        style={{
-          flex:           1,
-          fontSize:       '13px',
-          fontWeight:     isDone ? 400 : 500,
-          color:          isDone ? '#9ca3af' : '#111827',
-          textDecoration: isDone ? 'line-through' : 'none',
-          cursor:         'pointer',
-          lineHeight:     1.4,
-          minWidth:       0,
-          overflow:       'hidden',
-          textOverflow:   'ellipsis',
-          whiteSpace:     'nowrap',
-        }}
-      >
-        {task.title}
-      </div>
-
-      {/* 依賴標示 */}
-      {hasDeps && (
-        <span title="有相依任務" style={{ fontSize: '13px', opacity: .6 }}>⛓</span>
-      )}
-
-      {/* @Mention 徽章 */}
-      {mentionCount > 0 && (
-        <span style={{
-          fontSize:     '10px', fontWeight: 700,
-          background:   '#dbeafe', color: '#1d4ed8',
-          padding:      '1px 6px', borderRadius: 10,
-          whiteSpace:   'nowrap',
-        }}>
-          @{mentionCount}
-        </span>
-      )}
-
-      {/* 專案徽章 */}
-      {task.project && (
-        <span style={{
-          fontSize:    '11px', fontWeight: 600,
-          background:  projBadge.bg, color: projBadge.color,
-          padding:     '2px 8px', borderRadius: 4,
-          whiteSpace:  'nowrap', flexShrink: 0,
-        }}>
-          {task.project.name}
-        </span>
-      )}
-
-      {/* 優先度 */}
-      <span style={{
-        fontSize:   '11px', fontWeight: 600,
-        background: pri.bg, color: pri.color,
-        padding:    '2px 7px', borderRadius: 4,
-        whiteSpace: 'nowrap', flexShrink: 0,
-      }}>
-        {pri.label}
-      </span>
-
-      {/* 截止日期 */}
-      {dueInfo && (
-        <span style={{
-          fontSize:   '11px', fontWeight: 600,
-          color:      dueInfo.color,
-          whiteSpace: 'nowrap', flexShrink: 0,
-          minWidth:   62, textAlign: 'right',
-        }}>
-          {dueInfo.text}
-        </span>
-      )}
-
-      {/* 指派人 Avatar */}
-      {task.assignee && (
-        <div
-          title={task.assignee.name}
-          style={{
-            width:          26, height: 26,
-            borderRadius:   '50%',
-            background:     avatarColor(task.assignee.name),
-            color:          '#fff',
-            display:        'flex',
-            alignItems:     'center',
-            justifyContent: 'center',
-            fontSize:       '11px', fontWeight: 700,
-            flexShrink:     0,
-          }}
-        >
-          {avatarChar(task.assignee.name)}
-        </div>
+      {(done || hovered) && (
+        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path d="M1 4l3 3 5-6" stroke={done ? C.white : C.green} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       )}
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// 新增任務行內列（Inline add row）
-// ════════════════════════════════════════════════════════════
-function InlineAddRow({ projects, onSave, onCancel }) {
-  const [title, setTitle]       = useState('');
-  const [projectId, setProjectId] = useState(projects[0]?.id || '');
-  const [dueDate, setDueDate]   = useState('');
-  const [priority, setPriority] = useState('medium');
-  const [saving, setSaving]     = useState(false);
-  const titleRef = useRef(null);
+// ── Project badge ────────────────────────────────────────────
+function ProjectBadge({ name, color }) {
+  if (!name) return <span style={{ color: C.gray300, fontSize: 13 }}>—</span>;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color || C.gray400, flexShrink: 0 }} />
+      <span style={{ fontSize: 13, color: C.gray600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{name}</span>
+    </div>
+  );
+}
 
-  useEffect(() => { titleRef.current?.focus(); }, []);
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') onCancel();
-    if (e.key === 'Enter' && title.trim()) handleSubmit();
-  };
-
-  const handleSubmit = async () => {
-    if (!title.trim() || !projectId) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`${API}/${projectId}/tasks`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          title:    title.trim(),
-          status:   'todo',
-          priority,
-          dueDate:  dueDate || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      onSave(data.data);
-    } catch (err) {
-      // Fallback: treat as saved with mock id
-      onSave({
-        id: Date.now(), title: title.trim(),
-        status: 'todo', priority,
-        dueDate: dueDate || null,
-        project: projects.find(p => String(p.id) === String(projectId)),
-        assignee: { id: 1, name: '王大明' },
-        updatedAt: new Date().toISOString(),
-      });
-    } finally {
-      setSaving(false);
+// ── Add View Popup ───────────────────────────────────────────
+function AddViewPopup({ onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
     }
-  };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const popular = [
+    { icon: '≡', label: '清單' },
+    { icon: '⊞', label: '看板' },
+    { icon: '📅', label: '行事曆' },
+  ];
+  const others = [
+    { icon: '📊', label: '儀表板', badge: '新的' },
+    { icon: '📝', label: '備註' },
+  ];
 
   return (
-    <div style={{
-      display:        'flex',
-      alignItems:     'center',
-      gap:            8,
-      padding:        '8px 16px',
-      background:     '#fff9f9',
-      borderBottom:   `2px solid ${T.accent}`,
-      flexWrap:       'wrap',
+    <div ref={ref} style={{
+      position: 'absolute', top: '100%', left: 0, zIndex: 200,
+      background: C.white, border: `1px solid ${C.gray200}`,
+      borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+      width: 220, padding: '8px 0', marginTop: 4,
     }}>
-      {/* 圓圈佔位 */}
-      <div style={{
-        width: 18, height: 18, borderRadius: '50%',
-        border: `2px dashed ${T.accent}`, flexShrink: 0,
-      }} />
-
-      {/* 任務名稱輸入 */}
-      <input
-        ref={titleRef}
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="輸入任務名稱..."
-        style={{
-          flex: 1, minWidth: 160,
-          border: 'none', outline: 'none',
-          fontSize: '13px', fontWeight: 500,
-          color: '#111827', background: 'transparent',
-        }}
-      />
-
-      {/* 所屬專案 */}
-      <select
-        value={projectId}
-        onChange={e => setProjectId(e.target.value)}
-        style={{ fontSize: '12px', padding: '4px 6px', borderRadius: 5, border: '1px solid #e5e7eb' }}
-      >
-        <option value="">選擇專案</option>
-        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-
-      {/* 截止日期 */}
-      <input
-        type="date"
-        value={dueDate}
-        onChange={e => setDueDate(e.target.value)}
-        style={{ fontSize: '12px', padding: '4px 6px', borderRadius: 5, border: '1px solid #e5e7eb' }}
-      />
-
-      {/* 優先度 */}
-      <select
-        value={priority}
-        onChange={e => setPriority(e.target.value)}
-        style={{ fontSize: '12px', padding: '4px 6px', borderRadius: 5, border: '1px solid #e5e7eb' }}
-      >
-        <option value="urgent">🔴 緊急</option>
-        <option value="high">🟠 高</option>
-        <option value="medium">🟡 中</option>
-        <option value="low">⚪ 低</option>
-      </select>
-
-      {/* 確認 / 取消 */}
-      <button
-        onClick={handleSubmit}
-        disabled={saving || !title.trim()}
-        style={{
-          padding: '4px 14px', borderRadius: 6,
-          border: 'none', background: T.accent, color: '#fff',
-          fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-          opacity: (!title.trim() || saving) ? .5 : 1,
-        }}
-      >
-        {saving ? '...' : '新增'}
-      </button>
-      <button
-        onClick={onCancel}
-        style={{
-          padding: '4px 10px', borderRadius: 6,
-          border: '1px solid #d1d5db', background: '#fff',
-          fontSize: '12px', cursor: 'pointer', color: '#6b7280',
-        }}
-      >
-        取消
-      </button>
+      <div style={{ padding: '4px 12px 6px', fontSize: 11, fontWeight: 600, color: C.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' }}>熱門</div>
+      {popular.map(item => (
+        <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', cursor: 'pointer', fontSize: 14, color: C.gray700 }}
+          onMouseEnter={e => e.currentTarget.style.background = C.gray50}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={{ fontSize: 16 }}>{item.icon}</span>
+          <span>{item.label}</span>
+        </div>
+      ))}
+      <div style={{ height: 1, background: C.gray100, margin: '6px 0' }} />
+      <div style={{ padding: '4px 12px 6px', fontSize: 11, fontWeight: 600, color: C.gray400, textTransform: 'uppercase', letterSpacing: '0.05em' }}>其他</div>
+      {others.map(item => (
+        <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', cursor: 'pointer', fontSize: 14, color: C.gray700 }}
+          onMouseEnter={e => e.currentTarget.style.background = C.gray50}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={{ fontSize: 16 }}>{item.icon}</span>
+          <span>{item.label}</span>
+          {item.badge && <span style={{ fontSize: 10, background: C.accentLight, color: C.accent, borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>{item.badge}</span>}
+        </div>
+      ))}
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// 任務詳情側邊面板
-// ════════════════════════════════════════════════════════════
-function TaskDetailPanel({ task, projects, users, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    title:       task.title,
-    description: task.description || '',
-    status:      task.status,
-    priority:    task.priority,
-    assigneeId:  task.assignee?.id || '',
-    dueDate:     task.dueDate ? task.dueDate.slice(0, 10) : '',
-    projectId:   task.project?.id || '',
-  });
-  const [saving, setSaving]     = useState(false);
-  const [savedMsg, setSavedMsg] = useState('');
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  // 從 localStorage 讀取 mentions、deps、自訂欄位
-  const comments = (() => {
-    try { return JSON.parse(localStorage.getItem(`xcloud-comments-${task.id}`) || '[]'); }
-    catch { return []; }
-  })();
-  const deps = (() => {
-    try { return JSON.parse(localStorage.getItem(`xcloud-deps-${task.id}`) || '[]'); }
-    catch { return []; }
-  })();
-  const customFields = (() => {
-    try { return JSON.parse(localStorage.getItem('xcloud-custom-fields') || '[]'); }
-    catch { return []; }
-  })();
-
-  const mentions = comments.filter(c => c.content && c.content.includes('@'));
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`${API}/tasks/${task.id}`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          title:      form.title.trim(),
-          description: form.description,
-          status:     form.status,
-          priority:   form.priority,
-          assigneeId: form.assigneeId ? parseInt(form.assigneeId) : null,
-          dueDate:    form.dueDate || null,
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || '更新失敗');
-      setSavedMsg('已儲存');
-      setTimeout(() => setSavedMsg(''), 2000);
-      onSaved({ ...task, ...form });
-    } catch {
-      // Optimistic update even if API fails
-      setSavedMsg('已儲存（本機）');
-      setTimeout(() => setSavedMsg(''), 2000);
-      onSaved({ ...task, ...form });
-    } finally {
-      setSaving(false);
+// ── Add Task Type Dropdown ───────────────────────────────────
+function AddTaskDropdown({ onClose, onAdd }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
     }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const types = [
+    { icon: '⊙', label: '任務', sub: '', type: 'task' },
+    { icon: '✓', label: '核准', sub: '', type: 'approval' },
+    { icon: '◇', label: '里程碑', sub: '⇧ Tab M', type: 'milestone' },
+    { icon: '≡', label: '區段', sub: 'Tab N', type: 'section' },
+  ];
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', top: '100%', left: 0, zIndex: 300,
+      background: C.white, border: `1px solid ${C.gray200}`,
+      borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.14)',
+      width: 210, padding: '4px 0', marginTop: 2,
+    }}>
+      {types.map(item => (
+        <div key={item.type} onClick={() => { onAdd(item.type); onClose(); }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', cursor: 'pointer', fontSize: 14, color: C.gray700 }}
+          onMouseEnter={e => e.currentTarget.style.background = C.gray50}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 15 }}>{item.icon}</span>
+            <span>{item.label}</span>
+          </div>
+          {item.sub && <span style={{ fontSize: 11, color: C.gray400 }}>{item.sub}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Side Panel ───────────────────────────────────────────────
+function SidePanel({ task, onClose, onUpdate }) {
+  const [tab, setTab] = useState('detail');
+  const [title, setTitle] = useState(task.title);
+  const [desc, setDesc] = useState(task.description || '');
+  const [done, setDone] = useState(task.done || false);
+  const [comment, setComment] = useState('');
+
+  const customFields = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('xcloud-custom-fields') || '[]');
+    } catch { return []; }
+  })();
+
+  const panelStyle = {
+    position: 'fixed', top: 0, right: 0, bottom: 0,
+    width: 500, background: C.white,
+    boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+    zIndex: 500, display: 'flex', flexDirection: 'column',
+    animation: 'slideIn 0.2s ease',
   };
 
-  const handleBlur = () => { handleSave(); };
+  const handleSave = useCallback(() => {
+    onUpdate({ ...task, title, description: desc, done });
+  }, [task, title, desc, done, onUpdate]);
 
-  const pri = PRIORITY_MAP[form.priority] || PRIORITY_MAP.medium;
+  useEffect(() => {
+    setTitle(task.title);
+    setDesc(task.description || '');
+    setDone(task.done || false);
+    setTab('detail');
+  }, [task.id]);
+
+  const tabItems = ['detail', 'subtask', 'history'];
+  const tabLabels = { detail: '詳情', subtask: '子任務', history: '歷史記錄' };
 
   return (
     <>
-      {/* 遮罩 */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,.25)',
-        }}
-      />
-
-      {/* 面板本體 */}
-      <div style={{
-        position:  'fixed', top: 0, right: 0, bottom: 0,
-        width:     480, zIndex: 1001,
-        background: '#fff',
-        boxShadow: '-4px 0 32px rgba(0,0,0,.12)',
-        display:   'flex', flexDirection: 'column',
-        animation: 'slideInRight .2s ease',
-      }}>
-        {/* 面板標題列 */}
-        <div style={{
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'space-between',
-          padding:        '16px 20px',
-          borderBottom:   '1px solid #f3eded',
-          background:     '#fdf8f8',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {task.project && (
-              <span style={{
-                fontSize: '11px', fontWeight: 600,
-                background: projectBadgeColor(task.project.name).bg,
-                color:      projectBadgeColor(task.project.name).color,
-                padding:    '2px 8px', borderRadius: 4,
-              }}>
-                {task.project.name}
-              </span>
-            )}
-            <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-              {STATUS_MAP[form.status]?.label || form.status}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {savedMsg && (
-              <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600 }}>
-                ✓ {savedMsg}
-              </span>
-            )}
-            <button
-              onClick={onClose}
-              style={{
-                width: 28, height: 28, borderRadius: 6,
-                border: '1px solid #e5e7eb', background: '#fff',
-                cursor: 'pointer', fontSize: '14px', color: '#6b7280',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              ✕
+      <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+      {/* Overlay */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 499, background: 'transparent' }} />
+      <div style={panelStyle} onClick={e => e.stopPropagation()}>
+        {/* Panel Header */}
+        <div style={{ padding: '14px 20px 0', borderBottom: `1px solid ${C.gray100}` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+            <button onClick={() => { setDone(!done); handleSave(); }} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+              background: done ? '#f0fdf4' : C.white, color: done ? C.green : C.gray600,
+              border: `1px solid ${done ? C.green : C.gray300}`, borderRadius: 6,
+              cursor: 'pointer', fontSize: 13, fontWeight: 500, flexShrink: 0,
+            }}>
+              {done ? '✓ 已完成' : '⊙ 標記完成'}
             </button>
+            <div style={{ flex: 1 }} />
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.gray400, fontSize: 20, padding: '2px 6px', lineHeight: 1 }}>×</button>
           </div>
-        </div>
 
-        {/* 面板內容（可捲動） */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-
-          {/* 任務標題 */}
-          <textarea
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            onBlur={handleBlur}
-            rows={2}
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={handleSave}
             style={{
-              width:        '100%',
-              border:       'none',
-              outline:      'none',
-              fontSize:     '18px',
-              fontWeight:   700,
-              color:        '#111827',
-              resize:       'none',
-              lineHeight:   1.4,
-              boxSizing:    'border-box',
-              background:   'transparent',
-              marginBottom: 16,
-              padding:      0,
-              textDecoration: form.status === 'done' ? 'line-through' : 'none',
+              width: '100%', border: 'none', outline: 'none', fontSize: 18,
+              fontWeight: 600, color: C.gray800, padding: '0 0 12px',
+              background: 'transparent', boxSizing: 'border-box',
             }}
           />
 
-          {/* 欄位格狀佈局 */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
-
-            {/* 狀態 */}
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>狀態</label>
-              <select
-                value={form.status}
-                onChange={e => set('status', e.target.value)}
-                onBlur={handleBlur}
-                style={{ ...inputStyle, fontSize: '12px' }}
-              >
-                <option value="todo">📋 待辦</option>
-                <option value="in_progress">⚡ 進行中</option>
-                <option value="review">🔍 審核中</option>
-                <option value="done">✅ 已完成</option>
-              </select>
-            </div>
-
-            {/* 優先度 */}
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>優先度</label>
-              <select
-                value={form.priority}
-                onChange={e => set('priority', e.target.value)}
-                onBlur={handleBlur}
-                style={{ ...inputStyle, fontSize: '12px' }}
-              >
-                <option value="urgent">🔴 緊急</option>
-                <option value="high">🟠 高</option>
-                <option value="medium">🟡 中</option>
-                <option value="low">⚪ 低</option>
-              </select>
-            </div>
-
-            {/* 截止日期 */}
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>截止日期</label>
-              <input
-                type="date"
-                value={form.dueDate}
-                onChange={e => set('dueDate', e.target.value)}
-                onBlur={handleBlur}
-                style={{ ...inputStyle, fontSize: '12px' }}
-              />
-            </div>
-
-            {/* 指派給 */}
-            <div>
-              <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>指派給</label>
-              <select
-                value={form.assigneeId}
-                onChange={e => set('assigneeId', e.target.value)}
-                onBlur={handleBlur}
-                style={{ ...inputStyle, fontSize: '12px' }}
-              >
-                <option value="">未指派</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            </div>
-
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 0 }}>
+            {tabItems.map(t => (
+              <button key={t} onClick={() => setTab(t)} style={{
+                padding: '8px 16px', background: 'none', border: 'none',
+                borderBottom: `2px solid ${tab === t ? C.accent : 'transparent'}`,
+                color: tab === t ? C.accent : C.gray500,
+                cursor: 'pointer', fontSize: 14, fontWeight: tab === t ? 600 : 400,
+                marginBottom: -1,
+              }}>
+                {tabLabels[t]}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* 描述 */}
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 6 }}>說明</label>
-            <textarea
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-              onBlur={handleBlur}
-              rows={5}
-              placeholder="輸入任務說明..."
-              style={{
-                ...inputStyle,
-                resize:     'vertical',
-                lineHeight: 1.6,
-                fontSize:   '13px',
-                color:      '#374151',
-              }}
-            />
-          </div>
-
-          {/* 自訂欄位 */}
-          {customFields.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>自訂欄位</div>
-              {customFields.map((cf, i) => (
-                <div key={i} style={{
-                  display:       'flex',
-                  alignItems:    'center',
-                  justifyContent: 'space-between',
-                  padding:       '6px 10px',
-                  background:    '#faf9f9',
-                  borderRadius:  6,
-                  marginBottom:  4,
-                  fontSize:      '12px',
-                }}>
-                  <span style={{ color: '#6b7280', fontWeight: 500 }}>{cf.name || cf.label || cf.key}</span>
-                  <span style={{ color: '#374151' }}>{cf.value || '—'}</span>
+        {/* Panel Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+          {tab === 'detail' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {/* Fields */}
+              {[
+                { label: '負責人', value: task.assignee || '—' },
+                { label: '截止日期', value: task.dueDate ? formatDate(task.dueDate) : '—' },
+                { label: '專案', value: task.project || '—', color: task.projectColor },
+                { label: '優先度', value: task.priority || '—' },
+              ].map(f => (
+                <div key={f.label} style={{ display: 'flex', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${C.gray100}` }}>
+                  <div style={{ width: 120, fontSize: 13, color: C.gray500, flexShrink: 0 }}>{f.label}</div>
+                  <div style={{ flex: 1, fontSize: 14, color: C.gray700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {f.color && <div style={{ width: 8, height: 8, borderRadius: '50%', background: f.color }} />}
+                    {f.value}
+                  </div>
                 </div>
               ))}
+
+              {/* Description */}
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 13, color: C.gray500, marginBottom: 8 }}>說明</div>
+                <textarea
+                  value={desc}
+                  onChange={e => setDesc(e.target.value)}
+                  onBlur={handleSave}
+                  placeholder="新增說明..."
+                  rows={4}
+                  style={{
+                    width: '100%', border: `1px solid ${C.gray200}`, borderRadius: 6,
+                    padding: '10px 12px', fontSize: 14, color: C.gray700,
+                    resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Custom fields */}
+              {customFields.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 13, color: C.gray500, marginBottom: 8, fontWeight: 600 }}>自訂欄位</div>
+                  {customFields.map((cf, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${C.gray100}` }}>
+                      <div style={{ width: 120, fontSize: 13, color: C.gray500 }}>{cf.name || cf.label || `欄位 ${i + 1}`}</div>
+                      <div style={{ flex: 1, fontSize: 14, color: C.gray400 }}>—</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* @Mentions */}
-          {mentions.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
-                @提及 ({mentions.length})
-              </div>
-              {mentions.map((m, i) => (
-                <div key={i} style={{
-                  padding:     '8px 12px',
-                  background:  '#eff6ff',
-                  borderRadius: 8,
-                  marginBottom: 6,
-                  fontSize:    '12px',
-                  color:       '#1e40af',
-                  borderLeft:  '3px solid #3b82f6',
-                }}>
-                  {m.content}
-                </div>
-              ))}
+          {tab === 'subtask' && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: C.gray400, fontSize: 14 }}>
+              尚無子任務
             </div>
           )}
 
-          {/* 相依任務 */}
-          {deps.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>
-                ⛓ 相依任務 ({deps.length})
-              </div>
-              {deps.map((dep, i) => (
-                <div key={i} style={{
-                  padding:      '8px 12px',
-                  background:   '#f9fafb',
-                  borderRadius: 8,
-                  marginBottom: 6,
-                  fontSize:     '12px',
-                  color:        '#374151',
-                  border:       '1px solid #e5e7eb',
-                }}>
-                  {dep.title || dep.name || `任務 #${dep.id || dep}`}
-                </div>
-              ))}
+          {tab === 'history' && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: C.gray400, fontSize: 14 }}>
+              尚無歷史記錄
             </div>
           )}
         </div>
 
-        {/* 面板底部按鈕列 */}
-        <div style={{
-          padding:     '14px 20px',
-          borderTop:   '1px solid #f3eded',
-          display:     'flex',
-          gap:         10,
-          justifyContent: 'flex-end',
-          background:  '#fdf8f8',
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px', borderRadius: 7,
-              border: '1px solid #d1d5db', background: '#fff',
-              fontSize: '13px', cursor: 'pointer', color: '#374151',
-            }}
-          >
-            關閉
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: '8px 20px', borderRadius: 7,
-              border: 'none', background: T.accent, color: '#fff',
-              fontSize: '13px', fontWeight: 600,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? .7 : 1,
-            }}
-          >
-            {saving ? '儲存中...' : '儲存'}
-          </button>
+        {/* Comment Box */}
+        <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.gray100}`, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <Avatar name="JL" size={28} />
+          <div style={{ flex: 1, border: `1px solid ${C.gray200}`, borderRadius: 8, padding: '8px 12px', background: C.gray50 }}>
+            <input
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="新增留言..."
+              style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: C.gray700 }}
+            />
+          </div>
+          {comment && (
+            <button onClick={() => setComment('')} style={{ padding: '6px 14px', background: C.accent, color: C.white, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              送出
+            </button>
+          )}
         </div>
       </div>
     </>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// 統計卡片
-// ════════════════════════════════════════════════════════════
-function StatCard({ label, value, bg, color }) {
+// ── Inline Add Task Input ─────────────────────────────────────
+function InlineAddTask({ onAdd, onCancel }) {
+  const [val, setVal] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  function submit() {
+    const trimmed = val.trim();
+    if (trimmed) onAdd(trimmed);
+    else onCancel();
+  }
+
   return (
-    <div style={{
-      background:    bg,
-      borderRadius:  10,
-      padding:       '12px 18px',
-      minWidth:      90,
-      textAlign:     'center',
-      flex:          '1 1 90px',
-    }}>
-      <div style={{ fontSize: '22px', fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
-      <div style={{ fontSize: '11px', color: '#6b7280', marginTop: 3, fontWeight: 500 }}>{label}</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 6px 36px', borderBottom: `1px solid ${C.gray100}` }}>
+      <TaskCircle done={false} onToggle={() => {}} />
+      <input
+        ref={inputRef}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') submit();
+          if (e.key === 'Escape') onCancel();
+        }}
+        placeholder="任務名稱"
+        style={{
+          flex: 1, border: 'none', outline: 'none', fontSize: 14,
+          color: C.gray800, background: 'transparent', padding: '4px 0',
+        }}
+      />
+      <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.gray400, fontSize: 18 }}>×</button>
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// 我的任務主頁面
-// ════════════════════════════════════════════════════════════
-export default function MyTasksPage() {
-  const [tasks,       setTasks]       = useState([]);
-  const [projects,    setProjects]    = useState([]);
-  const [users,       setUsers]       = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [usingMock,   setUsingMock]   = useState(false);
+// ── Task Row ─────────────────────────────────────────────────
+function TaskRow({ task, done, onToggle, onOpen }) {
+  const [hovered, setHovered] = useState(false);
+  const overdue = isOverdue(task.dueDate) && !done;
+  const dateLabel = task.dueDate ? formatDate(task.dueDate) : '';
 
-  const [activeSection, setActiveSection] = useState('all');
-  const [sortBy,        setSortBy]        = useState('dueDate');
-  const [showAddRow,    setShowAddRow]    = useState(false);
-  const [detailTask,    setDetailTask]    = useState(null);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center',
+        background: hovered ? C.gray50 : C.white,
+        borderBottom: `1px solid ${C.gray100}`,
+        minHeight: 40, cursor: 'pointer',
+        transition: 'background 0.1s',
+      }}
+    >
+      {/* Name column */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', minWidth: 0 }}>
+        <TaskCircle done={done} onToggle={onToggle} />
+        <span
+          onClick={() => onOpen(task)}
+          style={{
+            fontSize: 14, color: done ? C.gray400 : C.gray800,
+            textDecoration: done ? 'line-through' : 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            flex: 1,
+          }}
+        >
+          {task.title}
+        </span>
+      </div>
 
-  // Toast
-  const [toast, setToast] = useState('');
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
-  }, []);
+      {/* Due date */}
+      <div style={{ width: 120, flexShrink: 0, fontSize: 13, color: overdue ? C.accent : C.gray500, padding: '0 8px' }}>
+        {dateLabel}
+      </div>
 
-  // ── 資料載入 ───────────────────────────────────────────────
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [tasksRes, usersRes] = await Promise.all([
-        fetch(`${API}/tasks?companyId=2`),
-        fetch(`${API}/users?companyId=2`),
-      ]);
-      const tasksData = await tasksRes.json();
-      const usersData = await usersRes.json();
+      {/* Collaborators */}
+      <div style={{ width: 100, flexShrink: 0, padding: '0 8px', display: 'flex', alignItems: 'center' }}>
+        {task.assignee ? <Avatar name={task.assignee} size={22} /> : (
+          <span style={{ fontSize: 12, color: C.gray300 }}>+</span>
+        )}
+      </div>
 
-      if (!tasksData.success) throw new Error(tasksData.error || 'API error');
+      {/* Project */}
+      <div style={{ width: 140, flexShrink: 0, padding: '0 8px' }}>
+        <ProjectBadge name={task.project} color={task.projectColor} />
+      </div>
 
-      const allTasks = [
-        ...(tasksData.data?.kanban?.todo        || []),
-        ...(tasksData.data?.kanban?.in_progress || []),
-        ...(tasksData.data?.kanban?.review      || []),
-        ...(tasksData.data?.kanban?.done        || []),
-      ];
+      {/* Visibility */}
+      <div style={{ width: 130, flexShrink: 0, padding: '0 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.gray400 }}>
+        🔒 <span>我的工作空間</span>
+      </div>
+    </div>
+  );
+}
 
-      setTasks(allTasks);
-      setProjects(tasksData.data?.projects || []);
-      setUsers(usersData.data || []);
-      setUsingMock(false);
-    } catch {
-      // Fallback to mock data
-      setTasks(MOCK_TASKS);
-      setProjects(MOCK_PROJECTS);
-      setUsers([{ id: 1, name: '王大明' }, { id: 2, name: '李小華' }]);
-      setUsingMock(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+// ── Section ──────────────────────────────────────────────────
+function Section({ title, tasks, doneSet, onToggle, onOpen, onAdd }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [adding, setAdding] = useState(false);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  return (
+    <div>
+      {/* Section header */}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 12px 6px',
+          borderBottom: `2px solid ${C.gray100}`,
+          background: C.white,
+        }}
+      >
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: 12, color: C.gray500, lineHeight: 1 }}
+        >
+          {collapsed ? '▶' : '▼'}
+        </button>
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.gray700 }}>{title}</span>
+        <div style={{ flex: 1 }} />
+        {hovered && !collapsed && (
+          <button
+            onClick={() => setAdding(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.gray400, padding: '2px 6px' }}
+          >
+            + 新增任務...
+          </button>
+        )}
+      </div>
 
-  // ── 篩選 & 排序 ────────────────────────────────────────────
-  const filteredTasks = (() => {
-    let list = [...tasks];
+      {/* Tasks */}
+      {!collapsed && (
+        <>
+          {tasks.map(task => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              done={doneSet.has(task.id)}
+              onToggle={() => onToggle(task.id)}
+              onOpen={onOpen}
+            />
+          ))}
 
-    switch (activeSection) {
-      case 'today':
-        list = list.filter(t => isToday(t.dueDate) && t.status !== 'done');
-        break;
-      case 'week':
-        list = list.filter(t => isThisWeek(t.dueDate) && t.status !== 'done');
-        break;
-      case 'overdue':
-        list = list.filter(t => isOverdue(t.dueDate, t.status));
-        break;
-      case 'done':
-        list = list.filter(t => t.status === 'done');
-        break;
-      default:
-        break; // all
-    }
+          {/* Inline add */}
+          {adding ? (
+            <InlineAddTask
+              onAdd={title => { onAdd(title, 'task'); setAdding(false); }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
+            <div
+              onClick={() => setAdding(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px 8px 36px', cursor: 'pointer', color: C.gray400, fontSize: 13 }}
+              onMouseEnter={e => e.currentTarget.style.color = C.gray600}
+              onMouseLeave={e => e.currentTarget.style.color = C.gray400}
+            >
+              + 新增任務...
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
-    list.sort((a, b) => {
-      if (sortBy === 'dueDate') {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return new Date(a.dueDate) - new Date(b.dueDate);
-      }
-      if (sortBy === 'priority') {
-        return (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
-      }
-      if (sortBy === 'project') {
-        return (a.project?.name || '').localeCompare(b.project?.name || '', 'zh-TW');
-      }
-      return 0;
-    });
-
-    return list;
-  })();
-
-  // ── 統計 ────────────────────────────────────────────────────
-  const totalCount    = tasks.length;
-  const todayCount    = tasks.filter(t => isToday(t.dueDate) && t.status !== 'done').length;
-  const overdueCount  = tasks.filter(t => isOverdue(t.dueDate, t.status)).length;
-  const doneWeekCount = tasks.filter(t => isDoneThisWeek(t)).length;
-
-  // ── 切換完成狀態 ─────────────────────────────────────────────
-  const handleToggleDone = async (task) => {
-    const newStatus = task.status === 'done' ? 'todo' : 'done';
-    // Optimistic update
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t));
-    if (detailTask?.id === task.id) setDetailTask(d => ({ ...d, status: newStatus }));
-
-    try {
-      await fetch(`${API}/tasks/${task.id}`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ status: newStatus }),
-      });
-    } catch { /* keep optimistic */ }
-
-    showToast(newStatus === 'done' ? '✓ 任務已完成' : '↩ 任務已重新開啟');
-  };
-
-  // ── 新增任務成功回呼 ─────────────────────────────────────────
-  const handleTaskAdded = (newTask) => {
-    setTasks(prev => [newTask, ...prev]);
-    setShowAddRow(false);
-    showToast('✓ 任務已新增');
-  };
-
-  // ── 任務詳情儲存回呼 ─────────────────────────────────────────
-  const handleDetailSaved = (updatedTask) => {
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
-  };
-
-  // ── 渲染 ─────────────────────────────────────────────────────
+// ── Table Header ─────────────────────────────────────────────
+function TableHeader() {
+  const thStyle = (w, extra = {}) => ({
+    width: w, flexShrink: 0, fontSize: 12, fontWeight: 600,
+    color: C.gray500, padding: '8px 8px', ...extra,
+  });
   return (
     <div style={{
-      height:         '100%',
-      display:        'flex',
-      flexDirection:  'column',
-      background:     T.pageBg,
-      fontFamily:     '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      display: 'flex', alignItems: 'center',
+      background: C.white, borderBottom: `1px solid ${C.gray200}`,
+      position: 'sticky', top: 0, zIndex: 10,
     }}>
+      <div style={{ ...thStyle(undefined, { flex: 1, paddingLeft: 44 }) }}>名稱</div>
+      <div style={thStyle(120)}>截止日期</div>
+      <div style={thStyle(100)}>協作者</div>
+      <div style={thStyle(140)}>專案</div>
+      <div style={thStyle(130)}>任務可見度</div>
+      <div style={{ width: 30, flexShrink: 0, cursor: 'pointer', textAlign: 'center', fontSize: 16, color: C.gray400, padding: '8px 4px' }}>+</div>
+    </div>
+  );
+}
 
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position:  'fixed', bottom: 28, right: 28, zIndex: 9999,
-          background: '#1e293b', color: '#fff',
-          padding:   '11px 20px', borderRadius: 10,
-          fontSize:  '13px', fontWeight: 500,
-          boxShadow: '0 4px 20px rgba(0,0,0,.25)',
-          animation: 'fadeIn .2s ease',
-        }}>
-          {toast}
-        </div>
-      )}
+// ── Main Page ────────────────────────────────────────────────
+export default function MyTasksPage() {
+  const [activeTab, setActiveTab] = useState('list');
+  const [tasks, setTasks] = useState([]);
+  const [doneSet, setDoneSet] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('xcloud-task-done') || '[]')); }
+    catch { return new Set(); }
+  });
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showAddView, setShowAddView] = useState(false);
+  const [showAddTypeDropdown, setShowAddTypeDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const addViewRef = useRef(null);
 
-      {/* ── 頁面標題列 ─────────────────────────────────────── */}
-      <div style={{
-        background:   '#fff',
-        borderBottom: '1px solid #e8e0e1',
-        padding:      '18px 28px 14px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#111827', letterSpacing: '-.3px' }}>
-              我的任務
-            </h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9ca3af' }}>
-              跨所有專案的個人任務總覽
-              {usingMock && (
-                <span style={{
-                  marginLeft: 8, fontSize: '10px',
-                  background: '#fef3c7', color: '#92400e',
-                  padding: '1px 6px', borderRadius: 4, fontWeight: 600,
-                }}>
-                  示範資料
-                </span>
-              )}
-            </p>
+  // Load tasks
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${API}/api/tasks`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) setTasks(data);
+        else setTasks(DEMO_TASKS);
+      })
+      .catch(() => setTasks(DEMO_TASKS))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Persist done state
+  useEffect(() => {
+    localStorage.setItem('xcloud-task-done', JSON.stringify([...doneSet]));
+  }, [doneSet]);
+
+  function toggleDone(id) {
+    setDoneSet(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function addTask(sectionKey, title) {
+    const newTask = {
+      id: `local-${Date.now()}`,
+      title,
+      dueDate: null,
+      project: null,
+      projectColor: null,
+      assignee: 'JL',
+      section: sectionKey,
+    };
+    setTasks(prev => [...prev, newTask]);
+  }
+
+  function updateTask(updated) {
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+    if (selectedTask?.id === updated.id) setSelectedTask(updated);
+  }
+
+  const sections = classifyTasks(tasks);
+  const SECTION_DEFS = [
+    { key: 'recent', label: '近期指派' },
+    { key: 'today', label: '今天執行' },
+    { key: 'week', label: '下週執行' },
+    { key: 'later', label: '稍後執行' },
+  ];
+
+  const TABS = [
+    { key: 'list', label: '清單' },
+    { key: 'board', label: '看板' },
+    { key: 'calendar', label: '行事曆' },
+    { key: 'dashboard', label: '儀表板' },
+    { key: 'files', label: '檔案' },
+  ];
+
+  const toolbarBtnStyle = {
+    display: 'flex', alignItems: 'center', gap: 5,
+    padding: '5px 10px', background: 'none',
+    border: `1px solid ${C.gray200}`, borderRadius: 6,
+    cursor: 'pointer', fontSize: 13, color: C.gray600, fontWeight: 500,
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.pageBg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+
+      {/* Sticky top area */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: C.pageBg }}>
+
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 24px 12px', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+            <Avatar name="JL" size={32} />
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.gray800 }}>我的任務</span>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.gray400, fontSize: 14, padding: '0 2px' }}>▾</button>
           </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ ...toolbarBtnStyle, borderColor: C.gray200 }}>分享</button>
+            <button style={{ ...toolbarBtnStyle, borderColor: C.gray200 }}>自訂</button>
+          </div>
+        </div>
 
-          {/* 操作列 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* 排序 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 500 }}>排序：</span>
-              {SORT_OPTIONS.map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setSortBy(opt.id)}
-                  style={{
-                    padding:      '5px 10px',
-                    borderRadius: 6,
-                    border:       `1px solid ${sortBy === opt.id ? T.accent : '#e5e7eb'}`,
-                    background:   sortBy === opt.id ? T.accentL : '#fff',
-                    color:        sortBy === opt.id ? T.accent : '#374151',
-                    fontSize:     '12px',
-                    fontWeight:   sortBy === opt.id ? 700 : 400,
-                    cursor:       'pointer',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 新增任務 */}
+        {/* View Tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 24px', borderBottom: `1px solid ${C.gray200}`, background: C.white, gap: 0 }}>
+          {TABS.map(tab => (
             <button
-              onClick={() => setShowAddRow(true)}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
               style={{
-                padding:      '8px 16px',
-                borderRadius: 8,
-                border:       'none',
-                background:   T.accent,
-                color:        '#fff',
-                fontSize:     '13px',
-                fontWeight:   700,
-                cursor:       'pointer',
-                display:      'flex',
-                alignItems:   'center',
-                gap:          5,
+                padding: '10px 16px', background: 'none', border: 'none',
+                borderBottom: `2px solid ${activeTab === tab.key ? C.accent : 'transparent'}`,
+                color: activeTab === tab.key ? C.accent : C.gray500,
+                cursor: 'pointer', fontSize: 14, fontWeight: activeTab === tab.key ? 600 : 400,
+                marginBottom: -1, whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: '16px', lineHeight: 1 }}>+</span> 新增任務
+              {tab.label}
             </button>
-          </div>
-        </div>
-
-        {/* 統計卡片 */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <StatCard label="總任務"   value={totalCount}    bg="#f3f4f6"         color="#374151" />
-          <StatCard label="今日到期" value={todayCount}    bg="#fff7ed"         color="#ea580c" />
-          <StatCard label="已逾期"   value={overdueCount}  bg="#fef2f2"         color={T.accent} />
-          <StatCard label="本週完成" value={doneWeekCount} bg="#f0fdf4"         color="#15803d" />
-        </div>
-      </div>
-
-      {/* ── 分類標籤列 ─────────────────────────────────────── */}
-      <div style={{
-        background:   '#fff',
-        borderBottom: '1px solid #e8e0e1',
-        padding:      '0 28px',
-        display:      'flex',
-        gap:          2,
-      }}>
-        {SECTIONS.map(s => {
-          const isActive = activeSection === s.id;
-          return (
+          ))}
+          {/* Add view button */}
+          <div ref={addViewRef} style={{ position: 'relative', marginLeft: 4 }}>
             <button
-              key={s.id}
-              onClick={() => setActiveSection(s.id)}
-              style={{
-                padding:      '10px 14px',
-                border:       'none',
-                borderBottom: `2px solid ${isActive ? T.accent : 'transparent'}`,
-                background:   'transparent',
-                color:        isActive ? T.accent : '#6b7280',
-                fontSize:     '13px',
-                fontWeight:   isActive ? 700 : 400,
-                cursor:       'pointer',
-                transition:   'all .12s',
-                display:      'flex',
-                alignItems:   'center',
-                gap:          5,
-              }}
+              onClick={() => setShowAddView(v => !v)}
+              style={{ padding: '10px 10px', background: 'none', border: 'none', cursor: 'pointer', color: C.gray400, fontSize: 18, lineHeight: 1, marginBottom: -1 }}
             >
-              <span style={{ fontSize: '12px' }}>{s.icon}</span>
-              {s.label}
+              +
             </button>
-          );
-        })}
-      </div>
-
-      {/* ── 任務列表主體 ────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px' }}>
-        <div style={{
-          background:   '#fff',
-          borderRadius: 12,
-          border:       '1px solid #e8e0e1',
-          overflow:     'hidden',
-        }}>
-          {/* 列表標頭 */}
-          <div style={{
-            display:       'flex',
-            alignItems:    'center',
-            padding:       '8px 16px',
-            background:    '#faf8f8',
-            borderBottom:  '1px solid #f3eded',
-            gap:           10,
-          }}>
-            <div style={{ width: 18, flexShrink: 0 }} />
-            <div style={{ flex: 1, fontSize: '11px', fontWeight: 700, color: '#9ca3af', letterSpacing: '.5px' }}>任務名稱</div>
-            <div style={{ width: 110, fontSize: '11px', fontWeight: 700, color: '#9ca3af', textAlign: 'right' }}>專案</div>
-            <div style={{ width: 46, fontSize: '11px', fontWeight: 700, color: '#9ca3af', textAlign: 'right' }}>優先度</div>
-            <div style={{ width: 72, fontSize: '11px', fontWeight: 700, color: '#9ca3af', textAlign: 'right' }}>截止日期</div>
-            <div style={{ width: 26, flexShrink: 0 }} />
+            {showAddView && <AddViewPopup onClose={() => setShowAddView(false)} />}
           </div>
+        </div>
 
-          {/* 新增任務行內列 */}
-          {showAddRow && (
-            <InlineAddRow
-              projects={projects.length ? projects : MOCK_PROJECTS}
-              onSave={handleTaskAdded}
-              onCancel={() => setShowAddRow(false)}
-            />
-          )}
-
-          {/* 任務列表 */}
-          {loading ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center', color: '#9ca3af' }}>
-              <div style={{ fontSize: '28px', marginBottom: 10, opacity: .4 }}>⏳</div>
-              <div style={{ fontSize: '13px' }}>載入中...</div>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', background: C.white, borderBottom: `1px solid ${C.gray200}`, gap: 8 }}>
+          {/* Add Task button */}
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: `1px solid ${C.accent}` }}>
+              <button
+                onClick={() => addTask('recent', '新任務')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 14px', background: C.accent, color: C.white,
+                  border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500,
+                  borderRight: `1px solid ${C.accentHover}`,
+                }}
+              >
+                + 新增任務
+              </button>
+              <button
+                onClick={() => setShowAddTypeDropdown(v => !v)}
+                style={{ padding: '6px 10px', background: C.accent, color: C.white, border: 'none', cursor: 'pointer', fontSize: 13 }}
+              >
+                ▾
+              </button>
             </div>
-          ) : filteredTasks.length === 0 ? (
-            <div style={{ padding: '64px 20px', textAlign: 'center' }}>
-              <EmptyIllustration />
-              <div style={{ marginTop: 16, fontSize: '15px', fontWeight: 600, color: '#374151' }}>
-                {activeSection === 'done'
-                  ? '本週尚未完成任何任務'
-                  : activeSection === 'overdue'
-                  ? '太棒了！沒有逾期的任務'
-                  : '目前沒有指派給您的任務'}
-              </div>
-              <div style={{ marginTop: 6, fontSize: '13px', color: '#9ca3af' }}>
-                {activeSection === 'all' ? '點擊「+ 新增任務」開始建立您的第一個任務' : '切換到「全部」查看所有任務'}
-              </div>
-              {activeSection === 'all' && (
-                <button
-                  onClick={() => setShowAddRow(true)}
-                  style={{
-                    marginTop:    16,
-                    padding:      '9px 22px',
-                    borderRadius: 8,
-                    border:       `1px solid ${T.accent}`,
-                    background:   '#fff',
-                    color:        T.accent,
-                    fontSize:     '13px',
-                    fontWeight:   600,
-                    cursor:       'pointer',
-                  }}
-                >
-                  瀏覽專案
-                </button>
-              )}
-            </div>
-          ) : (
-            filteredTasks.map(task => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onToggleDone={handleToggleDone}
-                onOpenDetail={setDetailTask}
+            {showAddTypeDropdown && (
+              <AddTaskDropdown
+                onClose={() => setShowAddTypeDropdown(false)}
+                onAdd={type => addTask('recent', `新${type === 'task' ? '任務' : type === 'approval' ? '核准' : type === 'milestone' ? '里程碑' : '區段'}`)}
               />
-            ))
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* 任務數量提示 */}
-        {!loading && filteredTasks.length > 0 && (
-          <div style={{ textAlign: 'center', marginTop: 14, fontSize: '12px', color: '#9ca3af' }}>
-            共 {filteredTasks.length} 筆任務
+          <div style={{ flex: 1 }} />
+
+          {/* Toolbar buttons */}
+          {[
+            { icon: '≡', label: '篩選' },
+            { icon: '↑↓', label: '排序' },
+            { icon: '⊞', label: '群組' },
+            { icon: '⚙', label: '選項' },
+          ].map(btn => (
+            <button key={btn.label} style={toolbarBtnStyle}
+              onMouseEnter={e => { e.currentTarget.style.background = C.gray50; e.currentTarget.style.borderColor = C.gray300; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = C.gray200; }}
+            >
+              <span>{btn.icon}</span>
+              <span>{btn.label}</span>
+            </button>
+          ))}
+
+          {/* Search icon */}
+          <button style={{ padding: '5px 10px', background: 'none', border: `1px solid ${C.gray200}`, borderRadius: 6, cursor: 'pointer', color: C.gray500, fontSize: 16 }}>
+            🔍
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div style={{ flex: 1, overflowY: 'auto', background: C.white }}>
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: C.gray400, fontSize: 14 }}>
+            載入中...
+          </div>
+        ) : activeTab === 'list' ? (
+          <>
+            <TableHeader />
+            {SECTION_DEFS.map(sec => (
+              <Section
+                key={sec.key}
+                title={sec.label}
+                tasks={sections[sec.key] || []}
+                doneSet={doneSet}
+                onToggle={toggleDone}
+                onOpen={setSelectedTask}
+                onAdd={(title, type) => addTask(sec.key, title)}
+              />
+            ))}
+          </>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: C.gray400, fontSize: 15 }}>
+            {TABS.find(t => t.key === activeTab)?.label} 視圖開發中
           </div>
         )}
       </div>
 
-      {/* ── 任務詳情面板 ────────────────────────────────────── */}
-      {detailTask && (
-        <TaskDetailPanel
-          task={detailTask}
-          projects={projects.length ? projects : MOCK_PROJECTS}
-          users={users}
-          onClose={() => setDetailTask(null)}
-          onSaved={(updated) => {
-            handleDetailSaved(updated);
-          }}
+      {/* Side Panel */}
+      {selectedTask && (
+        <SidePanel
+          task={{ ...selectedTask, done: doneSet.has(selectedTask.id) }}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={updateTask}
         />
       )}
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to   { transform: translateX(0);    opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

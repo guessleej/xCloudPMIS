@@ -128,6 +128,8 @@ const Ic = {
   arrowLeft: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
   check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   refresh: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
+  sidebarOpen:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
+  sidebarClose: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="13 8 17 12 13 16"/></svg>,
 };
 
 // ── xCloud Logo ───────────────────────────────────────────────
@@ -144,7 +146,7 @@ function LogoIcon({ size = 28 }) {
 }
 
 // ── 通用 Nav 按鈕 ─────────────────────────────────────────────
-function NavItem({ id, icon, label, active, onClick, badge, indent = false }) {
+function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCollapsed = false }) {
   const [hov, setHov] = useState(false);
   const isActive = active === id;
   return (
@@ -152,9 +154,12 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false }) {
       onClick={() => onClick(id)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      title={sbCollapsed ? label : undefined}
       style={{
         width: '100%', display: 'flex', alignItems: 'center',
-        gap: '9px', padding: indent ? '6px 10px 6px 28px' : '6px 10px',
+        gap: sbCollapsed ? '0' : '9px',
+        padding: sbCollapsed ? '8px 0' : indent ? '6px 10px 6px 28px' : '6px 10px',
+        justifyContent: sbCollapsed ? 'center' : 'flex-start',
         borderRadius: '7px', border: 'none',
         background: isActive ? T.sbActive : hov ? T.sbHover : 'transparent',
         color: isActive ? T.accent2 : hov ? T.t1 : T.t2,
@@ -173,13 +178,24 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false }) {
       <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.75 }}>
         {icon}
       </span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {badge != null && badge > 0 && (
+      {!sbCollapsed && (
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      )}
+      {!sbCollapsed && badge != null && badge > 0 && (
         <span style={{
           background: T.accent, color: 'white',
           fontSize: '10px', fontWeight: '700',
           padding: '1px 6px', borderRadius: '99px', flexShrink: 0,
         }}>{badge}</span>
+      )}
+      {sbCollapsed && badge != null && badge > 0 && (
+        <span style={{
+          position: 'absolute', top: '4px', right: '4px',
+          background: T.accent, color: 'white',
+          fontSize: '9px', fontWeight: '700',
+          width: '14px', height: '14px', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{badge > 9 ? '9+' : badge}</span>
       )}
     </button>
   );
@@ -233,9 +249,9 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Asana 風格側邊欄
+// Asana 風格側邊欄（支援收縮）
 // ════════════════════════════════════════════════════════════
-function Sidebar({ active, onChange, currentUser }) {
+function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse }) {
   const [collapsed, setCollapsed] = useState({ insights: false, projects: false, workflow: false, tools: false });
   const [apiProjects, setApiProjects] = useState([]);
   const [inboxCount, setInboxCount] = useState(0);
@@ -274,35 +290,67 @@ function Sidebar({ active, onChange, currentUser }) {
   const PROJECT_COLORS = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
   const projColor = (p) => PROJECT_COLORS[(p.id || 0) % PROJECT_COLORS.length];
 
+  const SB_W = isCollapsed ? '56px' : '220px';
+
   return (
     <aside style={{
-      width: '220px', minWidth: '220px', height: '100vh',
+      width: SB_W, minWidth: SB_W, height: '100vh',
       background: T.sbBg, display: 'flex', flexDirection: 'column',
       position: 'sticky', top: 0, overflow: 'hidden', flexShrink: 0,
+      transition: 'width 0.22s ease, min-width 0.22s ease',
     }}>
 
-      {/* ── Logo 區 ─────────────────────────────────────── */}
+      {/* ── Logo 區 + 收縮按鈕 ───────────────────────────── */}
       <div style={{
-        padding: '16px 14px 12px',
-        display: 'flex', alignItems: 'center', gap: '10px',
+        padding: isCollapsed ? '14px 0' : '16px 14px 12px',
+        display: 'flex', alignItems: 'center',
+        gap: isCollapsed ? '0' : '10px',
+        justifyContent: isCollapsed ? 'center' : 'space-between',
         borderBottom: `1px solid ${T.div}`, flexShrink: 0,
+        position: 'relative',
       }}>
-        <LogoIcon size={28} />
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
-            xCloudPMIS
-          </div>
-          <div style={{ fontSize: '10.5px', color: T.t3, marginTop: '1px' }}>企業級專案管理</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+          <LogoIcon size={28} />
+          {!isCollapsed && (
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1, letterSpacing: '-0.3px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                xCloudPMIS
+              </div>
+              <div style={{ fontSize: '10.5px', color: T.t3, marginTop: '1px', whiteSpace: 'nowrap' }}>企業級專案管理</div>
+            </div>
+          )}
         </div>
+
+        {/* 收縮切換按鈕 */}
+        <button
+          onClick={onToggleCollapse}
+          title={isCollapsed ? '展開側邊欄' : '收合側邊欄'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: T.t3, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '4px', borderRadius: '5px', flexShrink: 0,
+            transition: 'color 0.15s, background 0.15s',
+            position: isCollapsed ? 'absolute' : 'relative',
+            right: isCollapsed ? '0' : 'auto',
+            opacity: 0.6,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = T.t1; e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = T.sbHover; }}
+          onMouseLeave={e => { e.currentTarget.style.color = T.t3; e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.background = 'none'; }}
+        >
+          {isCollapsed ? Ic.sidebarOpen : Ic.sidebarClose}
+        </button>
       </div>
 
       {/* ── 建立按鈕 ─────────────────────────────────────── */}
-      <div style={{ padding: '12px 12px 4px', flexShrink: 0 }}>
+      <div style={{ padding: isCollapsed ? '10px 8px 4px' : '12px 12px 4px', flexShrink: 0 }}>
         <button
           onClick={() => onChange('projects')}
+          title={isCollapsed ? '建立' : undefined}
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '7px', padding: '8px 0',
+            width: '100%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
+            gap: isCollapsed ? '0' : '7px',
+            padding: isCollapsed ? '9px 0' : '8px 0',
             background: T.accent, color: 'white',
             border: 'none', borderRadius: '8px',
             fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
@@ -313,56 +361,60 @@ function Sidebar({ active, onChange, currentUser }) {
           onMouseLeave={e => e.currentTarget.style.background = T.accent}
         >
           {Ic.plus}
-          建立
+          {!isCollapsed && '建立'}
         </button>
       </div>
 
       {/* ── 導覽項目（可捲動）─────────────────────────────── */}
       <nav style={{
-        flex: 1, overflowY: 'auto', padding: '4px 8px 8px',
+        flex: 1, overflowY: 'auto', padding: isCollapsed ? '4px 4px 8px' : '4px 8px 8px',
         scrollbarWidth: 'thin', scrollbarColor: `${T.div} transparent`,
       }}>
 
         {/* 主要導覽 */}
         <div style={{ marginBottom: '4px' }}>
-          <NavItem id="home"     icon={Ic.home}    label="首頁"   active={active} onClick={onChange} />
-          <NavItem id="my-tasks" icon={Ic.myTasks} label="我的任務" active={active} onClick={onChange} />
-          <NavItem id="inbox"    icon={Ic.inbox}   label="收件匣" active={active} onClick={onChange} badge={inboxCount} />
+          <NavItem id="home"     icon={Ic.home}    label="首頁"   active={active} onClick={onChange} sbCollapsed={isCollapsed} />
+          <NavItem id="my-tasks" icon={Ic.myTasks} label="我的任務" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
+          <NavItem id="inbox"    icon={Ic.inbox}   label="收件匣" active={active} onClick={onChange} badge={inboxCount} sbCollapsed={isCollapsed} />
         </div>
 
         <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
 
         {/* 深入解析 */}
-        <SectionHeader
-          label="深入解析"
-          collapsed={collapsed.insights}
-          onToggle={() => toggleSection('insights')}
-        />
-        {!collapsed.insights && (
+        {!isCollapsed && (
+          <SectionHeader
+            label="深入解析"
+            collapsed={collapsed.insights}
+            onToggle={() => toggleSection('insights')}
+          />
+        )}
+        {(!isCollapsed && !collapsed.insights || isCollapsed) && (
           <div style={{ marginBottom: '4px' }}>
-            <NavItem id="reports"    icon={Ic.reports}    label="報告"    active={active} onClick={onChange} indent />
-            <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"  active={active} onClick={onChange} indent />
-            <NavItem id="goals"      icon={Ic.goals}      label="目標"    active={active} onClick={onChange} indent />
-            <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={onChange} indent />
+            <NavItem id="reports"    icon={Ic.reports}    label="報告"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="goals"      icon={Ic.goals}      label="目標"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
           </div>
         )}
 
         <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
 
         {/* 專案 */}
-        <SectionHeader
-          label="專案"
-          onAdd={() => onChange('projects')}
-          collapsed={collapsed.projects}
-          onToggle={() => toggleSection('projects')}
-        />
-        {!collapsed.projects && (
+        {!isCollapsed && (
+          <SectionHeader
+            label="專案"
+            onAdd={() => onChange('projects')}
+            collapsed={collapsed.projects}
+            onToggle={() => toggleSection('projects')}
+          />
+        )}
+        {(!isCollapsed && !collapsed.projects || isCollapsed) && (
           <div style={{ marginBottom: '4px' }}>
-            <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={onChange} indent />
-            <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板"  active={active} onClick={onChange} indent />
-            <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃"  active={active} onClick={onChange} indent />
-            {/* 來自 API 的真實專案 */}
-            {apiProjects.map(p => (
+            <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            {/* 來自 API 的真實專案（收合時隱藏） */}
+            {!isCollapsed && apiProjects.map(p => (
               <button
                 key={p.id}
                 onClick={() => onChange('projects')}
@@ -389,44 +441,52 @@ function Sidebar({ active, onChange, currentUser }) {
         <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
 
         {/* 工作流程 */}
-        <SectionHeader
-          label="工作流程"
-          collapsed={collapsed.workflow}
-          onToggle={() => toggleSection('workflow')}
-        />
-        {!collapsed.workflow && (
+        {!isCollapsed && (
+          <SectionHeader
+            label="工作流程"
+            collapsed={collapsed.workflow}
+            onToggle={() => toggleSection('workflow')}
+          />
+        )}
+        {(!isCollapsed && !collapsed.workflow || isCollapsed) && (
           <div style={{ marginBottom: '4px' }}>
-            <NavItem id="rules"         icon={Ic.rules}        label="自動化規則" active={active} onClick={onChange} indent />
-            <NavItem id="forms"         icon={Ic.forms}        label="表單"       active={active} onClick={onChange} indent />
-            <NavItem id="custom-fields" icon={Ic.customFields} label="自訂欄位"   active={active} onClick={onChange} indent />
-            <NavItem id="workflow"      icon={Ic.workflow}     label="工作流程圖" active={active} onClick={onChange} indent />
+            <NavItem id="rules"         icon={Ic.rules}        label="自動化規則" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="forms"         icon={Ic.forms}        label="表單"       active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="custom-fields" icon={Ic.customFields} label="自訂欄位"   active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="workflow"      icon={Ic.workflow}     label="工作流程圖" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
           </div>
         )}
 
         <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
 
         {/* 工具 */}
-        <SectionHeader
-          label="工具"
-          collapsed={collapsed.tools}
-          onToggle={() => toggleSection('tools')}
-        />
-        {!collapsed.tools && (
+        {!isCollapsed && (
+          <SectionHeader
+            label="工具"
+            collapsed={collapsed.tools}
+            onToggle={() => toggleSection('tools')}
+          />
+        )}
+        {(!isCollapsed && !collapsed.tools || isCollapsed) && (
           <div style={{ marginBottom: '4px' }}>
-            <NavItem id="time"        icon={Ic.time}     label="工時記錄"   active={active} onClick={onChange} indent />
-            <NavItem id="ai-center"   icon={Ic.ai}       label="AI 決策中心" active={active} onClick={onChange} indent />
-            <NavItem id="mcp-console" icon={Ic.mcp}      label="MCP 控制台" active={active} onClick={onChange} indent />
+            <NavItem id="time"        icon={Ic.time}     label="工時記錄"   active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="ai-center"   icon={Ic.ai}       label="AI 決策中心" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
+            <NavItem id="mcp-console" icon={Ic.mcp}      label="MCP 控制台" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
           </div>
         )}
 
         <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
 
-        {/* 我的工作空間（Team） */}
+        {/* 我的工作空間（Team）*/}
         <button
           onClick={() => onChange('team')}
+          title={isCollapsed ? '我的工作空間' : undefined}
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-            padding: '6px 10px', borderRadius: '7px', border: 'none',
+            width: '100%', display: 'flex', alignItems: 'center',
+            gap: isCollapsed ? '0' : '9px',
+            padding: isCollapsed ? '8px 0' : '6px 10px',
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            borderRadius: '7px', border: 'none',
             background: active === 'team' ? T.sbActive : 'transparent',
             color: active === 'team' ? T.accent2 : T.t2,
             fontSize: '13.5px', fontWeight: active === 'team' ? '600' : '400',
@@ -441,22 +501,25 @@ function Sidebar({ active, onChange, currentUser }) {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', opacity: 0.75 }}>{Ic.team}</span>
-          <span style={{ flex: 1 }}>我的工作空間</span>
-          <span style={{ opacity: 0.4 }}>{Ic.chevRight}</span>
+          {!isCollapsed && <><span style={{ flex: 1 }}>我的工作空間</span><span style={{ opacity: 0.4 }}>{Ic.chevRight}</span></>}
         </button>
 
       </nav>
 
       {/* ── 底部：設定 + 使用者 ─────────────────────────────── */}
-      <div style={{ padding: '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
-        <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} />
+      <div style={{ padding: isCollapsed ? '8px 4px 12px' : '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
+        <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
 
         {/* 使用者資料列 */}
         <button
           onClick={() => onChange('profile')}
+          title={isCollapsed ? (currentUser?.name ?? '個人資料') : undefined}
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-            padding: '8px 10px', marginTop: '4px', borderRadius: '8px',
+            width: '100%', display: 'flex', alignItems: 'center',
+            gap: isCollapsed ? '0' : '9px',
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            padding: isCollapsed ? '9px 0' : '8px 10px',
+            marginTop: '4px', borderRadius: '8px',
             border: 'none',
             background: active === 'profile' ? T.sbActive : 'transparent',
             cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit',
@@ -473,15 +536,19 @@ function Sidebar({ active, onChange, currentUser }) {
           }}>
             {currentUser ? currentUser.name.slice(0, 1) : '?'}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: T.t1, fontSize: '12.5px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {currentUser?.name ?? '載入中⋯'}
-            </div>
-            <div style={{ color: T.t3, fontSize: '10.5px' }}>
-              {currentUser?.role === 'admin' ? '系統管理員' : currentUser?.role === 'pm' ? '專案經理' : '一般成員'}
-            </div>
-          </div>
-          <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.dots}</span>
+          {!isCollapsed && (
+            <>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: T.t1, fontSize: '12.5px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {currentUser?.name ?? '載入中⋯'}
+                </div>
+                <div style={{ color: T.t3, fontSize: '10.5px' }}>
+                  {currentUser?.role === 'admin' ? '系統管理員' : currentUser?.role === 'pm' ? '專案經理' : '一般成員'}
+                </div>
+              </div>
+              <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.dots}</span>
+            </>
+          )}
         </button>
       </div>
     </aside>
@@ -491,7 +558,7 @@ function Sidebar({ active, onChange, currentUser }) {
 // ════════════════════════════════════════════════════════════
 // 頂部搜尋列（Asana 風格）
 // ════════════════════════════════════════════════════════════
-function Topbar({ activeNav, onNavigate }) {
+function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
   const [searchVal, setSearchVal] = useState('');
   const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
@@ -503,6 +570,24 @@ function Topbar({ activeNav, onNavigate }) {
       display: 'flex', alignItems: 'center', gap: '14px',
       flexShrink: 0, position: 'sticky', top: 0, zIndex: 100,
     }}>
+
+      {/* 漢堡選單（sidebar toggle）*/}
+      <button
+        onClick={onToggleSidebar}
+        title="切換側邊欄"
+        style={{
+          width: '32px', height: '32px', borderRadius: '6px',
+          border: `1px solid ${T.border}`, background: 'white',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#6B7280', flexShrink: 0, transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.color = '#374151'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#6B7280'; }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
 
       {/* 頁面標題 */}
       <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: 0 }}>
@@ -1099,10 +1184,21 @@ function ProfilePage({ onBack, currentUser }) {
 // 主元件
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
-  const [activeNav,     setActiveNav]     = useState(readHashNav);
-  const [settingsState, setSettingsState] = useState(null);
-  const [currentUser,   setCurrentUser]   = useState(null);
+  const [activeNav,       setActiveNav]       = useState(readHashNav);
+  const [settingsState,   setSettingsState]   = useState(null);
+  const [currentUser,     setCurrentUser]     = useState(null);
+  const [sbCollapsed,     setSbCollapsed]     = useState(() => {
+    try { return localStorage.getItem('xcloud-sb-collapsed') === '1'; } catch { return false; }
+  });
   const dashData = useDashboard();
+
+  const toggleSidebar = useCallback(() => {
+    setSbCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('xcloud-sb-collapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const onPop = () => setActiveNav(readHashNav());
@@ -1172,10 +1268,16 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: T.pageBg }}>
-      <Sidebar active={activeNav} onChange={navigate} currentUser={currentUser} />
+      <Sidebar
+        active={activeNav}
+        onChange={navigate}
+        currentUser={currentUser}
+        isCollapsed={sbCollapsed}
+        onToggleCollapse={toggleSidebar}
+      />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
-        <Topbar activeNav={activeNav} onNavigate={navigate} />
+        <Topbar activeNav={activeNav} onNavigate={navigate} onToggleSidebar={toggleSidebar} />
 
         <main style={{ flex: 1, minWidth: 0 }}>
           {renderPage()}
