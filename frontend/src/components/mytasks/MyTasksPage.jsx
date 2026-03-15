@@ -109,7 +109,9 @@ function classifyTasks(tasks) {
       // API 回傳的 section 欄位對映：upcoming → recent, next_week → week
       const sectionMap = { upcoming: 'recent', next_week: 'week', today: 'today', later: 'later' };
       const mapped = sectionMap[t.section] || t.section;
-      sections[mapped] = [...(sections[mapped] || sections.later), t];
+      // Bug 修復：只推入 sections 物件已知的 key，未知 section 一律歸入 later
+      const target = sections.hasOwnProperty(mapped) ? mapped : 'later';
+      sections[target].push(t);
     } else if (!t.dueDate) {
       sections.recent.push(t);
     } else if (isToday(t.dueDate)) {
@@ -361,10 +363,11 @@ function SidePanel({ task, onClose, onUpdate }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               {/* Fields */}
               {[
-                { label: '負責人', value: task.assignee || '—' },
+                /* Bug #T-02/T-03 修復：assignee/project 可能是物件或字串 */
+                { label: '負責人', value: typeof task.assignee === 'object' ? (task.assignee?.name || '—') : (task.assignee || '—') },
                 { label: '截止日期', value: task.dueDate ? formatDate(task.dueDate) : '—' },
-                { label: '專案', value: task.project || '—', color: task.projectColor },
-                { label: '優先度', value: task.priority || '—' },
+                { label: '專案', value: typeof task.project === 'object' ? (task.project?.name || '—') : (task.project || '—'), color: task.projectColor },
+                { label: '優先度', value: task.priority === 'urgent' ? '緊急' : task.priority === 'high' ? '高' : task.priority === 'medium' ? '中' : task.priority === 'low' ? '低' : (task.priority || '—') },
               ].map(f => (
                 <div key={f.label} style={{ display: 'flex', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${C.gray100}` }}>
                   <div style={{ width: 120, fontSize: 13, color: C.gray500, flexShrink: 0 }}>{f.label}</div>
@@ -519,14 +522,21 @@ function TaskRow({ task, done, onToggle, onOpen }) {
 
       {/* Collaborators */}
       <div style={{ width: 100, flexShrink: 0, padding: '0 8px', display: 'flex', alignItems: 'center' }}>
-        {task.assignee ? <Avatar name={task.assignee} size={22} /> : (
+        {task.assignee ? (
+          /* Bug #T-02 修復：assignee 可能是字串（demo）或物件 {id,name}（API） */
+          <Avatar name={typeof task.assignee === 'object' ? (task.assignee?.name || '??') : task.assignee} size={22} />
+        ) : (
           <span style={{ fontSize: 12, color: C.gray300 }}>+</span>
         )}
       </div>
 
       {/* Project */}
       <div style={{ width: 140, flexShrink: 0, padding: '0 8px' }}>
-        <ProjectBadge name={task.project} color={task.projectColor} />
+        {/* Bug #T-03 修復：project 可能是字串（demo）或物件 {id,name}（API） */}
+        <ProjectBadge
+          name={typeof task.project === 'object' ? (task.project?.name || null) : task.project}
+          color={task.projectColor}
+        />
       </div>
 
       {/* Visibility */}
