@@ -1,11 +1,11 @@
 /**
  * Dashboard — 主管決策儀表板主頁
  *
- * UI 重設計 v2：NexAdmin Design System
- *   - 深色側邊欄（#0B1120）+ SVG 圖示 + 分組導覽
+ * UI 重設計 v3：xCloud 品牌設計系統
+ *   - 深色側邊欄（#12090A）+ SVG 圖示 + 分組導覽
  *   - 白色 Topbar，動態麵包屑，搜尋列
- *   - Active 狀態：左側藍色細線 + 高亮背景
- *   - 品牌 Logo：盾牌 + 鑰匙孔 SVG
+ *   - Active 狀態：左側紅色細線 + 高亮背景
+ *   - 品牌色：xCloud 深紅 #C41230
  */
 
 import { useState, useEffect } from 'react';
@@ -25,18 +25,18 @@ import SettingsPage       from '../settings/SettingsPage';
 import AiDecisionCenter   from '../ai/AiDecisionCenter';
 import McpConsolePage     from '../mcp/McpConsolePage';
 
-// ── Design Tokens ───────────────────────────────────────────
+// ── Design Tokens — xCloud Brand ────────────────────────────
 const T = {
-  sbBg:     '#0B1120',
-  sbHover:  '#162035',
-  sbActive: '#1B2D50',
-  accent:   '#4F8EF7',
-  accent2:  '#6EA8FB',
-  t1:       '#F1F5F9',
-  t2:       '#94A3B8',
-  t3:       '#475569',
-  div:      '#1A2740',
-  pageBg:   '#EEF2F7',
+  sbBg:     '#12090A',  // 深黑底帶暖調
+  sbHover:  '#1E0D10',  // 懸停暖色
+  sbActive: '#2C0E14',  // 選中深紅色底
+  accent:   '#C41230',  // xCloud 品牌紅
+  accent2:  '#F04060',  // 較亮的紅（深色背景上文字）
+  t1:       '#F5EFEF',  // 暖白色文字
+  t2:       '#9E8E90',  // 次要文字（暖灰）
+  t3:       '#5C4850',  // 更淡文字
+  div:      '#221215',  // 分隔線（暖深色）
+  pageBg:   '#F7F2F2',  // 頁面背景（極淺暖色）
 };
 
 // ── SVG 圖示集 ──────────────────────────────────────────────
@@ -132,18 +132,17 @@ const Icon = {
   ),
 };
 
-// ── xCloudPMIS Logo SVG ─────────────────────────────────────
+// ── xCloud Logo SVG（品牌紅 + X 造型）──────────────────────
 function LogoIcon({ size = 36 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <rect width="40" height="40" rx="10" fill="#4F8EF7"/>
-      <path
-        d="M20 9L28 13.5V20C28 24.8 24.4 28.8 20 30C15.6 28.8 12 24.8 12 20V13.5L20 9Z"
-        fill="rgba(255,255,255,0.15)" stroke="white" strokeWidth="1.4" strokeLinejoin="round"
-      />
-      <path d="M16.5 18.5a2.5 2.5 0 015 0" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-      <circle cx="20" cy="20" r="2.5" fill="white"/>
-      <path d="M20 22.2V25" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+      <rect width="40" height="40" rx="10" fill="#C41230"/>
+      {/* X 造型 — 仿 xCloud 標誌交叉帶 */}
+      <line x1="11" y1="11" x2="29" y2="29" stroke="white" strokeWidth="4.5" strokeLinecap="round"/>
+      <line x1="29" y1="11" x2="11" y2="29" stroke="white" strokeWidth="4.5" strokeLinecap="round"/>
+      {/* 中心圓點 */}
+      <circle cx="20" cy="20" r="3.5" fill="#C41230"/>
+      <circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.85)"/>
     </svg>
   );
 }
@@ -337,7 +336,7 @@ function Sidebar({ active, onChange, currentUser }) {
           <div style={{
             width: '30px', height: '30px', flexShrink: 0,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #4F8EF7, #7B5EA7)',
+            background: 'linear-gradient(135deg, #C41230, #8B0020)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontWeight: '700', fontSize: '12px',
           }}>
@@ -431,7 +430,7 @@ function Topbar({ activeNav, onRefresh, loading }) {
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'background 0.15s', fontFamily: 'inherit',
             }}
-            onMouseOver={e => { if (!loading) e.currentTarget.style.background = '#3d7ef6'; }}
+            onMouseOver={e => { if (!loading) e.currentTarget.style.background = '#A00E26'; }}
             onMouseOut={e => { if (!loading) e.currentTarget.style.background = loading ? '#F1F5F9' : T.accent; }}
           >
             <span style={{ display: 'flex', alignItems: 'center', opacity: loading ? 0.5 : 1 }}>{Icon.refresh}</span>
@@ -542,10 +541,10 @@ function ProfilePage({ onBack, currentUser }) {
       }}>
         <div style={{
           width: '68px', height: '68px', flexShrink: 0, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #4F8EF7, #7B5EA7)',
+          background: 'linear-gradient(135deg, #C41230, #8B0020)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'white', fontWeight: '800', fontSize: '26px',
-          boxShadow: '0 4px 14px rgba(79,142,247,0.35)',
+          boxShadow: '0 4px 14px rgba(196,18,48,0.35)',
         }}>{currentUser ? currentUser.name.slice(0, 1) : '?'}</div>
         <div>
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{currentUser?.name ?? '—'}</div>
@@ -573,7 +572,7 @@ function ProfilePage({ onBack, currentUser }) {
           <div key={row.label} style={{
             display: 'flex', alignItems: 'center', padding: '11px 20px',
             borderBottom: i < INFO_ROWS.length - 1 ? '1px solid #F8FAFC' : 'none',
-            background: i % 2 === 0 ? 'white' : '#FAFBFF',
+            background: i % 2 === 0 ? 'white' : '#FFF8F8',
           }}>
             <div style={{ width: '96px', fontSize: '12.5px', color: '#94A3B8', flexShrink: 0 }}>{row.label}</div>
             <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>{row.value}</div>
@@ -683,7 +682,7 @@ export default function Dashboard() {
         }}>
           <div style={{
             width: '60px', height: '60px', borderRadius: '14px',
-            background: '#EFF6FF', display: 'flex', alignItems: 'center',
+            background: '#FFF0F2', display: 'flex', alignItems: 'center',
             justifyContent: 'center', fontSize: '26px',
           }}>🚧</div>
           <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>

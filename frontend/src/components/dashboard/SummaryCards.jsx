@@ -71,9 +71,9 @@ export default function SummaryCards({ summary }) {
       sub:        `${summary.done_tasks ?? 0} / ${summary.total_tasks ?? 0} 個任務`,
       trend:      `逾期 ${summary.total_overdue_tasks ?? 0} 個`,
       trendOk:    !(summary.total_overdue_tasks > 0),
-      iconBg:     '#EFF6FF',
-      iconColor:  '#4F8EF7',
-      valueColor: '#1d4ed8',
+      iconBg:     '#FFF0F2',
+      iconColor:  '#C41230',
+      valueColor: '#C41230',
       icon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
