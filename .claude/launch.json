@@ -18,7 +18,15 @@
       "name": "前端 React (Vite · port 3001)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3001
+      "port": 3001,
+      "autoPort": false
+    },
+    {
+      "name": "前端 React 預覽 (port 3031)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev:preview"],
+      "port": 3031,
+      "autoPort": false
     },
     {
       "name": "MCP External Server (port 3100)",

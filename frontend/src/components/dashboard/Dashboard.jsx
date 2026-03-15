@@ -25,6 +25,7 @@ import SettingsPage       from '../settings/SettingsPage';
 import AiDecisionCenter      from '../ai/AiDecisionCenter';
 import McpConsolePage        from '../mcp/McpConsolePage';
 import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
+import DiscoveryPage          from '../discovery/DiscoveryPage';
 
 // ── Design Tokens — xCloud Brand ────────────────────────────
 const T = {
@@ -105,6 +106,12 @@ const Icon = {
       <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
     </svg>
   ),
+  discovery: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+    </svg>
+  ),
   refresh: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 4 23 10 17 10"/>
@@ -183,8 +190,9 @@ const NAV_GROUPS = [
   {
     label: 'AI 功能',
     items: [
-      { id: 'ai-center',   icon: Icon.ai,  label: 'AI 決策中心' },
-      { id: 'mcp-console', icon: Icon.mcp, label: 'MCP 控制台' },
+      { id: 'ai-center',   icon: Icon.ai,        label: 'AI 決策中心' },
+      { id: 'mcp-console', icon: Icon.mcp,        label: 'MCP 控制台' },
+      { id: 'discovery',   icon: Icon.discovery,  label: '功能探索' },
     ],
   },
 ];
@@ -202,6 +210,7 @@ const PAGE_TITLES = {
   settings:      { title: '系統設定',    sub: '偏好與整合設定' },
   'ai-center':   { title: 'AI 決策中心', sub: '智慧分析與建議' },
   'mcp-console': { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
+  discovery:     { title: '功能探索',    sub: 'Top Features to Discover' },
   profile:       { title: '個人資料',    sub: '帳戶設定' },
 };
 
@@ -715,6 +724,7 @@ export default function Dashboard() {
     );
     if (activeNav === 'ai-center')   return <AiDecisionCenter />;
     if (activeNav === 'mcp-console') return <McpConsolePage />;
+    if (activeNav === 'discovery')   return <DiscoveryPage />;
     if (activeNav === 'profile')     return <ProfilePage onBack={() => navigate('dashboard')} currentUser={currentUser} />;
 
     const allItems = NAV_GROUPS.flatMap(g => g.items);
