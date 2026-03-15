@@ -28,6 +28,11 @@ import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
 import FormsPage             from '../forms/FormsPage';
 import CustomFieldsPage      from '../customfields/CustomFieldsPage';
 import MyTasksPage           from '../mytasks/MyTasksPage';
+import GoalsPage             from '../goals/GoalsPage';
+import InboxPage             from '../inbox/InboxPage';
+import PortfoliosPage        from '../portfolios/PortfoliosPage';
+import WorkloadPage          from '../workload/WorkloadPage';
+import RulesPage             from '../rules/RulesPage';
 
 // ── Design Tokens — xCloud Brand ────────────────────────────
 const T = {
@@ -228,6 +233,42 @@ const Icon = {
       <line x1="9" y1="3" x2="9" y2="21"/>
     </svg>
   ),
+  inbox: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+      <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
+    </svg>
+  ),
+  goals: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2"/>
+    </svg>
+  ),
+  portfolios: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2"/>
+      <path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+      <line x1="12" y1="12" x2="12" y2="16"/>
+      <line x1="10" y1="14" x2="14" y2="14"/>
+    </svg>
+  ),
+  workload: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+      <path d="M16 3.13a4 4 0 010 7.75"/>
+      <line x1="19" y1="10" x2="21" y2="12"/>
+      <line x1="21" y1="10" x2="19" y2="12"/>
+    </svg>
+  ),
+  rules: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+  ),
 };
 
 // ── xCloud Logo SVG（品牌紅 + X 造型）──────────────────────
@@ -251,6 +292,7 @@ const MODES = [
     labelCht: '工作',
     modeIcon: 'modeWork',
     items: [
+      { id: 'inbox',     icon: 'inbox',    label: '收件匣' },
       { id: 'my-tasks',  icon: 'myTasks',  label: '我的任務' },
       { id: 'projects',  icon: 'projects', label: '專案管理' },
       { id: 'tasks',     icon: 'tasks',    label: '任務看板' },
@@ -263,10 +305,13 @@ const MODES = [
     labelCht: '策略',
     modeIcon: 'modeStrategy',
     items: [
-      { id: 'dashboard', icon: 'dashboard', label: '儀表板' },
-      { id: 'reports',   icon: 'reports',   label: '報表匯出' },
-      { id: 'time',      icon: 'time',      label: '工時記錄' },
-      { id: 'ai-center', icon: 'ai',        label: 'AI 決策中心' },
+      { id: 'dashboard',  icon: 'dashboard',  label: '儀表板' },
+      { id: 'goals',      icon: 'goals',      label: '目標管理' },
+      { id: 'portfolios', icon: 'portfolios', label: '專案組合' },
+      { id: 'workload',   icon: 'workload',   label: '工作負載' },
+      { id: 'reports',    icon: 'reports',    label: '報表匯出' },
+      { id: 'time',       icon: 'time',       label: '工時記錄' },
+      { id: 'ai-center',  icon: 'ai',         label: 'AI 決策中心' },
     ],
   },
   {
@@ -275,9 +320,10 @@ const MODES = [
     labelCht: '流程',
     modeIcon: 'modeWorkflowM',
     items: [
-      { id: 'forms',         icon: 'forms',        label: '表單' },
+      { id: 'rules',         icon: 'rules',        label: '自動化規則' },
+      { id: 'forms',         icon: 'forms',         label: '表單' },
       { id: 'custom-fields', icon: 'customFields',  label: '自訂欄位' },
-      { id: 'workflow',      icon: 'workflow',      label: '自動化流程' },
+      { id: 'workflow',      icon: 'workflow',      label: '工作流程圖' },
       { id: 'mcp-console',   icon: 'mcp',           label: 'MCP 控制台' },
     ],
   },
@@ -295,13 +341,18 @@ const MODES = [
 
 // ── 頁面標題映射 ─────────────────────────────────────────────
 const PAGE_TITLES = {
+  inbox:           { title: '收件匣',      sub: '通知 · @提及 · 任務指派 · 留言更新' },
   'my-tasks':      { title: '我的任務',    sub: '個人任務總覽 · 跨專案統一檢視' },
   dashboard:       { title: '儀表板',      sub: '主管決策中心' },
   projects:        { title: '專案管理',    sub: '管理所有進行中的專案' },
   tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤 · 四欄式工作流' },
   gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
-  workflow:        { title: '自動化流程',  sub: '規則 · 觸發條件 · 工作流程自動化' },
+  workflow:        { title: '工作流程圖',  sub: '泳道圖 · 視覺化流程設計' },
+  rules:           { title: '自動化規則',  sub: '觸發條件 → 動作 · 自動化工作流程' },
   time:            { title: '工時記錄',    sub: '人員工時統計' },
+  goals:           { title: '目標管理',    sub: 'OKR 目標與關鍵結果追蹤' },
+  portfolios:      { title: '專案組合',    sub: '多專案健康監控 · 進度與狀態一覽' },
+  workload:        { title: '工作負載',    sub: '成員任務分配視覺化 · 避免過載' },
   reports:         { title: '報表匯出',    sub: '資料分析與匯出' },
   team:            { title: '團隊管理',    sub: '成員與角色設定' },
   settings:        { title: '系統設定',    sub: '偏好與整合設定' },
@@ -746,7 +797,7 @@ function Sidebar({ active, onChange, currentUser }) {
 }
 
 // ── Topbar ──────────────────────────────────────────────────
-function Topbar({ activeNav, onRefresh, loading }) {
+function Topbar({ activeNav, onRefresh, loading, onNavigate }) {
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
   const now = new Date();
   const dateStr = now.toLocaleDateString('zh-TW', {
@@ -792,14 +843,23 @@ function Topbar({ activeNav, onRefresh, loading }) {
           {dateStr}
         </div>
 
-        <button style={{
-          width: '34px', height: '34px', borderRadius: '8px',
-          border: 'none', background: '#F1F5F9', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#64748B', transition: 'all 0.15s',
-        }}
+        <button
+          onClick={() => onNavigate && onNavigate('inbox')}
+          title="收件匣（通知）"
+          style={{
+            width: '34px', height: '34px', borderRadius: '8px',
+            border: 'none',
+            background: activeNav === 'inbox' ? '#FFF0F2' : '#F1F5F9',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: activeNav === 'inbox' ? T.accent : '#64748B',
+            transition: 'all 0.15s',
+          }}
           onMouseOver={e => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#334155'; }}
-          onMouseOut={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#64748B'; }}
+          onMouseOut={e => {
+            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF0F2' : '#F1F5F9';
+            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : '#64748B';
+          }}
         >
           {Icon.bell}
         </button>
@@ -1076,12 +1136,17 @@ export default function Dashboard() {
 
   // ── 頁面路由 ──────────────────────────────────────────────
   const renderPage = () => {
+    if (activeNav === 'inbox')       return <InboxPage />;
     if (activeNav === 'my-tasks')    return <MyTasksPage />;
     if (activeNav === 'projects')    return <ProjectsPage />;
     if (activeNav === 'tasks')       return <TaskKanbanPage />;
     if (activeNav === 'gantt')       return <GanttPage />;
     if (activeNav === 'workflow')    return <WorkflowDiagramPage />;
+    if (activeNav === 'rules')       return <RulesPage />;
     if (activeNav === 'time')        return <TimeTrackingPage />;
+    if (activeNav === 'goals')       return <GoalsPage />;
+    if (activeNav === 'portfolios')  return <PortfoliosPage />;
+    if (activeNav === 'workload')    return <WorkloadPage />;
     if (activeNav === 'reports')     return <ReportsPage />;
     if (activeNav === 'team')        return <TeamPage />;
     if (activeNav === 'settings')    return (
@@ -1165,7 +1230,7 @@ export default function Dashboard() {
       <Sidebar active={activeNav} onChange={navigate} currentUser={currentUser} />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
-        <Topbar activeNav={activeNav} onRefresh={refresh} loading={loading} />
+        <Topbar activeNav={activeNav} onRefresh={refresh} loading={loading} onNavigate={navigate} />
 
         <main style={{
           flex: 1,
