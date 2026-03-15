@@ -206,6 +206,8 @@ function CompanyTab() {
   const [loading,  setLoading]  = useState(true);
   const [editing,  setEditing]  = useState(false);
   const [newName,  setNewName]  = useState('');
+  const [newSlug,  setNewSlug]  = useState('');
+  const [slugErr,  setSlugErr]  = useState('');
   const [saving,   setSaving]   = useState(false);
   const [banner,   setBanner]   = useState({ type: '', message: '' });
 
@@ -217,6 +219,7 @@ function CompanyTab() {
       const data = await res.json();
       setCompany(data.company);
       setNewName(data.company.name);
+      setNewSlug(data.company.slug);
     } catch {
       setBanner({ type: 'error', message: '無法載入公司資訊' });
     } finally {
@@ -226,15 +229,27 @@ function CompanyTab() {
 
   useEffect(() => { fetchCompany(); }, [fetchCompany]);
 
-  // 儲存公司名稱
+  // Slug 格式即時驗證
+  const validateSlug = (val) => {
+    if (!val) { setSlugErr('識別代碼不能為空'); return false; }
+    if (!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(val)) {
+      setSlugErr('只允許英文小寫、數字與連字號（-），長度 3–50，不可以連字號開頭或結尾');
+      return false;
+    }
+    setSlugErr('');
+    return true;
+  };
+
+  // 儲存
   const handleSave = async () => {
     if (!newName.trim()) return;
+    if (!validateSlug(newSlug)) return;
     setSaving(true);
     try {
       const res  = await fetch(`${API_BASE}/api/settings/company/${company.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name: newName.trim() }),
+        body:    JSON.stringify({ name: newName.trim(), slug: newSlug.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '更新失敗');
@@ -246,6 +261,13 @@ function CompanyTab() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setNewName(company.name);
+    setNewSlug(company.slug);
+    setSlugErr('');
   };
 
   if (loading) return <p style={{ color: '#9ca3af', fontSize: 14 }}>載入中…</p>;
@@ -280,19 +302,47 @@ function CompanyTab() {
             </Field>
           </div>
 
-          {/* 識別代碼（唯讀） */}
-          <Field label="識別代碼（Slug）" hint="系統內部使用，不可修改">
-            <div style={{
-              padding:      '8px 12px',
-              background:   '#f3f4f6',
-              border:       '1px solid #e5e7eb',
-              borderRadius: 8,
-              fontSize:     14,
-              color:        '#6b7280',
-              fontFamily:   'monospace',
-            }}>
-              {company.slug}
-            </div>
+          {/* 識別代碼（可編輯） */}
+          <Field
+            label="識別代碼（Slug）"
+            hint={editing ? '英文小寫、數字與連字號，長度 3–50 字元' : '系統唯一識別碼，可在編輯模式修改'}
+          >
+            {editing ? (
+              <div>
+                <input
+                  value={newSlug}
+                  onChange={e => { setNewSlug(e.target.value.toLowerCase()); validateSlug(e.target.value.toLowerCase()); }}
+                  placeholder="例：my-company"
+                  style={{
+                    width: '100%', padding: '8px 12px',
+                    border: `1px solid ${slugErr ? '#fca5a5' : '#d1d5db'}`,
+                    borderRadius: 8, fontSize: 14,
+                    fontFamily: 'monospace', outline: 'none',
+                    boxSizing: 'border-box',
+                    background: slugErr ? '#fff5f5' : 'white',
+                  }}
+                />
+                {slugErr && (
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>{slugErr}</div>
+                )}
+              </div>
+            ) : (
+              <div style={{
+                padding:      '8px 12px',
+                background:   '#f3f4f6',
+                border:       '1px solid #e5e7eb',
+                borderRadius: 8,
+                fontSize:     14,
+                color:        '#374151',
+                fontFamily:   'monospace',
+                display:      'flex',
+                alignItems:   'center',
+                gap:          8,
+              }}>
+                <span>{company.slug}</span>
+                <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'sans-serif' }}>（點「編輯」可修改）</span>
+              </div>
+            )}
           </Field>
 
           {/* 狀態 */}
@@ -334,7 +384,7 @@ function CompanyTab() {
                 💾 儲存變更
               </PrimaryBtn>
               <button
-                onClick={() => { setEditing(false); setNewName(company.name); }}
+                onClick={handleCancel}
                 style={{
                   padding:      '9px 16px',
                   background:   '#fff',
@@ -350,7 +400,7 @@ function CompanyTab() {
             </>
           ) : (
             <PrimaryBtn onClick={() => setEditing(true)}>
-              ✏️ 編輯公司名稱
+              ✏️ 編輯公司資訊
             </PrimaryBtn>
           )}
         </div>
