@@ -674,9 +674,14 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
 // ════════════════════════════════════════════════════════════
 function HomePage({ currentUser, onNavigate, dashData }) {
   const { summary, projects, workload, insights, loading, error, refresh } = dashData;
-  const [myTasksTab, setMyTasksTab] = useState('upcoming'); // upcoming / overdue / completed
-  const [myTasks, setMyTasks]       = useState([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
+  const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
+  const [myTasks,       setMyTasks]       = useState([]);
+  const [tasksLoading,  setTasksLoading]  = useState(true);
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [homeWidgets,   setHomeWidgets]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem('xcloud-home-widgets') || 'null') || { tasks: true, projects: true, learn: true }; }
+    catch { return { tasks: true, projects: true, learn: true }; }
+  });
 
   // 時段問候
   const hour = new Date().getHours();
@@ -688,10 +693,13 @@ function HomePage({ currentUser, onNavigate, dashData }) {
   // 載入我的任務
   useEffect(() => {
     setTasksLoading(true);
-    fetch(`${API_BASE}/api/tasks?companyId=${COMPANY_ID}`)
+    fetch(`${API_BASE}/api/projects/tasks?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(d => {
-        const list = Array.isArray(d) ? d : (d.tasks || d.data || []);
+        // API 回傳 { success, data: { tasks: [...] } }
+        const list = Array.isArray(d) ? d
+          : Array.isArray(d.data) ? d.data
+          : (d.data?.tasks || d.tasks || []);
         setMyTasks(list);
       })
       .catch(() => setMyTasks([]))
@@ -752,7 +760,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
             },
             {
               icon: '👥',
-              value: `${(workload || []).length}`,
+              value: `${workload?.users?.length ?? (Array.isArray(workload) ? workload.length : 0)}`,
               label: '位協作者',
               sub: '',
               color: '#2563EB',
@@ -780,21 +788,82 @@ function HomePage({ currentUser, onNavigate, dashData }) {
             </div>
           ))}
 
-          <button
-            onClick={() => {}}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              padding: '8px 14px', background: 'white',
-              borderRadius: '8px', border: `1px solid ${T.border}`,
-              fontSize: '13px', color: '#6B7280', cursor: 'pointer',
-              fontFamily: 'inherit', transition: 'background 0.1s',
-              marginLeft: 'auto',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-            onMouseLeave={e => e.currentTarget.style.background = 'white'}
-          >
-            自訂
-          </button>
+          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+            <button
+              onClick={() => setShowCustomize(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '8px 14px', background: showCustomize ? '#F0F9FF' : 'white',
+                borderRadius: '8px', border: `1px solid ${showCustomize ? '#3B82F6' : T.border}`,
+                fontSize: '13px', color: showCustomize ? '#3B82F6' : '#6B7280',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.1s',
+              }}
+              onMouseEnter={e => { if (!showCustomize) { e.currentTarget.style.background = '#F9FAFB'; }}}
+              onMouseLeave={e => { if (!showCustomize) { e.currentTarget.style.background = 'white'; }}}
+            >
+              ⚙ 自訂
+            </button>
+            {showCustomize && (
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 8px)',
+                background: 'white', borderRadius: '12px',
+                border: `1px solid ${T.border}`,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                zIndex: 200, minWidth: '220px', padding: '16px',
+              }}
+                onMouseLeave={() => {}}
+              >
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
+                  自訂首頁
+                </div>
+                {[
+                  { key: 'tasks',    label: '✅ 我的任務 Widget' },
+                  { key: 'projects', label: '📁 專案 Widget' },
+                  { key: 'learn',    label: '📖 瞭解 xCloudPMIS' },
+                ].map(w => (
+                  <label key={w.key} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 0', borderBottom: `1px solid #F3F4F6`,
+                    cursor: 'pointer', userSelect: 'none',
+                  }}>
+                    <span style={{ fontSize: '13px', color: '#374151' }}>{w.label}</span>
+                    <div
+                      onClick={() => {
+                        const next = { ...homeWidgets, [w.key]: !homeWidgets[w.key] };
+                        setHomeWidgets(next);
+                        try { localStorage.setItem('xcloud-home-widgets', JSON.stringify(next)); } catch {}
+                      }}
+                      style={{
+                        width: '36px', height: '20px', borderRadius: '10px',
+                        background: homeWidgets[w.key] ? '#10B981' : '#D1D5DB',
+                        position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div style={{
+                        position: 'absolute', top: '2px',
+                        left: homeWidgets[w.key] ? '18px' : '2px',
+                        width: '16px', height: '16px', borderRadius: '50%',
+                        background: 'white', transition: 'left 0.2s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      }} />
+                    </div>
+                  </label>
+                ))}
+                <button
+                  onClick={() => setShowCustomize(false)}
+                  style={{
+                    width: '100%', marginTop: '12px',
+                    background: T.accent, color: 'white', border: 'none',
+                    borderRadius: '7px', padding: '8px 0', fontSize: '13px',
+                    fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  完成
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── 主要內容 2欄 ──────────────────────────────────── */}
@@ -804,6 +873,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           <div style={{
             background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
             boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
+            display: homeWidgets.tasks ? 'flex' : 'none', flexDirection: 'column',
           }}>
             {/* Widget Header */}
             <div style={{
@@ -947,6 +1017,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           <div style={{
             background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
             boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
+            display: homeWidgets.projects ? 'flex' : 'none', flexDirection: 'column',
           }}>
             {/* Widget Header */}
             <div style={{
@@ -1005,9 +1076,10 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 recentProjects.map((p, i) => {
                   const colors = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488'];
                   const color = colors[i % colors.length];
-                  const overdue = p.taskOverdue || 0;
-                  const total   = p.taskTotal || 0;
-                  const done    = p.taskDone  || 0;
+                  // API 回傳 snake_case 欄位
+                  const overdue = p.overdue_tasks  ?? p.taskOverdue ?? 0;
+                  const total   = p.total_tasks    ?? p.taskTotal   ?? 0;
+                  const done    = p.done_tasks     ?? p.taskDone    ?? 0;
                   return (
                     <button
                       key={p.id}
@@ -1034,7 +1106,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {p.name}
+                          {p.project_name ?? p.name}
                         </div>
                         <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
                           {overdue > 0
@@ -1051,7 +1123,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                           <circle cx="18" cy="18" r="14" fill="none" stroke="#F3F4F6" strokeWidth="3" />
                           <circle cx="18" cy="18" r="14" fill="none" stroke={color} strokeWidth="3"
                             strokeDasharray={2 * Math.PI * 14}
-                            strokeDashoffset={2 * Math.PI * 14 * (1 - (p.completion || 0) / 100)}
+                            strokeDashoffset={2 * Math.PI * 14 * (1 - (parseFloat(p.completion_pct ?? p.completion ?? 0)) / 100)}
                             strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.4s' }}
                           />
                         </svg>
@@ -1065,7 +1137,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
         </div>
 
         {/* ── 瞭解 xCloudPMIS（類 Asana 學習卡）──────────────── */}
-        <div style={{ background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: homeWidgets.learn ? 'block' : 'none' }}>
           <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>瞭解 xCloudPMIS</span>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '16px' }}>×</button>
