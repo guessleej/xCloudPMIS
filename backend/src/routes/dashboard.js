@@ -64,15 +64,30 @@ router.get('/executive-summary', async (req, res) => {
     `;
 
     // Prisma $queryRaw 回傳的數字是 BigInt 或 Decimal，需要轉換
-    // 這個函數把所有 BigInt 和 Decimal 轉成 JavaScript 的數值型別
+    // Bug #D-01 修復：金額與工時欄位四捨五入到 2 位小數，避免超長浮點數
+    // Bug #D-03 修復：Prisma Decimal 被打包後 constructor.name 為 'i' 而非 'Decimal'
+    //   改用 toString() 方法存在性 + 非 Date 物件 + 可解析為數字 來判斷
+    const ROUND2_KEYS = new Set(['total_cost', 'total_logged_hours', 'total_budget', 'overall_completion_pct']);
+    const toNum = (v) => {
+      if (v === null || v === undefined) return v;
+      if (typeof v === 'bigint') return Number(v);
+      if (typeof v === 'number') return v;
+      // Prisma Decimal 物件（打包後 constructor.name 不一定是 'Decimal'）
+      if (typeof v === 'object' && !(v instanceof Date) && typeof v.toString === 'function') {
+        const s = v.toString();
+        if (!isNaN(s) && s !== '') return parseFloat(s);
+      }
+      // 字串數字
+      if (typeof v === 'string' && !isNaN(v) && v.trim() !== '') return parseFloat(v);
+      return v;
+    };
     const normalize = (obj) =>
       Object.fromEntries(
-        Object.entries(obj).map(([k, v]) => [
-          k,
-          typeof v === 'bigint' ? Number(v)
-          : v?.constructor?.name === 'Decimal' ? parseFloat(v.toString())
-          : v
-        ])
+        Object.entries(obj).map(([k, v]) => {
+          let num = toNum(v);
+          if (typeof num === 'number' && ROUND2_KEYS.has(k)) num = Math.round(num * 100) / 100;
+          return [k, num];
+        })
       );
 
     ok(res, normalize(summary || {}));
@@ -239,7 +254,8 @@ router.get('/actionable-insights', async (req, res) => {
     const companyId = getCompanyId(req);
     const insights  = [];
 
-    // ── 查詢所有紅燈和黃燈專案 ───────────────────────────
+    // ── Bug #D-02 修復：查詢所有活躍專案（不限紅/黃燈），依實際條件判斷建議 ─
+    // 原本只查 red/yellow 導致所有健康專案永遠不產生任何建議
     const projects = await prisma.$queryRaw`
       SELECT project_id, project_name, status, health_status, health_reason,
              days_overdue, days_to_deadline, completion_pct,
@@ -248,7 +264,6 @@ router.get('/actionable-insights', async (req, res) => {
              schedule_progress_pct, owner_name
       FROM v_project_health
       WHERE company_id = ${companyId}
-        AND health_status IN ('red', 'yellow')
         AND status NOT IN ('completed', 'cancelled')
     `;
 
@@ -277,8 +292,8 @@ router.get('/actionable-insights', async (req, res) => {
       const daysToMilestone  = Number(p.days_to_next_milestone ?? 999);
       const schedProgress    = parseFloat(p.schedule_progress_pct || 0);
 
-      // 🔴 已逾期
-      if (p.health_status === 'red' && daysOverdue > 0) {
+      // 🔴 已逾期（不再限定 health_status，任何逾期都要提醒）
+      if (daysOverdue > 0) {
         insights.push({
           id:       `overdue-${p.project_id}`,
           type:     'danger',             // 危險
@@ -307,8 +322,8 @@ router.get('/actionable-insights', async (req, res) => {
         });
       }
 
-      // 🟡 7 天內截止但進度落後
-      if (daysToDeadline >= 0 && daysToDeadline <= 7 && completionPct < 80) {
+      // 🟡 14 天內截止但進度落後（放寬至 14 天，讓更多提醒能顯示）
+      if (daysToDeadline >= 0 && daysToDeadline <= 14 && completionPct < 80) {
         insights.push({
           id:       `deadline-${p.project_id}`,
           type:     'warning',            // 注意
@@ -322,8 +337,8 @@ router.get('/actionable-insights', async (req, res) => {
         });
       }
 
-      // 🟡 里程碑即將到期
-      if (daysToMilestone >= 0 && daysToMilestone <= 3) {
+      // 🟡 里程碑即將到期（放寬至 7 天）
+      if (daysToMilestone >= 0 && daysToMilestone <= 7) {
         insights.push({
           id:       `milestone-${p.project_id}`,
           type:     'warning',
@@ -349,6 +364,37 @@ router.get('/actionable-insights', async (req, res) => {
           message:  `計畫時程已過 ${Math.round(schedProgress)}%，但任務完成率只有 ${completionPct}%，建議重新分配資源或縮減範疇。`,
           action:   '重新規劃時程',
           actionUrl: `/projects/${p.project_id}`,
+        });
+      }
+
+      // 🔵 新啟動專案完成率過低（active 狀態且完成率 < 10%）
+      if (p.status === 'active' && completionPct < 10) {
+        insights.push({
+          id:       `low-start-${p.project_id}`,
+          type:     'info',
+          icon:     '🚀',
+          priority: 4,
+          project:  { id: Number(p.project_id), name: p.project_name },
+          title:    `《${p.project_name}》任務執行率偏低`,
+          message:  `專案進行中，但目前完成率僅 ${completionPct}%，建議確認任務已正確指派並開始執行。`,
+          action:   '查看任務清單',
+          actionUrl: `/projects/${p.project_id}/tasks`,
+        });
+      }
+
+      // 🟡 里程碑在 90 天內到期（擴大提醒範圍）
+      if (daysToMilestone >= 0 && daysToMilestone <= 90) {
+        const urgency = daysToMilestone <= 7 ? 'danger' : daysToMilestone <= 30 ? 'warning' : 'info';
+        insights.push({
+          id:       `milestone-upcoming-${p.project_id}`,
+          type:     urgency,
+          icon:     '🎯',
+          priority: urgency === 'danger' ? 2 : urgency === 'warning' ? 3 : 4,
+          project:  { id: Number(p.project_id), name: p.project_name },
+          title:    `《${p.project_name}》里程碑 ${daysToMilestone} 天後到期`,
+          message:  `請確認相關任務進度，確保里程碑如期達成。目前完成率 ${completionPct}%。`,
+          action:   '查看里程碑',
+          actionUrl: `/projects/${p.project_id}/milestones`,
         });
       }
     }

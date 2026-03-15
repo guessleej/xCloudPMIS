@@ -99,12 +99,17 @@ const DEMO_TASKS = [
   { id: 'd8', title: '準備季度報告', dueDate: LATER_STR, project: 'xCloudinfo', projectColor: C.blue, assignee: 'JL', section: 'later' },
 ];
 
-// Classify tasks into sections
+// Classify tasks into sections（已完成任務不顯示在清單中）
 function classifyTasks(tasks) {
   const sections = { recent: [], today: [], week: [], later: [] };
   tasks.forEach(t => {
+    // Bug #T-01 修復：過濾 done 狀態任務，我的任務頁只顯示待辦事項
+    if (t.status === 'done' || t.status === 'completed') return;
     if (t.section) {
-      sections[t.section] = [...(sections[t.section] || []), t];
+      // API 回傳的 section 欄位對映：upcoming → recent, next_week → week
+      const sectionMap = { upcoming: 'recent', next_week: 'week', today: 'today', later: 'later' };
+      const mapped = sectionMap[t.section] || t.section;
+      sections[mapped] = [...(sections[mapped] || sections.later), t];
     } else if (!t.dueDate) {
       sections.recent.push(t);
     } else if (isToday(t.dueDate)) {
