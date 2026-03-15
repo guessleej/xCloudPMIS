@@ -1,17 +1,14 @@
 /**
- * InboxPage — Asana 風格收件匣（完整重寫版）
+ * InboxPage — Asana 風格收件匣（完整重寫版 v2）
  *
- * 精確對齊 Asana「收件匣」介面：
- *   - 頁首列：標題 + 管理通知按鈕
- *   - Tab 列：活動 / 書籤 / 封存 / @提及 / New tab（+ 新增）
- *   - 工具列：篩選 / 排序 / 密度
+ * 功能：
+ *   - 固定 Tab（活動/書籤/封存/@提及）+ 自訂 Tab（localStorage 儲存）
+ *   - 雙擊 Tab inline 編輯名稱；hover 顯示 × 刪除（僅自訂 Tab）
+ *   - [+] 按鈕開啟 popup 表單（名稱 + 篩選條件）
+ *   - 管理通知面板（從右滑入，toggle 設定，localStorage 儲存）
  *   - AI 摘要卡片（可關閉，localStorage 記住）
- *   - 通知列表（依時間分組：今天 / 本週 / 更早）
- *   - hover 顯示操作按鈕：標記已讀 / 書籤 / 封存 / ⋯
- *   - 底部封存所有按鈕
- *   - 各 Tab 對應內容與空狀態
- *
- * 品牌色：accent #C41230，背景 #F4F0F0
+ *   - 通知列表（依時間分組）、hover 操作按鈕
+ *   - 品牌色 accent #C41230，背景 #F4F0F0
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -35,14 +32,26 @@ const T = {
   done:      '#9CA3AF',
   due:       '#EF4444',
   welcome:   '#8B5CF6',
+  toggleOn:  '#10B981',
+  toggleOff: '#D1D5DB',
 };
 
-// ── Tab 定義 ──────────────────────────────────────────────────
-const TABS = [
+// ── 固定 Tab 定義 ──────────────────────────────────────────────
+const FIXED_TABS = [
   { id: 'activity',   label: '活動' },
   { id: 'bookmarked', label: '書籤' },
   { id: 'archived',   label: '封存' },
   { id: 'mentions',   label: '@提及' },
+];
+
+// ── 篩選條件選項 ────────────────────────────────────────────────
+const FILTER_OPTIONS = [
+  { value: 'all',     label: '全部通知' },
+  { value: 'mention', label: '@提及' },
+  { value: 'assign',  label: '任務指派' },
+  { value: 'comment', label: '留言/評論' },
+  { value: 'done',    label: '任務完成' },
+  { value: 'due',     label: '任務到期' },
 ];
 
 // ── 靜態示範通知（10 則）─────────────────────────────────────
@@ -139,6 +148,19 @@ const INITIAL_NOTIFICATIONS = [
   },
 ];
 
+// ── 預設通知設定 ────────────────────────────────────────────────
+const DEFAULT_SETTINGS = {
+  type_assign:   true,
+  type_mention:  true,
+  type_comment:  true,
+  type_done:     true,
+  type_due:      true,
+  email_daily:   true,
+  email_instant: false,
+  app_desktop:   true,
+  app_sound:     false,
+};
+
 // ── localStorage helpers ───────────────────────────────────────
 function loadSet(key) {
   try {
@@ -160,6 +182,17 @@ function loadBool(key, def = true) {
 
 function saveBool(key, val) {
   try { localStorage.setItem(key, String(val)); } catch {}
+}
+
+function loadJSON(key, def) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : def;
+  } catch { return def; }
+}
+
+function saveJSON(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
 function loadLocalStorageNotifications() {
@@ -230,14 +263,28 @@ function avatarColor(name) {
 
 function typeIcon(type) {
   switch (type) {
-    case 'mention':      return { symbol: '@', color: T.mention };
+    case 'mention':       return { symbol: '@', color: T.mention };
     case 'task_assigned': return { symbol: '⊙', color: T.assign };
-    case 'comment':      return { symbol: '💬', color: T.comment };
-    case 'done':         return { symbol: '✓', color: T.done };
-    case 'task_due':     return { symbol: '⏰', color: T.due };
-    case 'team_welcome': return { symbol: '✦', color: T.welcome };
-    default:             return { symbol: '⊙', color: T.taskCircle };
+    case 'comment':       return { symbol: '💬', color: T.comment };
+    case 'done':          return { symbol: '✓', color: T.done };
+    case 'task_due':      return { symbol: '⏰', color: T.due };
+    case 'team_welcome':  return { symbol: '✦', color: T.welcome };
+    default:              return { symbol: '⊙', color: T.taskCircle };
   }
+}
+
+// 依自訂 tab 的 filter 篩選通知
+function filterByCustomTab(notifications, filter, archiveIds) {
+  return notifications.filter(n => {
+    if (archiveIds.has(n.id)) return false;
+    if (filter === 'all')     return true;
+    if (filter === 'mention') return n.type === 'mention';
+    if (filter === 'assign')  return n.type === 'task_assigned';
+    if (filter === 'comment') return n.type === 'comment';
+    if (filter === 'done')    return n.type === 'done';
+    if (filter === 'due')     return n.type === 'task_due';
+    return true;
+  });
 }
 
 // ── SVG 圖示 ──────────────────────────────────────────────────
@@ -355,6 +402,16 @@ function IconBookmarkEmpty({ size = 56, color = '#C8B8B8' }) {
   );
 }
 
+function IconBell({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 01-3.46 0" />
+    </svg>
+  );
+}
+
 // ── 頭像 ──────────────────────────────────────────────────────
 function Avatar({ name, size = 32 }) {
   const bg = avatarColor(name || '?');
@@ -371,6 +428,30 @@ function Avatar({ name, size = 32 }) {
   );
 }
 
+// ── Toggle 開關 ────────────────────────────────────────────────
+function Toggle({ on, onChange }) {
+  return (
+    <div
+      onClick={() => onChange(!on)}
+      style={{
+        width: 40, height: 22, borderRadius: 11,
+        background: on ? T.toggleOn : T.toggleOff,
+        position: 'relative', cursor: 'pointer',
+        transition: 'background 0.2s', flexShrink: 0,
+      }}
+    >
+      <div style={{
+        position: 'absolute',
+        top: 3, left: on ? 21 : 3,
+        width: 16, height: 16, borderRadius: '50%',
+        background: '#fff',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        transition: 'left 0.2s',
+      }} />
+    </div>
+  );
+}
+
 // ── AI 摘要卡片 ────────────────────────────────────────────────
 function AISummaryCard({ onClose, notifications }) {
   const [range, setRange] = useState('過去 1 週');
@@ -378,7 +459,8 @@ function AISummaryCard({ onClose, notifications }) {
 
   const ranges = ['過去 1 天', '過去 1 週', '過去 1 個月'];
 
-  const summaryText = `根據您過去一週的通知，共有 ${notifications.filter(n => !n.read && !n.archived).length} 則未讀通知需要關注。\n\n重要事項：\n• 林美華在「系統架構討論」中提及您，請確認 API 設計方案\n• 草擬專案簡介任務由陳志明指派，截止日期 3月17日\n• 王大偉對電商平台重構計畫留言，Phase 1 已完成 60%\n\n建議您優先處理 @提及 和即將到期的任務。`;
+  const unreadCount = notifications.filter(n => !n.read && !n.archived).length;
+  const summaryText = `根據您過去一週的通知，共有 ${unreadCount} 則未讀通知需要關注。\n\n重要事項：\n• 林美華在「系統架構討論」中提及您，請確認 API 設計方案\n• 草擬專案簡介任務由陳志明指派，截止日期 3月17日\n• 王大偉對電商平台重構計畫留言，Phase 1 已完成 60%\n\n建議您優先處理 @提及 和即將到期的任務。`;
 
   return (
     <div style={{
@@ -389,7 +471,6 @@ function AISummaryCard({ onClose, notifications }) {
       marginBottom: 2,
       position: 'relative',
     }}>
-      {/* 標題列 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <IconStar size={16} color="#8B5CF6" />
@@ -409,14 +490,12 @@ function AISummaryCard({ onClose, notifications }) {
         </button>
       </div>
 
-      {/* 描述 */}
       {!showSummary && (
         <p style={{ fontSize: 13, color: T.t2, margin: '0 0 12px 0', lineHeight: 1.5 }}>
           使用 AI 總結對您最重要且可採行動的通知。
         </p>
       )}
 
-      {/* AI 摘要內容 */}
       {showSummary && (
         <div style={{
           background: '#F5F0FF', borderRadius: 8, padding: '10px 14px',
@@ -427,7 +506,6 @@ function AISummaryCard({ onClose, notifications }) {
         </div>
       )}
 
-      {/* 底部操作列 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 13, color: T.t2 }}>時間範圍：</span>
@@ -439,7 +517,6 @@ function AISummaryCard({ onClose, notifications }) {
                 border: `1px solid ${T.border}`, borderRadius: 6,
                 padding: '4px 24px 4px 8px', fontSize: 13, color: T.t1,
                 background: T.white, cursor: 'pointer', appearance: 'none',
-                paddingRight: 24,
               }}
             >
               {ranges.map(r => <option key={r} value={r}>{r}</option>)}
@@ -465,6 +542,28 @@ function AISummaryCard({ onClose, notifications }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// ── 操作按鈕（hover 時顯示）────────────────────────────────────
+function ActionBtn({ children, onClick, title }) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{
+        background: h ? T.border : 'transparent',
+        border: `1px solid ${h ? T.border : 'transparent'}`,
+        borderRadius: 5, padding: '3px 6px',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.1s',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -503,7 +602,6 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
 
       {/* 主體 */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* 標題 + 未讀點 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <span style={{
             fontWeight: isRead ? 500 : 700,
@@ -513,7 +611,6 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
             {notif.title}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            {/* hover 時顯示操作按鈕 */}
             {hovered && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}
                 onClick={e => e.stopPropagation()}>
@@ -537,7 +634,6 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
                 </ActionBtn>
               </div>
             )}
-            {/* 未讀藍點 */}
             {!isRead && (
               <div style={{
                 width: 8, height: 8, borderRadius: '50%',
@@ -547,12 +643,10 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
           </div>
         </div>
 
-        {/* 發送者 · 時間 */}
         <div style={{ fontSize: 12, color: T.t3, marginTop: 2, marginBottom: 4 }}>
           {notif.sender?.name} · {relativeTime(notif.time)}
         </div>
 
-        {/* 訊息摘要 */}
         {notif.body && (
           <div style={{
             fontSize: 13, color: T.t2, lineHeight: 1.4,
@@ -564,28 +658,6 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
         )}
       </div>
     </div>
-  );
-}
-
-// ── 操作按鈕（hover 時顯示）────────────────────────────────────
-function ActionBtn({ children, onClick, title }) {
-  const [h, setH] = useState(false);
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{
-        background: h ? T.border : 'transparent',
-        border: `1px solid ${h ? T.border : 'transparent'}`,
-        borderRadius: 5, padding: '3px 6px',
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.1s',
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -610,329 +682,289 @@ function EmptyState({ tab }) {
     archived:   { icon: <IconArchive size={56} color="#C8B8B8" />, title: '封存是空的', desc: '您封存的通知會在這裡顯示。' },
     mentions:   { icon: <span style={{ fontSize: 48, color: '#C8B8B8' }}>@</span>, title: '沒有 @提及', desc: '當有人在留言中提及您時，會在這裡顯示。' },
   };
-  const { icon, title, desc } = msgs[tab] || msgs.activity;
+  const info = msgs[tab] || {
+    icon: <IconEmpty size={56} />,
+    title: '沒有通知',
+    desc: '此分類目前沒有符合條件的通知。',
+  };
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: '80px 40px', gap: 16,
     }}>
-      <div style={{ opacity: 0.7 }}>{icon}</div>
+      <div style={{ opacity: 0.7 }}>{info.icon}</div>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: T.t2, marginBottom: 6 }}>{title}</div>
-        <div style={{ fontSize: 13, color: T.t3, maxWidth: 280 }}>{desc}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: T.t2, marginBottom: 6 }}>{info.title}</div>
+        <div style={{ fontSize: 13, color: T.t3, maxWidth: 280 }}>{info.desc}</div>
       </div>
     </div>
   );
 }
 
-// ── 主元件 ────────────────────────────────────────────────────
-export default function InboxPage() {
-  // 通知資料：合併靜態 + localStorage
-  const [notifications, setNotifications] = useState(() => {
-    const ls = loadLocalStorageNotifications();
-    return [...INITIAL_NOTIFICATIONS, ...ls];
-  });
+// ── 新增 Tab Popup ─────────────────────────────────────────────
+function AddTabPopup({ anchor, onAdd, onClose, customTabCount }) {
+  const [label, setLabel] = useState(`New tab ${customTabCount + 1}`);
+  const [filter, setFilter] = useState('all');
+  const popupRef = useRef(null);
 
-  // 狀態集合（from localStorage）
-  const [readIds,     setReadIds]     = useState(() => loadSet('xcloud-inbox-read'));
-  const [bookmarkIds, setBookmarkIds] = useState(() => loadSet('xcloud-inbox-bookmarked'));
-  const [archiveIds,  setArchiveIds]  = useState(() => loadSet('xcloud-inbox-archived'));
+  // click outside 關閉
+  useEffect(() => {
+    function handler(e) {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
 
-  // UI 狀態
-  const [activeTab,      setActiveTab]      = useState('activity');
-  const [showAISummary,  setShowAISummary]  = useState(() => loadBool('xcloud-inbox-ai-summary', true));
-  const [tabs,           setTabs]           = useState(TABS);
-  const [sortMode,       setSortMode]       = useState('最新');
-  const [densityMode,    setDensityMode]    = useState('詳細');
-
-  // 同步 localStorage
-  useEffect(() => { saveSet('xcloud-inbox-read', readIds); }, [readIds]);
-  useEffect(() => { saveSet('xcloud-inbox-bookmarked', bookmarkIds); }, [bookmarkIds]);
-  useEffect(() => { saveSet('xcloud-inbox-archived', archiveIds); }, [archiveIds]);
-  useEffect(() => { saveBool('xcloud-inbox-ai-summary', showAISummary); }, [showAISummary]);
-
-  // 操作：標記已讀（切換）
-  const toggleRead = useCallback((id) => {
-    setReadIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // 操作：書籤（切換）
-  const toggleBookmark = useCallback((id) => {
-    setBookmarkIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // 操作：封存（切換）
-  const toggleArchive = useCallback((id) => {
-    setArchiveIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // 操作：封存所有（activity tab 的可見通知）
-  const archiveAll = useCallback(() => {
-    const visible = notifications.filter(n => !archiveIds.has(n.id)).map(n => n.id);
-    setArchiveIds(prev => {
-      const next = new Set(prev);
-      visible.forEach(id => next.add(id));
-      return next;
-    });
-  }, [notifications, archiveIds]);
-
-  // 操作：清除全部封存
-  const clearArchive = useCallback(() => {
-    setArchiveIds(new Set());
-  }, []);
-
-  // 新增 Tab
-  const addTab = useCallback(() => {
-    const label = `New tab ${tabs.filter(t => t.id.startsWith('new-')).length + 1}`;
-    const id = `new-${Date.now()}`;
-    setTabs(prev => [...prev, { id, label }]);
-    setActiveTab(id);
-  }, [tabs]);
-
-  // 篩選邏輯
-  const filtered = notifications.filter(n => {
-    const isArchived = archiveIds.has(n.id);
-    if (activeTab === 'archived') return isArchived;
-    if (isArchived) return false;
-    if (activeTab === 'bookmarked') return bookmarkIds.has(n.id);
-    if (activeTab === 'mentions')   return n.type === 'mention';
-    return true; // activity + new tabs
-  });
-
-  // 排序
-  const sorted = [...filtered].sort((a, b) => {
-    const ta = new Date(a.time).getTime();
-    const tb = new Date(b.time).getTime();
-    return sortMode === '最新' ? tb - ta : ta - tb;
-  });
-
-  // 分組
-  const groups = [];
-  const groupOrder = ['今天', '本週', '更早'];
-  const grouped = {};
-  sorted.forEach(n => {
-    const g = getGroup(n.time);
-    if (!grouped[g]) grouped[g] = [];
-    grouped[g].push(n);
-  });
-  groupOrder.forEach(g => { if (grouped[g]) groups.push({ label: g, items: grouped[g] }); });
-
-  // 未讀數（各 tab）
-  function tabUnread(tabId) {
-    if (tabId === 'archived') return 0;
-    return notifications.filter(n => {
-      if (archiveIds.has(n.id)) return false;
-      if (tabId === 'bookmarked') return bookmarkIds.has(n.id) && !readIds.has(n.id);
-      if (tabId === 'mentions')   return n.type === 'mention' && !readIds.has(n.id);
-      return !readIds.has(n.id); // activity
-    }).length;
-  }
+  const handleAdd = () => {
+    if (label.trim()) {
+      onAdd({ label: label.trim(), filter });
+      onClose();
+    }
+  };
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column',
-      height: '100%', background: T.pageBg,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-      overflow: 'hidden',
-    }}>
-
-      {/* ── 頁首列 ──────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '18px 24px 0 24px',
-      }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.t1 }}>收件匣</h1>
-        <button style={{
-          border: `1px solid ${T.border}`, borderRadius: 7,
-          padding: '6px 14px', fontSize: 13, fontWeight: 500,
-          color: T.t2, background: T.white, cursor: 'pointer',
-          transition: 'all 0.1s',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; }}
-          onMouseLeave={e => { e.currentTarget.style.background = T.white; }}
-        >
-          管理通知
-        </button>
+    <div
+      ref={popupRef}
+      style={{
+        position: 'absolute',
+        top: anchor ? anchor.bottom + 4 : 50,
+        left: anchor ? anchor.left : 200,
+        background: T.white,
+        border: `1px solid ${T.border}`,
+        borderRadius: 10,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+        zIndex: 300,
+        padding: '16px 18px',
+        width: 270,
+      }}
+    >
+      {/* 標題 */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.t1, marginBottom: 14 }}>
+        新增 Tab
       </div>
 
-      {/* ── Tab 列 ───────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'flex-end',
-        padding: '0 24px', marginTop: 12,
-        borderBottom: `2px solid ${T.border}`,
-        gap: 0,
-      }}>
-        {tabs.map(tab => {
-          const isActive = activeTab === tab.id;
-          const unread = tabUnread(tab.id);
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                background: 'none', border: 'none',
-                padding: '8px 14px', cursor: 'pointer',
-                fontSize: 14, fontWeight: isActive ? 700 : 500,
-                color: isActive ? T.accent : T.t2,
-                borderBottom: isActive ? `2px solid ${T.accent}` : '2px solid transparent',
-                marginBottom: -2,
-                display: 'flex', alignItems: 'center', gap: 5,
-                transition: 'color 0.1s',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = T.t1; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = T.t2; }}
-            >
-              {tab.label}
-              {unread > 0 && (
-                <span style={{
-                  background: T.accent, color: '#fff',
-                  borderRadius: 10, padding: '1px 6px',
-                  fontSize: 11, fontWeight: 700, minWidth: 18, textAlign: 'center',
-                }}>
-                  {unread}
-                </span>
-              )}
-            </button>
-          );
-        })}
-        {/* 新增 Tab 按鈕 */}
-        <button
-          onClick={addTab}
-          title="新增 Tab"
+      {/* Tab 名稱 */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: T.t2, display: 'block', marginBottom: 5 }}>
+          Tab 名稱
+        </label>
+        <input
+          autoFocus
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose(); }}
           style={{
-            background: 'none', border: 'none',
-            padding: '8px 10px', cursor: 'pointer',
-            color: T.t3, display: 'flex', alignItems: 'center',
-            marginBottom: -2,
+            width: '100%', boxSizing: 'border-box',
+            border: `1px solid ${T.border}`, borderRadius: 6,
+            padding: '6px 10px', fontSize: 13, color: T.t1,
+            outline: 'none',
           }}
-          onMouseEnter={e => e.currentTarget.style.color = T.t1}
-          onMouseLeave={e => e.currentTarget.style.color = T.t3}
-        >
-          <IconPlus size={14} />
-        </button>
+          onFocus={e => e.target.select()}
+        />
       </div>
 
-      {/* ── 工具列 ───────────────────────────────────────────── */}
+      {/* 篩選條件 */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: T.t2, display: 'block', marginBottom: 8 }}>
+          篩選條件
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {FILTER_OPTIONS.map(opt => (
+            <label
+              key={opt.value}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 13, color: T.t1, cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="filter"
+                value={opt.value}
+                checked={filter === opt.value}
+                onChange={() => setFilter(opt.value)}
+                style={{ accentColor: T.accent, cursor: 'pointer' }}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* 按鈕列 */}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: `1px solid ${T.border}`,
+            borderRadius: 6, padding: '6px 14px',
+            fontSize: 13, color: T.t2, cursor: 'pointer', fontWeight: 500,
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = T.hoverBg}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+        >
+          取消
+        </button>
+        <button
+          onClick={handleAdd}
+          style={{
+            background: T.accent, color: '#fff',
+            border: 'none', borderRadius: 6,
+            padding: '6px 14px', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', opacity: label.trim() ? 1 : 0.5,
+          }}
+          onMouseEnter={e => { if (label.trim()) e.currentTarget.style.opacity = '0.85'; }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = label.trim() ? '1' : '0.5'; }}
+        >
+          新增
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── 管理通知面板 ────────────────────────────────────────────────
+function ManageNotificationsPanel({ onClose }) {
+  const [settings, setSettings] = useState(() =>
+    loadJSON('xcloud-inbox-settings', DEFAULT_SETTINGS)
+  );
+  const [saved, setSaved] = useState(false);
+
+  const toggle = (key) => {
+    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = () => {
+    saveJSON('xcloud-inbox-settings', settings);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const SettingRow = ({ icon, label, settingKey }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 0',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 16, width: 22, textAlign: 'center' }}>{icon}</span>
+        <span style={{ fontSize: 14, color: T.t1 }}>{label}</span>
+      </div>
+      <Toggle on={settings[settingKey]} onChange={() => toggle(settingKey)} />
+    </div>
+  );
+
+  const SectionTitle = ({ children }) => (
+    <div style={{
+      fontSize: 12, fontWeight: 700, color: T.t3,
+      letterSpacing: '0.05em', textTransform: 'uppercase',
+      padding: '14px 0 6px 0',
+      borderTop: `1px solid ${T.border}`,
+      marginTop: 4,
+    }}>
+      {children}
+    </div>
+  );
+
+  return (
+    <>
+      {/* 背景遮罩 */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.25)',
+          zIndex: 199,
+        }}
+      />
+
+      {/* 面板本體 */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 24px',
+        position: 'fixed', right: 0, top: 0,
+        width: 360, height: '100vh',
+        background: T.white,
+        boxShadow: '-4px 0 20px rgba(0,0,0,0.12)',
+        zIndex: 200,
+        display: 'flex', flexDirection: 'column',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
       }}>
-        <ToolbarBtn icon={<IconFilter size={13} />} label="篩選" />
-        <ToolbarDropdown
-          icon={<IconSort size={13} />}
-          label={`排序：${sortMode}`}
-          options={['最新', '最舊']}
-          value={sortMode}
-          onChange={setSortMode}
-        />
-        <ToolbarDropdown
-          icon={<IconGrid size={13} />}
-          label={`密度：${densityMode}`}
-          options={['詳細', '精簡']}
-          value={densityMode}
-          onChange={setDensityMode}
-        />
-        {/* 封存頁面的清除按鈕 */}
-        {activeTab === 'archived' && sorted.length > 0 && (
+        {/* 面板標頭 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '20px 20px 16px 20px',
+          borderBottom: `1px solid ${T.border}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <IconBell size={18} color={T.t2} />
+            <span style={{ fontSize: 16, fontWeight: 700, color: T.t1 }}>管理通知</span>
+          </div>
           <button
-            onClick={clearArchive}
+            onClick={onClose}
             style={{
-              marginLeft: 'auto', background: 'none',
-              border: `1px solid ${T.border}`, borderRadius: 6,
-              padding: '5px 12px', fontSize: 12, color: T.t2,
-              cursor: 'pointer', fontWeight: 500,
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 6, borderRadius: 6, color: T.t3,
             }}
             onMouseEnter={e => e.currentTarget.style.background = T.hoverBg}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
           >
-            清除全部
+            <IconX size={16} />
           </button>
-        )}
-      </div>
+        </div>
 
-      {/* ── 通知主體 ─────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
-
-        {/* AI 摘要卡片（只在 activity tab 顯示）*/}
-        {activeTab === 'activity' && showAISummary && (
-          <AISummaryCard
-            onClose={() => setShowAISummary(false)}
-            notifications={notifications}
-          />
-        )}
-
-        {/* 空狀態 */}
-        {sorted.length === 0 ? (
-          <EmptyState tab={activeTab} />
-        ) : (
+        {/* 面板內容（可捲動）*/}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' }}>
+          {/* 通知類型 */}
           <div style={{
-            background: T.white, borderRadius: 10,
-            border: `1px solid ${T.border}`,
-            overflow: 'hidden',
+            fontSize: 12, fontWeight: 700, color: T.t3,
+            letterSpacing: '0.05em', textTransform: 'uppercase',
+            padding: '16px 0 6px 0',
           }}>
-            {groups.map((group, gi) => (
-              <div key={group.label}>
-                <GroupHeader label={group.label} />
-                {group.items.map((notif, ni) => (
-                  <div key={notif.id}>
-                    <NotificationItem
-                      notif={notif}
-                      isRead={readIds.has(notif.id)}
-                      isBookmarked={bookmarkIds.has(notif.id)}
-                      onRead={toggleRead}
-                      onBookmark={toggleBookmark}
-                      onArchive={toggleArchive}
-                    />
-                    {/* 分隔線（非最後一項）*/}
-                    {ni < group.items.length - 1 && (
-                      <div style={{ height: 1, background: T.border, marginLeft: 60 }} />
-                    )}
-                  </div>
-                ))}
-                {/* 組間分隔 */}
-                {gi < groups.length - 1 && (
-                  <div style={{ height: 1, background: T.border }} />
-                )}
-              </div>
-            ))}
+            通知類型
           </div>
-        )}
+          <SettingRow icon="⊙" label="任務指派"  settingKey="type_assign" />
+          <SettingRow icon="@" label="@提及"      settingKey="type_mention" />
+          <SettingRow icon="💬" label="留言/評論" settingKey="type_comment" />
+          <SettingRow icon="✓" label="任務完成"  settingKey="type_done" />
+          <SettingRow icon="⏰" label="任務到期"  settingKey="type_due" />
 
-        {/* 封存所有按鈕（只在 activity tab 有通知時顯示）*/}
-        {activeTab === 'activity' && sorted.length > 0 && (
+          {/* 電子郵件通知 */}
+          <SectionTitle>電子郵件通知</SectionTitle>
+          <SettingRow icon="📧" label="每日摘要"  settingKey="email_daily" />
+          <SettingRow icon="⚡" label="即時通知"  settingKey="email_instant" />
+
+          {/* App 通知 */}
+          <SectionTitle>App 通知</SectionTitle>
+          <SettingRow icon="🖥" label="桌面推播"  settingKey="app_desktop" />
+          <SettingRow icon="🔔" label="音效提示"  settingKey="app_sound" />
+        </div>
+
+        {/* 儲存按鈕 */}
+        <div style={{
+          padding: '16px 20px',
+          borderTop: `1px solid ${T.border}`,
+          display: 'flex', justifyContent: 'flex-end',
+        }}>
           <button
-            onClick={archiveAll}
+            onClick={handleSave}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: 7, width: '100%', marginTop: 12,
-              background: 'none', border: `1px solid ${T.border}`,
-              borderRadius: 8, padding: '10px 0', fontSize: 13,
-              color: T.t2, cursor: 'pointer', fontWeight: 500,
-              transition: 'all 0.1s',
+              background: saved ? T.toggleOn : T.accent,
+              color: '#fff', border: 'none', borderRadius: 7,
+              padding: '9px 20px', fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', transition: 'background 0.2s',
+              minWidth: 100, textAlign: 'center',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; e.currentTarget.style.color = T.t1; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = T.t2; }}
+            onMouseEnter={e => { if (!saved) e.currentTarget.style.opacity = '0.85'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
           >
-            <IconArchive size={14} color={T.t3} />
-            封存所有通知
+            {saved ? '已儲存 ✓' : '儲存設定'}
           </button>
-        )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1005,6 +1037,490 @@ function ToolbarDropdown({ icon, label, options, value, onChange }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tab 標籤（含 inline 編輯 + × 刪除）────────────────────────
+function TabItem({ tab, isActive, isFixed, unread, onClick, onRename, onDelete }) {
+  const [hovered, setHovered]     = useState(false);
+  const [editing, setEditing]     = useState(false);
+  const [editValue, setEditValue] = useState(tab.label);
+  const inputRef = useRef(null);
+
+  // 進入編輯模式時自動 focus + 選取
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== tab.label) {
+      onRename(tab.id, trimmed);
+    } else {
+      setEditValue(tab.label); // 還原
+    }
+    setEditing(false);
+  };
+
+  const handleDoubleClick = () => {
+    if (!isFixed) {
+      setEditValue(tab.label);
+      setEditing(true);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter')  { commitEdit(); }
+    if (e.key === 'Escape') { setEditValue(tab.label); setEditing(false); }
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 3,
+        position: 'relative',
+        borderBottom: isActive ? `2px solid ${T.accent}` : '2px solid transparent',
+        marginBottom: -2,
+      }}
+    >
+      {/* Tab 主體按鈕 */}
+      <button
+        onClick={onClick}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          background: 'none', border: 'none',
+          padding: editing ? '6px 4px' : '8px 10px',
+          cursor: 'pointer',
+          fontSize: 14, fontWeight: isActive ? 700 : 500,
+          color: isActive ? T.accent : T.t2,
+          display: 'flex', alignItems: 'center', gap: 5,
+          transition: 'color 0.1s', whiteSpace: 'nowrap',
+          outline: 'none',
+        }}
+        onMouseEnter={e => { if (!isActive && !editing) e.currentTarget.style.color = T.t1; }}
+        onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = isActive ? T.accent : T.t2; }}
+      >
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={e => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={handleKeyDown}
+            onClick={e => e.stopPropagation()}
+            style={{
+              border: `1px solid ${T.accent}`, borderRadius: 4,
+              padding: '2px 6px', fontSize: 14, fontWeight: 700,
+              color: T.accent, outline: 'none', background: T.white,
+              width: Math.max(60, editValue.length * 9),
+              minWidth: 60,
+            }}
+          />
+        ) : (
+          tab.label
+        )}
+        {!editing && unread > 0 && (
+          <span style={{
+            background: T.accent, color: '#fff',
+            borderRadius: 10, padding: '1px 6px',
+            fontSize: 11, fontWeight: 700, minWidth: 18, textAlign: 'center',
+          }}>
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {/* × 刪除按鈕（僅自訂 Tab，hover 時顯示）*/}
+      {!isFixed && !editing && hovered && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(tab.id); }}
+          title="刪除此 Tab"
+          style={{
+            background: 'none', border: 'none',
+            padding: '2px 3px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: T.t3, borderRadius: 4,
+            marginRight: 4,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; e.currentTarget.style.color = T.t1; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = T.t3; }}
+        >
+          <IconX size={11} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── 主元件 ────────────────────────────────────────────────────
+export default function InboxPage() {
+  // 通知資料：合併靜態 + localStorage
+  const [notifications, setNotifications] = useState(() => {
+    const ls = loadLocalStorageNotifications();
+    return [...INITIAL_NOTIFICATIONS, ...ls];
+  });
+
+  // 狀態集合（from localStorage）
+  const [readIds,     setReadIds]     = useState(() => loadSet('xcloud-inbox-read'));
+  const [bookmarkIds, setBookmarkIds] = useState(() => loadSet('xcloud-inbox-bookmarked'));
+  const [archiveIds,  setArchiveIds]  = useState(() => loadSet('xcloud-inbox-archived'));
+
+  // UI 狀態
+  const [activeTab,      setActiveTab]      = useState('activity');
+  const [showAISummary,  setShowAISummary]  = useState(() => loadBool('xcloud-inbox-ai-summary', true));
+  const [customTabs,     setCustomTabs]     = useState(() =>
+    loadJSON('xcloud-inbox-custom-tabs', [])
+  );
+  const [sortMode,       setSortMode]       = useState('最新');
+  const [densityMode,    setDensityMode]    = useState('詳細');
+  const [showManagePanel, setShowManagePanel] = useState(false);
+
+  // 新增 Tab popup
+  const [addTabPopupAnchor, setAddTabPopupAnchor] = useState(null); // {top, left, bottom}
+  const addBtnRef = useRef(null);
+
+  // 同步 localStorage
+  useEffect(() => { saveSet('xcloud-inbox-read', readIds); }, [readIds]);
+  useEffect(() => { saveSet('xcloud-inbox-bookmarked', bookmarkIds); }, [bookmarkIds]);
+  useEffect(() => { saveSet('xcloud-inbox-archived', archiveIds); }, [archiveIds]);
+  useEffect(() => { saveBool('xcloud-inbox-ai-summary', showAISummary); }, [showAISummary]);
+  useEffect(() => { saveJSON('xcloud-inbox-custom-tabs', customTabs); }, [customTabs]);
+
+  // 操作：標記已讀（切換）
+  const toggleRead = useCallback((id) => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // 操作：書籤（切換）
+  const toggleBookmark = useCallback((id) => {
+    setBookmarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // 操作：封存（切換）
+  const toggleArchive = useCallback((id) => {
+    setArchiveIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // 操作：封存所有（activity tab 的可見通知）
+  const archiveAll = useCallback(() => {
+    const visible = notifications.filter(n => !archiveIds.has(n.id)).map(n => n.id);
+    setArchiveIds(prev => {
+      const next = new Set(prev);
+      visible.forEach(id => next.add(id));
+      return next;
+    });
+  }, [notifications, archiveIds]);
+
+  // 操作：清除全部封存
+  const clearArchive = useCallback(() => {
+    setArchiveIds(new Set());
+  }, []);
+
+  // 新增自訂 Tab
+  const handleAddTab = useCallback(({ label, filter }) => {
+    const id = `custom-${Date.now()}`;
+    const newTab = { id, label, filter: filter || 'all' };
+    setCustomTabs(prev => [...prev, newTab]);
+    setActiveTab(id);
+  }, []);
+
+  // 重新命名自訂 Tab
+  const handleRenameTab = useCallback((id, newLabel) => {
+    setCustomTabs(prev => prev.map(t => t.id === id ? { ...t, label: newLabel } : t));
+  }, []);
+
+  // 刪除自訂 Tab
+  const handleDeleteTab = useCallback((id) => {
+    setCustomTabs(prev => prev.filter(t => t.id !== id));
+    setActiveTab(prev => prev === id ? 'activity' : prev);
+  }, []);
+
+  // 開啟 [+] popup
+  const openAddTabPopup = useCallback(() => {
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect();
+      setAddTabPopupAnchor({ top: rect.top, left: rect.left, bottom: rect.bottom });
+    } else {
+      setAddTabPopupAnchor({ top: 50, left: 200, bottom: 74 });
+    }
+  }, []);
+
+  // 篩選邏輯（依 activeTab）
+  const getFilteredNotifications = () => {
+    // 固定 tab
+    if (activeTab === 'archived') {
+      return notifications.filter(n => archiveIds.has(n.id));
+    }
+    if (activeTab === 'bookmarked') {
+      return notifications.filter(n => !archiveIds.has(n.id) && bookmarkIds.has(n.id));
+    }
+    if (activeTab === 'mentions') {
+      return notifications.filter(n => !archiveIds.has(n.id) && n.type === 'mention');
+    }
+    if (activeTab === 'activity') {
+      return notifications.filter(n => !archiveIds.has(n.id));
+    }
+    // 自訂 tab
+    const ct = customTabs.find(t => t.id === activeTab);
+    if (ct) {
+      return filterByCustomTab(notifications, ct.filter, archiveIds);
+    }
+    return notifications.filter(n => !archiveIds.has(n.id));
+  };
+
+  const filtered = getFilteredNotifications();
+
+  // 排序
+  const sorted = [...filtered].sort((a, b) => {
+    const ta = new Date(a.time).getTime();
+    const tb = new Date(b.time).getTime();
+    return sortMode === '最新' ? tb - ta : ta - tb;
+  });
+
+  // 分組
+  const groupOrder = ['今天', '本週', '更早'];
+  const grouped = {};
+  sorted.forEach(n => {
+    const g = getGroup(n.time);
+    if (!grouped[g]) grouped[g] = [];
+    grouped[g].push(n);
+  });
+  const groups = [];
+  groupOrder.forEach(g => { if (grouped[g]) groups.push({ label: g, items: grouped[g] }); });
+
+  // 未讀數（各 tab）
+  const tabUnread = (tabId) => {
+    if (tabId === 'archived') return 0;
+    if (tabId === 'bookmarked') {
+      return notifications.filter(n => !archiveIds.has(n.id) && bookmarkIds.has(n.id) && !readIds.has(n.id)).length;
+    }
+    if (tabId === 'mentions') {
+      return notifications.filter(n => !archiveIds.has(n.id) && n.type === 'mention' && !readIds.has(n.id)).length;
+    }
+    if (tabId === 'activity') {
+      return notifications.filter(n => !archiveIds.has(n.id) && !readIds.has(n.id)).length;
+    }
+    // 自訂 tab
+    const ct = customTabs.find(t => t.id === tabId);
+    if (ct) {
+      return filterByCustomTab(notifications, ct.filter, archiveIds)
+        .filter(n => !readIds.has(n.id)).length;
+    }
+    return 0;
+  };
+
+  // 所有 tab（固定 + 自訂）
+  const allTabs = [...FIXED_TABS, ...customTabs];
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      height: '100%', background: T.pageBg,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+      overflow: 'hidden',
+      position: 'relative',
+    }}>
+
+      {/* ── 頁首列 ──────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '18px 24px 0 24px',
+      }}>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.t1 }}>收件匣</h1>
+        <button
+          onClick={() => setShowManagePanel(true)}
+          style={{
+            border: `1px solid ${T.border}`, borderRadius: 7,
+            padding: '6px 14px', fontSize: 13, fontWeight: 500,
+            color: T.t2, background: T.white, cursor: 'pointer',
+            transition: 'all 0.1s',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; }}
+          onMouseLeave={e => { e.currentTarget.style.background = T.white; }}
+        >
+          <IconBell size={14} color={T.t3} />
+          管理通知
+        </button>
+      </div>
+
+      {/* ── Tab 列 ───────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-end',
+        padding: '0 24px', marginTop: 12,
+        borderBottom: `2px solid ${T.border}`,
+        gap: 0, position: 'relative',
+      }}>
+        {allTabs.map(tab => {
+          const isFixed = FIXED_TABS.some(ft => ft.id === tab.id);
+          return (
+            <TabItem
+              key={tab.id}
+              tab={tab}
+              isActive={activeTab === tab.id}
+              isFixed={isFixed}
+              unread={tabUnread(tab.id)}
+              onClick={() => setActiveTab(tab.id)}
+              onRename={handleRenameTab}
+              onDelete={handleDeleteTab}
+            />
+          );
+        })}
+
+        {/* [+] 新增 Tab 按鈕 */}
+        <button
+          ref={addBtnRef}
+          onClick={openAddTabPopup}
+          title="新增 Tab"
+          style={{
+            background: 'none', border: 'none',
+            padding: '8px 10px', cursor: 'pointer',
+            color: T.t3, display: 'flex', alignItems: 'center',
+            marginBottom: -2,
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = T.t1}
+          onMouseLeave={e => e.currentTarget.style.color = T.t3}
+        >
+          <IconPlus size={14} />
+        </button>
+
+        {/* 新增 Tab Popup */}
+        {addTabPopupAnchor && (
+          <AddTabPopup
+            anchor={addTabPopupAnchor}
+            customTabCount={customTabs.length}
+            onAdd={handleAddTab}
+            onClose={() => setAddTabPopupAnchor(null)}
+          />
+        )}
+      </div>
+
+      {/* ── 工具列 ───────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 24px',
+      }}>
+        <ToolbarBtn icon={<IconFilter size={13} />} label="篩選" />
+        <ToolbarDropdown
+          icon={<IconSort size={13} />}
+          label={`排序：${sortMode}`}
+          options={['最新', '最舊']}
+          value={sortMode}
+          onChange={setSortMode}
+        />
+        <ToolbarDropdown
+          icon={<IconGrid size={13} />}
+          label={`密度：${densityMode}`}
+          options={['詳細', '精簡']}
+          value={densityMode}
+          onChange={setDensityMode}
+        />
+        {activeTab === 'archived' && sorted.length > 0 && (
+          <button
+            onClick={clearArchive}
+            style={{
+              marginLeft: 'auto', background: 'none',
+              border: `1px solid ${T.border}`, borderRadius: 6,
+              padding: '5px 12px', fontSize: 12, color: T.t2,
+              cursor: 'pointer', fontWeight: 500,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = T.hoverBg}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+          >
+            清除全部
+          </button>
+        )}
+      </div>
+
+      {/* ── 通知主體 ─────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
+
+        {/* AI 摘要卡片（只在 activity tab 顯示）*/}
+        {activeTab === 'activity' && showAISummary && (
+          <AISummaryCard
+            onClose={() => setShowAISummary(false)}
+            notifications={notifications}
+          />
+        )}
+
+        {/* 空狀態 */}
+        {sorted.length === 0 ? (
+          <EmptyState tab={activeTab} />
+        ) : (
+          <div style={{
+            background: T.white, borderRadius: 10,
+            border: `1px solid ${T.border}`,
+            overflow: 'hidden',
+          }}>
+            {groups.map((group, gi) => (
+              <div key={group.label}>
+                <GroupHeader label={group.label} />
+                {group.items.map((notif, ni) => (
+                  <div key={notif.id}>
+                    <NotificationItem
+                      notif={notif}
+                      isRead={readIds.has(notif.id) || notif.read}
+                      isBookmarked={bookmarkIds.has(notif.id) || notif.bookmarked}
+                      onRead={toggleRead}
+                      onBookmark={toggleBookmark}
+                      onArchive={toggleArchive}
+                    />
+                    {ni < group.items.length - 1 && (
+                      <div style={{ height: 1, background: T.border, marginLeft: 60 }} />
+                    )}
+                  </div>
+                ))}
+                {gi < groups.length - 1 && (
+                  <div style={{ height: 1, background: T.border }} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 封存所有按鈕（只在 activity tab 有通知時顯示）*/}
+        {activeTab === 'activity' && sorted.length > 0 && (
+          <button
+            onClick={archiveAll}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 7, width: '100%', marginTop: 12,
+              background: 'none', border: `1px solid ${T.border}`,
+              borderRadius: 8, padding: '10px 0', fontSize: 13,
+              color: T.t2, cursor: 'pointer', fontWeight: 500,
+              transition: 'all 0.1s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; e.currentTarget.style.color = T.t1; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = T.t2; }}
+          >
+            <IconArchive size={14} color={T.t3} />
+            封存所有通知
+          </button>
+        )}
+      </div>
+
+      {/* ── 管理通知面板 ──────────────────────────────────────── */}
+      {showManagePanel && (
+        <ManageNotificationsPanel onClose={() => setShowManagePanel(false)} />
       )}
     </div>
   );
