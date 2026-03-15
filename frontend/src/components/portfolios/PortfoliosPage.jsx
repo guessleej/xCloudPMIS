@@ -108,10 +108,11 @@ const inputSt   = { width: '100%', boxSizing: 'border-box', border: `1px solid $
 // ── 頭像 ─────────────────────────────────────────────────────
 function Avatar({ name, size = 28 }) {
   const colors = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
-  const idx = name ? name.charCodeAt(0) % colors.length : 0;
+  const nameStr = typeof name === 'string' ? name : (name?.name ?? '');
+  const idx = nameStr ? nameStr.charCodeAt(0) % colors.length : 0;
   return (
     <div style={{ width: size, height: size, borderRadius: '50%', background: colors[idx], color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: '700', flexShrink: 0, userSelect: 'none' }}>
-      {initials(name)}
+      {initials(nameStr)}
     </div>
   );
 }
@@ -257,7 +258,7 @@ function AddPortfolioModal({ projects, onClose, onSave }) {
                     </div>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: colorHex, flexShrink: 0 }} />
                     <span style={{ fontSize: '13.5px', color: C.ink, flex: 1 }}>{p.name}</span>
-                    <span style={{ fontSize: '12px', color: C.ink4 }}>{p.manager?.name || '—'}</span>
+                    <span style={{ fontSize: '12px', color: C.ink4 }}>{p.manager?.name || p.owner?.name || (typeof p.owner === 'string' ? p.owner : '—')}</span>
                   </div>
                 );
               })}
@@ -669,9 +670,9 @@ export default function PortfoliosPage() {
                           {/* 負責人 */}
                           <td style={tdStyle()}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                              <Avatar name={project.manager?.name || project.owner || '—'} size={26} />
+                              <Avatar name={project.manager?.name || project.owner?.name || project.owner || '—'} size={26} />
                               <span style={{ fontSize: '13px', color: C.ink2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {project.manager?.name || project.owner || '—'}
+                                {project.manager?.name || project.owner?.name || (typeof project.owner === 'string' ? project.owner : '—')}
                               </span>
                             </div>
                           </td>
