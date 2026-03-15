@@ -1,7 +1,14 @@
 /**
  * xCloudPMIS 後端主程式
- * Express API 伺服器
+ * 基於 Express 框架的 API 伺服器
  */
+
+// ── 環境變數載入（非 Docker 本機開發用）───────────────────────
+// Docker 環境已透過 docker-compose.yml environment 注入，不需要 dotenv
+// 但本機直接執行 `node src/index.js` 或 `nodemon` 時，需從 .env 載入
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') }); // worktree 根目錄
+require('dotenv').config({ path: path.join(__dirname, '../.env') });    // backend/ 目錄（備用）
 
 const express = require('express');
 const cors = require('cors');
@@ -9,18 +16,31 @@ const { Pool } = require('pg');
 const redis = require('redis');
 
 // ── 路由模組 ─────────────────────────────────────────────────
-const dashboardRouter = require('./routes/dashboard');
+const dashboardRouter     = require('./routes/dashboard');
+const projectsRouter      = require('./routes/projects');
+const ganttRouter         = require('./routes/gantt');
+const timeTrackingRouter  = require('./routes/time-tracking');
+const reportsRouter       = require('./routes/reports');
+const teamRouter          = require('./routes/team');
+const settingsRouter      = require('./routes/settings');
+const aiDecisionsRouter   = require('./routes/aiDecisions');
+const healthRouter        = require('./routes/health');
+const microsoftAuthRouter = require('./routes/auth/microsoft');
+const devTokenRouter      = require('./routes/auth/devToken');
+const adminMcpRouter      = require('./routes/adminMcp');
+const tasksRouter         = require('./routes/tasks');
+const usersRouter         = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ── 中介軟體 (Middleware) 設定 ──────────────────────────────
-// CORS：允許前端（port 3001）呼叫後端 API
+// ── 中介軟體設定 ─────────────────────────────────────────────
+// 跨來源資源共用（CORS）：允許前端（埠 3001）呼叫後端 API
 app.use(cors({
   origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
   credentials: true,
 }));
-// 解析 JSON 格式的 request body
+// 解析 JSON 格式的請求主體
 app.use(express.json());
 
 // ── PostgreSQL 連線池設定 ───────────────────────────────────
@@ -111,67 +131,55 @@ app.get('/api/status', async (req, res) => {
   res.status(allOk ? 200 : 503).json(result);
 });
 
-/**
- * GET /api/projects
- * 取得所有專案（示範 API，之後會加入認證）
- */
-app.get('/api/projects', async (req, res) => {
-  try {
-    // 先從 Redis 快取查詢
-    const cached = await redisClient.get('projects:all').catch(() => null);
-    if (cached) {
-      return res.json({
-        source: 'cache',
-        data: JSON.parse(cached),
-      });
-    }
-
-    // 從資料庫查詢
-    const result = await pool.query(
-      'SELECT * FROM projects ORDER BY created_at DESC'
-    );
-
-    // 將結果存入快取（60 秒後過期）
-    await redisClient.set('projects:all', JSON.stringify(result.rows), { EX: 60 })
-      .catch(() => {});  // 快取失敗不影響主流程
-
-    res.json({
-      source: 'database',
-      data: result.rows,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/projects
- * 建立新專案（示範）
- */
-app.post('/api/projects', async (req, res) => {
-  const { name, description } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: '專案名稱為必填欄位' });
-  }
-
-  try {
-    const result = await pool.query(
-      'INSERT INTO projects (name, description) VALUES ($1, $2) RETURNING *',
-      [name, description || '']
-    );
-
-    // 清除快取（因為資料已更新）
-    await redisClient.del('projects:all').catch(() => {});
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ── 儀表板路由 ──────────────────────────────────────────────
 app.use('/api/dashboard', dashboardRouter);
+
+// ── 專案路由（含任務） ──────────────────────────────────────
+app.use('/api/projects', projectsRouter);
+
+// ── 甘特圖路由 ──────────────────────────────────────────────
+app.use('/api/gantt', ganttRouter);
+
+// ── 工時記錄路由 ─────────────────────────────────────────────
+app.use('/api/time-tracking', timeTrackingRouter);
+
+// ── 報表匯出路由 ─────────────────────────────────────────────
+app.use('/api/reports', reportsRouter);
+
+// ── 團隊管理路由 ─────────────────────────────────────────────
+app.use('/api/team', teamRouter);
+
+// ── 系統設定路由 ─────────────────────────────────────────────
+app.use('/api/settings', settingsRouter);
+
+// ── AI 決策中心路由（Human-in-the-Loop 控制台）───────────────
+app.use('/api/ai', aiDecisionsRouter);
+
+// ── 健康檢查路由（Email / Graph API 連線狀態）────────────────
+app.use('/api/health', healthRouter);
+
+// ── MCP 統一控制台 Admin API ─────────────────────────────────
+// status / sessions / tools / logs / api-keys
+app.use('/api/admin/mcp', adminMcpRouter);
+
+// ── Microsoft OAuth 2.0 Delegated 授權路由 ───────────────────
+// GET    /auth/microsoft            → 發起 OAuth 流程
+// GET    /auth/microsoft/callback   → OAuth 回呼（交換 Token）
+// GET    /auth/microsoft/status     → 查詢連線狀態
+// DELETE /auth/microsoft/revoke     → 撤銷授權
+app.use('/auth/microsoft', microsoftAuthRouter);
+
+// ── 開發用 JWT 產生端點（正式環境請勿使用）────────────────────
+// GET /api/auth/dev-token → 回傳模擬使用者 JWT，供前端呼叫 requireAuth API
+app.use('/api/auth/dev-token', devTokenRouter);
+
+// ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
+// GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
+app.use('/api/tasks', tasksRouter);
+
+// ── 使用者列表路由（ProjectsPage 指派人選單用）───────────────
+// GET /api/users?companyId=2 → 回傳 {success, data, meta} 格式
+app.use('/api/users', usersRouter);
 
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {
@@ -190,6 +198,16 @@ app.use((err, req, res, next) => {
 
 // ── 啟動伺服器 ──────────────────────────────────────────────
 app.listen(PORT, () => {
+  // 服務啟動後，恢復被中斷的 AI 決策執行（防止 nodemon/崩潰導致卡在 approved/executing 狀態）
+  try {
+    const SafetyGuard = require('./services/autonomous-agent/decisionEngine/safetyGuard');
+    SafetyGuard.recoverInterruptedDecisions().catch(err =>
+      console.error('[Startup] SafetyGuard 恢復任務失敗:', err.message)
+    );
+  } catch (err) {
+    console.error('[Startup] 無法載入 SafetyGuard:', err.message);
+  }
+
   console.log('');
   console.log('╔════════════════════════════════════╗');
   console.log('║   xCloudPMIS 後端服務已啟動         ║');
@@ -205,5 +223,28 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/projects-health`);
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/workload`);
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/actionable-insights`);
+  console.log(`  GET  http://localhost:${PORT}/api/gantt`);
+  console.log(`  GET  http://localhost:${PORT}/api/time-tracking`);
+  console.log(`  GET  http://localhost:${PORT}/api/time-tracking/tasks`);
+  console.log(`  POST http://localhost:${PORT}/api/time-tracking/start`);
+  console.log(`  POST http://localhost:${PORT}/api/time-tracking`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/projects`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/tasks`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/timelog`);
+  console.log(`  GET  http://localhost:${PORT}/api/reports/milestones`);
+  console.log(`  GET  http://localhost:${PORT}/api/team`);
+  console.log(`  GET  http://localhost:${PORT}/api/team/:id`);
+  console.log(`  POST http://localhost:${PORT}/api/team`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/company`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/profile`);
+  console.log(`  GET  http://localhost:${PORT}/api/settings/system`);
+  console.log(`  GET  http://localhost:${PORT}/api/tasks`);
+  console.log(`  GET  http://localhost:${PORT}/api/users`);
+  console.log('');
+  console.log('🔐 Microsoft OAuth 端點：');
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft/callback (OAuth 回呼)`);
+  console.log(`  GET    http://localhost:${PORT}/auth/microsoft/status   (連線狀態)`);
+  console.log(`  DELETE http://localhost:${PORT}/auth/microsoft/revoke   (撤銷授權)`);
   console.log('');
 });

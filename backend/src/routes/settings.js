@@ -59,16 +59,16 @@ router.get('/company', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // PATCH /api/settings/company/:id
-// 更新公司名稱
-// Body: { name }
+// 更新公司名稱與識別代碼
+// Body: { name?, slug? }
 // ════════════════════════════════════════════════════════════
 router.patch('/company/:id', async (req, res) => {
   try {
-    const id   = parseInt(req.params.id);
-    const { name } = req.body;
+    const id         = parseInt(req.params.id);
+    const { name, slug } = req.body;
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: '公司名稱不能為空' });
+    if (!name?.trim() && !slug?.trim()) {
+      return res.status(400).json({ error: '請至少提供 name 或 slug' });
     }
 
     const company = await prisma.company.findUnique({ where: { id } });
@@ -76,18 +76,41 @@ router.patch('/company/:id', async (req, res) => {
       return res.status(404).json({ error: `找不到公司 #${id}` });
     }
 
+    // Slug 格式驗證：只允許英數字與連字號，3~50 字元
+    if (slug !== undefined) {
+      const slugTrimmed = slug.trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/.test(slugTrimmed)) {
+        return res.status(400).json({ error: 'Slug 格式錯誤：只允許英文小寫、數字與連字號（-），長度 3~50 字元，且不可以連字號開頭或結尾' });
+      }
+      // 唯一性檢查
+      const conflict = await prisma.company.findFirst({
+        where: { slug: slugTrimmed, NOT: { id } },
+      });
+      if (conflict) {
+        return res.status(409).json({ error: `識別代碼「${slugTrimmed}」已被使用，請選擇其他名稱` });
+      }
+    }
+
+    const data = {};
+    if (name?.trim())  data.name = name.trim();
+    if (slug !== undefined) data.slug = slug.trim().toLowerCase();
+
     const updated = await prisma.company.update({
       where: { id },
-      data:  { name: name.trim() },
+      data,
       select: { id: true, name: true, slug: true, updatedAt: true },
     });
 
+    const parts = [];
+    if (data.name) parts.push(`公司名稱「${data.name}」`);
+    if (data.slug) parts.push(`識別代碼「${data.slug}」`);
+
     res.json({
-      company:  { ...updated, updatedAt: updated.updatedAt.toISOString() },
-      message:  `公司名稱已更新為「${updated.name}」`,
+      company: { ...updated, updatedAt: updated.updatedAt.toISOString() },
+      message: `已更新：${parts.join('、')}`,
     });
   } catch (err) {
-    console.error('❌ 更新公司名稱失敗:', err);
+    console.error('❌ 更新公司設定失敗:', err);
     res.status(500).json({ error: '伺服器錯誤', details: err.message });
   }
 });

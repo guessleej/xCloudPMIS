@@ -5,15 +5,19 @@
  * Human-in-the-Loop 執行守衛
  *
  * 功能：
- *   - approveAction(id, userId)        — 批准 Staging 決策並觸發執行
- *   - rejectAction(id, userId, note)   — 拒絕決策並記錄原因
- *   - rollback(id, userId)             — 回滾已完成決策至快照狀態
- *   - executeDecision(id)              — 直接執行（L1 自動觸發 / 批准後呼叫）
+ *   - approveAction(id, userId)              — 批准 Staging 決策並觸發執行
+ *   - rejectAction(id, userId, note)         — 拒絕決策並記錄原因
+ *   - rollback(id, userId)                   — 回滾已完成決策至快照狀態
+ *   - executeDecision(id)                    — 直接執行（L1 自動觸發 / 批准後呼叫）
+ *   - recoverInterruptedDecisions()          — 啟動時恢復被中斷的決策
  *
  * 決策狀態流程：
  *   pending → staging → approved → executing → completed
  *                   ↘ rejected
  *   completed → rolled_back
+ *
+ * 中斷恢復：
+ *   服務重啟時，狀態為 approved/executing 的決策會自動重新執行
  */
 
 const { PrismaClient } = require('@prisma/client');
@@ -125,7 +129,8 @@ async function executeDecision(decisionId) {
   if (!decision) {
     throw new Error(`找不到決策 #${decisionId}`);
   }
-  if (!['approved', 'pending'].includes(decision.status)) {
+  // 允許 approved / pending / executing（executing 為服務重啟後的恢復情境）
+  if (!['approved', 'pending', 'executing'].includes(decision.status)) {
     console.warn(`[SafetyGuard] 決策 #${decisionId} 狀態為 ${decision.status}，跳過執行`);
     return;
   }
@@ -294,4 +299,48 @@ async function _logAction(decisionId, toolName, toolInput, toolOutput, success, 
   }
 }
 
-module.exports = { approveAction, rejectAction, rollback, executeDecision };
+// ════════════════════════════════════════════════════════════
+// 啟動恢復：重新執行被服務重啟中斷的決策
+// ════════════════════════════════════════════════════════════
+
+/**
+ * 服務啟動時呼叫，恢復狀態為 approved/executing 的決策
+ * 情境：服務在 setImmediate 執行前被 nodemon / 異常重啟
+ */
+async function recoverInterruptedDecisions() {
+  try {
+    const stuck = await prisma.aiDecision.findMany({
+      where:  { status: { in: ['approved', 'executing'] } },
+      select: { id: true, status: true, plan: true },
+    });
+
+    if (stuck.length === 0) return;
+
+    console.log(`[SafetyGuard] 🔄 偵測到 ${stuck.length} 個被中斷的決策，開始恢復...`);
+
+    for (const d of stuck) {
+      // 略過沒有 plan.actions 的決策（可能是異常資料）
+      const plan    = (d.plan && typeof d.plan === 'object') ? d.plan : {};
+      const actions = Array.isArray(plan.actions) ? plan.actions : [];
+      if (actions.length === 0) {
+        console.warn(`[SafetyGuard] 決策 #${d.id} 無可執行動作，跳過恢復`);
+        await prisma.aiDecision.update({
+          where: { id: d.id },
+          data:  { status: 'failed', reflection: '恢復執行時發現無動作資料，已標記為失敗。' },
+        });
+        continue;
+      }
+
+      console.log(`[SafetyGuard] 恢復執行決策 #${d.id}（原狀態：${d.status}）`);
+      setImmediate(() =>
+        executeDecision(d.id).catch(err =>
+          console.error(`[SafetyGuard] 恢復決策 #${d.id} 失敗:`, err.message)
+        )
+      );
+    }
+  } catch (err) {
+    console.error('[SafetyGuard] recoverInterruptedDecisions 失敗:', err.message);
+  }
+}
+
+module.exports = { approveAction, rejectAction, rollback, executeDecision, recoverInterruptedDecisions };

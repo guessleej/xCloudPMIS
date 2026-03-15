@@ -23,7 +23,7 @@ const fail = (res, message, status = 500) =>
   res.status(status).json({ success: false, error: message });
 
 // ────────────────────────────────────────────────────────────
-// 取得 companyId（暫時從 query 參數取，之後換成 JWT）
+// 取得 companyId（暫時從查詢參數取，之後換成身分驗證令牌）
 // 例：GET /api/dashboard/... ?companyId=2
 // ────────────────────────────────────────────────────────────
 const getCompanyId = (req) => {
@@ -64,7 +64,7 @@ router.get('/executive-summary', async (req, res) => {
     `;
 
     // Prisma $queryRaw 回傳的數字是 BigInt 或 Decimal，需要轉換
-    // 這個函數把所有 BigInt 和 Decimal 轉成 JS 的 Number
+    // 這個函數把所有 BigInt 和 Decimal 轉成 JavaScript 的數值型別
     const normalize = (obj) =>
       Object.fromEntries(
         Object.entries(obj).map(([k, v]) => [
@@ -88,7 +88,7 @@ router.get('/executive-summary', async (req, res) => {
 // GET /api/dashboard/projects-health
 //
 // 各專案健康狀態：給圓餅圖點擊後的詳細列表用
-// 支援 ?status=red|yellow|green 篩選
+// 支援 ?status=red（紅）|yellow（黃）|green（綠）篩選
 // ════════════════════════════════════════════════════════════
 router.get('/projects-health', async (req, res) => {
   try {
@@ -134,7 +134,7 @@ router.get('/projects-health', async (req, res) => {
         days_to_deadline ASC NULLS LAST
     `;
 
-    // 轉換 BigInt / Decimal
+    // 轉換大整數（BigInt）和小數（Decimal）型別
     const projects = rows.map(row =>
       Object.fromEntries(
         Object.entries(row).map(([k, v]) => [
@@ -160,8 +160,8 @@ router.get('/projects-health', async (req, res) => {
 // GET /api/dashboard/workload
 //
 // 未來 14 天人力負載熱力圖資料
-// 回傳格式：{ dates: [...], users: [...], matrix: [[...]] }
-// 前端用這個繪製熱力圖
+// 回傳格式：{ dates（日期列表）: [...], users（成員列表）: [...], matrix（負載矩陣）: [[...]] }
+// 前端用此資料繪製熱力圖
 // ════════════════════════════════════════════════════════════
 router.get('/workload', async (req, res) => {
   try {
@@ -226,10 +226,10 @@ router.get('/workload', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 // GET /api/dashboard/actionable-insights
 //
-// 本週優先行動建議（主管仪表板最重要的功能）
+// 本週優先行動建議（主管儀表板最重要的功能）
 //
-// 什麼是 Actionable Insights？
-//   不是單純的資料，而是「建議」：
+// 什麼是即時行動建議？
+//   不是單純的資料，而是具體「建議」：
 //   「A 專案已逾期 3 天，建議安排緊急會議」
 //   「B 成員本週工時預估超載，建議重新分配」
 //   「C 里程碑將在 3 天後到期，目前進度僅 60%」
