@@ -712,9 +712,12 @@ export default function AiDecisionCenter() {
             🔄
           </button>
           <button
-            onClick={() => setSettingsOpen(true)}
-            style={{ ...s.btn.secondary }}
-            title="AI 模型設定"
+            onClick={() => setSettingsOpen(v => !v)}
+            style={{
+              ...s.btn.secondary,
+              ...(settingsOpen ? { border: '1px solid #4F8EF7', color: '#4F8EF7' } : {}),
+            }}
+            title={settingsOpen ? '收起設定' : 'AI 模型設定'}
           >
             ⚙️
           </button>
