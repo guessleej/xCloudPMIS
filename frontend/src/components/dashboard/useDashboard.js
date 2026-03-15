@@ -1,7 +1,7 @@
 /**
- * useDashboard — 儀表板資料抓取 Hook
+ * useDashboard — 儀表板資料抓取自訂鉤子
  *
- * 什麼是 Custom Hook？
+ * 什麼是自訂鉤子？
  *   把「抓資料、管狀態」的邏輯抽出來，
  *   讓 UI 元件只負責「顯示」，更清楚、更好維護。
  */
@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3010';
-const COMPANY_ID = 2; // 之後改成從 JWT 取得
+const COMPANY_ID = 2; // 之後改成從身分驗證令牌取得
 
 /**
  * 從 API 抓資料的通用函數
@@ -24,8 +24,8 @@ async function fetchDashboard(path) {
 }
 
 /**
- * useDashboard Hook
- * 回傳：{ summary, projects, workload, insights, loading, error, refresh }
+ * useDashboard 自訂鉤子
+ * 回傳：{ summary（摘要）, projects（專案列表）, workload（工作負載）, insights（行動建議）, loading（載入中）, error（錯誤）, refresh（重新整理） }
  */
 export function useDashboard() {
   const [summary,   setSummary]   = useState(null);

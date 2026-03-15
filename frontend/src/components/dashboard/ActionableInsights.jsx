@@ -35,7 +35,7 @@ function InsightCard({ insight }) {
         </div>
         <button
           onClick={() => {
-            // 之後換成 react-router 的 navigate()
+            // 之後換成頁面路由的跳轉功能
             alert(`導向：${insight.actionUrl}`);
           }}
           style={{
