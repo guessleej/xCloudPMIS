@@ -22,8 +22,9 @@ import TimeTrackingPage   from '../timetracking/TimeTrackingPage';
 import ReportsPage        from '../reports/ReportsPage';
 import TeamPage           from '../team/TeamPage';
 import SettingsPage       from '../settings/SettingsPage';
-import AiDecisionCenter   from '../ai/AiDecisionCenter';
-import McpConsolePage     from '../mcp/McpConsolePage';
+import AiDecisionCenter      from '../ai/AiDecisionCenter';
+import McpConsolePage        from '../mcp/McpConsolePage';
+import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
 
 // ── Design Tokens — xCloud Brand ────────────────────────────
 const T = {
@@ -120,6 +121,17 @@ const Icon = {
       <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
     </svg>
   ),
+  workflow: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="6" height="5" rx="1.5"/>
+      <rect x="16" y="3" width="6" height="5" rx="1.5"/>
+      <line x1="8" y1="5.5" x2="16" y2="5.5"/>
+      <polyline points="14,3.5 16,5.5 14,7.5"/>
+      <rect x="9" y="16" width="6" height="5" rx="1.5"/>
+      <line x1="12" y1="8" x2="12" y2="16"/>
+      <polyline points="10,14 12,16 14,14"/>
+    </svg>
+  ),
   dots: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
@@ -156,6 +168,7 @@ const NAV_GROUPS = [
       { id: 'projects',  icon: Icon.projects,  label: '專案管理' },
       { id: 'tasks',     icon: Icon.tasks,      label: '任務看板' },
       { id: 'gantt',     icon: Icon.gantt,      label: '甘特圖' },
+      { id: 'workflow',  icon: Icon.workflow,   label: '工作流程圖' },
     ],
   },
   {
@@ -182,6 +195,7 @@ const PAGE_TITLES = {
   projects:      { title: '專案管理',    sub: '管理所有進行中的專案' },
   tasks:         { title: '任務看板',    sub: 'Kanban 任務追蹤' },
   gantt:         { title: '甘特圖',      sub: '時程規劃與里程碑' },
+  workflow:      { title: '工作流程圖',  sub: 'Asana 式泳道流程 · 橢圓／矩形／菱形符號' },
   time:          { title: '工時記錄',    sub: '人員工時統計' },
   reports:       { title: '報表匯出',    sub: '資料分析與匯出' },
   team:          { title: '團隊管理',    sub: '成員與角色設定' },
@@ -662,6 +676,7 @@ export default function Dashboard() {
     if (activeNav === 'projects')    return <ProjectsPage />;
     if (activeNav === 'tasks')       return <TaskKanbanPage />;
     if (activeNav === 'gantt')       return <GanttPage />;
+    if (activeNav === 'workflow')    return <WorkflowDiagramPage />;
     if (activeNav === 'time')        return <TimeTrackingPage />;
     if (activeNav === 'reports')     return <ReportsPage />;
     if (activeNav === 'team')        return <TeamPage />;
