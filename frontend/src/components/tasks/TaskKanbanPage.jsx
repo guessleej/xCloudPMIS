@@ -22,8 +22,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import RealtimeEditor from '../RealtimeEditor';
 
 // ── 常數 ─────────────────────────────────────────────────────
-const API      = 'http://localhost:3010/api/projects';
-const TEAM_API = 'http://localhost:3010/api/team?companyId=2';
+const API      = '/api/projects';
+const TEAM_API = '/api/team?companyId=2';
 
 const CURRENT_USER = { id: 0, name: '我', color: '#4f46e5' };
 

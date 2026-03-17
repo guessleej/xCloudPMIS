@@ -16,10 +16,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數設定 ─────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API_BASE   = '';
 const CURRENT_USER_ID = 4; // 目前登入使用者（模擬：陳志明，ID=4）
 
 // ── 工具函式 ─────────────────────────────────────────────────
@@ -1036,6 +1036,9 @@ function DateGroup({ date, entries, onEditRequest, onDeleteRequest }) {
 // 主元件：TimeTrackingPage
 // ════════════════════════════════════════════════════════════
 export default function TimeTrackingPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   // ── 狀態 ─────────────────────────────────────────────────
   const [entries,          setEntries]          = useState([]);
   const [summary,          setSummary]          = useState(null);

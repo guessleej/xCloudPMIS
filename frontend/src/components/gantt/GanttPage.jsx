@@ -28,7 +28,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 
 // ── 常數設定 ────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010/api';
+const API_BASE   = '/api';
 const LEFT_COL   = 240;  // 左側凍結欄寬度（px）
 const ROW_H      = 44;   // 每列高度（px）
 const HEADER_H   = 48;   // 月份標頭高度（px）

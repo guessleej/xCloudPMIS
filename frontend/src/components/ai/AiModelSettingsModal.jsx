@@ -90,7 +90,7 @@ const PROVIDERS = [
 ];
 
 // ── API 呼叫輔助 ────────────────────────────────────────────
-const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:3010';
+const API_BASE = import.meta.env?.VITE_API_URL || '';
 
 async function fetchAiSettings(companyId) {
   const res = await fetch(`${API_BASE}/api/settings/ai?companyId=${companyId}`);

@@ -30,6 +30,9 @@ const devTokenRouter      = require('./routes/auth/devToken');
 const adminMcpRouter      = require('./routes/adminMcp');
 const tasksRouter         = require('./routes/tasks');
 const usersRouter         = require('./routes/users');
+const notificationsRouter = require('./routes/notifications');
+const authRouter          = require('./routes/auth/login');
+const optionalAuth        = require('./middleware/optionalAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,11 +40,15 @@ const PORT = process.env.PORT || 3000;
 // ── 中介軟體設定 ─────────────────────────────────────────────
 // 跨來源資源共用（CORS）：允許前端（埠 3001）呼叫後端 API
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+  origin: ['http://localhost:3001', 'http://127.0.0.1:3001',
+           'http://host.docker.internal:3001'],
   credentials: true,
 }));
 // 解析 JSON 格式的請求主體
 app.use(express.json());
+// Optional JWT 解析：有 Token 時注入 req.user，無 Token 繼續執行
+// 讓所有路由都可用 req.user?.companyId 取得登入者的公司 ID
+app.use(optionalAuth);
 
 // ── PostgreSQL 連線池設定 ───────────────────────────────────
 // 使用「連線池」而不是單一連線，可以同時處理多個請求
@@ -181,6 +188,21 @@ app.use('/api/tasks', tasksRouter);
 // GET /api/users?companyId=2 → 回傳 {success, data, meta} 格式
 app.use('/api/users', usersRouter);
 
+// ── 通知路由 ──────────────────────────────────────────────────
+// GET    /api/notifications              → 通知列表（含篩選、分頁）
+// GET    /api/notifications/unread-count → 未讀數量
+// PATCH  /api/notifications/:id/read    → 標記已讀
+// PATCH  /api/notifications/read-all   → 全部已讀
+// POST   /api/notifications             → 建立通知（系統/測試用）
+// DELETE /api/notifications/:id         → 刪除通知
+app.use('/api/notifications', notificationsRouter);
+
+// ── 身分驗證路由 ─────────────────────────────────────────────
+// POST /api/auth/login  → Email/密碼登入，回傳 JWT
+// GET  /api/auth/me     → 驗證 token 並回傳當前使用者資訊
+// POST /api/auth/logout → 登出（前端清除 token）
+app.use('/api/auth', authRouter);
+
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
@@ -240,6 +262,13 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/settings/system`);
   console.log(`  GET  http://localhost:${PORT}/api/tasks`);
   console.log(`  GET  http://localhost:${PORT}/api/users`);
+  console.log(`  GET  http://localhost:${PORT}/api/notifications`);
+  console.log(`  GET  http://localhost:${PORT}/api/notifications/unread-count`);
+  console.log('');
+  console.log('🔑 身分驗證端點：');
+  console.log(`  POST http://localhost:${PORT}/api/auth/login   (Email/密碼登入)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/me      (驗證 Token)`);
+  console.log(`  POST http://localhost:${PORT}/api/auth/logout  (登出)`);
   console.log('');
   console.log('🔐 Microsoft OAuth 端點：');
   console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);

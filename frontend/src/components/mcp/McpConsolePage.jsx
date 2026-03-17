@@ -18,7 +18,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 
-const API = 'http://localhost:3010';
+const API = '';
 
 // ════════════════════════════════════════════════════════════
 // 常數 / 主題

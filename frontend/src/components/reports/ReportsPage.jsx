@@ -24,10 +24,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ─────────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API_BASE   = '';
 const PAGE_SIZE  = 15; // 每頁顯示筆數
 
 // ── 報表類型定義 ──────────────────────────────────────────────
@@ -1125,6 +1125,9 @@ const filterInputStyle = {
 // 主元件：ReportsPage
 // ════════════════════════════════════════════════════════════
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [activeType,  setActiveType]  = useState('projects');
   const [reportData,  setReportData]  = useState(null);
   const [loading,     setLoading]     = useState(false);

@@ -11,9 +11,9 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const API = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API = '';
 const LS_KEY = 'xcloud-forms';
 
 // ── Design Tokens ───────────────────────────────────────────
@@ -1049,6 +1049,9 @@ const settingsHeadingStyle = {
 // Main FormsPage
 // ═══════════════════════════════════════════════════════════════
 export default function FormsPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [forms, setForms] = useState([]);
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);

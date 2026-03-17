@@ -19,9 +19,9 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const API_BASE   = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API_BASE   = '';
 
 // ── 流程階段定義 ─────────────────────────────────────────────
 const STAGES = [
@@ -383,6 +383,9 @@ function SwimLaneRow({ project, tasksByStage, isLast }) {
 // 主元件：WorkflowDiagramPage
 // ════════════════════════════════════════════════════════════
 export default function WorkflowDiagramPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [projects,       setProjects]       = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState(null);

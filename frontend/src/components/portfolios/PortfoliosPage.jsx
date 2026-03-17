@@ -12,9 +12,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const API = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API = '';
 const LS_PORTFOLIOS = 'xcloud-portfolios';
 const LS_CUSTOM_FIELDS = 'xcloud-custom-fields';
 
@@ -393,6 +393,9 @@ function ColumnManager({ visible, onChange, onClose }) {
 // 主頁面
 // ══════════════════════════════════════════════════════════════
 export default function PortfoliosPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [projects, setProjects]         = useState([]);
   const [portfolios, setPortfolios]     = useState([]);
   const [selectedPf, setSelectedPf]     = useState('all'); // 'all' or portfolio id

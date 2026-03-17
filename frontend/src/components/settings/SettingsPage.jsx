@@ -9,11 +9,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ──────────────────────────────────────────────────────
-const API_BASE        = 'http://localhost:3010';
-const COMPANY_ID      = 2;
-const CURRENT_USER_ID = 4;   // 模擬登入使用者：陳志明（admin）
+// API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
+const API_BASE = '';
+// COMPANY_ID 與 CURRENT_USER_ID 已改由 useAuth() 動態取得
 
 // ── 分頁定義 ─────────────────────────────────────────────────
 const TABS = [
@@ -202,6 +203,9 @@ function StatusBadge({ status }) {
 // Tab 1：公司資訊
 // ════════════════════════════════════════════════════════════
 function CompanyTab() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   const [company,  setCompany]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [editing,  setEditing]  = useState(false);
@@ -213,9 +217,10 @@ function CompanyTab() {
 
   // 取得公司資訊
   const fetchCompany = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/company?companyId=${COMPANY_ID}`);
+      const res  = await fetch(`${API_BASE}/api/settings/company?companyId=${companyId}`);
       const data = await res.json();
       setCompany(data.company);
       setNewName(data.company.name);
@@ -419,13 +424,23 @@ function CompanyTab() {
 // ════════════════════════════════════════════════════════════
 // Tab 2：個人資料
 // ════════════════════════════════════════════════════════════
-function ProfileTab() {
+function ProfileTab({ onGoToCompany }) {
+  const { user, updateUser, logout } = useAuth();
+  const userId = user?.id;
+
   const [profile,  setProfile]  = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [banner,   setBanner]   = useState({ type: '', message: '' });
 
-  // 基本資料表單
-  const [infoForm, setInfoForm] = useState({ name: '', email: '' });
+  // 基本資料表單（含部門、電話、職稱、加入日期）
+  const [infoForm, setInfoForm] = useState({
+    name:       '',
+    email:      '',
+    department: '',
+    phone:      '',
+    jobTitle:   '',
+    joinedAt:   '',
+  });
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoErrors, setInfoErrors] = useState({});
 
@@ -440,18 +455,26 @@ function ProfileTab() {
   const [showPwd,    setShowPwd]    = useState(false);
 
   const fetchProfile = useCallback(async () => {
+    if (!userId) return;
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile?userId=${CURRENT_USER_ID}`);
+      const res  = await fetch(`${API_BASE}/api/settings/profile?userId=${userId}`);
       const data = await res.json();
       setProfile(data.profile);
-      setInfoForm({ name: data.profile.name, email: data.profile.email });
+      setInfoForm({
+        name:       data.profile.name       || '',
+        email:      data.profile.email      || '',
+        department: data.profile.department || '',
+        phone:      data.profile.phone      || '',
+        jobTitle:   data.profile.jobTitle   || '',
+        joinedAt:   data.profile.joinedAt   || '',
+      });
     } catch {
       setBanner({ type: 'error', message: '無法載入個人資料' });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -464,14 +487,30 @@ function ProfileTab() {
     setInfoErrors({});
     setInfoSaving(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile/${CURRENT_USER_ID}`, {
+      const res  = await fetch(`${API_BASE}/api/settings/profile/${userId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name: infoForm.name, email: infoForm.email }),
+        body:    JSON.stringify({
+          name:       infoForm.name,
+          email:      infoForm.email,
+          department: infoForm.department,
+          phone:      infoForm.phone,
+          jobTitle:   infoForm.jobTitle,
+          joinedAt:   infoForm.joinedAt || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '更新失敗');
-      setProfile({ ...profile, name: data.profile.name, email: data.profile.email });
+      setProfile(p => ({ ...p, ...data.profile }));
+      // 同步更新 AuthContext 中的使用者資訊
+      updateUser({
+        name:       data.profile.name,
+        email:      data.profile.email,
+        department: data.profile.department,
+        phone:      data.profile.phone,
+        jobTitle:   data.profile.jobTitle,
+        joinedAt:   data.profile.joinedAt,
+      });
       setBanner({ type: 'success', message: data.message });
     } catch (err) {
       setBanner({ type: 'error', message: err.message });
@@ -491,7 +530,7 @@ function ProfileTab() {
     setPwdErrors({});
     setPwdSaving(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile/${CURRENT_USER_ID}`, {
+      const res  = await fetch(`${API_BASE}/api/settings/profile/${userId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -589,6 +628,84 @@ function ProfileTab() {
               value={infoForm.email}
               onChange={e => setInfoForm({ ...infoForm, email: e.target.value })}
               placeholder="請輸入 Email"
+            />
+          </Field>
+          {/* 所屬公司：唯讀資訊卡，公司名稱在「公司資訊」分頁管理 */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{
+              display: 'block', fontSize: 13, fontWeight: 500,
+              color: '#374151', marginBottom: 6,
+            }}>
+              所屬公司
+            </label>
+            <div style={{
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent: 'space-between',
+              padding:      '10px 14px',
+              background:   '#F8FAFC',
+              border:       '1.5px solid #E2E8F0',
+              borderRadius: 10,
+              gap:          12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🏢</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                  {profile?.company?.name || user?.company?.name || '—'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onGoToCompany}
+                style={{
+                  background:   '#EFF6FF',
+                  color:        '#2563EB',
+                  border:       '1px solid #BFDBFE',
+                  borderRadius: 7,
+                  padding:      '5px 12px',
+                  fontSize:     12,
+                  fontWeight:   600,
+                  cursor:       'pointer',
+                  whiteSpace:   'nowrap',
+                  flexShrink:   0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#DBEAFE'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; }}
+              >
+                修改公司名稱 →
+              </button>
+            </div>
+            <p style={{ margin: '5px 0 0', fontSize: 12, color: '#9CA3AF' }}>
+              公司名稱由組織統一管理，請至「🏢 公司資訊」分頁修改
+            </p>
+          </div>
+
+          <Field label="部門">
+            <Input
+              value={infoForm.department}
+              onChange={e => setInfoForm({ ...infoForm, department: e.target.value })}
+              placeholder="例：資訊技術部"
+            />
+          </Field>
+          <Field label="職稱">
+            <Input
+              value={infoForm.jobTitle}
+              onChange={e => setInfoForm({ ...infoForm, jobTitle: e.target.value })}
+              placeholder="例：系統管理員"
+            />
+          </Field>
+          <Field label="聯絡電話">
+            <Input
+              value={infoForm.phone}
+              onChange={e => setInfoForm({ ...infoForm, phone: e.target.value })}
+              placeholder="例：+886 912-345-678"
+            />
+          </Field>
+          <Field label="加入日期" hint="格式：YYYY-MM-DD">
+            <Input
+              type="date"
+              value={infoForm.joinedAt}
+              onChange={e => setInfoForm({ ...infoForm, joinedAt: e.target.value })}
             />
           </Field>
           <Field label="角色" hint="角色由管理員設定，無法自行修改">
@@ -697,6 +814,38 @@ function ProfileTab() {
           </p>
         )}
       </Card>
+
+      {/* 登出 */}
+      <Card title="帳號操作">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4 }}>
+              登出系統
+            </div>
+            <div style={{ fontSize: 13, color: '#6b7280' }}>
+              登出後需重新輸入帳號密碼才能使用系統
+            </div>
+          </div>
+          <button
+            onClick={() => { if (window.confirm('確定要登出嗎？')) logout(); }}
+            style={{
+              padding:      '9px 20px',
+              background:   '#fef2f2',
+              color:        '#dc2626',
+              border:       '1px solid #fca5a5',
+              borderRadius: 8,
+              fontSize:     14,
+              fontWeight:   600,
+              cursor:       'pointer',
+              whiteSpace:   'nowrap',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+          >
+            🚪 登出系統
+          </button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -783,16 +932,20 @@ function StatCard({ icon, label, value, sub, color = '#2563eb' }) {
 }
 
 function SystemStatsTab({ activeTab }) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
   const [lastFetch, setLastFetch] = useState(null);
 
   const fetchData = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     setError('');
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/system?companyId=${COMPANY_ID}`);
+      const res  = await fetch(`${API_BASE}/api/settings/system?companyId=${companyId}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || '查詢失敗');
       setData(json);
@@ -902,7 +1055,7 @@ function SystemStatsTab({ activeTab }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
-          公司 ID：{COMPANY_ID} 的完整資料統計
+          公司 ID：{companyId} 的完整資料統計
         </p>
         <button
           onClick={fetchData}
@@ -1529,7 +1682,7 @@ export default function SettingsPage({ initialTab, callbackState }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ maxWidth: 720 }}>
           {activeTab === 'company'      && <CompanyTab />}
-          {activeTab === 'profile'      && <ProfileTab />}
+          {activeTab === 'profile'      && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
           {activeTab === 'integrations' && <IntegrationsTab callbackState={callbackState} />}
           {(activeTab === 'system' || activeTab === 'stats') && (
             <SystemStatsTab activeTab={activeTab} />

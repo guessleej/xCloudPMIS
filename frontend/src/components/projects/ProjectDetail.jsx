@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+// API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
+const API = '';
 
 // ── 看板欄位定義 ────────────────────────────────────────────
 const COLUMNS = [

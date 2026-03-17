@@ -15,7 +15,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3010';
+// API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
+const API = '';
 
 // ── API 呼叫工具 ───────────────────────────────────────────────
 async function apiFetch(path, options = {}) {

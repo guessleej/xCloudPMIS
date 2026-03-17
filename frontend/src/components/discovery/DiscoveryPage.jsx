@@ -11,9 +11,9 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
-const API        = 'http://localhost:3010';
-const COMPANY_ID = 2;
+const API        = '';
 
 // ── Design tokens ─────────────────────────────────────────
 const C = {
@@ -520,6 +520,9 @@ const FEATURE_CONTENT = {
 };
 
 export default function DiscoveryPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [active, setActive] = useState('mention');
   const feat    = FEATURES.find(f => f.id === active);
   const content = FEATURE_CONTENT[active];
