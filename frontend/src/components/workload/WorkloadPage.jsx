@@ -764,8 +764,8 @@ export default function WorkloadPage() {
       setLoading(true);
       try {
         const [membersRes, tasksRes] = await Promise.all([
-          fetch('http://localhost:3010/api/team?companyId=2'),
-          fetch('http://localhost:3010/api/tasks'),
+          fetch('/api/team?companyId=2'),
+          fetch('/api/tasks'),
         ]);
 
         if (!membersRes.ok || !tasksRes.ok) throw new Error('API error');

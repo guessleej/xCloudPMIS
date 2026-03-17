@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const API = 'http://localhost:3010';
+const API = '';
 const COMPANY_ID = 2;
 const LS_KEY = 'xcloud-forms';
 

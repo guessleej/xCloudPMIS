@@ -20,7 +20,7 @@
 
 import { useState, useEffect } from 'react';
 
-const API_BASE   = 'http://localhost:3010';
+const API_BASE   = '';
 const COMPANY_ID = 2;
 
 // ── 流程階段定義 ─────────────────────────────────────────────

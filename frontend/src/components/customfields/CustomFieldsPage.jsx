@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 // ── 常數 ────────────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
+const API_BASE   = '';
 const COMPANY_ID = 2;
 const LS_KEY     = 'xcloud-custom-fields';
 

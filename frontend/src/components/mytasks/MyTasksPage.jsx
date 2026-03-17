@@ -28,7 +28,7 @@ const C = {
   teal: '#14b8a6',
 };
 
-const API = 'http://localhost:3010';
+const API = '';
 
 // ── Date utilities ────────────────────────────────────────────
 function todayStart() {

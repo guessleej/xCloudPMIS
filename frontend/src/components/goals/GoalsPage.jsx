@@ -709,7 +709,7 @@ export default function GoalsPage() {
 
   // 取得團隊成員
   useEffect(() => {
-    fetch('http://localhost:3010/api/team?companyId=2')
+    fetch('/api/team?companyId=2')
       .then(r => r.json())
       .then(data => {
         const members = Array.isArray(data) ? data : (data.members || data.data || []);

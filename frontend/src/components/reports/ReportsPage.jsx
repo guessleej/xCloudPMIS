@@ -26,7 +26,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // ── 常數 ─────────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
+const API_BASE   = '';
 const COMPANY_ID = 2;
 const PAGE_SIZE  = 15; // 每頁顯示筆數
 

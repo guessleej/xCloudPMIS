@@ -1,15 +1,6 @@
 # ============================================================
 # xCloudPMIS - 企業級專案管理系統 Docker 開發環境
 # ============================================================
-#
-# node_modules 策略（重要）：
-#   ❌ 舊寫法 - /app/node_modules（匿名 Volume）
-#      問題：容器被刪除後 Volume 遺失，重啟後 node_modules 消失
-#   ✅ 新寫法 - backend_node_modules:/app/node_modules（Named Volume）
-#      優點：Named Volume 持久保存，容器重啟後依然完整
-#      首次啟動：docker-entrypoint.sh 自動安裝缺失套件
-#      重建依賴：docker-compose down -v && docker-compose up --build
-# ============================================================
 
 services:
 
@@ -120,23 +111,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      # JWT 金鑰（通用認證使用）
+      # JWT 金鑰（之後實作認證時使用）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      # App JWT（requireAuth middleware + 開發用 dev-token 端點）
-      APP_JWT_SECRET: ${APP_JWT_SECRET:-dev-app-jwt-secret-xcloud-pmis-2024}
-      # 前端服務位址（OAuth 回呼後重導向用）
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
-      # Microsoft OAuth 2.0（填入 Azure Portal 的真實值後才能啟用 MS 帳號連線）
-      OAUTH_MICROSOFT_CLIENT_ID: ${OAUTH_MICROSOFT_CLIENT_ID:-}
-      OAUTH_MICROSOFT_CLIENT_SECRET: ${OAUTH_MICROSOFT_CLIENT_SECRET:-}
-      OAUTH_MICROSOFT_TENANT_ID: ${OAUTH_MICROSOFT_TENANT_ID:-common}
-      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-http://localhost:3010/auth/microsoft/callback}
     volumes:
       # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
       - ./backend:/app
-      # ✅ Named Volume（取代舊的匿名 Volume）
-      #    確保 node_modules 在容器重啟後持久存在
-      - backend_node_modules:/app/node_modules
+      # 排除 node_modules（使用容器內的版本，避免 OS 差異問題）
+      - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -152,86 +133,7 @@ services:
       - pmis-network
 
   # ──────────────────────────────────────────────────────────
-  # 5. Yjs Hocuspocus — 即時協作 WebSocket 服務
-  #    提供 Google Docs 式多人同時編輯能力
-  #    - CRDT（Yjs）確保衝突自由合併
-  #    - Redis 快取 Yjs 二進位狀態（快速重連，TTL 7 天）
-  #    - PostgreSQL 持久化純文字（供 REST API 讀取）
-  #    - AI 建議透過 Yjs 共享 Map 推播給所有用戶
-  # ──────────────────────────────────────────────────────────
-  collaboration:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: pmis-collaboration
-    restart: unless-stopped
-    # 覆寫 Dockerfile 的 CMD：執行 Yjs 協作伺服器（不是 Express API）
-    command: node services/collaboration/yjsServer.js
-    ports:
-      - "1234:1234"     # Yjs WebSocket 協定（y-websocket 標準埠）
-    environment:
-      NODE_ENV: development
-      COLLAB_PORT: 1234
-      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      # AI 建議（選填，有設定才啟用）
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    volumes:
-      - ./backend:/app
-      # 與 backend 共用同一個 Named Volume（相同 node_modules）
-      - backend_node_modules:/app/node_modules
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - pmis-network
-
-  # ──────────────────────────────────────────────────────────
-  # 6. AI 監控代理 — Phase 3 背景風險掃描
-  #    自動偵測高風險任務，建立風險管理任務並發送 Email 通知
-  # ──────────────────────────────────────────────────────────
-  monitor:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: pmis-monitor
-    restart: unless-stopped
-    command: node jobs/monitorAgent.js
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      CRON_AI_RISK_SCAN: ${CRON_AI_RISK_SCAN:-0 3 * * *}
-      AI_RISK_THRESHOLD: ${AI_RISK_THRESHOLD:-70}
-      AI_RISK_TASK_DEFAULT_ASSIGNEE: ${AI_RISK_TASK_DEFAULT_ASSIGNEE:-1}
-      SCHEDULER_COMPANY_ID: ${SCHEDULER_COMPANY_ID:-}
-      TZ: Asia/Taipei
-      O365_CLIENT_ID: ${O365_CLIENT_ID:-}
-      O365_CLIENT_SECRET: ${O365_CLIENT_SECRET:-}
-      O365_TENANT_ID: ${O365_TENANT_ID:-}
-      O365_SENDER_EMAIL: ${O365_SENDER_EMAIL:-}
-    volumes:
-      - ./backend:/app
-      # 與 backend 共用同一個 Named Volume（相同 node_modules）
-      - backend_node_modules:/app/node_modules
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - pmis-network
-
-  # ──────────────────────────────────────────────────────────
-  # 7. React + Vite — 前端開發服務
+  # 5. React + Vite — 前端開發服務
   #    提供現代化的前端開發環境，支援熱更新 (HMR)
   # ──────────────────────────────────────────────────────────
   frontend:
@@ -243,19 +145,14 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # 前端呼叫後端 API 的位址
-      VITE_API_URL: http://localhost:3010
-      # Yjs 即時協作 WebSocket 位址
-      VITE_COLLAB_WS_URL: ws://localhost:1234
+      # Vite proxy 轉發目標：使用 Docker 內部網路服務名稱
+      # 前端程式碼改用相對路徑 /api/...，由 Vite proxy 轉發到此位址
+      VITE_PROXY_TARGET: http://pmis-backend:3000
     volumes:
       - ./frontend:/app
-      # ✅ Named Volume（修復匿名 Volume 遺失問題）
-      #    - 容器重啟後 @tiptap、yjs 等套件保持完整
-      #    - docker-entrypoint.sh 啟動時自動驗證完整性
-      - frontend_node_modules:/app/node_modules
+      - /app/node_modules
     depends_on:
       - backend
-      - collaboration
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001', (r) => process.exit(r.statusCode < 400 ? 0 : 1))"]
       interval: 30s
@@ -275,16 +172,6 @@ networks:
 
 # ============================================================
 # Volume 設定：確保資料在容器重啟後不遺失
-#
-# 重要：Named Volume vs 匿名 Volume
-#   匿名 Volume（舊）：- /app/node_modules
-#     → Docker 自動命名，docker-compose down 後容易被刪除
-#   Named Volume（新）：- xxx_node_modules:/app/node_modules
-#     → 明確命名，docker-compose down 不會自動刪除
-#
-# 強制重建 node_modules（升級依賴時使用）：
-#   docker-compose down -v   # 刪除所有 Volume（含資料！請先備份）
-#   docker-compose up --build
 # ============================================================
 volumes:
   postgres_data:
@@ -293,8 +180,3 @@ volumes:
     name: pmis-pgadmin-data
   redis_data:
     name: pmis-redis-data
-  # ── node_modules Named Volumes（新增，防止重啟後遺失）──────
-  backend_node_modules:
-    name: pmis-backend-node-modules
-  frontend_node_modules:
-    name: pmis-frontend-node-modules

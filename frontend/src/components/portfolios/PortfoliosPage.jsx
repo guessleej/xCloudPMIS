@@ -13,7 +13,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const API = 'http://localhost:3010';
+const API = '';
 const COMPANY_ID = 2;
 const LS_PORTFOLIOS = 'xcloud-portfolios';
 const LS_CUSTOM_FIELDS = 'xcloud-custom-fields';

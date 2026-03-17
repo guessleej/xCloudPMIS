@@ -12,7 +12,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ──────────────────────────────────────────────────────
-const API_BASE = 'http://localhost:3010';
+// API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
+const API_BASE = '';
 // COMPANY_ID 與 CURRENT_USER_ID 已改由 useAuth() 動態取得
 
 // ── 分頁定義 ─────────────────────────────────────────────────

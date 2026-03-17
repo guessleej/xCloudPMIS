@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 // ── 常數設定 ─────────────────────────────────────────────────
-const API_BASE   = 'http://localhost:3010';
+const API_BASE   = '';
 const COMPANY_ID = 2;
 const CURRENT_USER_ID = 4; // 目前登入使用者（模擬：陳志明，ID=4）
 

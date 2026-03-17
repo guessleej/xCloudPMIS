@@ -18,9 +18,9 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API_BASE = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
-  : 'http://localhost:3010';
+// 使用相對路徑，由 Vite proxy 轉發到後端
+// 避免硬編碼 localhost:3010 造成跨環境連線失敗
+const API_BASE = '';
 
 const TOKEN_KEY = 'xcloud-auth-token';
 

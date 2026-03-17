@@ -14,9 +14,8 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-const API_BASE = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
-  : 'http://localhost:3010';
+// 使用相對路徑，由 Vite proxy 轉發到後端
+const API_BASE = '';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const C = {
