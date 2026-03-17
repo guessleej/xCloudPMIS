@@ -13,10 +13,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ────────────────────────────────────────────────────────
 const API_BASE   = '';
-const COMPANY_ID = 2;
 const LS_KEY     = 'xcloud-custom-fields';
 
 // ── 欄位類型定義 ─────────────────────────────────────────────────
@@ -1049,6 +1049,9 @@ function EmptyState({ onAdd }) {
 // ════════════════════════════════════════════════════════════════
 
 export default function CustomFieldsPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [fields, setFields]           = useState([]);
   const [projects, setProjects]       = useState([]);
   const [search, setSearch]           = useState('');

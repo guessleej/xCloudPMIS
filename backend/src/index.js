@@ -32,6 +32,7 @@ const tasksRouter         = require('./routes/tasks');
 const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
 const authRouter          = require('./routes/auth/login');
+const optionalAuth        = require('./middleware/optionalAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,11 +40,15 @@ const PORT = process.env.PORT || 3000;
 // ── 中介軟體設定 ─────────────────────────────────────────────
 // 跨來源資源共用（CORS）：允許前端（埠 3001）呼叫後端 API
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+  origin: ['http://localhost:3001', 'http://127.0.0.1:3001',
+           'http://host.docker.internal:3001'],
   credentials: true,
 }));
 // 解析 JSON 格式的請求主體
 app.use(express.json());
+// Optional JWT 解析：有 Token 時注入 req.user，無 Token 繼續執行
+// 讓所有路由都可用 req.user?.companyId 取得登入者的公司 ID
+app.use(optionalAuth);
 
 // ── PostgreSQL 連線池設定 ───────────────────────────────────
 // 使用「連線池」而不是單一連線，可以同時處理多個請求

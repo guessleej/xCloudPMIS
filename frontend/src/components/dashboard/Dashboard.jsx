@@ -52,8 +52,7 @@ const T = {
 };
 
 // ── API ───────────────────────────────────────────────────────
-const API_BASE   = '';
-const COMPANY_ID = 2;
+const API_BASE = '';
 
 // ── 頁面標題映射 ──────────────────────────────────────────────
 const PAGE_TITLES = {
@@ -262,14 +261,15 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
 
   // 從 API 取得專案清單
   useEffect(() => {
-    fetch(`${API_BASE}/api/projects?companyId=${COMPANY_ID}`)
+    if (!currentUser?.companyId) return;
+    fetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}`)
       .then(r => r.json())
       .then(d => {
         const list = Array.isArray(d) ? d : (d.data || d.projects || []);
         setApiProjects(list.slice(0, 8));
       })
       .catch(() => {});
-  }, []);
+  }, [currentUser?.companyId]);
 
   // 計算未讀收件匣數量
   useEffect(() => {
@@ -693,8 +693,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
   // 載入我的任務
   useEffect(() => {
+    if (!currentUser?.companyId) return;
     setTasksLoading(true);
-    fetch(`${API_BASE}/api/projects/tasks?companyId=${COMPANY_ID}`)
+    fetch(`${API_BASE}/api/projects/tasks?companyId=${currentUser.companyId}`)
       .then(r => r.json())
       .then(d => {
         // API 回傳 { success, data: { tasks: [...] } }
@@ -705,7 +706,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       })
       .catch(() => setMyTasks([]))
       .finally(() => setTasksLoading(false));
-  }, []);
+  }, [currentUser?.companyId]);
 
   const now = new Date();
   const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);

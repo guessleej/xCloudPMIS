@@ -19,10 +19,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const API_BASE   = '';
-const COMPANY_ID = 2;
 
 // ── 角色樣式對照 ──────────────────────────────────────────────
 const ROLE_STYLE = {
@@ -762,6 +762,9 @@ const cancelBtnStyle = {
 // 主元件：TeamPage
 // ════════════════════════════════════════════════════════════
 export default function TeamPage() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [members,     setMembers]     = useState([]);
   const [summary,     setSummary]     = useState(null);
   const [loading,     setLoading]     = useState(true);

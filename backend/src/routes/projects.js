@@ -46,7 +46,7 @@ const PRIORITY_LABEL = {
 // 取得所有專案，含任務統計數字
 // ════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
-  const companyId = parseInt(req.query.companyId) || 2;
+  const companyId = req.user?.companyId || parseInt(req.query.companyId);
 
   try {
     const projects = await prisma.project.findMany({
@@ -104,8 +104,8 @@ router.get('/', async (req, res) => {
 // 建立新專案
 // ════════════════════════════════════════════════════════════
 router.post('/', async (req, res) => {
+  const companyId = req.user?.companyId || parseInt(req.body.companyId);
   const {
-    companyId = 2,
     name, description = '',
     status = 'planning',
     budget, startDate, endDate,
@@ -144,7 +144,7 @@ router.post('/', async (req, res) => {
 // ⚠️  必須放在 /:id 之前，否則 'tasks' 會被當作專案 ID
 // ════════════════════════════════════════════════════════════
 router.get('/tasks', async (req, res) => {
-  const companyId  = parseInt(req.query.companyId)  || 2;
+  const companyId  = req.user?.companyId || parseInt(req.query.companyId);
   const projectId  = req.query.projectId  ? parseInt(req.query.projectId)  : undefined;
   const assigneeId = req.query.assigneeId ? parseInt(req.query.assigneeId) : undefined;
   const priority   = req.query.priority   || undefined;
@@ -221,7 +221,7 @@ router.get('/tasks', async (req, res) => {
 // ⚠️  同樣放在 /:id 之前
 // ════════════════════════════════════════════════════════════
 router.get('/users', async (req, res) => {
-  const companyId = parseInt(req.query.companyId) || 2;
+  const companyId = req.user?.companyId || parseInt(req.query.companyId);
   try {
     const users = await prisma.user.findMany({
       where:   { companyId, isActive: true },

@@ -14,10 +14,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import ProjectDetail from './ProjectDetail';
+import { useAuth } from '../../context/AuthContext';
 
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
 const API = '';
-const COMPANY_ID = 2;
 const LS_COLOR   = 'xcloud_project_colors'; // localStorage key
 
 // ══════════════════════════════════════════════════════════════
@@ -254,6 +254,8 @@ function TemplatePickerModal({ onSelect, onClose }) {
 // ② 專案設定 Modal（含顏色選擇器）
 // ══════════════════════════════════════════════════════════════
 function ProjectFormModal({ users, project, template, onClose, onSaved }) {
+  const { user, authFetch } = useAuth();
+  const COMPANY_ID = user?.companyId;
   const isEdit = !!project;
   const defColor = project ? loadColors()[project.id] || 'blue' : (template?.color || 'blue');
 
@@ -278,9 +280,8 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
     setSaving(true); setError('');
     try {
       const url = isEdit ? `${API}/api/projects/${project.id}` : `${API}/api/projects`;
-      const res  = await fetch(url, {
+      const res  = await authFetch(url, {
         method:  isEdit ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ ...form, companyId: COMPANY_ID }),
       });
       const json = await res.json();
@@ -710,6 +711,9 @@ function CalendarView({ projects }) {
 // 主元件：ProjectsPage
 // ══════════════════════════════════════════════════════════════
 export default function ProjectsPage() {
+  const { user, authFetch } = useAuth();
+  const COMPANY_ID = user?.companyId;
+
   const [projects,      setProjects]      = useState([]);
   const [users,         setUsers]         = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -730,8 +734,8 @@ export default function ProjectsPage() {
     setLoading(true); setError(null);
     try {
       const [pR, uR] = await Promise.all([
-        fetch(`${API}/api/projects?companyId=${COMPANY_ID}`),
-        fetch(`${API}/api/users?companyId=${COMPANY_ID}`).catch(() => ({ json: async () => ({ data: [] }) })),
+        authFetch(`${API}/api/projects?companyId=${COMPANY_ID}`),
+        authFetch(`${API}/api/users?companyId=${COMPANY_ID}`).catch(() => ({ json: async () => ({ data: [] }) })),
       ]);
       const pD = await pR.json();
       setProjects(pD.data || []);
