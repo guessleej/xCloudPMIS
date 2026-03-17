@@ -11,7 +11,7 @@
  *   - 品牌色 accent #C41230，背景 #F4F0F0
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
@@ -459,8 +459,45 @@ function AISummaryCard({ onClose, notifications }) {
 
   const ranges = ['過去 1 天', '過去 1 週', '過去 1 個月'];
 
-  const unreadCount = notifications.filter(n => !n.read && !n.archived).length;
-  const summaryText = `根據您過去一週的通知，共有 ${unreadCount} 則未讀通知需要關注。\n\n重要事項：\n• 林美華在「系統架構討論」中提及您，請確認 API 設計方案\n• 草擬專案簡介任務由陳志明指派，截止日期 3月17日\n• 王大偉對電商平台重構計畫留言，Phase 1 已完成 60%\n\n建議您優先處理 @提及 和即將到期的任務。`;
+  // 動態 AI 摘要文字（依 range + 實際通知資料生成）
+  const summaryText = useMemo(() => {
+    const now = Date.now();
+    const rangeMs = {
+      '過去 1 天': 86400000,
+      '過去 1 週': 604800000,
+      '過去 1 個月': 2592000000,
+    }[range] || 604800000;
+
+    const inRange = notifications.filter(n => (now - new Date(n.time).getTime()) < rangeMs);
+    const unread   = inRange.filter(n => !n.read);
+    const mentions = inRange.filter(n => n.type === 'mention');
+    const assigned = inRange.filter(n => n.type === 'task_assigned');
+    const dues     = inRange.filter(n => n.type === 'task_due');
+    const comments = inRange.filter(n => n.type === 'comment');
+    const dones    = inRange.filter(n => n.type === 'done');
+
+    let text = `根據您${range}的通知紀錄，共有 ${inRange.length} 則通知，其中 ${unread.length} 則未讀。\n\n`;
+
+    const bullets = [];
+    if (mentions.length > 0)
+      bullets.push(`有 ${mentions.length} 則 @提及，建議確認相關討論內容`);
+    if (assigned.length > 0)
+      bullets.push(`共 ${assigned.length} 個新任務指派給您，請確認截止日期與優先級`);
+    if (dues.length > 0)
+      bullets.push(`有 ${dues.length} 個任務即將到期，請優先處理`);
+    if (comments.length > 0)
+      bullets.push(`有 ${comments.length} 則新留言，可能需要您回覆`);
+    if (dones.length > 0)
+      bullets.push(`${dones.length} 個任務已完成，可以進行確認與結案`);
+    if (bullets.length === 0)
+      bullets.push('目前無特別需要處理的事項，收件匣一切順暢');
+
+    text += bullets.map(b => `• ${b}`).join('\n');
+    if (unread.length > 0) {
+      text += '\n\n建議您優先處理 @提及 和即將到期的任務。';
+    }
+    return text;
+  }, [notifications, range]);
 
   return (
     <div style={{
@@ -545,6 +582,70 @@ function AISummaryCard({ onClose, notifications }) {
   );
 }
 
+// ── 更多選單（通知項目的 … 按鈕）──────────────────────────────
+function MoreMenu({ notifId, isRead, onRead, onBookmark, onArchive, onClose }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function h(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+
+  const items = [
+    {
+      label: isRead ? '標記為未讀' : '標記為已讀',
+      action: () => { onRead(notifId); onClose(); },
+    },
+    {
+      label: '加入書籤',
+      action: () => { onBookmark(notifId); onClose(); },
+    },
+    {
+      label: '封存通知',
+      action: () => { onArchive(notifId); onClose(); },
+    },
+    {
+      label: '複製連結',
+      action: () => {
+        try { navigator.clipboard?.writeText(window.location.href); } catch {}
+        onClose();
+      },
+    },
+  ];
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute', right: 0, top: 'calc(100% + 4px)',
+        background: T.white,
+        border: `1px solid ${T.border}`,
+        borderRadius: 8,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+        zIndex: 200, minWidth: 150, padding: 4,
+      }}
+    >
+      {items.map(item => (
+        <div
+          key={item.label}
+          onClick={item.action}
+          style={{
+            padding: '8px 14px', fontSize: 13, cursor: 'pointer',
+            borderRadius: 5, color: T.t1,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.hoverBg; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          {item.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── 操作按鈕（hover 時顯示）────────────────────────────────────
 function ActionBtn({ children, onClick, title }) {
   const [h, setH] = useState(false);
@@ -570,6 +671,7 @@ function ActionBtn({ children, onClick, title }) {
 // ── 通知項目 ───────────────────────────────────────────────────
 function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onArchive }) {
   const [hovered, setHovered] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const icon = typeIcon(notif.type);
 
   return (
@@ -629,9 +731,21 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
                 <ActionBtn title="封存" onClick={() => onArchive(notif.id)}>
                   <IconArchive size={13} color={T.t3} />
                 </ActionBtn>
-                <ActionBtn title="更多">
-                  <IconDots size={13} color={T.t3} />
-                </ActionBtn>
+                <div style={{ position: 'relative' }}>
+                  <ActionBtn title="更多" onClick={() => setMoreOpen(o => !o)}>
+                    <IconDots size={13} color={moreOpen ? T.accent : T.t3} />
+                  </ActionBtn>
+                  {moreOpen && (
+                    <MoreMenu
+                      notifId={notif.id}
+                      isRead={isRead}
+                      onRead={onRead}
+                      onBookmark={onBookmark}
+                      onArchive={onArchive}
+                      onClose={() => setMoreOpen(false)}
+                    />
+                  )}
+                </div>
               </div>
             )}
             {!isRead && (
@@ -1161,19 +1275,56 @@ function TabItem({ tab, isActive, isFixed, unread, onClick, onRename, onDelete }
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function InboxPage() {
-  // 通知資料：合併靜態 + localStorage
+  // 通知資料（初始用示範資料，API 成功後替換）
   const [notifications, setNotifications] = useState(() => {
     const ls = loadLocalStorageNotifications();
     return [...INITIAL_NOTIFICATIONS, ...ls];
   });
+  const [loading,  setLoading]  = useState(true);
+  const [apiError, setApiError] = useState(null);
 
   // 狀態集合（from localStorage）
   const [readIds,     setReadIds]     = useState(() => loadSet('xcloud-inbox-read'));
   const [bookmarkIds, setBookmarkIds] = useState(() => loadSet('xcloud-inbox-bookmarked'));
   const [archiveIds,  setArchiveIds]  = useState(() => loadSet('xcloud-inbox-archived'));
 
+  // ── 從 API 取得通知 ──────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch('/api/notifications?companyId=2&limit=100')
+      .then(r => r.json())
+      .then(json => {
+        if (cancelled) return;
+        const ls = loadLocalStorageNotifications();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          // API 成功：使用真實資料
+          setNotifications([...json.data, ...ls]);
+          // 同步 API 已讀狀態到 readIds
+          const readFromApi = new Set(
+            json.data.filter(n => n.read).map(n => n.id)
+          );
+          setReadIds(prev => new Set([...prev, ...readFromApi]));
+        } else {
+          // API 無資料：保留示範資料
+          setNotifications([...INITIAL_NOTIFICATIONS, ...ls]);
+        }
+        setApiError(null);
+      })
+      .catch(e => {
+        if (cancelled) return;
+        console.warn('[InboxPage] API 載入失敗，使用示範資料:', e.message);
+        const ls = loadLocalStorageNotifications();
+        setNotifications([...INITIAL_NOTIFICATIONS, ...ls]);
+        setApiError(e.message);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // UI 狀態
   const [activeTab,      setActiveTab]      = useState('activity');
+  const [filterType,     setFilterType]     = useState('all');
   const [showAISummary,  setShowAISummary]  = useState(() => loadBool('xcloud-inbox-ai-summary', true));
   const [customTabs,     setCustomTabs]     = useState(() =>
     loadJSON('xcloud-inbox-custom-tabs', [])
@@ -1193,11 +1344,20 @@ export default function InboxPage() {
   useEffect(() => { saveBool('xcloud-inbox-ai-summary', showAISummary); }, [showAISummary]);
   useEffect(() => { saveJSON('xcloud-inbox-custom-tabs', customTabs); }, [customTabs]);
 
-  // 操作：標記已讀（切換）
+  // 操作：標記已讀（切換）— 同時同步後端（僅數字 id）
   const toggleRead = useCallback((id) => {
     setReadIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      const willRead = !next.has(id);
+      if (willRead) next.add(id); else next.delete(id);
+      // localStorage @mention 的 id 是字串 "ls-..."，不呼叫後端
+      if (typeof id === 'number') {
+        fetch(`/api/notifications/${id}/read`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isRead: willRead }),
+        }).catch(() => {}); // 靜默失敗，本地狀態已更新
+      }
       return next;
     });
   }, []);
@@ -1277,7 +1437,11 @@ export default function InboxPage() {
       return notifications.filter(n => !archiveIds.has(n.id) && n.type === 'mention');
     }
     if (activeTab === 'activity') {
-      return notifications.filter(n => !archiveIds.has(n.id));
+      let items = notifications.filter(n => !archiveIds.has(n.id));
+      if (filterType !== 'all') {
+        items = items.filter(n => n.type === filterType);
+      }
+      return items;
     }
     // 自訂 tab
     const ct = customTabs.find(t => t.id === activeTab);
@@ -1339,6 +1503,12 @@ export default function InboxPage() {
       overflow: 'hidden',
       position: 'relative',
     }}>
+      <style>{`
+        @keyframes shimmer {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
 
       {/* ── 頁首列 ──────────────────────────────────────────── */}
       <div style={{
@@ -1419,7 +1589,16 @@ export default function InboxPage() {
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 24px',
       }}>
-        <ToolbarBtn icon={<IconFilter size={13} />} label="篩選" />
+        <ToolbarDropdown
+          icon={<IconFilter size={13} />}
+          label={`篩選：${FILTER_OPTIONS.find(o => o.value === filterType)?.label || '全部通知'}`}
+          options={FILTER_OPTIONS.map(o => o.label)}
+          value={FILTER_OPTIONS.find(o => o.value === filterType)?.label || '全部通知'}
+          onChange={(label) => {
+            const opt = FILTER_OPTIONS.find(o => o.label === label);
+            if (opt) setFilterType(opt.value);
+          }}
+        />
         <ToolbarDropdown
           icon={<IconSort size={13} />}
           label={`排序：${sortMode}`}
@@ -1454,8 +1633,42 @@ export default function InboxPage() {
       {/* ── 通知主體 ─────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
 
+        {/* 載入中骨架屏 */}
+        {loading && (
+          <div style={{
+            background: T.white, borderRadius: 10, border: `1px solid ${T.border}`,
+            overflow: 'hidden', marginBottom: 12,
+          }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '14px 16px',
+                borderBottom: i < 4 ? `1px solid ${T.border}` : 'none',
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                  background: '#F0EAEA',
+                  animation: 'shimmer 1.4s ease-in-out infinite',
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    height: 14, borderRadius: 6, background: '#F0EAEA',
+                    width: `${60 + i * 10}%`, marginBottom: 8,
+                    animation: 'shimmer 1.4s ease-in-out infinite',
+                  }} />
+                  <div style={{
+                    height: 12, borderRadius: 6, background: '#F5F0F0',
+                    width: '45%',
+                    animation: 'shimmer 1.4s ease-in-out infinite',
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* AI 摘要卡片（只在 activity tab 顯示）*/}
-        {activeTab === 'activity' && showAISummary && (
+        {!loading && activeTab === 'activity' && showAISummary && (
           <AISummaryCard
             onClose={() => setShowAISummary(false)}
             notifications={notifications}
@@ -1463,7 +1676,7 @@ export default function InboxPage() {
         )}
 
         {/* 空狀態 */}
-        {sorted.length === 0 ? (
+        {!loading && sorted.length === 0 ? (
           <EmptyState tab={activeTab} />
         ) : (
           <div style={{

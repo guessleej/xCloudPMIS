@@ -58,6 +58,12 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  // ── 個人資料擴充 ──────────────────────────────────────
+  department  String?   @db.VarChar(100)          // 部門
+  phone       String?   @db.VarChar(50)            // 電話
+  jobTitle    String?   @map("job_title") @db.VarChar(100) // 職稱
+  joinedAt    DateTime? @map("joined_at") @db.Date // 加入日期
+
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownedProjects Project[]
   assignedTasks Task[]         @relation("TaskAssignee")

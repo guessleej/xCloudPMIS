@@ -132,6 +132,10 @@ router.get('/profile', async (req, res) => {
         role:        true,
         isActive:    true,
         avatarUrl:   true,
+        department:  true,
+        phone:       true,
+        jobTitle:    true,
+        joinedAt:    true,
         lastLoginAt: true,
         createdAt:   true,
         updatedAt:   true,
@@ -151,6 +155,7 @@ router.get('/profile', async (req, res) => {
       profile: {
         ...user,
         roleLabel:   ROLE_LABEL[user.role] || user.role,
+        joinedAt:    user.joinedAt    ? user.joinedAt.toISOString().split('T')[0] : null,
         lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
         createdAt:   user.createdAt.toISOString(),
         updatedAt:   user.updatedAt.toISOString(),
@@ -170,7 +175,7 @@ router.get('/profile', async (req, res) => {
 router.patch('/profile/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, email, currentPassword, newPassword } = req.body;
+    const { name, email, currentPassword, newPassword, department, phone, jobTitle, joinedAt } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
@@ -218,6 +223,14 @@ router.patch('/profile/:id', async (req, res) => {
       updates.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
+    // ── 更新個人資料欄位 ─────────────────────────────────────
+    if (department !== undefined) updates.department = department?.trim() || null;
+    if (phone      !== undefined) updates.phone      = phone?.trim() || null;
+    if (jobTitle   !== undefined) updates.jobTitle   = jobTitle?.trim() || null;
+    if (joinedAt   !== undefined) {
+      updates.joinedAt = joinedAt ? new Date(joinedAt) : null;
+    }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: '沒有要更新的資料' });
     }
@@ -225,11 +238,19 @@ router.patch('/profile/:id', async (req, res) => {
     const updated = await prisma.user.update({
       where: { id },
       data:  updates,
-      select: { id: true, name: true, email: true, role: true, updatedAt: true },
+      select: {
+        id: true, name: true, email: true, role: true,
+        department: true, phone: true, jobTitle: true, joinedAt: true,
+        updatedAt: true,
+      },
     });
 
     res.json({
-      profile: { ...updated, updatedAt: updated.updatedAt.toISOString() },
+      profile: {
+        ...updated,
+        joinedAt:  updated.joinedAt  ? updated.joinedAt.toISOString().split('T')[0] : null,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
       message: '個人資料已成功更新',
       passwordChanged: !!updates.passwordHash,
     });

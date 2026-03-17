@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from './useDashboard';
+import { useAuth } from '../../context/AuthContext';
 import SummaryCards          from './SummaryCards';
 import HealthPieChart        from './HealthPieChart';
 import ProjectHealthList     from './ProjectHealthList';
@@ -1183,16 +1184,17 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 // ════════════════════════════════════════════════════════════
 // 個人資料頁
 // ════════════════════════════════════════════════════════════
-function ProfilePage({ onBack, currentUser }) {
+function ProfilePage({ onBack, currentUser, onLogout }) {
   const ROLE_LABEL = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
   const INFO_ROWS = [
-    { label: '姓名',     value: currentUser?.name  ?? '—' },
-    { label: '帳號',     value: currentUser?.email ?? '—' },
-    { label: '角色',     value: ROLE_LABEL[currentUser?.role] ?? '—' },
-    { label: '所屬公司', value: 'xCloud 科技' },
-    { label: '部門',     value: '資訊技術部' },
-    { label: '電話',     value: '+886 912-345-678' },
-    { label: '加入日期', value: '2023-01-15' },
+    { label: '姓名',     value: currentUser?.name                        ?? '—' },
+    { label: '帳號',     value: currentUser?.email                       ?? '—' },
+    { label: '角色',     value: ROLE_LABEL[currentUser?.role]             ?? '—' },
+    { label: '所屬公司', value: currentUser?.company?.name                ?? '—' },
+    { label: '部門',     value: currentUser?.department                   ?? '—' },
+    { label: '職稱',     value: currentUser?.jobTitle                     ?? '—' },
+    { label: '電話',     value: currentUser?.phone                        ?? '—' },
+    { label: '加入日期', value: currentUser?.joinedAt                     ?? '—' },
   ];
 
   return (
@@ -1212,7 +1214,7 @@ function ProfilePage({ onBack, currentUser }) {
         </div>
         <div>
           <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{currentUser?.name ?? '—'}</div>
-          <div style={{ fontSize: '13.5px', color: '#64748B', marginTop: '2px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · xCloud 科技</div>
+          <div style={{ fontSize: '13.5px', color: '#64748B', marginTop: '2px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '8px', padding: '3px 10px', background: '#F0FDF4', color: '#16a34a', borderRadius: '99px', fontSize: '11.5px', fontWeight: '600' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
             在線上
@@ -1232,12 +1234,14 @@ function ProfilePage({ onBack, currentUser }) {
       <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '700', color: '#374151' }}>帳戶設定</div>
         {[
-          { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全' },
-          { label: '通知偏好', desc: '設定 Email / App 通知類型' },
-          { label: '語言與時區', desc: '繁體中文 / Asia/Taipei' },
-          { label: '登出', desc: '結束目前登入階段', danger: true },
+          { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全', onClick: null },
+          { label: '通知偏好', desc: '設定 Email / App 通知類型', onClick: null },
+          { label: '語言與時區', desc: '繁體中文 / Asia/Taipei', onClick: null },
+          { label: '登出', desc: '結束目前登入階段', danger: true, onClick: onLogout },
         ].map((item, i, arr) => (
-          <button key={item.label} style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < arr.length - 1 ? '1px solid #F8FAFC' : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+          <button key={item.label}
+            onClick={item.onClick || undefined}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < arr.length - 1 ? '1px solid #F8FAFC' : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
             onMouseOver={e => e.currentTarget.style.background = item.danger ? '#FFF5F5' : '#F8FAFC'}
             onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ flex: 1 }}>
@@ -1256,9 +1260,11 @@ function ProfilePage({ onBack, currentUser }) {
 // 主元件
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
+  // ── 從登入 JWT 直接取得使用者資訊，不需要額外 API 呼叫 ───────
+  const { user: currentUser, logout } = useAuth();
+
   const [activeNav,       setActiveNav]       = useState(readHashNav);
   const [settingsState,   setSettingsState]   = useState(null);
-  const [currentUser,     setCurrentUser]     = useState(null);
   const [sbCollapsed,     setSbCollapsed]     = useState(() => {
     try { return localStorage.getItem('xcloud-sb-collapsed') === '1'; } catch { return false; }
   });
@@ -1281,16 +1287,6 @@ export default function Dashboard() {
   const navigate = useCallback((id) => {
     setActiveNav(id);
     writeHashNav(id);
-  }, []);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/team?companyId=${COMPANY_ID}`)
-      .then(r => r.json())
-      .then(data => {
-        const admin = data.members?.find(m => m.role === 'admin') ?? data.members?.[0];
-        if (admin) setCurrentUser({ name: admin.name, email: admin.email, role: admin.role });
-      })
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1327,7 +1323,7 @@ export default function Dashboard() {
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage />;
-    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} />;
+    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} />;
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '14px' }}>
