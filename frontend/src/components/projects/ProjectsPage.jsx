@@ -750,6 +750,17 @@ export default function ProjectsPage() {
   const onEdited   = (upd)   => { setEditProject(null); setProjects(prev => prev.map(p => p.id !== upd.id ? p : { ...p, ...upd })); showToast('✅ 已更新'); };
   const onDeleted  = (id)    => { setDeleteProject(null); setProjects(prev => prev.filter(p => p.id !== id)); showToast('🗑️ 已刪除'); };
 
+  // 從工作流程圖跳轉過來時，自動開啟指定專案
+  useEffect(() => {
+    const pid = sessionStorage.getItem('xcloud-open-project');
+    if (!pid || !projects.length) return;
+    const target = projects.find(p => String(p.id) === pid);
+    if (target) {
+      sessionStorage.removeItem('xcloud-open-project');
+      setActiveProject(target);
+    }
+  }, [projects]);
+
   if (activeProject) {
     return <ProjectDetail projectId={activeProject.id} projectName={activeProject.name} onBack={() => setActiveProject(null)} />;
   }
