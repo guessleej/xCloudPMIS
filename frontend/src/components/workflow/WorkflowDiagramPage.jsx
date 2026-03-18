@@ -15,7 +15,7 @@
  *   菱形（Decision）  = 審核決策點
  *   箭頭（Arrow）     = 流程方向
  *
- * 資料來源：GET /api/gantt?companyId=2
+ * 資料來源：GET /api/gantt?companyId={user.companyId}
  */
 
 import { useState, useEffect } from 'react';
