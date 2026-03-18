@@ -58,6 +58,12 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  // ── 個人資料擴充 ──────────────────────────────────────
+  department  String?   @db.VarChar(100)          // 部門
+  phone       String?   @db.VarChar(50)            // 電話
+  jobTitle    String?   @map("job_title") @db.VarChar(100) // 職稱
+  joinedAt    DateTime? @map("joined_at") @db.Date // 加入日期
+
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownedProjects Project[]
   assignedTasks Task[]         @relation("TaskAssignee")
@@ -162,6 +168,7 @@ model Task {
   activityLogs    ActivityLog[] // 這個任務的所有變更歷史
   taskTags        TaskTag[]     // 這個任務的所有標籤（多對多）
   aiDecisions     AiDecision[]  // ← AI 自主代理決策記錄
+  checklistItems  ChecklistItem[] // 任務待辦清單項目
 
   @@index([projectId])
   @@index([assigneeId])
@@ -169,6 +176,21 @@ model Task {
   @@index([priority])
   @@index([deletedAt])
   @@map("tasks")
+}
+
+model ChecklistItem {
+  id          Int      @id @default(autoincrement())
+  taskId      Int      @map("task_id")
+  title       String   @db.VarChar(500)
+  isDone      Boolean  @default(false) @map("is_done")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("checklist_items")
 }
 
 enum TaskStatus {

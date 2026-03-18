@@ -526,6 +526,114 @@ router.delete('/tasks/:taskId', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/checklist
+// 取得任務的待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/checklist', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const items = await prisma.checklistItem.findMany({
+      where:   { taskId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    });
+    ok(res, items, { total: items.length });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/checklist
+// 新增待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/checklist', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  const { title } = req.body;
+  if (!title?.trim()) return err(res, '項目標題為必填', 400);
+
+  try {
+    // 計算下一個 position
+    const maxPos = await prisma.checklistItem.aggregate({
+      where: { taskId },
+      _max:  { position: true },
+    });
+
+    const item = await prisma.checklistItem.create({
+      data: {
+        taskId,
+        title:    title.trim(),
+        isDone:   false,
+        position: (maxPos._max.position || 0) + 1,
+      },
+    });
+    ok(res, item);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH /api/projects/tasks/:taskId/checklist/:itemId
+// 更新待辦清單項目（勾選完成 / 修改標題）
+// ════════════════════════════════════════════════════════════
+router.patch('/tasks/:taskId/checklist/:itemId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  const itemId = parseInt(req.params.itemId);
+  if (isNaN(taskId) || isNaN(itemId)) return err(res, '無效的 ID', 400);
+
+  const { title, isDone } = req.body;
+
+  try {
+    const existing = await prisma.checklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!existing) return err(res, '找不到此項目', 404);
+
+    const data = {};
+    if (title  !== undefined) data.title  = title.trim();
+    if (isDone !== undefined) data.isDone = Boolean(isDone);
+
+    const updated = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data,
+    });
+    ok(res, updated);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/checklist/:itemId
+// 刪除待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/checklist/:itemId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  const itemId = parseInt(req.params.itemId);
+  if (isNaN(taskId) || isNaN(itemId)) return err(res, '無效的 ID', 400);
+
+  try {
+    const existing = await prisma.checklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!existing) return err(res, '找不到此項目', 404);
+
+    await prisma.checklistItem.delete({ where: { id: itemId } });
+    res.json({ success: true, message: '項目已刪除' });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
 // PATCH /api/projects/milestones/:milestoneId
 // 更新里程碑（名稱、到期日、顏色、說明、是否達成）
 // ════════════════════════════════════════════════════════════
