@@ -434,7 +434,8 @@ function GoalCard({ goal, level = 0, children, onEdit, onDelete, projects = [] }
           {linkedProject ? (
             <>
               <a
-                href="#projects"
+                href={`#projects`}
+                onClick={() => sessionStorage.setItem('xcloud-open-project', String(linkedProject.id))}
                 style={{ fontSize: 12, fontWeight: 600, color: '#2563EB', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
                 title="前往專案管理"
               >

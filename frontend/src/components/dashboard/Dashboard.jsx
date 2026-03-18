@@ -1280,9 +1280,13 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const onPop = () => setActiveNav(readHashNav());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    const sync = () => setActiveNav(readHashNav());
+    window.addEventListener('popstate',   sync);   // pushState 後退/前進
+    window.addEventListener('hashchange', sync);   // location.hash = '...' 或 <a href="#...">
+    return () => {
+      window.removeEventListener('popstate',   sync);
+      window.removeEventListener('hashchange', sync);
+    };
   }, []);
 
   const navigate = useCallback((id) => {
@@ -1311,7 +1315,7 @@ export default function Dashboard() {
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
-    if (activeNav === 'workflow')      return <WorkflowDiagramPage />;
+    if (activeNav === 'workflow')      return <WorkflowDiagramPage onNavigate={navigate} />;
     if (activeNav === 'rules')         return <RulesPage />;
     if (activeNav === 'time')          return <TimeTrackingPage />;
     if (activeNav === 'goals')         return <GoalsPage />;

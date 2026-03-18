@@ -406,7 +406,7 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
 // ════════════════════════════════════════════════════════════
 // 主元件：WorkflowDiagramPage
 // ════════════════════════════════════════════════════════════
-export default function WorkflowDiagramPage() {
+export default function WorkflowDiagramPage({ onNavigate }) {
   const { user } = useAuth();
   const COMPANY_ID = user?.companyId;
 
@@ -429,7 +429,11 @@ export default function WorkflowDiagramPage() {
     if (projectId) {
       sessionStorage.setItem('xcloud-open-project', String(projectId));
     }
-    window.location.hash = '#projects';
+    if (onNavigate) {
+      onNavigate('projects');  // 直接呼叫 Dashboard 的 navigate，確保 React state 更新
+    } else {
+      window.location.hash = '#projects';
+    }
   };
 
   // 整理泳道資料
