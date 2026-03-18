@@ -195,39 +195,48 @@ function TypeBadge({ type }) {
   );
 }
 
-/** ProjectCount badge — 顯示應用專案數，hover 展開名稱 */
-function ProjectBadge({ count, projectNames = [] }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span
-      style={{ position: 'relative', display: 'inline-block' }}
-      onMouseEnter={() => count > 0 && setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
+/**
+ * ProjectLinks — 可點擊的專案標籤列
+ * 直接顯示專案名稱（非 hover），點擊跳轉到對應專案看板
+ */
+function ProjectLinks({ linkedProjects = [], onGoToProject }) {
+  if (linkedProjects.length === 0) {
+    return (
       <span style={{
-        display:      'inline-block',
-        padding:      '2px 8px',
-        borderRadius: 99,
-        background:   count > 0 ? '#e0f2fe' : '#f3f4f6',
-        color:        count > 0 ? '#0369a1' : '#9ca3af',
-        fontSize:     12,
-        fontWeight:   600,
-        cursor:       count > 0 ? 'default' : 'default',
-      }}>
-        {count > 0 ? `📁 ${count} 個專案` : '未套用'}
-      </span>
-      {show && projectNames.length > 0 && (
-        <div style={{
-          position: 'absolute', bottom: '100%', left: 0, zIndex: 20,
-          background: '#1e293b', color: '#fff', borderRadius: 8,
-          padding: '8px 12px', marginBottom: 6, minWidth: 160,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-          fontSize: 12, lineHeight: 1.7, whiteSpace: 'nowrap',
-        }}>
-          {projectNames.map((n, i) => <div key={i}>📁 {n}</div>)}
-        </div>
-      )}
-    </span>
+        fontSize: 12, color: '#9ca3af',
+        fontStyle: 'italic', display: 'inline-block',
+      }}>未套用至任何專案</span>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      {linkedProjects.map(p => (
+        <button
+          key={p.id}
+          onClick={() => onGoToProject(p.id)}
+          title={`前往「${p.name}」任務看板`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '3px 10px', borderRadius: 99,
+            background: '#EFF6FF', border: '1px solid #BFDBFE',
+            color: '#1D4ED8', fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap',
+            transition: 'all 0.15s',
+          }}
+          onMouseOver={e => {
+            e.currentTarget.style.background = '#DBEAFE';
+            e.currentTarget.style.borderColor = '#93C5FD';
+          }}
+          onMouseOut={e => {
+            e.currentTarget.style.background = '#EFF6FF';
+            e.currentTarget.style.borderColor = '#BFDBFE';
+          }}
+        >
+          📁 {p.name}
+          <span style={{ fontSize: 10, opacity: 0.6 }}>↗</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -268,10 +277,21 @@ function OptionChip({ label, onRemove }) {
   );
 }
 
+// 欄位類型 → 使用位置描述
+const FIELD_LOCATION = {
+  text:     '任務詳情 · 文字輸入',
+  number:   '任務詳情 · 數值輸入',
+  select:   '任務詳情 · 下拉選單',
+  date:     '任務詳情 · 日期選擇',
+  checkbox: '任務詳情 · 勾選框',
+  currency: '任務詳情 · 金額輸入',
+  people:   '任務詳情 · 人員指派',
+};
+
 /** FieldCard — 卡片視圖的單一欄位卡 */
-function FieldCard({ field, onEdit, onDelete, projects = [] }) {
-  const linkedNames = field.usedInProjects
-    .map(pid => projects.find(p => String(p.id) === String(pid))?.name)
+function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
+  const linkedProjects = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid)))
     .filter(Boolean);
   const [hovered, setHovered] = useState(false);
   const def = TYPE_MAP[field.type] || TYPE_MAP.text;
@@ -361,17 +381,39 @@ function FieldCard({ field, onEdit, onDelete, projects = [] }) {
         </div>
       )}
 
-      {/* 底部：使用專案數 + 操作按鈕 */}
+      {/* 套用專案區塊 */}
       <div style={{
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        marginTop:      'auto',
-        paddingTop:     8,
-        borderTop:      '1px solid #f3f4f6',
+        marginTop: 'auto',
+        paddingTop: 10,
+        borderTop: '1px solid #f3f4f6',
       }}>
-        <ProjectBadge count={field.usedInProjects.length} projectNames={linkedNames} />
-        <div style={{ display: 'flex', gap: 6 }}>
+        {/* 使用位置標示 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6,
+        }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            textTransform: 'uppercase', letterSpacing: '0.5px',
+          }}>使用位置</span>
+          <span style={{
+            fontSize: 11, color: '#9ca3af',
+            background: '#f3f4f6', borderRadius: 4, padding: '1px 6px',
+          }}>
+            {FIELD_LOCATION[field.type] || '任務詳情'}
+          </span>
+        </div>
+
+        {/* 套用的專案（可點擊跳轉） */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5,
+          }}>套用專案</div>
+          <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
+        </div>
+
+        {/* 操作按鈕 */}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
           <ActionBtn label="編輯" onClick={() => onEdit(field)} color="#3b82f6" />
           <ActionBtn label="刪除" onClick={() => onDelete(field)} color="#ef4444" />
         </div>
@@ -406,7 +448,7 @@ function ActionBtn({ label, onClick, color }) {
 }
 
 /** TableView — 表格視圖 */
-function TableView({ fields, onEdit, onDelete, projects = [] }) {
+function TableView({ fields, onEdit, onDelete, projects = [], onGoToProject }) {
   const thStyle = {
     padding:        '10px 14px',
     textAlign:      'left',
@@ -439,7 +481,8 @@ function TableView({ fields, onEdit, onDelete, projects = [] }) {
             <th style={thStyle}>欄位名稱</th>
             <th style={thStyle}>類型</th>
             <th style={thStyle}>說明</th>
-            <th style={thStyle}>使用專案</th>
+            <th style={thStyle}>使用位置</th>
+            <th style={thStyle}>套用專案 <span style={{ color: '#9ca3af', fontWeight: 400 }}>(可點擊跳轉)</span></th>
             <th style={thStyle}>建立者</th>
             <th style={thStyle}>建立時間</th>
             <th style={{ ...thStyle, textAlign: 'center' }}>操作</th>
@@ -455,11 +498,12 @@ function TableView({ fields, onEdit, onDelete, projects = [] }) {
               onDelete={onDelete}
               isLast={idx === fields.length - 1}
               projects={projects}
+              onGoToProject={onGoToProject}
             />
           ))}
           {fields.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: '#9ca3af', padding: 40 }}>
+              <td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: '#9ca3af', padding: 40 }}>
                 沒有符合條件的欄位
               </td>
             </tr>
@@ -470,11 +514,11 @@ function TableView({ fields, onEdit, onDelete, projects = [] }) {
   );
 }
 
-function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [] }) {
+function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onGoToProject }) {
   const [hov, setHov] = useState(false);
   const lastStyle = isLast ? { borderBottom: 'none' } : {};
-  const linkedNames = field.usedInProjects
-    .map(pid => projects.find(p => String(p.id) === String(pid))?.name)
+  const linkedProjects = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid)))
     .filter(Boolean);
 
   return (
@@ -504,7 +548,7 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [] }) {
       <td style={{ ...tdStyle, ...lastStyle }}>
         <TypeBadge type={field.type} />
       </td>
-      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 200 }}>
+      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 180 }}>
         <span style={{
           display:      '-webkit-box',
           WebkitLineClamp: 2,
@@ -515,8 +559,19 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [] }) {
           {field.description || '—'}
         </span>
       </td>
+      {/* 使用位置欄 */}
       <td style={{ ...tdStyle, ...lastStyle }}>
-        <ProjectBadge count={field.usedInProjects.length} projectNames={linkedNames} />
+        <span style={{
+          fontSize: 11, color: '#6b7280',
+          background: '#f3f4f6', borderRadius: 4, padding: '2px 7px',
+          whiteSpace: 'nowrap',
+        }}>
+          {FIELD_LOCATION[field.type] || '任務詳情'}
+        </span>
+      </td>
+      {/* 套用專案欄（可點擊跳轉） */}
+      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 240 }}>
+        <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
       </td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{field.createdBy || '—'}</td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{formatDate(field.createdAt)}</td>
@@ -1084,9 +1139,21 @@ function EmptyState({ onAdd }) {
 // 主頁面
 // ════════════════════════════════════════════════════════════════
 
-export default function CustomFieldsPage() {
+export default function CustomFieldsPage({ onNavigate }) {
   const { user } = useAuth();
   const COMPANY_ID = user?.companyId;
+
+  // 跳轉到指定專案的看板
+  const handleGoToProject = (projectId) => {
+    if (projectId) {
+      sessionStorage.setItem('xcloud-open-project', String(projectId));
+    }
+    if (onNavigate) {
+      onNavigate('projects');
+    } else {
+      window.location.hash = '#projects';
+    }
+  };
 
   const [fields, setFields]           = useState([]);
   const [projects, setProjects]       = useState([]);
@@ -1354,6 +1421,7 @@ export default function CustomFieldsPage() {
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
                 projects={projects}
+                onGoToProject={handleGoToProject}
               />
             ))}
           </div>
@@ -1363,6 +1431,7 @@ export default function CustomFieldsPage() {
             onEdit={openEdit}
             onDelete={setDeleteTarget}
             projects={projects}
+            onGoToProject={handleGoToProject}
           />
         )}
       </div>

@@ -1327,7 +1327,7 @@ export default function Dashboard() {
     if (activeNav === 'ai-center')     return <AiDecisionCenter />;
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
     if (activeNav === 'forms')         return <FormsPage />;
-    if (activeNav === 'custom-fields') return <CustomFieldsPage />;
+    if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
     if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} />;
 
     return (
