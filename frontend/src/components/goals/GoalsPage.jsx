@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 設計 Token ──────────────────────────────────────────────────
 const T = {
@@ -284,14 +285,28 @@ function KeyResultRow({ kr }) {
 }
 
 // ── Goal 卡片 ───────────────────────────────────────────────────
-function GoalCard({ goal, level = 0, children }) {
-  const [expanded, setExpanded] = useState(false);
+function GoalCard({ goal, level = 0, children, onEdit, onDelete, projects = [] }) {
+  const [expanded,        setExpanded]        = useState(false);
+  const [showProjectLink, setShowProjectLink] = useState(false);
+  const [linkedProjId,    setLinkedProjId]    = useState(() => {
+    try { return JSON.parse(localStorage.getItem('xcloud-goal-proj-' + goal.id)) || null; } catch { return null; }
+  });
+
   const sc = STATUS_CONFIG[goal.status] || STATUS_CONFIG.on_track;
   const tc = TYPE_CONFIG[goal.type] || TYPE_CONFIG.personal;
   const progressColor =
     goal.status === 'on_track'  ? T.success :
     goal.status === 'at_risk'   ? T.warning :
     goal.status === 'off_track' ? T.danger  : T.neutral;
+
+  const linkedProject = projects.find(p => p.id === linkedProjId);
+
+  const handleLinkProject = (pid) => {
+    const id = pid ? parseInt(pid) : null;
+    setLinkedProjId(id);
+    localStorage.setItem('xcloud-goal-proj-' + goal.id, JSON.stringify(id));
+    setShowProjectLink(false);
+  };
 
   return (
     <div style={{ marginLeft: level * 24 }}>
@@ -351,7 +366,7 @@ function GoalCard({ goal, level = 0, children }) {
           </div>
 
           {/* 操作區 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {goal.keyResults?.length > 0 && (
               <button
                 onClick={() => setExpanded(p => !p)}
@@ -364,13 +379,31 @@ function GoalCard({ goal, level = 0, children }) {
                   transition: 'all 0.15s',
                 }}
               >
-                <span style={{
-                  display: 'inline-block',
-                  transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s',
-                }}>▾</span>
+                <span style={{ display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▾</span>
                 關鍵結果
               </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(goal)}
+                title="編輯目標"
+                style={{
+                  background: '#EFF6FF', border: '1px solid #BFDBFE',
+                  borderRadius: 6, padding: '4px 8px',
+                  cursor: 'pointer', fontSize: 12, color: '#2563EB',
+                }}
+              >✏️ 編輯</button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(goal.id)}
+                title="刪除目標"
+                style={{
+                  background: '#FEF2F2', border: '1px solid #FECACA',
+                  borderRadius: 6, padding: '4px 8px',
+                  cursor: 'pointer', fontSize: 12, color: T.danger,
+                }}
+              >🗑️</button>
             )}
           </div>
         </div>
@@ -389,6 +422,47 @@ function GoalCard({ goal, level = 0, children }) {
             </div>
           </div>
         )}
+
+        {/* 關聯專案區塊 */}
+        <div style={{
+          borderTop: `1px solid ${T.border}`,
+          padding: '8px 16px',
+          background: '#FAFBFF',
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: T.t3 }}>🔗 關聯專案：</span>
+          {linkedProject ? (
+            <>
+              <a
+                href="#projects"
+                style={{ fontSize: 12, fontWeight: 600, color: '#2563EB', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                title="前往專案管理"
+              >
+                📁 {linkedProject.name}
+              </a>
+              <button
+                onClick={() => handleLinkProject(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, color: T.t3, padding: '0 4px' }}
+                title="取消連結"
+              >✕ 取消連結</button>
+            </>
+          ) : showProjectLink ? (
+            <select
+              autoFocus
+              onChange={e => handleLinkProject(e.target.value)}
+              onBlur={() => setShowProjectLink(false)}
+              style={{ fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 6, padding: '2px 8px', color: T.t1, background: '#fff', cursor: 'pointer' }}
+            >
+              <option value="">選擇專案...</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          ) : (
+            <button
+              onClick={() => setShowProjectLink(true)}
+              style={{ fontSize: 11, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '2px 10px', cursor: 'pointer' }}
+            >+ 連結至專案</button>
+          )}
+        </div>
       </div>
 
       {/* 子目標 */}
@@ -398,7 +472,7 @@ function GoalCard({ goal, level = 0, children }) {
 }
 
 // ── 樹狀視圖 ────────────────────────────────────────────────────
-function TreeView({ goals }) {
+function TreeView({ goals, onEdit, onDelete, projects }) {
   const roots = goals.filter(g => !g.parentId);
   const childMap = {};
   goals.forEach(g => {
@@ -409,7 +483,7 @@ function TreeView({ goals }) {
   });
 
   const renderNode = (goal, level = 0) => (
-    <GoalCard key={goal.id} goal={goal} level={level}>
+    <GoalCard key={goal.id} goal={goal} level={level} onEdit={onEdit} onDelete={onDelete} projects={projects}>
       {(childMap[goal.id] || []).map(child => renderNode(child, level + 1))}
     </GoalCard>
   );
@@ -461,16 +535,28 @@ function KrFormRow({ kr, idx, onChange, onRemove }) {
   );
 }
 
-// ── 新增目標 Modal ──────────────────────────────────────────────
-function AddGoalModal({ onClose, onSave, teamMembers }) {
-  const [form, setForm] = useState({
+// ── 新增 / 編輯目標 Modal ───────────────────────────────────────
+function AddGoalModal({ onClose, onSave, teamMembers, editGoal }) {
+  const isEdit = Boolean(editGoal);
+  const [form, setForm] = useState(() => isEdit ? {
+    title:       editGoal.title       || '',
+    description: editGoal.description || '',
+    type:        editGoal.type        || 'company',
+    owner:       editGoal.ownerId     || editGoal.owner || '',
+    startDate:   editGoal.startDate   || '',
+    endDate:     editGoal.endDate     || '',
+    status:      editGoal.status      || 'on_track',
+    quarter:     editGoal.quarter     || 'Q2 2026',
+    progress:    editGoal.progress    ?? 0,
+  } : {
     title: '', description: '', type: 'company',
     owner: '', startDate: '', endDate: '',
-    status: 'on_track', quarter: 'Q2 2026',
+    status: 'on_track', quarter: 'Q2 2026', progress: 0,
   });
-  const [krs, setKrs] = useState([
-    { title: '', target: '', unit: '%' },
-  ]);
+  const [krs, setKrs] = useState(() => isEdit && editGoal.keyResults?.length
+    ? editGoal.keyResults.map(kr => ({ title: kr.title, target: kr.target, unit: kr.unit, current: kr.current, progress: kr.progress }))
+    : [{ title: '', target: '', unit: '%' }]
+  );
   const [errors, setErrors] = useState({});
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -492,26 +578,27 @@ function AddGoalModal({ onClose, onSave, teamMembers }) {
 
   const handleSave = () => {
     if (!validate()) return;
-    const ownerObj = teamMembers.find(m => m.id === Number(form.owner)) || {};
+    const ownerObj = teamMembers.find(m => String(m.id) === String(form.owner)) || {};
     const ownerName = ownerObj.name || form.owner;
     const ownerInitial = ownerName.slice(0, 1);
 
     const goal = {
-      id: 'g' + Date.now(),
+      ...(isEdit ? editGoal : { parentId: null }),
+      id: isEdit ? editGoal.id : 'g' + Date.now(),
       ...form,
-      owner: ownerName,
+      owner:        ownerName,
+      ownerId:      ownerObj.id || null,
       ownerInitial,
-      progress: 0,
-      parentId: null,
+      progress:     isEdit ? (Number(form.progress) || editGoal.progress || 0) : 0,
       keyResults: krs
         .filter(kr => kr.title.trim())
         .map((kr, i) => ({
-          id: 'kr' + Date.now() + i,
-          title: kr.title,
-          current: 0,
-          target: Number(kr.target) || 100,
-          unit: kr.unit || '%',
-          progress: 0,
+          id:       (isEdit && editGoal.keyResults?.[i]?.id) || ('kr' + Date.now() + i),
+          title:    kr.title,
+          current:  Number(kr.current) || 0,
+          target:   Number(kr.target)  || 100,
+          unit:     kr.unit || '%',
+          progress: Number(kr.progress) || 0,
         })),
     };
     onSave(goal);
@@ -546,8 +633,8 @@ function AddGoalModal({ onClose, onSave, teamMembers }) {
           position: 'sticky', top: 0, background: '#fff', zIndex: 1,
         }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 18, color: T.t1 }}>新增目標</div>
-            <div style={{ fontSize: 12, color: T.t2, marginTop: 2 }}>建立新的 OKR 目標與關鍵結果</div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: T.t1 }}>{isEdit ? '✏️ 編輯目標' : '新增目標'}</div>
+            <div style={{ fontSize: 12, color: T.t2, marginTop: 2 }}>{isEdit ? '修改 OKR 目標內容' : '建立新的 OKR 目標與關鍵結果'}</div>
           </div>
           <button onClick={onClose} style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
@@ -679,7 +766,7 @@ function AddGoalModal({ onClose, onSave, teamMembers }) {
             borderRadius: 8, padding: '8px 24px',
             cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600,
             boxShadow: `0 2px 8px ${T.accent}40`,
-          }}>儲存目標</button>
+          }}>{isEdit ? '💾 更新目標' : '儲存目標'}</button>
         </div>
       </div>
     </div>
@@ -688,6 +775,9 @@ function AddGoalModal({ onClose, onSave, teamMembers }) {
 
 // ── 主頁面 ──────────────────────────────────────────────────────
 export default function GoalsPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   const [goals, setGoals] = useState(() => {
     try {
       const saved = localStorage.getItem('xcloud-goals');
@@ -698,21 +788,29 @@ export default function GoalsPage() {
   });
 
   const [quarter, setQuarter] = useState('Q2 2026');
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'tree'
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('xcloud-goals-view') || 'list');
   const [showModal, setShowModal] = useState(false);
+  const [editGoal, setEditGoal] = useState(null);   // null = 新增，goal = 編輯
   const [teamMembers, setTeamMembers] = useState([]);
+  const [projects, setProjects] = useState([]);
 
-  // 持久化
+  // 持久化目標
   useEffect(() => {
     localStorage.setItem('xcloud-goals', JSON.stringify(goals));
   }, [goals]);
 
+  // 持久化 viewMode
+  useEffect(() => {
+    localStorage.setItem('xcloud-goals-view', viewMode);
+  }, [viewMode]);
+
   // 取得團隊成員
   useEffect(() => {
-    fetch('/api/team?companyId=2')
+    if (!companyId) return;
+    fetch(`/api/projects/users?companyId=${companyId}`)
       .then(r => r.json())
       .then(data => {
-        const members = Array.isArray(data) ? data : (data.members || data.data || []);
+        const members = Array.isArray(data) ? data : (data.members || data.data || data.users || []);
         setTeamMembers(members.map(m => ({ id: m.id, name: m.name || m.displayName || m.username })));
       })
       .catch(() => {
@@ -727,7 +825,19 @@ export default function GoalsPage() {
         });
         setTeamMembers(fallback);
       });
-  }, []);
+  }, [companyId]);
+
+  // 取得專案列表（供關聯專案使用）
+  useEffect(() => {
+    if (!companyId) return;
+    fetch(`/api/projects?companyId=${companyId}`)
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.projects || data.data || []);
+        setProjects(list.map(p => ({ id: p.id, name: p.name })));
+      })
+      .catch(() => setProjects([]));
+  }, [companyId]);
 
   // 篩選當前季度
   const filtered = goals.filter(g => g.quarter === quarter);
@@ -741,9 +851,30 @@ export default function GoalsPage() {
     ? Math.round(filtered.reduce((s, g) => s + g.progress, 0) / total)
     : 0;
 
+  // 新增
   const handleSave = useCallback(goal => {
     setGoals(prev => [goal, ...prev]);
     setShowModal(false);
+    setEditGoal(null);
+  }, []);
+
+  // 更新（編輯後）
+  const handleUpdate = useCallback(updatedGoal => {
+    setGoals(prev => prev.map(g => g.id === updatedGoal.id ? updatedGoal : g));
+    setShowModal(false);
+    setEditGoal(null);
+  }, []);
+
+  // 編輯
+  const handleEdit = useCallback(goal => {
+    setEditGoal(goal);
+    setShowModal(true);
+  }, []);
+
+  // 刪除
+  const handleDelete = useCallback(goalId => {
+    if (!window.confirm('確定要刪除此目標嗎？此操作無法復原。')) return;
+    setGoals(prev => prev.filter(g => g.id !== goalId));
   }, []);
 
   // ── Render ──
@@ -869,19 +1000,20 @@ export default function GoalsPage() {
       ) : viewMode === 'list' ? (
         <div>
           {filtered.map(goal => (
-            <GoalCard key={goal.id} goal={goal} level={0} />
+            <GoalCard key={goal.id} goal={goal} level={0} onEdit={handleEdit} onDelete={handleDelete} projects={projects} />
           ))}
         </div>
       ) : (
-        <TreeView goals={filtered} />
+        <TreeView goals={filtered} onEdit={handleEdit} onDelete={handleDelete} projects={projects} />
       )}
 
-      {/* 新增目標 Modal */}
+      {/* 新增 / 編輯目標 Modal */}
       {showModal && (
         <AddGoalModal
-          onClose={() => setShowModal(false)}
-          onSave={handleSave}
+          onClose={() => { setShowModal(false); setEditGoal(null); }}
+          onSave={editGoal ? handleUpdate : handleSave}
           teamMembers={teamMembers}
+          editGoal={editGoal}
         />
       )}
     </div>
