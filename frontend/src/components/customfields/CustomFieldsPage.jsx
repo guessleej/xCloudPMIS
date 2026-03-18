@@ -52,9 +52,9 @@ function buildSeedData() {
       description: '任務的優先等級',
       options: ['緊急', '高', '中', '低'],
       global: true,
-      usedInProjects: ['電商平台開發', 'ERP 系統升級'],
+      usedInProjects: [],   // 使用真實專案 ID（由用戶在 Modal 中選擇）
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-2',
@@ -63,9 +63,9 @@ function buildSeedData() {
       description: '完成任務所需的預估小時數',
       options: [],
       global: false,
-      usedInProjects: ['電商平台開發'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-3',
@@ -74,9 +74,9 @@ function buildSeedData() {
       description: '',
       options: [],
       global: false,
-      usedInProjects: ['ERP 系統升級', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '王小明',
+      createdBy: '',
     },
     {
       id: 'cf-4',
@@ -85,9 +85,9 @@ function buildSeedData() {
       description: '負責執行此任務的部門',
       options: ['工程部', '設計部', '行銷部', '業務部', 'PM部'],
       global: true,
-      usedInProjects: ['電商平台開發', 'ERP 系統升級', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-5',
@@ -96,9 +96,9 @@ function buildSeedData() {
       description: '',
       options: [],
       global: false,
-      usedInProjects: ['ERP 系統升級'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '李大華',
+      createdBy: '',
     },
     {
       id: 'cf-6',
@@ -107,9 +107,9 @@ function buildSeedData() {
       description: '負責審核此任務結果的人員',
       options: [],
       global: true,
-      usedInProjects: ['電商平台開發', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '王小明',
+      createdBy: '',
     },
   ];
 }
@@ -117,7 +117,15 @@ function buildSeedData() {
 function loadFields() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // 遷移：如果 usedInProjects 含有字串名稱（舊格式），清空為空陣列
+      const migrated = parsed.map(f => ({
+        ...f,
+        usedInProjects: (f.usedInProjects || []).filter(v => typeof v === 'number' || /^\d+$/.test(String(v))),
+      }));
+      return migrated;
+    }
   } catch (_) { /* ignore */ }
   const seed = buildSeedData();
   localStorage.setItem(LS_KEY, JSON.stringify(seed));
@@ -187,19 +195,38 @@ function TypeBadge({ type }) {
   );
 }
 
-/** ProjectCount badge */
-function ProjectBadge({ count }) {
+/** ProjectCount badge — 顯示應用專案數，hover 展開名稱 */
+function ProjectBadge({ count, projectNames = [] }) {
+  const [show, setShow] = useState(false);
   return (
-    <span style={{
-      display:      'inline-block',
-      padding:      '2px 8px',
-      borderRadius: 99,
-      background:   count > 0 ? '#e0f2fe' : '#f3f4f6',
-      color:        count > 0 ? '#0369a1' : '#9ca3af',
-      fontSize:     12,
-      fontWeight:   600,
-    }}>
-      使用於 {count} 個專案
+    <span
+      style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={() => count > 0 && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={{
+        display:      'inline-block',
+        padding:      '2px 8px',
+        borderRadius: 99,
+        background:   count > 0 ? '#e0f2fe' : '#f3f4f6',
+        color:        count > 0 ? '#0369a1' : '#9ca3af',
+        fontSize:     12,
+        fontWeight:   600,
+        cursor:       count > 0 ? 'default' : 'default',
+      }}>
+        {count > 0 ? `📁 ${count} 個專案` : '未套用'}
+      </span>
+      {show && projectNames.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: 0, zIndex: 20,
+          background: '#1e293b', color: '#fff', borderRadius: 8,
+          padding: '8px 12px', marginBottom: 6, minWidth: 160,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          fontSize: 12, lineHeight: 1.7, whiteSpace: 'nowrap',
+        }}>
+          {projectNames.map((n, i) => <div key={i}>📁 {n}</div>)}
+        </div>
+      )}
     </span>
   );
 }
@@ -242,7 +269,10 @@ function OptionChip({ label, onRemove }) {
 }
 
 /** FieldCard — 卡片視圖的單一欄位卡 */
-function FieldCard({ field, onEdit, onDelete }) {
+function FieldCard({ field, onEdit, onDelete, projects = [] }) {
+  const linkedNames = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid))?.name)
+    .filter(Boolean);
   const [hovered, setHovered] = useState(false);
   const def = TYPE_MAP[field.type] || TYPE_MAP.text;
 
@@ -340,7 +370,7 @@ function FieldCard({ field, onEdit, onDelete }) {
         paddingTop:     8,
         borderTop:      '1px solid #f3f4f6',
       }}>
-        <ProjectBadge count={field.usedInProjects.length} />
+        <ProjectBadge count={field.usedInProjects.length} projectNames={linkedNames} />
         <div style={{ display: 'flex', gap: 6 }}>
           <ActionBtn label="編輯" onClick={() => onEdit(field)} color="#3b82f6" />
           <ActionBtn label="刪除" onClick={() => onDelete(field)} color="#ef4444" />
@@ -376,7 +406,7 @@ function ActionBtn({ label, onClick, color }) {
 }
 
 /** TableView — 表格視圖 */
-function TableView({ fields, onEdit, onDelete }) {
+function TableView({ fields, onEdit, onDelete, projects = [] }) {
   const thStyle = {
     padding:        '10px 14px',
     textAlign:      'left',
@@ -424,6 +454,7 @@ function TableView({ fields, onEdit, onDelete }) {
               onEdit={onEdit}
               onDelete={onDelete}
               isLast={idx === fields.length - 1}
+              projects={projects}
             />
           ))}
           {fields.length === 0 && (
@@ -439,9 +470,12 @@ function TableView({ fields, onEdit, onDelete }) {
   );
 }
 
-function TableRow({ field, tdStyle, onEdit, onDelete, isLast }) {
+function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [] }) {
   const [hov, setHov] = useState(false);
   const lastStyle = isLast ? { borderBottom: 'none' } : {};
+  const linkedNames = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid))?.name)
+    .filter(Boolean);
 
   return (
     <tr
@@ -482,7 +516,7 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast }) {
         </span>
       </td>
       <td style={{ ...tdStyle, ...lastStyle }}>
-        <ProjectBadge count={field.usedInProjects.length} />
+        <ProjectBadge count={field.usedInProjects.length} projectNames={linkedNames} />
       </td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{field.createdBy || '—'}</td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{formatDate(field.createdAt)}</td>
@@ -649,7 +683,7 @@ function Overlay({ children, onClick }) {
 }
 
 /** FieldModal — 新增 / 編輯欄位 Modal */
-function FieldModal({ field, projects, onSave, onClose }) {
+function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
   const isEdit = Boolean(field?.id);
 
   const [name, setName]             = useState(field?.name || '');
@@ -665,9 +699,11 @@ function FieldModal({ field, projects, onSave, onClose }) {
     if (newType !== 'select') setOptions([]);
   }
 
-  function toggleProject(pName) {
+  // 改用 project ID（不用 name），確保與後端資料一致
+  function toggleProject(pId) {
+    const id = String(pId);
     setUsedIn(prev =>
-      prev.includes(pName) ? prev.filter(p => p !== pName) : [...prev, pName]
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   }
 
@@ -686,7 +722,7 @@ function FieldModal({ field, projects, onSave, onClose }) {
       global,
       usedInProjects: usedIn,
       createdAt:      field?.createdAt || now,
-      createdBy:      field?.createdBy || '陳志明',
+      createdBy:      field?.createdBy || userName,
     };
     onSave(saved);
   }
@@ -884,11 +920,11 @@ function FieldModal({ field, projects, onSave, onClose }) {
                 gap:          8,
               }}>
                 {projects.map(p => {
-                  const selected = usedIn.includes(p.name);
+                  const selected = usedIn.includes(String(p.id));
                   return (
                     <button
                       key={p.id}
-                      onClick={() => toggleProject(p.name)}
+                      onClick={() => toggleProject(p.id)}
                       style={{
                         padding:      '4px 12px',
                         borderRadius: 99,
@@ -1067,6 +1103,7 @@ export default function CustomFieldsPage() {
   }, []);
 
   useEffect(() => {
+    if (!COMPANY_ID) return;
     fetch(`${API_BASE}/api/projects?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(data => {
@@ -1079,15 +1116,8 @@ export default function CustomFieldsPage() {
           : [];
         setProjects(list.map(p => ({ id: p.id, name: p.name })));
       })
-      .catch(() => {
-        // API 不可用時使用靜態清單
-        setProjects([
-          { id: 1, name: '電商平台開發' },
-          { id: 2, name: 'ERP 系統升級' },
-          { id: 3, name: 'CRM 導入計畫' },
-        ]);
-      });
-  }, []);
+      .catch(() => setProjects([]));   // API 不可用時不填入假資料
+  }, [COMPANY_ID]);
 
   // ── 篩選邏輯 ───────────────────────────────────────────────
   const filtered = fields.filter(f => {
@@ -1323,6 +1353,7 @@ export default function CustomFieldsPage() {
                 field={f}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
+                projects={projects}
               />
             ))}
           </div>
@@ -1331,6 +1362,7 @@ export default function CustomFieldsPage() {
             fields={filtered}
             onEdit={openEdit}
             onDelete={setDeleteTarget}
+            projects={projects}
           />
         )}
       </div>
@@ -1342,6 +1374,7 @@ export default function CustomFieldsPage() {
           projects={projects}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
+          userName={user?.name || '我'}
         />
       )}
 
