@@ -600,7 +600,7 @@ function AddMemberModal({ onClose, onSubmit }) {
       return;
     }
     setSubmitting(true);
-    const result = await onSubmit({ ...form, companyId: COMPANY_ID });
+    const result = await onSubmit(form);
     if (result?.error) setError(result.error);
     setSubmitting(false);
   };
@@ -798,7 +798,7 @@ export default function TeamPage() {
       const res  = await fetch(`${API_BASE}/api/team`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, companyId: COMPANY_ID }),
       });
       const json = await res.json();
       if (!res.ok) return { error: json.error || '新增失敗' };

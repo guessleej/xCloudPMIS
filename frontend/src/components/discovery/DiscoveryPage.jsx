@@ -295,12 +295,15 @@ function CustomFieldsDemo() {
 // Demo 5：表單（真實可提交）
 // ════════════════════════════════════════════════════════════
 function FormsDemo() {
+  const { user } = useAuth();
+  const COMPANY_ID = user?.companyId;
   const [projects, setProjects] = useState([]);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium', projectId: '', requester: '' });
   const [status, setStatus] = useState('idle'); // idle|loading|success|error
   const [msg,    setMsg]    = useState('');
 
   useEffect(() => {
+    if (!COMPANY_ID) return;
     fetch(`${API}/api/projects?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(d => setProjects((d.data || []).filter(p => p.status === 'active').slice(0, 5)))

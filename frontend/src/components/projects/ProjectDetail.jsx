@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
 const API = '';
@@ -232,6 +233,9 @@ function AddTaskModal({ projectId, users, onClose, onCreated }) {
 // 主元件：ProjectDetail
 // ════════════════════════════════════════════════════════════
 export default function ProjectDetail({ projectId, projectName, onBack }) {
+  const { user, authFetch } = useAuth();
+  const companyId = user?.companyId;
+
   const [project,   setProject]   = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
@@ -251,6 +255,15 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
       setLoading(false);
     }
   }, [projectId]);
+
+  // 載入可指派成員列表
+  useEffect(() => {
+    if (!companyId) return;
+    fetch(`${API}/api/users?companyId=${companyId}`)
+      .then(r => r.json())
+      .then(d => setUsers(Array.isArray(d.data) ? d.data : []))
+      .catch(() => {});
+  }, [companyId]);
 
   useEffect(() => { loadProject(); }, [loadProject]);
 
