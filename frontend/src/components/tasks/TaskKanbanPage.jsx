@@ -20,12 +20,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import RealtimeEditor from '../RealtimeEditor';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const API      = '/api/projects';
-const TEAM_API = '/api/team?companyId=2';
-
-const CURRENT_USER = { id: 0, name: '我', color: '#4f46e5' };
+// TEAM_API & CURRENT_USER 改由 useAuth() 動態提供，不再硬編碼
 
 const COLUMNS = [
   { id: 'todo',        label: '待辦',   emoji: '📋', color: '#6b7280' },
@@ -542,7 +541,7 @@ function DeleteConfirmModal({ task, onClose, onDeleted }) {
 // ════════════════════════════════════════════════════════════
 // 任務詳情側邊面板 (Asana 風格)
 // ════════════════════════════════════════════════════════════
-function TaskSidePanel({ task, users, projects, allTasks, onClose, onSaved, onDeleteRequest }) {
+function TaskSidePanel({ task, users, projects, allTasks, onClose, onSaved, onDeleteRequest, companyId, currentUser }) {
   // ── 基本欄位狀態 ─────────────────────────────────────────
   const [title,      setTitle]      = useState(task.title);
   const [status,     setStatus]     = useState(task.status);
@@ -582,13 +581,14 @@ function TaskSidePanel({ task, users, projects, allTasks, onClose, onSaved, onDe
   const [pendingMentions, setPendingMentions] = useState([]);
   const commentRef = useRef(null);
 
-  // Fetch team members
+  // Fetch team members（使用動態 companyId，不硬編碼）
   useEffect(() => {
-    fetch(TEAM_API)
+    if (!companyId) return;
+    fetch(`/api/projects/users?companyId=${companyId}`)
       .then(r => r.json())
       .then(d => { if (d.success || Array.isArray(d.data)) setTeamMembers(d.data || []); })
       .catch(() => {});
-  }, []);
+  }, [companyId]);
 
   // ── 儲存基本欄位 ─────────────────────────────────────────
   const handleSave = async () => {
@@ -693,7 +693,7 @@ function TaskSidePanel({ task, users, projects, allTasks, onClose, onSaved, onDe
     if (!commentText.trim()) return;
     const comment = {
       id:       genId(),
-      author:   CURRENT_USER.name,
+      author:   currentUser?.name || '我',
       text:     commentText.trim(),
       mentions: pendingMentions,
       ts:       new Date().toISOString(),
@@ -1062,7 +1062,7 @@ function TaskSidePanel({ task, users, projects, allTasks, onClose, onSaved, onDe
           </div>
           <RealtimeEditor
             taskId={task.id}
-            user={CURRENT_USER}
+            user={currentUser || { id: 0, name: '我', color: '#4f46e5' }}
             placeholder="輸入任務描述⋯ 支援 Markdown，其他協作者的修改會即時顯示"
           />
 
@@ -1301,6 +1301,12 @@ const cfCancelBtn = {
 // 任務看板主頁面
 // ════════════════════════════════════════════════════════════
 export default function TaskKanbanPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+  const currentUser = user
+    ? { id: user.id, name: user.name || '我', color: '#4f46e5' }
+    : { id: 0, name: '我', color: '#4f46e5' };
+
   const [kanban,   setKanban]   = useState({ todo: [], in_progress: [], review: [], done: [] });
   const [projects, setProjects] = useState([]);
   const [users,    setUsers]    = useState([]);
@@ -1323,16 +1329,17 @@ export default function TaskKanbanPage() {
 
   // ── 資料載入 ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams({ companyId: 2 });
+      const params = new URLSearchParams({ companyId });
       if (filterProject)  params.set('projectId',  filterProject);
       if (filterAssignee) params.set('assigneeId', filterAssignee);
       if (filterPriority) params.set('priority',   filterPriority);
 
       const [tasksRes, usersRes] = await Promise.all([
         fetch(`${API}/tasks?${params}`),
-        fetch(`${API}/users?companyId=2`),
+        fetch(`${API}/users?companyId=${companyId}`),
       ]);
       const tasksData = await tasksRes.json();
       const usersData = await usersRes.json();
@@ -1346,7 +1353,7 @@ export default function TaskKanbanPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterProject, filterAssignee, filterPriority]);
+  }, [companyId, filterProject, filterAssignee, filterPriority]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1555,6 +1562,8 @@ export default function TaskKanbanPage() {
           onClose={() => setPanelTask(null)}
           onSaved={() => { fetchData(); showToast('✅ 任務已更新'); }}
           onDeleteRequest={(task) => { setPanelTask(null); setDeleteTask(task); }}
+          companyId={companyId}
+          currentUser={currentUser}
         />
       )}
 
