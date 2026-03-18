@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Brand Colors ───────────────────────────────────────────────────────────
 const BRAND = {
@@ -738,6 +739,9 @@ function MemberFilterDropdown({ members, selected, onChange }) {
 
 // ─── Main WorkloadPage ────────────────────────────────────────────────────────
 export default function WorkloadPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   const [mode, setMode] = useState('week'); // 'week' | 'month' | 'custom'
   const [anchor, setAnchor] = useState(new Date());
   const [view, setView] = useState('gantt'); // 'gantt' | 'card'
@@ -758,14 +762,15 @@ export default function WorkloadPage() {
 
   // Load data
   useEffect(() => {
+    if (!companyId) return;
     let cancelled = false;
 
     async function fetchData() {
       setLoading(true);
       try {
         const [membersRes, tasksRes] = await Promise.all([
-          fetch('/api/team?companyId=2'),
-          fetch('/api/tasks'),
+          fetch(`/api/projects/users?companyId=${companyId}`),
+          fetch(`/api/projects/tasks?companyId=${companyId}`),
         ]);
 
         if (!membersRes.ok || !tasksRes.ok) throw new Error('API error');
@@ -794,7 +799,7 @@ export default function WorkloadPage() {
 
     fetchData();
     return () => { cancelled = true; };
-  }, []);
+  }, [companyId]);
 
   const navigate = (dir) => {
     setAnchor((prev) => {

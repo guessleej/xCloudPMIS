@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
@@ -1275,6 +1276,9 @@ function TabItem({ tab, isActive, isFixed, unread, onClick, onRename, onDelete }
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function InboxPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   // 通知資料（初始用示範資料，API 成功後替換）
   const [notifications, setNotifications] = useState(() => {
     const ls = loadLocalStorageNotifications();
@@ -1290,9 +1294,10 @@ export default function InboxPage() {
 
   // ── 從 API 取得通知 ──────────────────────────────────────────
   useEffect(() => {
+    if (!companyId) return;
     let cancelled = false;
     setLoading(true);
-    fetch('/api/notifications?companyId=2&limit=100')
+    fetch(`/api/notifications?companyId=${companyId}&limit=100`)
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
@@ -1320,7 +1325,7 @@ export default function InboxPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UI 狀態
   const [activeTab,      setActiveTab]      = useState('activity');
