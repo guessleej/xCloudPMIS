@@ -18,6 +18,22 @@ import { useAuth } from '../../context/AuthContext';
 // ── 常數 ────────────────────────────────────────────────────────
 const API_BASE   = '';
 const LS_KEY     = 'xcloud-custom-fields';
+const T = {
+  pageBg: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  brand: 'var(--xc-brand)',
+  brandSoft: 'var(--xc-brand-soft)',
+};
 
 // ── 欄位類型定義 ─────────────────────────────────────────────────
 const FIELD_TYPES = [
@@ -203,7 +219,7 @@ function ProjectLinks({ linkedProjects = [], onGoToProject }) {
   if (linkedProjects.length === 0) {
     return (
       <span style={{
-        fontSize: 12, color: '#9ca3af',
+        fontSize: 12, color: T.textMuted,
         fontStyle: 'italic', display: 'inline-block',
       }}>未套用至任何專案</span>
     );
@@ -218,18 +234,18 @@ function ProjectLinks({ linkedProjects = [], onGoToProject }) {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             padding: '3px 10px', borderRadius: 99,
-            background: '#EFF6FF', border: '1px solid #BFDBFE',
-            color: '#1D4ED8', fontSize: 12, fontWeight: 600,
+            background: 'var(--xc-info-soft)', border: `1px solid ${T.borderStrong}`,
+            color: 'var(--xc-info)', fontSize: 12, fontWeight: 600,
             cursor: 'pointer', whiteSpace: 'nowrap',
             transition: 'all 0.15s',
           }}
           onMouseOver={e => {
-            e.currentTarget.style.background = '#DBEAFE';
-            e.currentTarget.style.borderColor = '#93C5FD';
+            e.currentTarget.style.background = T.surfaceMuted;
+            e.currentTarget.style.borderColor = T.borderStrong;
           }}
           onMouseOut={e => {
-            e.currentTarget.style.background = '#EFF6FF';
-            e.currentTarget.style.borderColor = '#BFDBFE';
+            e.currentTarget.style.background = 'var(--xc-info-soft)';
+            e.currentTarget.style.borderColor = T.borderStrong;
           }}
         >
           📁 {p.name}
@@ -249,8 +265,8 @@ function OptionChip({ label, onRemove }) {
       gap:          4,
       padding:      '2px 8px',
       borderRadius: 99,
-      background:   '#f3f4f6',
-      color:        '#374151',
+      background:   T.surfaceMuted,
+      color:        T.textSoft,
       fontSize:     12,
       fontWeight:   500,
     }}>
@@ -263,7 +279,7 @@ function OptionChip({ label, onRemove }) {
             border:     'none',
             padding:    0,
             cursor:     'pointer',
-            color:      '#9ca3af',
+            color:      T.textMuted,
             fontSize:   14,
             lineHeight: 1,
             display:    'flex',
@@ -301,9 +317,9 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background:   '#fff',
+        background:   T.surface,
         borderRadius: 12,
-        border:       `1.5px solid ${hovered ? def.color + '55' : '#e5e7eb'}`,
+        border:       `1.5px solid ${hovered ? def.color + '55' : T.border}`,
         padding:      20,
         display:      'flex',
         flexDirection: 'column',
@@ -312,7 +328,7 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
         transition:   'border-color 0.2s, box-shadow 0.2s',
         boxShadow:    hovered
           ? `0 4px 20px ${def.color}18`
-          : '0 1px 4px rgba(0,0,0,0.06)',
+          : T.shadow,
         position:     'relative',
       }}
     >
@@ -340,7 +356,7 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
           <div style={{
             fontWeight:   700,
             fontSize:     15,
-            color:        '#111827',
+            color:        T.text,
             whiteSpace:   'nowrap',
             overflow:     'hidden',
             textOverflow: 'ellipsis',
@@ -356,7 +372,7 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
         <p style={{
           margin:       0,
           fontSize:     13,
-          color:        '#6b7280',
+          color:        T.textSoft,
           lineHeight:   1.5,
           display:      '-webkit-box',
           WebkitLineClamp: 2,
@@ -374,7 +390,7 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
             <OptionChip key={opt} label={opt} />
           ))}
           {field.options.length > 3 && (
-            <span style={{ fontSize: 12, color: '#9ca3af', alignSelf: 'center' }}>
+              <span style={{ fontSize: 12, color: T.textMuted, alignSelf: 'center' }}>
               +{field.options.length - 3}
             </span>
           )}
@@ -385,19 +401,19 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
       <div style={{
         marginTop: 'auto',
         paddingTop: 10,
-        borderTop: '1px solid #f3f4f6',
+        borderTop: `1px solid ${T.border}`,
       }}>
         {/* 使用位置標示 */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6,
         }}>
           <span style={{
-            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            fontSize: 11, fontWeight: 700, color: T.textSoft,
             textTransform: 'uppercase', letterSpacing: '0.5px',
           }}>使用位置</span>
           <span style={{
-            fontSize: 11, color: '#9ca3af',
-            background: '#f3f4f6', borderRadius: 4, padding: '1px 6px',
+            fontSize: 11, color: T.textMuted,
+            background: T.surfaceMuted, borderRadius: 4, padding: '1px 6px',
           }}>
             {FIELD_LOCATION[field.type] || '任務詳情'}
           </span>
@@ -406,7 +422,7 @@ function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
         {/* 套用的專案（可點擊跳轉） */}
         <div style={{ marginBottom: 10 }}>
           <div style={{
-            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            fontSize: 11, fontWeight: 700, color: T.textSoft,
             textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5,
           }}>套用專案</div>
           <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
@@ -434,7 +450,7 @@ function ActionBtn({ label, onClick, color }) {
         padding:      '4px 10px',
         borderRadius: 6,
         border:       `1px solid ${color}`,
-        background:   hov ? color : '#fff',
+        background:   hov ? color : T.surfaceStrong,
         color:        hov ? '#fff' : color,
         fontSize:     12,
         fontWeight:   600,
@@ -454,26 +470,26 @@ function TableView({ fields, onEdit, onDelete, projects = [], onGoToProject }) {
     textAlign:      'left',
     fontSize:       12,
     fontWeight:     600,
-    color:          '#6b7280',
-    background:     '#f9fafb',
-    borderBottom:   '1px solid #e5e7eb',
+    color:          T.textSoft,
+    background:     T.surfaceSoft,
+    borderBottom:   `1px solid ${T.border}`,
     whiteSpace:     'nowrap',
   };
   const tdStyle = {
     padding:      '12px 14px',
     fontSize:     13,
-    color:        '#374151',
-    borderBottom: '1px solid #f3f4f6',
+    color:        T.textSoft,
+    borderBottom: `1px solid ${T.border}`,
     verticalAlign: 'middle',
   };
 
   return (
     <div style={{
-      background:   '#fff',
+      background:   T.surface,
       borderRadius: 12,
-      border:       '1px solid #e5e7eb',
+      border:       `1px solid ${T.border}`,
       overflow:     'hidden',
-      boxShadow:    '0 1px 4px rgba(0,0,0,0.06)',
+      boxShadow:    T.shadow,
     }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
@@ -482,7 +498,7 @@ function TableView({ fields, onEdit, onDelete, projects = [], onGoToProject }) {
             <th style={thStyle}>類型</th>
             <th style={thStyle}>說明</th>
             <th style={thStyle}>使用位置</th>
-            <th style={thStyle}>套用專案 <span style={{ color: '#9ca3af', fontWeight: 400 }}>(可點擊跳轉)</span></th>
+            <th style={thStyle}>套用專案 <span style={{ color: T.textMuted, fontWeight: 400 }}>(可點擊跳轉)</span></th>
             <th style={thStyle}>建立者</th>
             <th style={thStyle}>建立時間</th>
             <th style={{ ...thStyle, textAlign: 'center' }}>操作</th>
@@ -503,7 +519,7 @@ function TableView({ fields, onEdit, onDelete, projects = [], onGoToProject }) {
           ))}
           {fields.length === 0 && (
             <tr>
-              <td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: '#9ca3af', padding: 40 }}>
+              <td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: T.textMuted, padding: 40 }}>
                 沒有符合條件的欄位
               </td>
             </tr>
@@ -525,12 +541,12 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onG
     <tr
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      style={{ background: hov ? '#fafafa' : '#fff', transition: 'background 0.15s' }}
+      style={{ background: hov ? T.surfaceSoft : T.surface, transition: 'background 0.15s' }}
     >
       <td style={{ ...tdStyle, ...lastStyle }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <TypeIcon type={field.type} size={28} />
-          <span style={{ fontWeight: 600, color: '#111827' }}>{field.name}</span>
+          <span style={{ fontWeight: 600, color: T.text }}>{field.name}</span>
           {field.global && (
             <span style={{
               padding:      '1px 6px',
@@ -554,7 +570,7 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onG
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
           overflow:     'hidden',
-          color:        field.description ? '#374151' : '#d1d5db',
+          color:        field.description ? T.textSoft : T.textMuted,
         }}>
           {field.description || '—'}
         </span>
@@ -562,8 +578,8 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onG
       {/* 使用位置欄 */}
       <td style={{ ...tdStyle, ...lastStyle }}>
         <span style={{
-          fontSize: 11, color: '#6b7280',
-          background: '#f3f4f6', borderRadius: 4, padding: '2px 7px',
+          fontSize: 11, color: T.textSoft,
+          background: T.surfaceMuted, borderRadius: 4, padding: '2px 7px',
           whiteSpace: 'nowrap',
         }}>
           {FIELD_LOCATION[field.type] || '任務詳情'}
@@ -573,8 +589,8 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onG
       <td style={{ ...tdStyle, ...lastStyle, maxWidth: 240 }}>
         <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
       </td>
-      <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{field.createdBy || '—'}</td>
-      <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{formatDate(field.createdAt)}</td>
+      <td style={{ ...tdStyle, ...lastStyle, color: T.textSoft }}>{field.createdBy || '—'}</td>
+      <td style={{ ...tdStyle, ...lastStyle, color: T.textSoft }}>{formatDate(field.createdAt)}</td>
       <td style={{ ...tdStyle, ...lastStyle, textAlign: 'center' }}>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
           <ActionBtn label="編輯" onClick={() => onEdit(field)} color="#3b82f6" />
@@ -659,21 +675,22 @@ function DeleteConfirmModal({ field, onConfirm, onCancel }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background:   '#fff',
+          background:   T.surface,
           borderRadius: 16,
           padding:      32,
           width:        420,
           maxWidth:     '90vw',
-          boxShadow:    '0 20px 60px rgba(0,0,0,0.18)',
+          boxShadow:    T.shadowStrong,
+          border:       `1px solid ${T.border}`,
           textAlign:    'center',
         }}
       >
         <div style={{ fontSize: 48, marginBottom: 16 }}>🗑️</div>
-        <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#111827' }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: T.text }}>
           刪除自訂欄位
         </h3>
-        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#6b7280', lineHeight: 1.6 }}>
-          確定要刪除「<strong style={{ color: '#111827' }}>{field.name}</strong>」嗎？
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: T.textSoft, lineHeight: 1.6 }}>
+          確定要刪除「<strong style={{ color: T.text }}>{field.name}</strong>」嗎？
           {field.usedInProjects.length > 0 && (
             <><br />此欄位目前應用於 <strong>{field.usedInProjects.length}</strong> 個專案。</>
           )}
@@ -685,9 +702,9 @@ function DeleteConfirmModal({ field, onConfirm, onCancel }) {
             style={{
               padding:      '9px 22px',
               borderRadius: 8,
-              border:       '1.5px solid #e5e7eb',
-              background:   '#fff',
-              color:        '#374151',
+              border:       `1.5px solid ${T.border}`,
+              background:   T.surfaceStrong,
+              color:        T.textSoft,
               fontSize:     14,
               fontWeight:   600,
               cursor:       'pointer',
@@ -786,19 +803,19 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
     width:        '100%',
     padding:      '9px 12px',
     borderRadius: 8,
-    border:       '1.5px solid #d1d5db',
+    border:       `1.5px solid ${T.borderStrong}`,
     fontSize:     14,
-    color:        '#111827',
+    color:        T.text,
     outline:      'none',
     boxSizing:    'border-box',
-    background:   '#fff',
+    background:   T.surfaceStrong,
   };
 
   const labelStyle = {
     display:      'block',
     fontSize:     13,
     fontWeight:   600,
-    color:        '#374151',
+    color:        T.textSoft,
     marginBottom: 6,
   };
 
@@ -807,13 +824,14 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background:   '#fff',
+          background:   T.surface,
           borderRadius: 16,
           width:        580,
           maxWidth:     '95vw',
           maxHeight:    '90vh',
           overflowY:    'auto',
-          boxShadow:    '0 20px 60px rgba(0,0,0,0.18)',
+          boxShadow:    T.shadowStrong,
+          border:       `1px solid ${T.border}`,
           display:      'flex',
           flexDirection: 'column',
         }}
@@ -821,21 +839,21 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
         {/* Modal 標頭 */}
         <div style={{
           padding:      '20px 24px 16px',
-          borderBottom: '1px solid #f3f4f6',
+          borderBottom: `1px solid ${T.border}`,
           display:      'flex',
           alignItems:   'center',
           justifyContent: 'space-between',
           position:     'sticky',
           top:          0,
-          background:   '#fff',
+          background:   T.surface,
           zIndex:       1,
           borderRadius: '16px 16px 0 0',
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111827' }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: T.text }}>
               {isEdit ? '編輯自訂欄位' : '新增自訂欄位'}
             </h2>
-            <p style={{ margin: '2px 0 0', fontSize: 13, color: '#9ca3af' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 13, color: T.textMuted }}>
               {isEdit ? '修改欄位設定' : '建立新的追蹤欄位'}
             </p>
           </div>
@@ -846,7 +864,7 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
               border:     'none',
               cursor:     'pointer',
               fontSize:   22,
-              color:      '#9ca3af',
+              color:      T.textMuted,
               lineHeight: 1,
               padding:    4,
             }}
@@ -983,9 +1001,9 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
                       style={{
                         padding:      '4px 12px',
                         borderRadius: 99,
-                        border:       `1.5px solid ${selected ? '#C41230' : '#e5e7eb'}`,
-                        background:   selected ? '#fef2f2' : '#fff',
-                        color:        selected ? '#C41230' : '#6b7280',
+                        border:       `1.5px solid ${selected ? T.brand : T.border}`,
+                        background:   selected ? 'var(--xc-danger-soft)' : T.surfaceStrong,
+                        color:        selected ? T.brand : T.textSoft,
                         fontSize:     13,
                         fontWeight:   selected ? 600 : 400,
                         cursor:       'pointer',
@@ -1007,14 +1025,14 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
             justifyContent: 'space-between',
             padding:      '14px 16px',
             borderRadius: 10,
-            background:   '#f9fafb',
-            border:       '1px solid #e5e7eb',
+            background:   T.surfaceSoft,
+            border:       `1px solid ${T.border}`,
           }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
                 加入全域欄位庫
               </div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>
                 開啟後，所有專案均可使用此欄位
               </div>
             </div>
@@ -1025,13 +1043,13 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
         {/* Modal 底部按鈕 */}
         <div style={{
           padding:        '14px 24px',
-          borderTop:      '1px solid #f3f4f6',
+          borderTop:      `1px solid ${T.border}`,
           display:        'flex',
           justifyContent: 'flex-end',
           gap:            10,
           position:       'sticky',
           bottom:         0,
-          background:     '#fff',
+          background:     T.surface,
           borderRadius:   '0 0 16px 16px',
         }}>
           <button
@@ -1039,9 +1057,9 @@ function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
             style={{
               padding:      '9px 22px',
               borderRadius: 8,
-              border:       '1.5px solid #e5e7eb',
-              background:   '#fff',
-              color:        '#374151',
+              border:       `1.5px solid ${T.border}`,
+              background:   T.surfaceStrong,
+              color:        T.textSoft,
               fontSize:     14,
               fontWeight:   600,
               cursor:       'pointer',
@@ -1079,7 +1097,7 @@ function ToggleSwitch({ checked, onChange }) {
         width:        44,
         height:       24,
         borderRadius: 12,
-        background:   checked ? '#C41230' : '#d1d5db',
+        background:   checked ? '#C41230' : T.borderStrong,
         cursor:       'pointer',
         position:     'relative',
         transition:   'background 0.2s',
@@ -1093,7 +1111,7 @@ function ToggleSwitch({ checked, onChange }) {
         width:      18,
         height:     18,
         borderRadius: 9,
-        background: '#fff',
+        background: T.surfaceStrong,
         boxShadow:  '0 1px 3px rgba(0,0,0,0.2)',
         transition: 'left 0.2s',
       }} />
@@ -1107,10 +1125,10 @@ function EmptyState({ onAdd }) {
     <div style={{
       textAlign:  'center',
       padding:    '80px 24px',
-      color:      '#9ca3af',
+      color:      T.textMuted,
     }}>
       <div style={{ fontSize: 56, marginBottom: 16 }}>📋</div>
-      <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#374151' }}>
+      <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: T.textSoft }}>
         尚無自訂欄位
       </h3>
       <p style={{ margin: '0 0 24px', fontSize: 14, lineHeight: 1.6 }}>
@@ -1233,7 +1251,7 @@ export default function CustomFieldsPage({ onNavigate }) {
   return (
     <div style={{
       minHeight:  '100vh',
-      background: '#F7F2F2',
+      background: T.pageBg,
       fontFamily: "'Inter', 'Noto Sans TC', sans-serif",
     }}>
       <div style={{
@@ -1256,7 +1274,7 @@ export default function CustomFieldsPage({ onNavigate }) {
               margin:     0,
               fontSize:   26,
               fontWeight: 800,
-              color:      '#111827',
+              color:      T.text,
               letterSpacing: '-0.5px',
             }}>
               自訂欄位
@@ -1264,7 +1282,7 @@ export default function CustomFieldsPage({ onNavigate }) {
             <p style={{
               margin:   '4px 0 0',
               fontSize: 14,
-              color:    '#9ca3af',
+              color:    T.textMuted,
             }}>
               追蹤優先度 · 階段 · 工時等客製化資料
             </p>
@@ -1279,12 +1297,12 @@ export default function CustomFieldsPage({ onNavigate }) {
               padding:      '10px 20px',
               borderRadius: 10,
               border:       'none',
-              background:   '#C41230',
+              background:   T.brand,
               color:        '#fff',
               fontSize:     14,
               fontWeight:   700,
               cursor:       'pointer',
-              boxShadow:    '0 2px 8px rgba(196,18,48,0.3)',
+              boxShadow:    T.shadow,
               whiteSpace:   'nowrap',
             }}
           >
@@ -1309,7 +1327,7 @@ export default function CustomFieldsPage({ onNavigate }) {
               top:        '50%',
               transform:  'translateY(-50%)',
               fontSize:   15,
-              color:      '#9ca3af',
+              color:      T.textMuted,
               pointerEvents: 'none',
             }}>
               🔍

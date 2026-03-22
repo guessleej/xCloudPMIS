@@ -13,6 +13,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import './LoginPage.css';
 
 // 使用相對路徑，由 Vite proxy 轉發到後端
@@ -20,19 +21,19 @@ const API_BASE = '';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const C = {
-  accent:    '#C41230',
-  accentDk:  '#A00E26',
-  accentLt:  '#FDF1F3',
-  pageBg:    '#F4EFE9',
-  white:     '#FFFFFF',
-  border:    '#E5E7EB',
-  borderFocus:'#C41230',
-  t1:        '#111827',
-  t2:        '#374151',
-  t3:        '#9CA3AF',
-  error:     '#EF4444',
-  success:   '#10B981',
-  shadow:    '0 4px 24px rgba(196,18,48,0.10)',
+  accent:    'var(--xc-brand)',
+  accentDk:  'var(--xc-brand-dark)',
+  accentLt:  'var(--xc-brand-soft-strong)',
+  pageBg:    'var(--xc-bg)',
+  white:     'var(--xc-surface-strong)',
+  border:    'var(--xc-border)',
+  borderFocus:'var(--xc-brand)',
+  t1:        'var(--xc-text)',
+  t2:        'var(--xc-text-soft)',
+  t3:        'var(--xc-text-muted)',
+  error:     'var(--xc-danger)',
+  success:   'var(--xc-success)',
+  shadow:    'var(--xc-shadow)',
 };
 
 // ── SVG 圖示 ──────────────────────────────────────────────────
@@ -87,6 +88,25 @@ function IconSpinner({ size = 20 }) {
   );
 }
 
+function IconSun({ size = 16, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
+    </svg>
+  );
+}
+
+function IconMoon({ size = 16, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3c0 5 4 9 9 9 .27 0 .53-.01.79-.03A6.78 6.78 0 0021 12.79z" />
+    </svg>
+  );
+}
+
 // ── 輸入框元件 ────────────────────────────────────────────────
 function InputField({ id, label, type, value, onChange, placeholder, icon, rightSlot, error, disabled, onKeyDown }) {
   const [focused, setFocused] = useState(false);
@@ -125,11 +145,11 @@ function InputField({ id, label, type, value, onChange, placeholder, icon, right
             border: `1.5px solid ${error ? C.error : focused ? C.borderFocus : C.border}`,
             borderRadius: 10,
             fontSize: 14, color: C.t1,
-            background: disabled ? '#F9FAFB' : C.white,
+            background: disabled ? 'var(--xc-surface-soft)' : C.white,
             outline: 'none',
             transition: 'border-color 0.15s, box-shadow 0.15s',
             boxShadow: focused
-              ? `0 0 0 3px ${error ? '#EF444420' : '#C4123018'}`
+              ? `0 0 0 3px ${error ? 'rgba(220, 38, 38, 0.14)' : 'rgba(196, 18, 48, 0.14)'}`
               : 'none',
           }}
         />
@@ -154,6 +174,7 @@ function InputField({ id, label, type, value, onChange, placeholder, icon, right
 // ── 主元件 ────────────────────────────────────────────────────
 export default function LoginPage() {
   const { login } = useAuth();
+  const { mode, toggleMode } = useTheme();
 
   const [email,       setEmail]       = useState('');
   const [password,    setPassword]    = useState('');
@@ -226,9 +247,20 @@ export default function LoginPage() {
         <div className="login-page__shell">
           <section className="login-page__brand" style={{ animation: 'fadeIn 0.4s ease' }}>
             <div>
-              <div className="login-page__brand-badge">
-                <span className="login-page__brand-dot" />
-                xCloudPMIS Workspace
+              <div className="login-page__mode-bar">
+                <div className="login-page__brand-badge">
+                  <span className="login-page__brand-dot" />
+                  xCloudPMIS Workspace
+                </div>
+
+                <button
+                  type="button"
+                  className="login-page__mode-toggle"
+                  onClick={toggleMode}
+                >
+                  {mode === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
+                  {mode === 'dark' ? '開燈模式' : '關燈模式'}
+                </button>
               </div>
 
               <h1 className="login-page__brand-title">
@@ -275,7 +307,7 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <p className="login-page__eyebrow">Secure Sign In</p>
+                  <p className="login-page__eyebrow">{mode === 'dark' ? 'Night Workspace' : 'Secure Sign In'}</p>
                   <h1 className="login-page__heading">登入 xCloudPMIS</h1>
                 </div>
               </div>
@@ -300,7 +332,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={e => { setEmail(e.target.value); setFieldErrors(p => ({...p, email: ''})); setErrorMsg(''); }}
-            placeholder="admin@dev.local"
+            placeholder="name@company.com"
             icon={<IconMail size={16} color={fieldErrors.email ? C.error : C.t3} />}
             error={fieldErrors.email}
             disabled={loading}
@@ -354,9 +386,9 @@ export default function LoginPage() {
           {/* 底部提示 */}
           <div className="login-page__credentials">
             <p style={{ margin: 0 }}>
-              預設管理員帳號：<strong style={{ color: C.t2 }}>admin@dev.local</strong>
+              請使用系統管理員建立的正式帳號登入。
               <br />
-              密碼：<strong style={{ color: C.t2 }}>dev@2026</strong>
+              若尚未取得帳號，請聯絡貴單位系統管理員。
             </p>
           </div>
 

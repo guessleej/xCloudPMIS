@@ -3,9 +3,13 @@ import path from 'path';
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:3838/#team';
-const ADMIN_EMAIL = 'admin@dev.local';
-const ADMIN_PASSWORD = 'dev@2026';
+const ADMIN_EMAIL = process.env.PMIS_TEST_EMAIL;
+const ADMIN_PASSWORD = process.env.PMIS_TEST_PASSWORD;
 const TARGET_TEAM_SIZE = 10;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error('請先設定 PMIS_TEST_EMAIL 與 PMIS_TEST_PASSWORD，再執行 Playwright smoke test');
+}
 
 const candidateMembers = [
   { name: 'PMIS 測試成員 01', email: 'pmis.qa.member01@outlook.com', role: 'member' },

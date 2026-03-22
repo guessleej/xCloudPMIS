@@ -177,12 +177,6 @@ app.use('/api/admin/mcp', adminMcpRouter);
 // DELETE /auth/microsoft/revoke     → 撤銷授權
 app.use('/auth/microsoft', microsoftAuthRouter);
 
-// ── 開發用 JWT 產生端點（production 完全不掛載）──────────────
-if (process.env.NODE_ENV !== 'production') {
-  const devTokenRouter = require('./routes/auth/devToken');
-  app.use('/api/auth/dev-token', devTokenRouter);
-}
-
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
 // GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
 app.use('/api/tasks', tasksRouter);

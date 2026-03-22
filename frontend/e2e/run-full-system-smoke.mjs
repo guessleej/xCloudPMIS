@@ -4,8 +4,12 @@ import { chromium } from 'playwright';
 
 const APP_URL = 'http://localhost:3838';
 const API_URL = 'http://localhost:3010';
-const ADMIN_EMAIL = 'admin@dev.local';
-const ADMIN_PASSWORD = 'dev@2026';
+const ADMIN_EMAIL = process.env.PMIS_TEST_EMAIL;
+const ADMIN_PASSWORD = process.env.PMIS_TEST_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error('請先設定 PMIS_TEST_EMAIL 與 PMIS_TEST_PASSWORD，再執行 full system smoke test');
+}
 
 const ROUTE_SMOKES = [
   { id: 'home', label: '首頁', checks: ['我的一週', '已完成任務'] },
@@ -401,7 +405,7 @@ try {
     await goToRoute(page, 'settings');
     await page.getByText('xCloud 科技').waitFor({ timeout: 20000 });
     await page.getByRole('button', { name: /個人資料/ }).click();
-    await page.getByText('admin@dev.local').waitFor({ timeout: 20000 });
+    await page.getByText(currentUser.email, { exact: true }).waitFor({ timeout: 20000 });
     await page.getByRole('button', { name: /整合服務/ }).click();
     await page.getByText('Microsoft 365 / Azure AD 連線').waitFor({ timeout: 20000 });
     await page.getByRole('button', { name: /系統狀態/ }).click();

@@ -28,6 +28,21 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
+const T = {
+  pageBg: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+};
+
 // ── 常數設定 ────────────────────────────────────────────────
 const API_BASE   = '/api';
 const LEFT_COL   = 240;  // 左側凍結欄寬度（px）
@@ -201,32 +216,35 @@ const overlayStyle = {
   zIndex:         9999,
 };
 const modalStyle = {
-  background:  'white',
+  background:  T.surface,
   borderRadius: 12,
   padding:      28,
   width:        480,
   maxWidth:     '92vw',
   maxHeight:    '85vh',
   overflowY:    'auto',
-  boxShadow:    '0 20px 60px rgba(0,0,0,0.25)',
+  boxShadow:    T.shadowStrong,
+  border:       `1px solid ${T.border}`,
 };
 
 // ── 共用表單 Input 樣式 ─────────────────────────────────────
 const inputSt = {
   width:        '100%',
   padding:      '8px 10px',
-  border:       '1px solid #d1d5db',
+  border:       `1px solid ${T.borderStrong}`,
   borderRadius: 6,
   fontSize:     13,
   outline:      'none',
   boxSizing:    'border-box',
   fontFamily:   'inherit',
+  background:   T.surfaceStrong,
+  color:        T.text,
 };
 
 // ── 共用欄位標籤樣式 ────────────────────────────────────────
 const LabelRow = ({ label, required, children }) => (
   <div style={{ marginBottom: 14 }}>
-    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+    <div style={{ fontSize: 12, fontWeight: 600, color: T.textSoft, marginBottom: 5 }}>
       {label}{required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
     </div>
     {children}
@@ -301,12 +319,12 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
         {/* 標題列 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>✏️ 編輯專案</h3>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.text }}>✏️ 編輯專案</h3>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: T.textMuted }}>×</button>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '30px 0', color: '#9ca3af' }}>載入中...</div>
+          <div style={{ textAlign: 'center', padding: '30px 0', color: T.textMuted }}>載入中...</div>
         ) : (
           <>
             <LabelRow label="專案名稱" required>
@@ -356,7 +374,7 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
             </LabelRow>
 
             {error && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+              <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
                 ⚠️ {error}
               </div>
             )}
@@ -404,31 +422,31 @@ function DeleteProjectModal({ project, onClose, onDeleted }) {
       <div style={{ ...modalStyle, width: 420 }} onClick={e => e.stopPropagation()}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 44, marginBottom: 8 }}>🗑️</div>
-          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#111827' }}>刪除專案</h3>
-          <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>確定要刪除以下專案嗎？</p>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: T.text }}>刪除專案</h3>
+          <p style={{ margin: 0, fontSize: 13, color: T.textSoft }}>確定要刪除以下專案嗎？</p>
         </div>
 
         {/* 專案資訊卡 */}
-        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, color: '#111827', fontSize: 14, marginBottom: 4 }}>{project.name}</div>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
+        <div style={{ background: T.surfaceSoft, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: T.text, fontSize: 14, marginBottom: 4 }}>{project.name}</div>
+          <div style={{ fontSize: 12, color: T.textSoft }}>
             狀態：{PROJECT_STATUS_LABEL[project.status] || project.status}
             {taskCount > 0 && <span style={{ marginLeft: 12 }}>任務：{taskCount} 個</span>}
           </div>
         </div>
 
         {taskCount > 0 && (
-          <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 6, padding: '8px 12px', color: '#c2410c', fontSize: 12, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-warning-soft)', border: '1px solid #fed7aa', borderRadius: 6, padding: '8px 12px', color: '#c2410c', fontSize: 12, marginBottom: 14 }}>
             ⚠️ 此專案包含 {taskCount} 個任務，刪除後將一併隱藏。
           </div>
         )}
 
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
           ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
         </div>
 
         {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -495,10 +513,10 @@ function EditTaskModal({ task, project, users, onClose, onSaved }) {
         {/* 標題列 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <h3 style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: '#111827' }}>✏️ 編輯任務</h3>
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>專案：{project.name}</div>
+            <h3 style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: T.text }}>✏️ 編輯任務</h3>
+            <div style={{ fontSize: 11, color: T.textMuted }}>專案：{project.name}</div>
           </div>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: T.textMuted }}>×</button>
         </div>
 
         <LabelRow label="任務標題" required>
@@ -543,7 +561,7 @@ function EditTaskModal({ task, project, users, onClose, onSaved }) {
         </div>
 
         {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -589,32 +607,32 @@ function DeleteTaskModal({ task, project, onClose, onDeleted }) {
       <div style={{ ...modalStyle, width: 400 }} onClick={e => e.stopPropagation()}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🗑️</div>
-          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: '#111827' }}>刪除任務</h3>
-          <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>確定要刪除以下任務嗎？</p>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: T.text }}>刪除任務</h3>
+          <p style={{ margin: 0, fontSize: 13, color: T.textSoft }}>確定要刪除以下任務嗎？</p>
         </div>
 
         {/* 任務資訊卡 */}
-        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>專案：{project.name}</div>
-          <div style={{ fontWeight: 700, color: '#111827', fontSize: 14, marginBottom: 6 }}>{task.title}</div>
+        <div style={{ background: T.surfaceSoft, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>專案：{project.name}</div>
+          <div style={{ fontWeight: 700, color: T.text, fontSize: 14, marginBottom: 6 }}>{task.title}</div>
           <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
             <span style={{ background: `${pc}20`, color: pc, borderRadius: 4, padding: '2px 7px', fontWeight: 600 }}>
               {PRIORITY_LABEL[task.priority] || task.priority}
             </span>
             {task.assignee && (
-              <span style={{ background: '#e5e7eb', color: '#6b7280', borderRadius: 4, padding: '2px 7px' }}>
+              <span style={{ background: T.surfaceMuted, color: T.textSoft, borderRadius: 4, padding: '2px 7px' }}>
                 👤 {task.assignee.name}
               </span>
             )}
           </div>
         </div>
 
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
           ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
         </div>
 
         {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -750,7 +768,7 @@ export default function GanttPage() {
 
   // ── 載入中 ──────────────────────────────────────────────
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16, color: '#9ca3af' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16, color: T.textMuted }}>
       <div style={{ fontSize: 40 }}>⏳</div>
       <div style={{ fontSize: 14 }}>甘特圖資料載入中...</div>
     </div>
@@ -760,7 +778,7 @@ export default function GanttPage() {
   if (error) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 40 }}>😢</div>
-      <div style={{ fontWeight: 600, color: '#374151' }}>載入失敗：{error}</div>
+      <div style={{ fontWeight: 600, color: T.text }}>載入失敗：{error}</div>
       <button onClick={load} style={{ ...btnSt('#3b82f6', 'white'), padding: '8px 20px', fontSize: 14 }}>重試</button>
     </div>
   );
@@ -772,25 +790,25 @@ export default function GanttPage() {
       height:        '100vh',
       display:       'flex',
       flexDirection: 'column',
-      background:    '#f8fafc',
+      background:    T.pageBg,
       overflow:      'hidden',
     }}>
 
       {/* ══ 控制列 ══════════════════════════════════════════ */}
       <div style={{
         padding:       '12px 20px',
-        background:    'white',
-        borderBottom:  '1px solid #e5e7eb',
+        background:    T.surfaceStrong,
+        borderBottom:  `1px solid ${T.border}`,
         display:       'flex',
         alignItems:    'center',
         gap:           10,
         flexShrink:    0,
         flexWrap:      'wrap',
       }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111827' }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: T.text }}>
           📅 甘特圖
         </h2>
-        <span style={{ color: '#9ca3af', fontSize: 13 }}>
+        <span style={{ color: T.textMuted, fontSize: 13 }}>
           {data.projects.length} 個專案
         </span>
 
@@ -801,7 +819,7 @@ export default function GanttPage() {
         <button onClick={collapseAll} style={btnSt('#f3f4f6', '#374151')}>全部收合</button>
 
         {/* 縮放選擇 */}
-        <div style={{ display: 'flex', gap: 2, background: '#f3f4f6', borderRadius: 8, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 2, background: T.surfaceMuted, borderRadius: 8, padding: 3 }}>
           {ZOOM_OPTS.map(o => (
             <button
               key={o.id}
@@ -813,9 +831,9 @@ export default function GanttPage() {
                 cursor:     'pointer',
                 fontSize:   11,
                 fontWeight: 600,
-                background: zoom === o.id ? 'white' : 'transparent',
-                color:      zoom === o.id ? '#111827' : '#6b7280',
-                boxShadow:  zoom === o.id ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                background: zoom === o.id ? T.surfaceStrong : 'transparent',
+                color:      zoom === o.id ? T.text : T.textMuted,
+                boxShadow:  zoom === o.id ? T.shadow : 'none',
                 transition: 'all 0.15s',
               }}
             >{o.label}</button>
@@ -841,8 +859,8 @@ export default function GanttPage() {
             top:          0,
             zIndex:       20,
             height:       HEADER_H,
-            background:   'white',
-            borderBottom: '2px solid #e2e8f0',
+            background:   T.surfaceStrong,
+            borderBottom: `2px solid ${T.borderStrong}`,
           }}>
             {/* 左上角凍結格 */}
             <div style={{
@@ -877,8 +895,8 @@ export default function GanttPage() {
                   padding:    '0 8px',
                   fontSize:   12,
                   fontWeight: 600,
-                  color:      '#374151',
-                  borderRight: '1px solid #e2e8f0',
+                  color:      T.text,
+                  borderRight: `1px solid ${T.borderStrong}`,
                   boxSizing:  'border-box',
                   overflow:   'hidden',
                   whiteSpace: 'nowrap',
@@ -911,7 +929,7 @@ export default function GanttPage() {
             const pct         = project.taskCount > 0
               ? Math.round(project.doneCount / project.taskCount * 100)
               : 0;
-            const rowBg       = pi % 2 === 0 ? '#fafafa' : 'white';
+            const rowBg       = pi % 2 === 0 ? T.surfaceSoft : T.surfaceStrong;
             const isProjHover = hoveredRow?.type === 'project' && hoveredRow?.id === project.id;
 
             return (
@@ -922,8 +940,8 @@ export default function GanttPage() {
                   style={{
                     display:      'flex',
                     height:       ROW_H,
-                    background:   isProjHover ? '#eff6ff' : rowBg,
-                    borderBottom: '1px solid #e9eef5',
+                    background:   isProjHover ? T.surfaceMuted : rowBg,
+                    borderBottom: `1px solid ${T.border}`,
                     transition:   'background 0.1s',
                   }}
                   onMouseEnter={() => setHoveredRow({ type: 'project', id: project.id })}
@@ -936,13 +954,13 @@ export default function GanttPage() {
                     position:    'sticky',
                     left:        0,
                     zIndex:      10,
-                    background:  isProjHover ? '#eff6ff' : rowBg,
+                    background:  isProjHover ? T.surfaceMuted : rowBg,
                     height:      '100%',
                     display:     'flex',
                     alignItems:  'center',
                     padding:     '0 10px 0 8px',
                     gap:         6,
-                    borderRight: '2px solid #e2e8f0',
+                    borderRight: `2px solid ${T.borderStrong}`,
                     boxSizing:   'border-box',
                     transition:  'background 0.1s',
                   }}>
@@ -959,7 +977,7 @@ export default function GanttPage() {
                         display:     'flex',
                         alignItems:  'center',
                         justifyContent: 'center',
-                        color:       hasTasks ? '#6b7280' : 'transparent',
+                        color:       hasTasks ? T.textMuted : 'transparent',
                         flexShrink:  0,
                         fontSize:    9,
                         transform:   isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
@@ -969,11 +987,11 @@ export default function GanttPage() {
                     >▶</button>
 
                     {/* 狀態色點 */}
-                    <div style={{
-                      width:      8,
-                      height:     8,
-                      borderRadius: '50%',
-                      background:  pColor,
+                      <div style={{
+                        width:      8,
+                        height:     8,
+                        borderRadius: '50%',
+                        background:  pColor,
                       flexShrink:  0,
                     }} />
 
@@ -981,7 +999,7 @@ export default function GanttPage() {
                     <span style={{
                       fontSize:   13,
                       fontWeight: 700,
-                      color:      '#111827',
+                      color:      T.text,
                       overflow:   'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -1023,7 +1041,7 @@ export default function GanttPage() {
                         >🗑️</button>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, color: T.textMuted, flexShrink: 0 }}>
                         {project.doneCount}/{project.taskCount}
                       </span>
                     )}
@@ -1092,7 +1110,7 @@ export default function GanttPage() {
                             width:        16,
                             height:       16,
                             transform:    'rotate(45deg)',
-                            background:   m.isAchieved ? mc : 'white',
+                            background:   m.isAchieved ? mc : T.surfaceStrong,
                             border:       `2.5px solid ${mc}`,
                             zIndex:       6,
                             cursor:       'pointer',
@@ -1125,7 +1143,7 @@ export default function GanttPage() {
                   const pc         = PRIORITY_COLOR[task.priority]  || '#9ca3af';
                   const isDone     = task.status === 'done';
                   const isTaskHover = hoveredRow?.type === 'task' && hoveredRow?.id === task.id;
-                  const taskBg     = isTaskHover ? '#f0fdf4' : '#f8fafc';
+                  const taskBg     = isTaskHover ? T.surfaceMuted : T.surfaceSoft;
 
                   return (
                     <div
@@ -1134,7 +1152,7 @@ export default function GanttPage() {
                         display:      'flex',
                         height:       ROW_H,
                         background:   taskBg,
-                        borderBottom: '1px solid #f1f5f9',
+                        borderBottom: `1px solid ${T.border}`,
                         transition:   'background 0.1s',
                       }}
                       onMouseEnter={() => setHoveredRow({ type: 'task', id: task.id })}
@@ -1153,7 +1171,7 @@ export default function GanttPage() {
                         alignItems:  'center',
                         padding:     '0 10px 0 36px', // 縮排以區分層級
                         gap:         6,
-                        borderRight: '2px solid #e2e8f0',
+                        borderRight: `2px solid ${T.borderStrong}`,
                         boxSizing:   'border-box',
                         transition:  'background 0.1s',
                       }}>
@@ -1169,7 +1187,7 @@ export default function GanttPage() {
                         {/* 任務標題 */}
                         <span style={{
                           fontSize:        12,
-                          color:           isDone ? '#9ca3af' : '#374151',
+                          color:           isDone ? T.textMuted : T.textSoft,
                           textDecoration:  isDone ? 'line-through' : 'none',
                           overflow:        'hidden',
                           textOverflow:    'ellipsis',
@@ -1215,8 +1233,8 @@ export default function GanttPage() {
                           task.assignee && (
                             <span style={{
                               fontSize:     10,
-                              color:        '#6b7280',
-                              background:   '#e5e7eb',
+                              color:        T.textMuted,
+                              background:   T.surfaceMuted,
                               borderRadius: 4,
                               padding:      '1px 5px',
                               flexShrink:   0,
@@ -1289,17 +1307,17 @@ export default function GanttPage() {
       {/* ══ 圖例列（固定在底部） ═══════════════════════════ */}
       <div style={{
         padding:      '8px 20px',
-        background:   'white',
-        borderTop:    '1px solid #e5e7eb',
+        background:   T.surfaceStrong,
+        borderTop:    `1px solid ${T.border}`,
         display:      'flex',
         gap:          16,
         alignItems:   'center',
         flexShrink:   0,
         fontSize:     11,
-        color:        '#6b7280',
+        color:        T.textMuted,
         flexWrap:     'wrap',
       }}>
-        <span style={{ fontWeight: 700, color: '#374151', marginRight: 4 }}>圖例：</span>
+        <span style={{ fontWeight: 700, color: T.text, marginRight: 4 }}>圖例：</span>
 
         {/* 任務狀態 */}
         {Object.entries(TASK_STATUS_COLOR).map(([s, c]) => (
@@ -1311,7 +1329,7 @@ export default function GanttPage() {
 
         {/* 里程碑 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: 'white', border: '2px solid #10b981', borderRadius: 2 }} />
+          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: T.surfaceStrong, border: '2px solid #10b981', borderRadius: 2 }} />
           <span>里程碑（已達成）</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1326,12 +1344,12 @@ export default function GanttPage() {
         </div>
 
         {/* 懸停提示 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#9ca3af' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: T.textMuted }}>
           <span>💡 滑鼠懸停列可編輯 / 刪除</span>
         </div>
 
         {/* 更新時間 */}
-        <span style={{ marginLeft: 'auto', color: '#d1d5db', fontSize: 10 }}>
+        <span style={{ marginLeft: 'auto', color: T.textMuted, fontSize: 10 }}>
           更新：{data.generatedAt
             ? new Date(data.generatedAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : '—'}

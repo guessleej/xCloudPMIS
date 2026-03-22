@@ -4,11 +4,17 @@ import { useAuth } from '../../context/AuthContext';
 // ─── Brand Colors ───────────────────────────────────────────────────────────
 const RULES_API = '/api/rules';
 const ACCENT = '#C70018';
-const PAGE_BG = '#F4EEE9';
-const CARD_BG = '#FFFFFF';
-const TEXT_PRIMARY = '#141414';
-const TEXT_SECONDARY = '#6B6461';
-const BORDER_COLOR = '#E7DED8';
+const PAGE_BG = 'var(--xc-bg)';
+const CARD_BG = 'var(--xc-surface)';
+const CARD_GLASS = 'color-mix(in srgb, var(--xc-surface) 84%, transparent)';
+const SURFACE_SOFT = 'var(--xc-surface-soft)';
+const SURFACE_MUTED = 'var(--xc-surface-muted)';
+const TEXT_PRIMARY = 'var(--xc-text)';
+const TEXT_SECONDARY = 'var(--xc-text-soft)';
+const TEXT_MUTED = 'var(--xc-text-muted)';
+const BORDER_COLOR = 'var(--xc-border)';
+const BORDER_STRONG = 'var(--xc-border-strong)';
+const SHADOW = 'var(--xc-shadow)';
 
 // ─── Trigger & Action Metadata ───────────────────────────────────────────────
 const TRIGGER_TYPES = [
@@ -316,7 +322,7 @@ function Toggle({ checked, onChange }) {
         width: 18,
         height: 18,
         borderRadius: '50%',
-        background: '#fff',
+        background: CARD_BG,
         position: 'absolute',
         top: 2,
         left: checked ? 20 : 2,
@@ -505,7 +511,7 @@ function TriggerCard({ triggerMeta, selected, onClick }) {
 function TriggerConfig({ trigger, onChange }) {
   if (trigger.type === 'due_date_approaching') {
     return (
-      <div style={{ marginTop: 16, padding: '12px 16px', background: '#F9FAFB', borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
+      <div style={{ marginTop: 16, padding: '12px 16px', background: SURFACE_SOFT, borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY }}>提前幾天觸發</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
           <input
@@ -530,13 +536,13 @@ function TriggerConfig({ trigger, onChange }) {
   }
   if (trigger.type === 'status_changed') {
     return (
-      <div style={{ marginTop: 16, padding: '12px 16px', background: '#F9FAFB', borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
+      <div style={{ marginTop: 16, padding: '12px 16px', background: SURFACE_SOFT, borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY }}>狀態變更設定（可選）</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
           <select
             value={trigger.config.from || ''}
             onChange={e => onChange({ ...trigger, config: { ...trigger.config, from: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none' }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none' }}
           >
             <option value="">任意狀態</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -545,7 +551,7 @@ function TriggerConfig({ trigger, onChange }) {
           <select
             value={trigger.config.to || ''}
             onChange={e => onChange({ ...trigger, config: { ...trigger.config, to: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none' }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none' }}
           >
             <option value="">任意狀態</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -556,12 +562,12 @@ function TriggerConfig({ trigger, onChange }) {
   }
   if (trigger.type === 'field_changed') {
     return (
-      <div style={{ marginTop: 16, padding: '12px 16px', background: '#F9FAFB', borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
+      <div style={{ marginTop: 16, padding: '12px 16px', background: SURFACE_SOFT, borderRadius: 8, border: `1px solid ${BORDER_COLOR}` }}>
         <label style={{ fontSize: 12, fontWeight: 600, color: TEXT_PRIMARY }}>選擇監控欄位</label>
         <select
           value={trigger.config.field || ''}
           onChange={e => onChange({ ...trigger, config: { ...trigger.config, field: e.target.value } })}
-          style={{ marginTop: 8, width: '100%', padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none' }}
+          style={{ marginTop: 8, width: '100%', padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none' }}
         >
           <option value="">請選擇欄位</option>
           {CONDITION_FIELDS.map(f => <option key={f} value={f}>{f}</option>)}
@@ -578,7 +584,7 @@ function ConditionRow({ condition, index, onChange, onRemove }) {
       <select
         value={condition.field}
         onChange={e => onChange(index, { ...condition, field: e.target.value })}
-        style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1, minWidth: 100 }}
+        style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1, minWidth: 100 }}
       >
         <option value="">選擇欄位</option>
         {CONDITION_FIELDS.map(f => <option key={f} value={f}>{f}</option>)}
@@ -586,7 +592,7 @@ function ConditionRow({ condition, index, onChange, onRemove }) {
       <select
         value={condition.operator}
         onChange={e => onChange(index, { ...condition, operator: e.target.value })}
-        style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1, minWidth: 80 }}
+        style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1, minWidth: 80 }}
       >
         {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
       </select>
@@ -617,7 +623,7 @@ function ActionRow({ action, index, onChange, onRemove, members }) {
           <select
             value={action.config.member || ''}
             onChange={e => onChange(index, { ...action, config: { ...action.config, member: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1 }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1 }}
           >
             <option value="">選擇成員</option>
             {memberList.map(m => (
@@ -630,7 +636,7 @@ function ActionRow({ action, index, onChange, onRemove, members }) {
           <select
             value={action.config.status || ''}
             onChange={e => onChange(index, { ...action, config: { ...action.config, status: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1 }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1 }}
           >
             <option value="">選擇狀態</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -641,7 +647,7 @@ function ActionRow({ action, index, onChange, onRemove, members }) {
           <select
             value={action.config.priority || ''}
             onChange={e => onChange(index, { ...action, config: { ...action.config, priority: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1 }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1 }}
           >
             <option value="">選擇優先度</option>
             {PRIORITY_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -661,7 +667,7 @@ function ActionRow({ action, index, onChange, onRemove, members }) {
           <select
             value={action.config.recipient || ''}
             onChange={e => onChange(index, { ...action, config: { ...action.config, recipient: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1 }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1 }}
           >
             <option value="">選擇接收人</option>
             {MEMBER_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
@@ -672,7 +678,7 @@ function ActionRow({ action, index, onChange, onRemove, members }) {
           <select
             value={action.config.section || ''}
             onChange={e => onChange(index, { ...action, config: { ...action.config, section: e.target.value } })}
-            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: '#fff', outline: 'none', flex: 1 }}
+            style={{ padding: '6px 10px', border: `1px solid ${BORDER_COLOR}`, borderRadius: 6, fontSize: 13, background: CARD_BG, color: TEXT_PRIMARY, outline: 'none', flex: 1 }}
           >
             <option value="">選擇分節</option>
             {SECTION_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -953,7 +959,7 @@ function RuleBuilderModal({ editingRule, onSave, onClose, projects, members }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {conditions.map((c, i) => (
-                  <div key={i} style={{ background: '#F9FAFB', borderRadius: 8, padding: '10px 12px', border: `1px solid ${BORDER_COLOR}` }}>
+                  <div key={i} style={{ background: SURFACE_SOFT, borderRadius: 8, padding: '10px 12px', border: `1px solid ${BORDER_COLOR}` }}>
                     <ConditionRow condition={c} index={i} onChange={updateCondition} onRemove={removeCondition} />
                   </div>
                 ))}
@@ -988,7 +994,7 @@ function RuleBuilderModal({ editingRule, onSave, onClose, projects, members }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {actions.map((a, i) => (
-                  <div key={i} style={{ background: '#F9FAFB', borderRadius: 8, padding: '10px 12px', border: `1px solid ${BORDER_COLOR}` }}>
+                  <div key={i} style={{ background: SURFACE_SOFT, borderRadius: 8, padding: '10px 12px', border: `1px solid ${BORDER_COLOR}` }}>
                     <ActionRow action={a} index={i} onChange={updateAction} onRemove={removeAction} members={members} />
                   </div>
                 ))}
@@ -1002,9 +1008,9 @@ function RuleBuilderModal({ editingRule, onSave, onClose, projects, members }) {
                   borderRadius: 10,
                   background: CARD_BG,
                   overflow: 'hidden',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  boxShadow: SHADOW,
                 }}>
-                  <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 600, color: TEXT_SECONDARY, background: '#F9FAFB', borderBottom: `1px solid ${BORDER_COLOR}` }}>
+                  <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 600, color: TEXT_SECONDARY, background: SURFACE_SOFT, borderBottom: `1px solid ${BORDER_COLOR}` }}>
                     選擇動作類型
                   </div>
                   {ACTION_TYPES.map(at => (
@@ -1155,7 +1161,7 @@ function DeleteConfirmModal({ onConfirm, onCancel }) {
           maxWidth: 380,
           width: '90%',
           textAlign: 'center',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+          boxShadow: SHADOW,
         }}
       >
         <div style={{ fontSize: 36, marginBottom: 12 }}>🗑️</div>
@@ -1358,7 +1364,7 @@ export default function RulesPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(180deg, #13090A 0%, #2A0C11 18%, #F4EEE9 18%, #F4EEE9 100%)',
+      background: `linear-gradient(180deg, #13090A 0%, #2A0C11 18%, ${PAGE_BG} 18%, ${PAGE_BG} 100%)`,
       padding: '28px 32px 36px',
       boxSizing: 'border-box',
       fontFamily: '"Avenir Next", "Trebuchet MS", sans-serif',
@@ -1414,7 +1420,7 @@ export default function RulesPage() {
               onClick={handleOpenCreate}
               style={{
                 alignSelf: 'flex-start',
-                background: '#fff',
+                background: CARD_BG,
                 border: 'none',
                 borderRadius: 999,
                 padding: '12px 20px',
@@ -1506,10 +1512,10 @@ export default function RulesPage() {
           flexWrap: 'wrap',
           alignItems: 'center',
           padding: '16px 18px',
-          background: 'rgba(255,255,255,.8)',
+          background: CARD_GLASS,
           border: `1px solid ${BORDER_COLOR}`,
           borderRadius: 20,
-          boxShadow: '0 12px 30px rgba(20,20,20,0.05)',
+          boxShadow: SHADOW,
         }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
             <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: TEXT_SECONDARY, fontSize: 15, pointerEvents: 'none' }}>🔍</span>
@@ -1552,7 +1558,7 @@ export default function RulesPage() {
                 {tab.label}
                 <span style={{
                   marginLeft: 5,
-                  background: filterTab === tab.key ? 'rgba(255,255,255,0.22)' : '#F3F0EC',
+                  background: filterTab === tab.key ? 'rgba(255,255,255,0.22)' : SURFACE_MUTED,
                   color: filterTab === tab.key ? '#fff' : TEXT_SECONDARY,
                   borderRadius: 10,
                   padding: '0 6px',
@@ -1594,7 +1600,7 @@ export default function RulesPage() {
             textAlign: 'center',
             padding: '56px 20px',
             color: TEXT_SECONDARY,
-            background: 'rgba(255,255,255,.78)',
+            background: CARD_GLASS,
             borderRadius: 24,
             border: `1px solid ${BORDER_COLOR}`,
           }}>
@@ -1605,7 +1611,7 @@ export default function RulesPage() {
             textAlign: 'center',
             padding: '64px 20px',
             color: TEXT_SECONDARY,
-            background: 'rgba(255,255,255,.78)',
+            background: CARD_GLASS,
             borderRadius: 24,
             border: `1px solid ${BORDER_COLOR}`,
           }}>

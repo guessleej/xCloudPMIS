@@ -29,16 +29,25 @@ const API      = '/api/projects';
 // TEAM_API & CURRENT_USER 改由 useAuth() 動態提供，不再硬編碼
 
 const BRAND = {
-  crimson: '#C70018',
-  crimsonDeep: '#8F0013',
-  ink: '#121212',
-  carbon: '#2B2B2B',
-  paper: '#F7F2EE',
-  mist: '#E8DFD8',
-  silver: '#CFC8C3',
-  white: '#FFFFFF',
-  success: '#16824B',
-  warning: '#C97415',
+  crimson: 'var(--xc-brand)',
+  crimsonDeep: 'var(--xc-brand-dark)',
+  ink: 'var(--xc-text)',
+  carbon: 'var(--xc-text-soft)',
+  muted: 'var(--xc-text-muted)',
+  paper: 'var(--xc-bg)',
+  bgSoft: 'var(--xc-bg-soft)',
+  mist: 'var(--xc-border)',
+  silver: 'var(--xc-border-strong)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  white: 'var(--xc-surface-strong)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  warning: 'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  infoSoft: 'var(--xc-info-soft)',
 };
 
 const COLUMNS = [
@@ -51,8 +60,8 @@ const COLUMNS = [
 const PRIORITY_MAP = {
   urgent: { label: '緊急', bg: '#FDE1E4', color: '#C70018', dot: '#C70018' },
   high:   { label: '高',   bg: '#FBE7D5', color: '#B35810', dot: '#D16D18' },
-  medium: { label: '中',   bg: '#F0ECE8', color: '#6B6461', dot: '#6B6461' },
-  low:    { label: '低',   bg: '#F7F2EE', color: '#8A817B', dot: '#B9B0AA' },
+  medium: { label: '中',   bg: 'var(--xc-surface-muted)', color: 'var(--xc-text-soft)', dot: 'var(--xc-text-soft)' },
+  low:    { label: '低',   bg: 'var(--xc-surface-soft)', color: 'var(--xc-text-muted)', dot: 'var(--xc-border-strong)' },
 };
 
 const STATUS_NEXT = {
@@ -448,7 +457,7 @@ function TaskCard({
           <span style={{
             fontSize: '10px',
             fontWeight: 800,
-            background: '#FBE5E8',
+            background: 'var(--xc-brand-soft)',
             color: BRAND.crimsonDeep,
             padding: '5px 9px',
             borderRadius: 999,
@@ -462,8 +471,8 @@ function TaskCard({
               <span style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: isOverdue ? BRAND.crimson : days !== null && days <= 3 ? BRAND.warning : '#6B6461',
-                background: isOverdue ? '#FDE1E4' : '#F7F2EE',
+                color: isOverdue ? BRAND.crimson : days !== null && days <= 3 ? BRAND.warning : BRAND.carbon,
+                background: isOverdue ? BRAND.dangerSoft : BRAND.surfaceSoft,
                 padding: '5px 8px',
                 borderRadius: 999,
               }}>
@@ -473,7 +482,7 @@ function TaskCard({
             <span style={{
               fontSize: '10px',
               fontWeight: 700,
-              color: '#8A817B',
+              color: BRAND.muted,
               display: 'flex',
               alignItems: 'center',
               gap: 4,
@@ -499,7 +508,7 @@ function TaskCard({
           <div style={{
             fontSize: '12px',
             lineHeight: 1.55,
-            color: '#6B6461',
+            color: BRAND.carbon,
             marginBottom: 12,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -536,7 +545,7 @@ function TaskCard({
             <span style={{
               fontSize: '11px',
               fontWeight: 700,
-              color: isOverdue ? BRAND.crimson : days <= 3 ? BRAND.warning : '#6B6461',
+              color: isOverdue ? BRAND.crimson : days <= 3 ? BRAND.warning : BRAND.carbon,
             }}>
               {isOverdue
                 ? `逾期 ${Math.abs(days)} 天`
@@ -549,7 +558,7 @@ function TaskCard({
               fontSize: '11px',
               fontWeight: 700,
               color: BRAND.success,
-              background: '#DDF2E4',
+              background: BRAND.successSoft,
               padding: '4px 8px',
               borderRadius: 999,
             }}>
@@ -565,7 +574,7 @@ function TaskCard({
                 fontSize: '10px',
                 padding: '3px 7px',
                 borderRadius: 999,
-                background: tag.color || '#EEE7E2',
+                background: tag.color || BRAND.surfaceMuted,
                 color: BRAND.carbon,
                 fontWeight: 600,
               }}>
@@ -579,7 +588,7 @@ function TaskCard({
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontSize: '11px', fontWeight: 700, color: BRAND.carbon }}>子任務進度</span>
-              <span style={{ fontSize: '11px', color: '#8A817B' }}>
+              <span style={{ fontSize: '11px', color: BRAND.muted }}>
                 {progressPercent}% / {numSubtasks} 子任務
               </span>
             </div>
@@ -606,8 +615,8 @@ function TaskCard({
                 fontSize: '10px',
                 padding: '4px 8px',
                 borderRadius: 999,
-                background: '#F7F2EE',
-                color: '#6B6461',
+                background: BRAND.surfaceSoft,
+                color: BRAND.carbon,
                 fontWeight: 700,
               }}>
                 截止 {dueDateLabel}
@@ -619,7 +628,7 @@ function TaskCard({
                 fontSize: '10px',
                 padding: '3px 7px',
                 borderRadius: 999,
-                background: '#FDE1E4',
+                background: BRAND.dangerSoft,
                 color: BRAND.crimson,
                 fontWeight: 700,
               }} title="依賴關係">
@@ -631,7 +640,7 @@ function TaskCard({
                 fontSize: '10px',
                 padding: '3px 7px',
                 borderRadius: 999,
-                background: '#F0ECE8',
+                background: BRAND.surfaceMuted,
                 color: BRAND.carbon,
                 fontWeight: 700,
               }} title="提及">
@@ -656,7 +665,7 @@ function TaskCard({
                   transition: 'all .15s', flexShrink: 0,
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background  = task.status === 'done' ? '#F4EFEB' : BRAND.crimsonDeep;
+                  e.currentTarget.style.background  = task.status === 'done' ? BRAND.surfaceSoft : BRAND.crimsonDeep;
                   e.currentTarget.style.color       = task.status === 'done' ? BRAND.ink : BRAND.white;
                   e.currentTarget.style.borderColor = task.status === 'done' ? BRAND.silver : BRAND.crimsonDeep;
                 }}
@@ -687,12 +696,12 @@ function TaskCard({
                 height: 28,
                 borderRadius: '50%',
                 border: `1px dashed ${BRAND.silver}`,
-                color: '#8A817B',
+                color: BRAND.muted,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 15,
-                background: '#FCFAF8',
+                background: BRAND.surfaceSoft,
               }} title="未指派">
                 +
               </div>
@@ -777,14 +786,13 @@ function KanbanColumn({
     <div style={{
       flex: '1 1 280px',
       minWidth: 280,
-      background: isDropTarget ? '#FFF4F5' : 'rgba(255,255,255,0.74)',
+      background: isDropTarget ? 'var(--xc-brand-soft)' : BRAND.surface,
       borderRadius: '24px',
       padding: '14px 12px 12px',
       display: 'flex',
       flexDirection: 'column',
-      border: `1.5px solid ${isDropTarget ? BRAND.crimson : 'rgba(255,255,255,0.55)'}`,
-      boxShadow: isDropTarget ? '0 18px 40px rgba(199,0,24,.12)' : '0 14px 36px rgba(18,18,18,.08)',
-      backdropFilter: 'blur(10px)',
+      border: `1.5px solid ${isDropTarget ? BRAND.crimson : BRAND.mist}`,
+      boxShadow: isDropTarget ? 'var(--xc-shadow-strong)' : 'var(--xc-shadow)',
       transition: 'border-color .18s, box-shadow .18s, background .18s',
     }}>
       <div style={{
@@ -819,8 +827,8 @@ function KanbanColumn({
             <span style={{
               fontSize: '10px',
               fontWeight: 800,
-              background: '#1C1214',
-              color: '#FFF4F5',
+              background: BRAND.surfaceMuted,
+              color: BRAND.ink,
               padding: '3px 8px',
               borderRadius: 999,
               letterSpacing: '.06em',
@@ -859,11 +867,11 @@ function KanbanColumn({
           <div style={{
             textAlign: 'center',
             padding: '36px 12px',
-            color: '#8A817B',
+            color: BRAND.muted,
             fontSize: '12px',
             borderRadius: 18,
             border: `1px dashed ${BRAND.silver}`,
-            background: 'rgba(255,255,255,0.52)',
+            background: BRAND.surfaceSoft,
           }}>
             <div style={{ fontSize: 28, marginBottom: 8, opacity: .9, color: col.color }}>{col.emoji}</div>
             <div style={{ fontWeight: 700, color: BRAND.carbon, marginBottom: 4 }}>目前沒有任務</div>
@@ -940,12 +948,12 @@ function AddTaskModal({ defaultStatus, projects, users, onSave, onClose, authFet
       zIndex: 1200,
     }} onClick={onClose}>
       <div style={{
-        background: '#fff', borderRadius: 14,
+        background: BRAND.surface, borderRadius: 14,
         width: 480, maxHeight: '80vh',
         overflow: 'auto', padding: 28,
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
       }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ margin: '0 0 20px', fontSize: '16px', color: '#111827' }}>✏️ 新增任務</h2>
+        <h2 style={{ margin: '0 0 20px', fontSize: '16px', color: BRAND.ink }}>✏️ 新增任務</h2>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
@@ -1005,8 +1013,8 @@ function AddTaskModal({ defaultStatus, projects, users, onSave, onClose, authFet
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
             <button type="button" onClick={onClose} style={{
               padding: '9px 18px', borderRadius: 8,
-              border: '1px solid #d1d5db', background: '#fff',
-              fontSize: '13px', cursor: 'pointer',
+              border: `1px solid ${BRAND.silver}`, background: BRAND.white,
+              fontSize: '13px', cursor: 'pointer', color: BRAND.carbon,
             }}>取消</button>
             <button type="submit" disabled={saving} style={{
               padding: '9px 18px', borderRadius: 8,
@@ -1050,27 +1058,27 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
-        background: '#fff', borderRadius: 16, padding: 32,
+        background: BRAND.surface, borderRadius: 16, padding: 32,
         width: 420, maxWidth: '92vw',
         boxShadow: '0 20px 60px rgba(0,0,0,.25)', textAlign: 'center',
       }}>
         <div style={{
           width: 56, height: 56, borderRadius: '50%',
-          background: '#fee2e2', margin: '0 auto 14px',
+          background: BRAND.dangerSoft, margin: '0 auto 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
         }}>🗑️</div>
-        <h2 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 700, color: '#111827' }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 700, color: BRAND.ink }}>
           確認刪除任務？
         </h2>
         <div style={{
-          background: '#f9fafb', border: '1px solid #e5e7eb',
+          background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
           borderRadius: 10, padding: '12px 16px',
           margin: '12px 0 16px', textAlign: 'left',
         }}>
           <div style={{ fontSize: '11px', color: BRAND.crimsonDeep, fontWeight: 600, marginBottom: 4 }}>
             📁 {task.project?.name || '未知專案'}
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: 6 }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: BRAND.ink, marginBottom: 6 }}>
             {task.title}
           </div>
           <span style={{
@@ -1080,12 +1088,12 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
             {pri.label}
           </span>
         </div>
-        <p style={{ margin: '0 0 18px', fontSize: '13px', color: '#9ca3af' }}>
+        <p style={{ margin: '0 0 18px', fontSize: '13px', color: BRAND.muted }}>
           此操作為軟刪除，資料不會永久消失。
         </p>
         {error && (
           <div style={{
-            background: '#fee2e2', color: '#b91c1c',
+            background: BRAND.dangerSoft, color: '#b91c1c',
             borderRadius: 8, padding: '8px 12px',
             fontSize: '12px', marginBottom: 14,
           }}>❌ {error}</div>
@@ -1093,8 +1101,8 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={onClose} disabled={deleting} style={{
             padding: '9px 20px', borderRadius: 8,
-            border: '1px solid #d1d5db', background: '#fff',
-            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+            border: `1px solid ${BRAND.silver}`, background: BRAND.white,
+            fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: BRAND.carbon,
           }}>取消</button>
           <button onClick={handleDelete} disabled={deleting} style={{
             padding: '9px 20px', borderRadius: 8,
@@ -1127,7 +1135,7 @@ function TaskSidePanel({
   const currentProject = task.project ? {
     id: task.project.id,
     name: task.project.name,
-    color: '#FBE5E8',
+    color: 'var(--xc-brand-soft)',
   } : null;
   const extraProjects = lsGet(`xcloud-multihome-${task.id}`, []);
   const linkedProjects = [
@@ -1137,7 +1145,7 @@ function TaskSidePanel({
       .map((project) => ({
         id: project.id,
         name: project.name,
-        color: project.color || '#F3EEEA',
+        color: project.color || 'var(--xc-surface-muted)',
       })),
   ];
   const scopedProjectIds = linkedProjects.map((project) => String(project.id));
@@ -1296,7 +1304,7 @@ function TaskSidePanel({
       availableProjects={projects.map((project) => ({
         id: project.id,
         name: project.name,
-        color: '#FBE5E8',
+        color: 'var(--xc-brand-soft)',
       }))}
       customFields={customFieldDefinitions}
       lockedProjectIds={currentProject ? [currentProject.id] : []}
@@ -1595,7 +1603,7 @@ export default function TaskKanbanPage() {
   return (
     <div style={{
       minHeight: '100%',
-      background: 'linear-gradient(180deg, #12090A 0%, #2A0C11 16%, #F7F2EE 16%, #F4EEE9 100%)',
+      background: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 28%, var(--xc-bg) 72%) 0%, color-mix(in srgb, var(--xc-brand-dark) 34%, var(--xc-bg) 66%) 16%, var(--xc-bg) 16%, var(--xc-bg-soft) 100%)',
       padding: '24px clamp(18px, 3vw, 32px) 32px',
       boxSizing: 'border-box',
       fontFamily: '"Avenir Next", "Trebuchet MS", sans-serif',
@@ -1612,7 +1620,7 @@ export default function TaskKanbanPage() {
               ? `linear-gradient(135deg, ${BRAND.crimsonDeep}, ${BRAND.crimson})`
               : toast.tone === 'error'
                 ? '#1F1114'
-                : '#FFFFFF',
+                : BRAND.white,
             color: toast.tone === 'neutral' ? BRAND.ink : '#fff',
             padding: '14px 18px',
             borderRadius: 16,
@@ -1700,7 +1708,7 @@ export default function TaskKanbanPage() {
                     padding: '11px 18px',
                     borderRadius: 999,
                     border: 'none',
-                    background: '#fff',
+                    background: BRAND.white,
                     color: BRAND.crimsonDeep,
                     fontSize: '13px',
                     fontWeight: 800,
@@ -1820,14 +1828,13 @@ export default function TaskKanbanPage() {
           marginTop: 18,
           padding: '18px 20px',
           borderRadius: 24,
-          background: 'rgba(255,255,255,.82)',
+          background: BRAND.surface,
           border: `1px solid ${BRAND.mist}`,
-          boxShadow: '0 16px 40px rgba(18,18,18,.08)',
-          backdropFilter: 'blur(10px)',
+          boxShadow: 'var(--xc-shadow)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8A817B' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: BRAND.muted }}>
                 Board Filters
               </div>
               <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: BRAND.ink }}>
@@ -1837,8 +1844,8 @@ export default function TaskKanbanPage() {
             <div style={{
               padding: '10px 12px',
               borderRadius: 16,
-              background: automationFeed ? '#FFF3F5' : '#F1ECE7',
-              border: `1px solid ${automationFeed ? '#F3C4CC' : BRAND.mist}`,
+              background: automationFeed ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
+              border: `1px solid ${automationFeed ? 'color-mix(in srgb, var(--xc-brand) 26%, var(--xc-border))' : BRAND.mist}`,
               color: automationFeed ? BRAND.crimsonDeep : BRAND.carbon,
               fontSize: 12,
               fontWeight: 700,
@@ -1893,7 +1900,7 @@ export default function TaskKanbanPage() {
                   padding: '9px 14px',
                   borderRadius: 999,
                   border: `1px solid ${BRAND.crimson}`,
-                  background: '#FFF5F6',
+                  background: BRAND.dangerSoft,
                   color: BRAND.crimson,
                   cursor: 'pointer',
                   fontSize: '12px',
@@ -1908,8 +1915,8 @@ export default function TaskKanbanPage() {
               marginLeft: 'auto',
               padding: '9px 12px',
               borderRadius: 14,
-              background: '#1B1315',
-              color: '#FFF4F5',
+              background: BRAND.surfaceMuted,
+              color: BRAND.ink,
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: '.04em',
@@ -1925,7 +1932,7 @@ export default function TaskKanbanPage() {
               textAlign: 'center',
               padding: '64px 20px',
               color: BRAND.crimson,
-              background: 'rgba(255,255,255,.8)',
+              background: BRAND.surface,
               borderRadius: 24,
               border: `1px solid ${BRAND.mist}`,
             }}>
@@ -1950,12 +1957,12 @@ export default function TaskKanbanPage() {
                   minWidth: 280,
                   minHeight: 280,
                   borderRadius: 24,
-                  background: 'rgba(255,255,255,.7)',
+                  background: BRAND.surface,
                   border: `1px solid ${BRAND.mist}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#8A817B',
+                  color: BRAND.muted,
                   fontWeight: 700,
                 }}>
                   載入 {col.label}...

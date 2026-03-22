@@ -1172,7 +1172,7 @@ function Spinner({ color = '#fff' }) {
   );
 }
 
-function IntegrationsTab({ callbackState }) {
+function IntegrationsTab({ callbackState, authToken }) {
   const [msStatus,    setMsStatus]    = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [connecting,  setConnecting]  = useState(false);
@@ -1184,20 +1184,11 @@ function IntegrationsTab({ callbackState }) {
   const [oauthForm,    setOauthForm]    = useState({ clientId: '', clientSecret: '' });
   const [savingConfig, setSavingConfig] = useState(false);
 
-  // ── 取得開發用 JWT ─────────────────────────────────────────
-  const getJwt = useCallback(async () => {
-    try {
-      const res  = await fetch(`${API_BASE}/api/auth/dev-token`);
-      const data = await res.json();
-      if (data.token) {
-        setJwtToken(data.token);
-        return data.token;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, []);
+  const resolveJwt = useCallback(async () => {
+    const token = authToken || localStorage.getItem('xcloud-auth-token') || null;
+    setJwtToken(token);
+    return token;
+  }, [authToken]);
 
   // ── 查詢 Microsoft 連線狀態 ────────────────────────────────
   const fetchMsStatus = useCallback(async (token) => {
@@ -1248,18 +1239,18 @@ function IntegrationsTab({ callbackState }) {
       setBanner({ type: 'error', message: errMsg });
     }
     (async () => {
-      const token = await getJwt();
+      const token = await resolveJwt();
       if (token) await fetchMsStatus(token);
       else setLoading(false);
     })();
-  }, [callbackState, getJwt, fetchMsStatus]);
+  }, [callbackState, fetchMsStatus, resolveJwt]);
 
   // ── 發起 OAuth 授權 ────────────────────────────────────────
   const handleConnect = async () => {
     setConnecting(true);
     try {
-      const token = jwtToken || await getJwt();
-      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動（docker-compose up）');
+      const token = jwtToken || await resolveJwt();
+      if (!token) throw new Error('請先登入系統後再連接 Microsoft 帳號');
       const res  = await fetch(`${API_BASE}/auth/microsoft`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1286,7 +1277,8 @@ function IntegrationsTab({ callbackState }) {
     if (!window.confirm('確定要解除 Microsoft 帳號授權嗎？\n解除後 AI Agent 將無法存取 Email 和行事曆。')) return;
     setRevoking(true);
     try {
-      const token = jwtToken || await getJwt();
+      const token = jwtToken || await resolveJwt();
+      if (!token) throw new Error('請先登入系統後再解除授權');
       const res   = await fetch(`${API_BASE}/auth/microsoft/revoke`, {
         method:  'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -1314,8 +1306,8 @@ function IntegrationsTab({ callbackState }) {
     }
     setSavingConfig(true);
     try {
-      const token = jwtToken || await getJwt();
-      if (!token) throw new Error('無法取得認證 token，請確認後端已啟動');
+      const token = jwtToken || await resolveJwt();
+      if (!token) throw new Error('請先登入系統後再更新 Azure 設定');
       const res  = await fetch(`${API_BASE}/auth/microsoft/config`, {
         method:  'POST',
         headers: {
@@ -1628,6 +1620,7 @@ function IntegrationsTab({ callbackState }) {
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
 export default function SettingsPage({ initialTab, callbackState }) {
+  const { token } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab || 'company');
 
   return (
@@ -1683,7 +1676,7 @@ export default function SettingsPage({ initialTab, callbackState }) {
         <div style={{ maxWidth: 720 }}>
           {activeTab === 'company'      && <CompanyTab />}
           {activeTab === 'profile'      && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
-          {activeTab === 'integrations' && <IntegrationsTab callbackState={callbackState} />}
+          {activeTab === 'integrations' && <IntegrationsTab callbackState={callbackState} authToken={token} />}
           {(activeTab === 'system' || activeTab === 'stats') && (
             <SystemStatsTab activeTab={activeTab} />
           )}

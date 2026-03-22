@@ -22,6 +22,23 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 const API_BASE   = '';
+const UI = {
+  pageBg: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  brand: 'var(--xc-brand)',
+  brandDark: 'var(--xc-brand-dark)',
+  infoSoft: 'var(--xc-info-soft)',
+  info: 'var(--xc-info)',
+  shadow: 'var(--xc-shadow)',
+};
 
 // ── 流程階段定義 ─────────────────────────────────────────────
 const STAGES = [
@@ -191,7 +208,7 @@ function Arrow({ label, color = '#CBD5E1', vertical = false }) {
           <polygon points="3,18 11,18 7,24" fill={color}/>
         </svg>
         {label && (
-          <span style={{ fontSize: '10px', color: '#94A3B8', whiteSpace: 'nowrap', marginTop: '2px' }}>
+          <span style={{ fontSize: '10px', color: UI.textMuted, whiteSpace: 'nowrap', marginTop: '2px' }}>
             {label}
           </span>
         )}
@@ -205,7 +222,7 @@ function Arrow({ label, color = '#CBD5E1', vertical = false }) {
         <polygon points="25,3 32,7 25,11" fill={color}/>
       </svg>
       {label && (
-        <span style={{ fontSize: '9px', color: '#94A3B8', marginTop: '1px', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '9px', color: UI.textMuted, marginTop: '1px', whiteSpace: 'nowrap' }}>
           {label}
         </span>
       )}
@@ -226,8 +243,8 @@ function TaskCard({ task, onGoToProject }) {
     <div
       onClick={() => onGoToProject && onGoToProject(task.projectId)}
       style={{
-        background: 'white',
-        border: '1px solid #E8EDF4',
+        background: UI.surface,
+        border: `1px solid ${UI.border}`,
         borderLeft: `3px solid ${pColor}`,
         borderRadius: '7px',
         padding: '9px 11px',
@@ -236,7 +253,7 @@ function TaskCard({ task, onGoToProject }) {
         transition: 'box-shadow 0.15s, transform 0.15s',
       }}
       onMouseOver={e => {
-        e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.09)';
+        e.currentTarget.style.boxShadow = UI.shadow;
         e.currentTarget.style.transform = 'translateY(-1px)';
       }}
       onMouseOut={e => {
@@ -246,7 +263,7 @@ function TaskCard({ task, onGoToProject }) {
     >
       {/* 任務名稱 */}
       <div style={{
-        fontSize: '12px', fontWeight: '600', color: '#1e293b',
+        fontSize: '12px', fontWeight: '600', color: UI.text,
         lineHeight: '1.35', marginBottom: '7px',
       }}>
         {task.title}
@@ -279,14 +296,14 @@ function TaskCard({ task, onGoToProject }) {
         {due && (
           <span style={{
             fontSize: '10.5px',
-            color: overdue ? '#DC2626' : '#94A3B8',
+            color: overdue ? '#DC2626' : UI.textMuted,
             fontWeight: overdue ? '600' : '400',
           }}>
             {overdue ? '⚠ ' : '📅 '}{due}
           </span>
         )}
 
-        <span style={{ marginLeft: 'auto', fontSize: '9px', color: '#CBD5E1' }}>↗ 查看</span>
+        <span style={{ marginLeft: 'auto', fontSize: '9px', color: UI.textMuted }}>↗ 查看</span>
       </div>
     </div>
   );
@@ -304,14 +321,14 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
     <div style={{
       display: 'grid',
       gridTemplateColumns: '180px repeat(4, minmax(160px, 1fr))',
-      borderBottom: isLast ? 'none' : '1px solid #F1F5F9',
+      borderBottom: isLast ? 'none' : `1px solid ${UI.border}`,
       minHeight: '90px',
     }}>
       {/* 專案標籤欄（凍結左側）*/}
       <div style={{
         padding: '14px 14px',
-        borderRight: '2px solid #E2E8F0',
-        background: '#FAFAFA',
+        borderRight: `2px solid ${UI.border}`,
+        background: UI.surfaceSoft,
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
         position: 'sticky', left: 0, zIndex: 2,
       }}>
@@ -326,12 +343,12 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
               onClick={() => onGoToProject(project.id)}
               title="前往專案管理"
               style={{
-                fontSize: '12.5px', fontWeight: '700', color: '#1e293b',
+                fontSize: '12.5px', fontWeight: '700', color: UI.text,
                 lineHeight: '1.35', wordBreak: 'break-all',
                 cursor: 'pointer', textDecoration: 'none',
               }}
-              onMouseOver={e => { e.currentTarget.style.color = '#C41230'; e.currentTarget.style.textDecoration = 'underline'; }}
-              onMouseOut={e => { e.currentTarget.style.color = '#1e293b'; e.currentTarget.style.textDecoration = 'none'; }}
+              onMouseOver={e => { e.currentTarget.style.color = UI.brand; e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseOut={e => { e.currentTarget.style.color = UI.text; e.currentTarget.style.textDecoration = 'none'; }}
             >
               {project.name}
             </div>
@@ -348,7 +365,7 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
         <div style={{ marginTop: '10px' }}>
           <div style={{
             height: '4px', borderRadius: '99px',
-            background: '#E2E8F0', overflow: 'hidden',
+            background: UI.surfaceMuted, overflow: 'hidden',
           }}>
             <div style={{
               width: `${progress}%`, height: '100%',
@@ -356,7 +373,7 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
               borderRadius: '99px', transition: 'width 0.4s',
             }} />
           </div>
-          <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '3px' }}>
+          <div style={{ fontSize: '10px', color: UI.textMuted, marginTop: '3px' }}>
             完成 {totalDone}/{totalAll} · {progress}%
           </div>
         </div>
@@ -366,9 +383,9 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
           onClick={() => onGoToProject(project.id)}
           style={{
             marginTop: '8px', width: '100%',
-            background: '#EFF6FF', border: '1px solid #BFDBFE',
+            background: UI.infoSoft, border: `1px solid ${UI.borderStrong}`,
             borderRadius: '6px', padding: '4px 0',
-            cursor: 'pointer', fontSize: '10.5px', color: '#2563EB', fontWeight: '600',
+            cursor: 'pointer', fontSize: '10.5px', color: UI.info, fontWeight: '600',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
           }}
         >
@@ -382,7 +399,7 @@ function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
           key={stage.id}
           style={{
             padding: '10px 8px',
-            borderRight: si < STAGES.length - 1 ? '1px dashed #E8EDF4' : 'none',
+            borderRight: si < STAGES.length - 1 ? `1px dashed ${UI.border}` : 'none',
             background: (tasksByStage[stage.id] || []).length > 0 ? stage.bg + '80' : 'transparent',
             minHeight: '90px',
           }}
@@ -462,13 +479,13 @@ export default function WorkflowDiagramPage({ onNavigate }) {
   const totalTasks = Object.values(stageCounts).reduce((a, v) => a + v, 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'system-ui, -apple-system, sans-serif', background: UI.pageBg, color: UI.text }}>
 
       {/* ── ① 頁首 ─────────────────────────────────────────── */}
       <div style={{
         padding: '18px 28px 14px',
-        background: 'white',
-        borderBottom: '1px solid #E2E8F0',
+        background: UI.surface,
+        borderBottom: `1px solid ${UI.border}`,
         display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
         flexShrink: 0,
       }}>
@@ -480,15 +497,15 @@ export default function WorkflowDiagramPage({ onNavigate }) {
               <line x1="9" y1="4" x2="13" y2="4" stroke="#C41230" strokeWidth="1.5"/>
               <polygon points="13,2.5 16,4 13,5.5" fill="#C41230"/>
               <rect x="13" y="1" width="8" height="6" rx="2" fill="#C41230" opacity="0.2" stroke="#C41230" strokeWidth="1.5"/>
-              <line x1="17" y1="7" x2="17" y2="11" stroke="#94A3B8" strokeWidth="1.5"/>
-              <polygon points="15.5,11 17,14 18.5,11" fill="#94A3B8"/>
+              <line x1="17" y1="7" x2="17" y2="11" stroke="var(--xc-text-muted)" strokeWidth="1.5"/>
+              <polygon points="15.5,11 17,14 18.5,11" fill="var(--xc-text-muted)"/>
               <polygon points="11,15 17,12 17,21 4,21 4,12" fill="none" stroke="#D97706" strokeWidth="1.5"/>
             </svg>
-            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: UI.text }}>
               工作流程圖
             </h2>
           </div>
-          <p style={{ margin: '2px 0 0 32px', fontSize: '11.5px', color: '#94A3B8' }}>
+          <p style={{ margin: '2px 0 0 32px', fontSize: '11.5px', color: UI.textMuted }}>
             Asana 式泳道流程 · 橢圓＝起訖 · 矩形＝流程 · 菱形＝決策
           </p>
         </div>
@@ -500,8 +517,8 @@ export default function WorkflowDiagramPage({ onNavigate }) {
             onChange={e => setFilterProject(e.target.value)}
             style={{
               padding: '6px 12px', borderRadius: '8px',
-              border: '1px solid #E2E8F0', background: 'white',
-              fontSize: '12.5px', color: '#374151',
+              border: `1px solid ${UI.border}`, background: UI.surfaceStrong,
+              fontSize: '12.5px', color: UI.textSoft,
               cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
             }}
           >
@@ -515,7 +532,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
           <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
             <span style={{
               padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '600',
-              background: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1',
+              background: UI.surfaceSoft, color: UI.textSoft, border: `1px solid ${UI.borderStrong}`,
             }}>
               全部 {totalTasks}
             </span>
@@ -534,13 +551,13 @@ export default function WorkflowDiagramPage({ onNavigate }) {
       {/* ── ② 流程符號列 ──────────────────────────────────── */}
       <div style={{
         padding: '14px 28px',
-        background: 'linear-gradient(to right, #FAFBFC, #F5F0F1)',
-        borderBottom: '1px solid #E2E8F0',
+        background: `linear-gradient(to right, ${UI.surfaceSoft}, ${UI.surfaceMuted})`,
+        borderBottom: `1px solid ${UI.border}`,
         display: 'flex', alignItems: 'center', flexWrap: 'nowrap',
         overflowX: 'auto', gap: '0', flexShrink: 0,
       }}>
         <span style={{
-          fontSize: '10.5px', color: '#94A3B8', fontWeight: '700',
+          fontSize: '10.5px', color: UI.textMuted, fontWeight: '700',
           textTransform: 'uppercase', letterSpacing: '0.8px',
           whiteSpace: 'nowrap', marginRight: '14px', flexShrink: 0,
         }}>
@@ -566,20 +583,20 @@ export default function WorkflowDiagramPage({ onNavigate }) {
         {/* 決策分支說明 */}
         <div style={{
           marginLeft: '24px', paddingLeft: '20px',
-          borderLeft: '1px dashed #E2E8F0',
+          borderLeft: `1px dashed ${UI.border}`,
           display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="14" height="14" viewBox="0 0 14 14">
               <polygon points="7,1 13,7 7,13 1,7" fill="#FFFBEB" stroke="#FDE68A" strokeWidth="1.5"/>
             </svg>
-            <span style={{ fontSize: '10.5px', color: '#78716C' }}>通過 → 完成</span>
+            <span style={{ fontSize: '10.5px', color: UI.textSoft }}>通過 → 完成</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <svg width="14" height="14" viewBox="0 0 14 14">
               <polygon points="7,1 13,7 7,13 1,7" fill="#FEF2F2" stroke="#FECACA" strokeWidth="1.5"/>
             </svg>
-            <span style={{ fontSize: '10.5px', color: '#78716C' }}>退回 → 修改</span>
+            <span style={{ fontSize: '10.5px', color: UI.textSoft }}>退回 → 修改</span>
           </div>
         </div>
       </div>
@@ -591,18 +608,18 @@ export default function WorkflowDiagramPage({ onNavigate }) {
         <div style={{
           display: 'grid',
           gridTemplateColumns: '180px repeat(4, minmax(160px, 1fr))',
-          borderBottom: '2px solid #E2E8F0',
-          background: 'white',
+          borderBottom: `2px solid ${UI.border}`,
+          background: UI.surface,
           position: 'sticky', top: 0, zIndex: 10,
           minWidth: '820px',
         }}>
           {/* 泳道標籤欄 */}
           <div style={{
             padding: '11px 14px',
-            fontSize: '10.5px', fontWeight: '700', color: '#94A3B8',
+            fontSize: '10.5px', fontWeight: '700', color: UI.textMuted,
             textTransform: 'uppercase', letterSpacing: '0.8px',
-            borderRight: '2px solid #E2E8F0',
-            position: 'sticky', left: 0, background: 'white', zIndex: 1,
+            borderRight: `2px solid ${UI.border}`,
+            position: 'sticky', left: 0, background: UI.surface, zIndex: 1,
           }}>
             泳道 / 專案
           </div>
@@ -610,7 +627,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
           {STAGES.map((stage, si) => (
             <div key={stage.id} style={{
               padding: '8px 10px',
-              borderRight: si < STAGES.length - 1 ? '1px solid #F1F5F9' : 'none',
+              borderRight: si < STAGES.length - 1 ? `1px solid ${UI.border}` : 'none',
               display: 'flex', alignItems: 'center', gap: '7px',
             }}>
               {/* 流程符號微型圖示 */}
@@ -628,7 +645,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
                 <div style={{ fontSize: '12.5px', fontWeight: '700', color: stage.color }}>
                   {stage.label}
                 </div>
-                <div style={{ fontSize: '10px', color: '#94A3B8' }}>{stage.sublabel}</div>
+                <div style={{ fontSize: '10px', color: UI.textMuted }}>{stage.sublabel}</div>
               </div>
               <span style={{
                 marginLeft: 'auto', fontSize: '11px', fontWeight: '700',
@@ -649,20 +666,20 @@ export default function WorkflowDiagramPage({ onNavigate }) {
               border: '3px solid #C41230', borderTopColor: 'transparent',
               borderRadius: '50%', animation: 'spin 0.8s linear infinite',
             }} />
-            <div style={{ marginTop: '14px', color: '#94A3B8', fontSize: '13.5px' }}>載入中…</div>
+            <div style={{ marginTop: '14px', color: UI.textMuted, fontSize: '13.5px' }}>載入中…</div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : error ? (
           <div style={{ padding: '80px 0', textAlign: 'center' }}>
             <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
             <div style={{ color: '#DC2626', fontWeight: '700', marginBottom: '6px' }}>資料載入失敗</div>
-            <div style={{ color: '#94A3B8', fontSize: '12px' }}>{error}</div>
+            <div style={{ color: UI.textMuted, fontSize: '12px' }}>{error}</div>
           </div>
         ) : processed.length === 0 ? (
           <div style={{ padding: '80px 0', textAlign: 'center' }}>
             <div style={{ fontSize: '40px', marginBottom: '14px' }}>📋</div>
-            <div style={{ color: '#475569', fontWeight: '700', marginBottom: '6px' }}>目前沒有專案資料</div>
-            <div style={{ color: '#94A3B8', fontSize: '12px' }}>請先建立專案再查看工作流程圖</div>
+            <div style={{ color: UI.textSoft, fontWeight: '700', marginBottom: '6px' }}>目前沒有專案資料</div>
+            <div style={{ color: UI.textMuted, fontSize: '12px' }}>請先建立專案再查看工作流程圖</div>
           </div>
         ) : (
           <div style={{ minWidth: '820px' }}>
@@ -682,13 +699,13 @@ export default function WorkflowDiagramPage({ onNavigate }) {
       {/* ── ④ 底部符號說明 ───────────────────────────────── */}
       <div style={{
         padding: '12px 28px',
-        borderTop: '1px solid #E2E8F0',
-        background: '#FAFBFC',
+        borderTop: `1px solid ${UI.border}`,
+        background: UI.surfaceSoft,
         display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap',
         flexShrink: 0,
       }}>
         <span style={{
-          fontSize: '10.5px', fontWeight: '700', color: '#94A3B8',
+          fontSize: '10.5px', fontWeight: '700', color: UI.textMuted,
           textTransform: 'uppercase', letterSpacing: '0.5px',
         }}>
           符號說明：
@@ -699,7 +716,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
             label: '橢圓（Terminator）= 起訖點',
           },
           {
-            node: <ProcessSymbol stage={{ label: '▭', color: '#475569', bg: '#F8FAFC', border: '#CBD5E1' }} size="sm" />,
+            node: <ProcessSymbol stage={{ label: '▭', color: UI.textSoft, bg: UI.surfaceSoft, border: UI.borderStrong }} size="sm" />,
             label: '矩形（Process）= 任務流程節點',
           },
           {
@@ -711,7 +728,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
             label: '菱形（Decision）= 審核決策點',
           },
           {
-            node: <Arrow color="#94A3B8" />,
+            node: <Arrow color="var(--xc-text-muted)" />,
             label: '箭頭（Arrow）= 流程方向',
           },
           {
@@ -728,7 +745,7 @@ export default function WorkflowDiagramPage({ onNavigate }) {
             <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               {item.node}
             </div>
-            <span style={{ fontSize: '11px', color: '#64748B', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '11px', color: UI.textSoft, whiteSpace: 'nowrap' }}>
               {item.label}
             </span>
           </div>

@@ -118,17 +118,24 @@ export interface TaskDetailPanelProps {
 }
 
 const BRAND = {
-  crimson: '#C70018',
-  crimsonDeep: '#8F0013',
-  ink: '#111111',
-  carbon: '#2B2B2B',
-  paper: '#F7F2EE',
-  mist: '#E8DFD8',
-  line: '#D9CDC4',
-  white: '#FFFFFF',
-  success: '#16824B',
-  warning: '#C97415',
-  muted: '#7C726C',
+  crimson: 'var(--xc-brand)',
+  crimsonDeep: 'var(--xc-brand-dark)',
+  ink: 'var(--xc-text)',
+  carbon: 'var(--xc-text-soft)',
+  paper: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  mist: 'var(--xc-border)',
+  line: 'var(--xc-border-strong)',
+  white: 'var(--xc-surface-strong)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  warning: 'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  infoSoft: 'var(--xc-info-soft)',
+  muted: 'var(--xc-text-muted)',
 };
 
 const STATUS_TONES: Record<string, { label: string; bg: string; color: string }> = {
@@ -459,7 +466,7 @@ function CustomFieldControl({
                   padding: '8px 11px',
                   borderRadius: 999,
                   border: `1px solid ${checked ? BRAND.crimson : BRAND.line}`,
-                  background: checked ? '#FFF3F5' : BRAND.white,
+                  background: checked ? 'var(--xc-brand-soft)' : BRAND.white,
                   color: checked ? BRAND.crimsonDeep : BRAND.carbon,
                   cursor: 'pointer',
                   fontSize: 12,
@@ -514,7 +521,7 @@ function CustomFieldControl({
                     gap: 8,
                     padding: '6px 10px',
                     borderRadius: 999,
-                    background: '#F2EEEA',
+                    background: BRAND.surfaceMuted,
                     color: BRAND.carbon,
                     fontSize: 12,
                     fontWeight: 700,
@@ -576,7 +583,7 @@ function SubtaskTree({
             background: BRAND.white,
             padding: '12px 14px',
             marginLeft: level * 18,
-            boxShadow: level === 0 ? '0 8px 18px rgba(17,17,17,.05)' : 'none',
+            boxShadow: level === 0 ? 'var(--xc-shadow)' : 'none',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -622,7 +629,7 @@ function SubtaskTree({
                   style={{
                     fontSize: 11,
                     color: BRAND.muted,
-                    background: '#F3EEEA',
+                    background: BRAND.surfaceMuted,
                     padding: '4px 8px',
                     borderRadius: 999,
                     fontWeight: 700,
@@ -636,7 +643,7 @@ function SubtaskTree({
                     style={{
                       fontSize: 11,
                       color: BRAND.muted,
-                      background: '#F7F2EE',
+                      background: BRAND.surfaceSoft,
                       padding: '4px 8px',
                       borderRadius: 999,
                       fontWeight: 700,
@@ -683,7 +690,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
         style={{
           border: `1px dashed ${BRAND.line}`,
           borderRadius: 18,
-          background: '#FCFAF8',
+          background: BRAND.surfaceSoft,
           color: BRAND.muted,
           padding: '20px 18px',
           fontSize: 13,
@@ -714,7 +721,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
               border: `1px solid ${BRAND.line}`,
               background: BRAND.white,
               padding: '14px 16px',
-              boxShadow: '0 8px 18px rgba(17,17,17,.05)',
+              boxShadow: 'var(--xc-shadow)',
             }}
           >
             <div
@@ -736,7 +743,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     fontWeight: 700,
                     borderRadius: 999,
                     padding: '4px 8px',
-                    background: item.type === 'comment' ? '#FBE5E8' : '#F3EEEA',
+                    background: item.type === 'comment' ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
                     color: item.type === 'comment' ? BRAND.crimsonDeep : BRAND.muted,
                   }}
                 >
@@ -769,7 +776,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     style={{
                       padding: '5px 8px',
                       borderRadius: 999,
-                      background: '#EFF6FF',
+                      background: BRAND.infoSoft,
                       color: '#2563EB',
                       fontSize: 11,
                       fontWeight: 700,
@@ -789,7 +796,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     style={{
                       padding: '5px 8px',
                       borderRadius: 999,
-                      background: '#F7F2EE',
+                      background: BRAND.surfaceSoft,
                       color: BRAND.muted,
                       fontSize: 11,
                       fontWeight: 700,
@@ -972,9 +979,9 @@ export default function TaskDetailPanel({
           right: 0,
           bottom: 0,
           width: 'min(560px, 100vw)',
-          background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.paper} 100%)`,
+          background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.surface} 100%)`,
           borderLeft: `1px solid ${BRAND.line}`,
-          boxShadow: '-20px 0 60px rgba(17,17,17,.18)',
+          boxShadow: 'var(--xc-shadow-strong)',
           zIndex: 1100,
           display: 'flex',
           flexDirection: 'column',
@@ -1181,7 +1188,7 @@ export default function TaskDetailPanel({
                     <button
                       type="button"
                       onClick={() => setShowProjectPicker((current) => !current)}
-                      style={{
+                    style={{
                         border: `1px solid ${BRAND.line}`,
                         background: BRAND.white,
                         borderRadius: 999,
@@ -1243,7 +1250,7 @@ export default function TaskDetailPanel({
                     border: `1px dashed ${BRAND.line}`,
                     borderRadius: 18,
                     padding: '18px 16px',
-                    background: '#FCFAF8',
+                    background: BRAND.surfaceSoft,
                     fontSize: 13,
                     color: BRAND.muted,
                   }}
@@ -1288,7 +1295,7 @@ export default function TaskDetailPanel({
                 borderRadius: 22,
                 background: BRAND.white,
                 padding: 18,
-                boxShadow: '0 12px 24px rgba(17,17,17,.05)',
+                boxShadow: 'var(--xc-shadow)',
               }}
             >
               <div
@@ -1319,7 +1326,7 @@ export default function TaskDetailPanel({
                   marginTop: 14,
                   height: 10,
                   borderRadius: 999,
-                  background: '#EDE5DE',
+                  background: BRAND.surfaceMuted,
                   overflow: 'hidden',
                 }}
               >
@@ -1356,7 +1363,7 @@ export default function TaskDetailPanel({
                     borderRadius: 14,
                     padding: '0 16px',
                     background:
-                      !subtaskInput.trim() || !onQuickAddSubtask ? '#E6DDD6' : BRAND.crimson,
+                      !subtaskInput.trim() || !onQuickAddSubtask ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
                     fontSize: 13,
                     fontWeight: 800,
@@ -1389,7 +1396,7 @@ export default function TaskDetailPanel({
                       border: `1px dashed ${BRAND.line}`,
                       borderRadius: 18,
                       padding: '20px 16px',
-                      background: '#FCFAF8',
+                      background: BRAND.surfaceSoft,
                       fontSize: 13,
                       color: BRAND.muted,
                     }}
@@ -1409,7 +1416,7 @@ export default function TaskDetailPanel({
                 borderRadius: 20,
                 background: BRAND.white,
                 padding: 18,
-                boxShadow: '0 12px 24px rgba(17,17,17,.05)',
+                boxShadow: 'var(--xc-shadow)',
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
@@ -1439,7 +1446,7 @@ export default function TaskDetailPanel({
                   style={{
                     marginTop: 10,
                     borderRadius: 14,
-                    background: '#FFF4F5',
+                    background: BRAND.dangerSoft,
                     color: BRAND.crimsonDeep,
                     padding: '10px 12px',
                     fontSize: 12,
@@ -1459,7 +1466,7 @@ export default function TaskDetailPanel({
                     borderRadius: 14,
                     border: 'none',
                     background:
-                      !commentText.trim() || !onAddComment || commentSaving ? '#D9B5BC' : BRAND.crimson,
+                      !commentText.trim() || !onAddComment || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
                     padding: '11px 16px',
                     fontSize: 13,
@@ -1482,8 +1489,7 @@ export default function TaskDetailPanel({
           style={{
             padding: '18px 24px 24px',
             borderTop: `1px solid ${BRAND.line}`,
-            background: 'rgba(255,255,255,.92)',
-            backdropFilter: 'blur(14px)',
+            background: BRAND.surface,
             display: 'flex',
             justifyContent: 'space-between',
             gap: 12,
@@ -1495,8 +1501,8 @@ export default function TaskDetailPanel({
             disabled={!onDelete}
             style={{
               borderRadius: 14,
-              border: `1px solid ${onDelete ? '#F0B6BF' : BRAND.line}`,
-              background: '#FFF6F7',
+              border: `1px solid ${onDelete ? 'color-mix(in srgb, var(--xc-danger) 32%, var(--xc-border))' : BRAND.line}`,
+              background: BRAND.dangerSoft,
               color: onDelete ? BRAND.crimsonDeep : BRAND.muted,
               padding: '12px 14px',
               fontSize: 13,
@@ -1532,7 +1538,7 @@ export default function TaskDetailPanel({
               style={{
                 borderRadius: 14,
                 border: 'none',
-                background: saving || !title.trim() ? '#D9B5BC' : BRAND.crimson,
+                background: saving || !title.trim() ? 'var(--xc-brand-soft)' : BRAND.crimson,
                 color: BRAND.white,
                 padding: '12px 18px',
                 fontSize: 13,

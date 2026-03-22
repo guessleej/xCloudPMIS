@@ -18,21 +18,21 @@ const LS_KEY = 'xcloud-forms';
 
 // ── Design Tokens ───────────────────────────────────────────
 const C = {
-  accent:   '#C41230',
-  accentDk: '#8B0020',
-  accentLt: '#FFF0F2',
-  pageBg:   '#F7F2F2',
-  white:    '#FFFFFF',
-  ink:      '#111827',
-  ink2:     '#374151',
-  ink3:     '#6B7280',
-  ink4:     '#9CA3AF',
-  line:     '#E5E7EB',
-  lineL:    '#F3F4F6',
-  green:    '#16A34A',
-  greenLt:  '#F0FDF4',
-  amber:    '#D97706',
-  amberLt:  '#FFFBEB',
+  accent:   'var(--xc-brand)',
+  accentDk: 'var(--xc-brand-dark)',
+  accentLt: 'var(--xc-brand-soft-strong)',
+  pageBg:   'var(--xc-bg)',
+  white:    'var(--xc-surface-strong)',
+  ink:      'var(--xc-text)',
+  ink2:     'var(--xc-text-soft)',
+  ink3:     'var(--xc-text-muted)',
+  ink4:     'var(--xc-text-muted)',
+  line:     'var(--xc-border)',
+  lineL:    'var(--xc-surface-muted)',
+  green:    'var(--xc-success)',
+  greenLt:  'var(--xc-success-soft)',
+  amber:    'var(--xc-warning)',
+  amberLt:  'var(--xc-warning-soft)',
 };
 
 // ── Helpers ──────────────────────────────────────────────────

@@ -4,8 +4,12 @@ import { chromium } from 'playwright';
 
 const APP_URL = 'http://localhost:3838/#my-tasks';
 const API_URL = 'http://localhost:3010';
-const ADMIN_EMAIL = 'admin@dev.local';
-const ADMIN_PASSWORD = 'dev@2026';
+const ADMIN_EMAIL = process.env.PMIS_TEST_EMAIL;
+const ADMIN_PASSWORD = process.env.PMIS_TEST_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error('請先設定 PMIS_TEST_EMAIL 與 PMIS_TEST_PASSWORD，再執行我的任務 smoke test');
+}
 
 function artifactDir() {
   return path.join(process.cwd(), 'qa', 'artifacts');

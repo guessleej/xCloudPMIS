@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from './useDashboard';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import SummaryCards          from './SummaryCards';
 import HealthPieChart        from './HealthPieChart';
 import ProjectHealthList     from './ProjectHealthList';
@@ -37,22 +38,35 @@ import RulesPage             from '../rules/RulesPage';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
-  sbBg:     '#F8F3EE',
-  sbHover:  '#F1E9E2',
-  sbActive: '#F8E8EB',
-  accent:   '#B4233C',
-  accent2:  '#8B1128',
-  t1:       '#1F2937',
-  t2:       '#5F5650',
-  t3:       '#8A817A',
-  div:      '#E6DCD3',
-  pageBg:   '#F4EFE9',
-  cardBg:   '#FFFDFB',
-  border:   '#E6DCD3',
-  borderStrong: '#D9CCC1',
-  topbarBg: '#FCFAF7',
-  mutedBg:  '#F7F1EC',
-  shadow:   '0 12px 32px rgba(52, 36, 30, 0.08)',
+  sbBg:     'var(--xc-bg-soft)',
+  sbHover:  'var(--xc-surface-muted)',
+  sbActive: 'var(--xc-brand-soft)',
+  accent:   'var(--xc-brand)',
+  accent2:  'var(--xc-brand-dark)',
+  brandSoft: 'var(--xc-brand-soft)',
+  brandSoftStrong: 'var(--xc-brand-soft-strong)',
+  success:  'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  warning:  'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  danger:   'var(--xc-danger)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  info:     'var(--xc-info)',
+  infoSoft: 'var(--xc-info-soft)',
+  t1:       'var(--xc-text)',
+  t2:       'var(--xc-text-soft)',
+  t3:       'var(--xc-text-muted)',
+  div:      'var(--xc-border)',
+  pageBg:   'var(--xc-bg)',
+  cardBg:   'var(--xc-surface)',
+  cardBgStrong: 'var(--xc-surface-strong)',
+  border:   'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  topbarBg: 'color-mix(in srgb, var(--xc-surface) 92%, transparent)',
+  mutedBg:  'var(--xc-surface-muted)',
+  shadow:   'var(--xc-shadow-strong)',
+  focusRing: '0 0 0 4px color-mix(in srgb, var(--xc-brand) 16%, transparent)',
+  accentShadow: '0 10px 18px color-mix(in srgb, var(--xc-brand) 16%, transparent)',
 };
 
 // ── API ───────────────────────────────────────────────────────
@@ -111,6 +125,101 @@ function writeHashNav(id) {
   window.history.pushState({ nav: id }, '', newHash ? `#${newHash}` : window.location.pathname);
 }
 
+const PANEL_MODE_OPTIONS = [
+  { id: 'light', label: '開燈', desc: '明亮檢視' },
+  { id: 'dark', label: '關燈', desc: '低光專注' },
+];
+
+function getPanelTheme(mode) {
+  if (mode === 'light') {
+    return {
+      overlay: 'rgba(85, 67, 54, 0.18)',
+      panelBg:
+        'radial-gradient(circle at top right, rgba(180,35,60,0.12), transparent 32%), linear-gradient(180deg, #FFF9F4 0%, #F8F1E9 56%, #F4ECE3 100%)',
+      panelBorder: 'rgba(140, 112, 90, 0.16)',
+      panelShadow: '-20px 0 48px rgba(73, 52, 38, 0.16)',
+      text: '#1F2937',
+      textSoft: '#5F5650',
+      textMuted: '#8A817A',
+      eyebrowBg: 'rgba(255, 255, 255, 0.72)',
+      eyebrowBorder: 'rgba(180, 158, 141, 0.34)',
+      eyebrowText: '#8B1128',
+      line: 'rgba(180, 158, 141, 0.24)',
+      closeBg: 'rgba(255, 255, 255, 0.82)',
+      closeBorder: 'rgba(180, 158, 141, 0.34)',
+      closeText: '#3E312A',
+      refreshBg: 'rgba(255, 255, 255, 0.86)',
+      refreshBorder: 'rgba(180, 158, 141, 0.36)',
+      refreshText: '#5B4234',
+      modeRailBg: 'rgba(255, 255, 255, 0.82)',
+      modeRailBorder: 'rgba(180, 158, 141, 0.32)',
+      modeButtonText: '#7A6559',
+      modeButtonActiveBg: '#B4233C',
+      modeButtonActiveText: '#FFFFFF',
+      modeHintText: '#8A817A',
+      statBg: 'rgba(255, 255, 255, 0.9)',
+      statBorder: 'rgba(180, 158, 141, 0.3)',
+      statLabel: '#8A817A',
+      statHint: '#6B5B52',
+      sectionBg: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,242,235,0.96))',
+      sectionSolidBg: 'rgba(255, 255, 255, 0.88)',
+      sectionMutedBg: 'rgba(255, 255, 255, 0.84)',
+      sectionBorder: 'rgba(180, 158, 141, 0.28)',
+      sectionLabel: '#8A817A',
+      sectionHint: '#6B5B52',
+      sectionBody: '#5F5650',
+      emptyText: '#6B5B52',
+      progressTrack: 'rgba(191, 174, 158, 0.32)',
+      errorBg: 'rgba(254, 242, 242, 0.9)',
+      errorBorder: 'rgba(252, 165, 165, 0.48)',
+      errorText: '#B91C1C',
+    };
+  }
+
+  return {
+    overlay: 'rgba(4, 8, 15, 0.52)',
+    panelBg:
+      'radial-gradient(circle at top right, rgba(180,35,60,0.28), transparent 28%), linear-gradient(180deg, #0B1018 0%, #131A24 56%, #0D121A 100%)',
+    panelBorder: 'rgba(148, 163, 184, 0.18)',
+    panelShadow: '-24px 0 56px rgba(2, 6, 23, 0.5)',
+    text: '#F8FAFC',
+    textSoft: 'rgba(226, 232, 240, 0.74)',
+    textMuted: 'rgba(226, 232, 240, 0.64)',
+    eyebrowBg: 'rgba(15, 23, 42, 0.48)',
+    eyebrowBorder: 'rgba(148, 163, 184, 0.16)',
+    eyebrowText: '#E2E8F0',
+    line: 'rgba(148, 163, 184, 0.12)',
+    closeBg: 'rgba(15, 23, 42, 0.58)',
+    closeBorder: 'rgba(148, 163, 184, 0.16)',
+    closeText: '#F8FAFC',
+    refreshBg: 'rgba(15, 23, 42, 0.58)',
+    refreshBorder: 'rgba(148, 163, 184, 0.18)',
+    refreshText: '#E2E8F0',
+    modeRailBg: 'rgba(15, 23, 42, 0.58)',
+    modeRailBorder: 'rgba(148, 163, 184, 0.14)',
+    modeButtonText: 'rgba(226, 232, 240, 0.72)',
+    modeButtonActiveBg: '#F8FAFC',
+    modeButtonActiveText: '#0F172A',
+    modeHintText: 'rgba(226, 232, 240, 0.6)',
+    statBg: 'rgba(15, 23, 42, 0.62)',
+    statBorder: 'rgba(148, 163, 184, 0.14)',
+    statLabel: 'rgba(226, 232, 240, 0.58)',
+    statHint: 'rgba(226, 232, 240, 0.72)',
+    sectionBg: 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(30,41,59,0.62))',
+    sectionSolidBg: 'rgba(15, 23, 42, 0.58)',
+    sectionMutedBg: 'rgba(15, 23, 42, 0.52)',
+    sectionBorder: 'rgba(148, 163, 184, 0.14)',
+    sectionLabel: 'rgba(226, 232, 240, 0.58)',
+    sectionHint: 'rgba(226, 232, 240, 0.64)',
+    sectionBody: 'rgba(226, 232, 240, 0.68)',
+    emptyText: 'rgba(226, 232, 240, 0.72)',
+    progressTrack: 'rgba(148, 163, 184, 0.14)',
+    errorBg: 'rgba(127, 29, 29, 0.32)',
+    errorBorder: 'rgba(248, 113, 113, 0.26)',
+    errorText: '#FECACA',
+  };
+}
+
 // ════════════════════════════════════════════════════════════
 // SVG 圖示
 // ════════════════════════════════════════════════════════════
@@ -137,6 +246,7 @@ const Ic = {
   search: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   bell: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>,
   moon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3c0 5 4 9 9 9 .27 0 .53-.01.79-.03A6.78 6.78 0 0021 12.79z"/></svg>,
+  sun: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"/></svg>,
   plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   chevRight: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
   chevDown: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
@@ -178,7 +288,7 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCo
         padding: sbCollapsed ? '9px 0' : indent ? '7px 10px 7px 28px' : '7px 10px',
         justifyContent: sbCollapsed ? 'center' : 'flex-start',
         borderRadius: '10px',
-        border: `1px solid ${isActive ? '#E8C8CF' : 'transparent'}`,
+        border: `1px solid ${isActive ? T.borderStrong : 'transparent'}`,
         background: isActive ? T.sbActive : hov ? T.sbHover : 'transparent',
         color: isActive ? T.accent2 : hov ? T.t1 : T.t2,
         fontSize: '13.5px', fontWeight: isActive ? '700' : '500',
@@ -301,7 +411,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
       position: 'sticky', top: 0, overflow: 'hidden', flexShrink: 0,
       transition: 'width 0.22s ease, min-width 0.22s ease',
       borderRight: `1px solid ${T.div}`,
-      boxShadow: '8px 0 24px rgba(52, 36, 30, 0.04)',
+      boxShadow: T.shadow,
     }}>
 
       {/* ── Logo 區 + 收縮按鈕 ───────────────────────────── */}
@@ -359,7 +469,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
             border: 'none', borderRadius: '8px',
             fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
             fontFamily: 'inherit', transition: 'background 0.15s',
-            boxShadow: '0 10px 18px rgba(180, 35, 60, 0.14)',
+            boxShadow: T.accentShadow,
           }}
           onMouseEnter={e => e.currentTarget.style.background = '#9E1830'}
           onMouseLeave={e => e.currentTarget.style.background = T.accent}
@@ -490,7 +600,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
             gap: isCollapsed ? '0' : '9px',
             padding: isCollapsed ? '8px 0' : '6px 10px',
             justifyContent: isCollapsed ? 'center' : 'flex-start',
-            borderRadius: '10px', border: `1px solid ${active === 'team' ? '#E8C8CF' : 'transparent'}`,
+            borderRadius: '10px', border: `1px solid ${active === 'team' ? T.borderStrong : 'transparent'}`,
             background: active === 'team' ? T.sbActive : 'transparent',
             color: active === 'team' ? T.accent2 : T.t2,
             fontSize: '13.5px', fontWeight: active === 'team' ? '700' : '500',
@@ -524,7 +634,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
             justifyContent: isCollapsed ? 'center' : 'flex-start',
             padding: isCollapsed ? '9px 0' : '8px 10px',
             marginTop: '4px', borderRadius: '8px',
-            border: `1px solid ${active === 'profile' ? '#E8C8CF' : 'transparent'}`,
+            border: `1px solid ${active === 'profile' ? T.borderStrong : 'transparent'}`,
             background: active === 'profile' ? T.sbActive : 'transparent',
             cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit',
             boxSizing: 'border-box',
@@ -562,10 +672,23 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
 // ════════════════════════════════════════════════════════════
 // 頂部搜尋列（Asana 風格）
 // ════════════════════════════════════════════════════════════
-function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkPanelOpen = false }) {
+function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOpen = false, panelMode = 'dark' }) {
   const [searchVal, setSearchVal] = useState('');
   const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
+  const isLightPanel = panelMode === 'light';
+  const panelIcon = isLightPanel ? Ic.sun : Ic.moon;
+  const panelLabel = isLightPanel ? '開燈' : '關燈';
+  const panelButtonState = panelOpen
+    ? isLightPanel
+      ? { bg: '#F5E6D8', border: '#D9BDA0', color: '#6C4930' }
+      : { bg: '#161C27', border: '#2A3342', color: '#F4F7FB' }
+    : isLightPanel
+      ? { bg: '#FFF7F0', border: '#E6D6C8', color: '#7A5A47' }
+      : { bg: T.cardBg, border: T.border, color: T.t2 };
+  const panelButtonHover = isLightPanel
+    ? { bg: '#F8ECDF', border: '#D9BDA0', color: '#6C4930' }
+    : { bg: '#161C27', border: '#2A3342', color: '#F4F7FB' };
 
   return (
     <header style={{
@@ -618,7 +741,7 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkP
           background: T.cardBg,
           borderRadius: '11px', padding: '9px 14px',
           border: `1px solid ${searchFocus ? T.borderStrong : T.border}`,
-          boxShadow: searchFocus ? '0 0 0 4px rgba(180, 35, 60, 0.08)' : 'none',
+          boxShadow: searchFocus ? T.focusRing : 'none',
           transition: 'all 0.15s ease',
         }}>
           <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.search}</span>
@@ -659,36 +782,51 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkP
       {/* 右側操作列 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
         <button
-          onClick={onOpenDarkPanel}
-          title="暗黑面板"
+          onClick={onTogglePanel}
+          title="工作面板"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             height: '36px',
             borderRadius: '10px',
-            border: `1px solid ${darkPanelOpen ? '#2A3342' : T.border}`,
-            background: darkPanelOpen ? '#161C27' : T.cardBg,
+            border: `1px solid ${panelButtonState.border}`,
+            background: panelButtonState.bg,
             cursor: 'pointer',
             padding: '0 12px',
             fontSize: '12.5px',
-            color: darkPanelOpen ? '#F4F7FB' : T.t2,
+            color: panelButtonState.color,
             fontWeight: '700',
             transition: 'all 0.15s',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = '#161C27';
-            e.currentTarget.style.color = '#F4F7FB';
-            e.currentTarget.style.borderColor = '#2A3342';
+            e.currentTarget.style.background = panelButtonHover.bg;
+            e.currentTarget.style.color = panelButtonHover.color;
+            e.currentTarget.style.borderColor = panelButtonHover.border;
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = darkPanelOpen ? '#161C27' : T.cardBg;
-            e.currentTarget.style.color = darkPanelOpen ? '#F4F7FB' : T.t2;
-            e.currentTarget.style.borderColor = darkPanelOpen ? '#2A3342' : T.border;
+            e.currentTarget.style.background = panelButtonState.bg;
+            e.currentTarget.style.color = panelButtonState.color;
+            e.currentTarget.style.borderColor = panelButtonState.border;
           }}
         >
-          {Ic.moon}
-          暗黑面板
+          {panelIcon}
+          工作面板
+          <span style={{
+            padding: '2px 7px',
+            borderRadius: '999px',
+            background: panelOpen
+              ? isLightPanel ? 'rgba(255,255,255,0.68)' : 'rgba(255,255,255,0.12)'
+              : isLightPanel ? '#F6E8DB' : T.mutedBg,
+            color: panelOpen
+              ? isLightPanel ? '#7A5A47' : '#F4F7FB'
+              : isLightPanel ? '#7A5A47' : T.t3,
+            fontSize: '10px',
+            fontWeight: '800',
+            letterSpacing: '0.04em',
+          }}>
+            {panelLabel}
+          </span>
         </button>
 
         <button
@@ -711,14 +849,14 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkP
           style={{
             width: '36px', height: '36px', borderRadius: '10px',
             border: `1px solid ${activeNav === 'inbox' ? T.accent : T.border}`,
-            background: activeNav === 'inbox' ? '#FFF4F5' : T.cardBg,
+            background: activeNav === 'inbox' ? T.brandSoftStrong : T.cardBg,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: activeNav === 'inbox' ? T.accent : T.t2,
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#FFF4F5'; e.currentTarget.style.color = T.accent; }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.brandSoftStrong; e.currentTarget.style.color = T.accent; }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF4F5' : T.cardBg;
+            e.currentTarget.style.background = activeNav === 'inbox' ? T.brandSoftStrong : T.cardBg;
             e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : T.t2;
           }}
         >
@@ -729,8 +867,11 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkP
   );
 }
 
-function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashData }) {
+function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashData, mode = 'dark', onModeChange }) {
   const { summary, projects, insights, loading, error, refresh } = dashData;
+  const panelTheme = getPanelTheme(mode);
+  const panelIcon = mode === 'light' ? Ic.sun : Ic.moon;
+  const modeTitle = mode === 'light' ? '開燈模式' : '關燈模式';
 
   useEffect(() => {
     if (!open) return undefined;
@@ -756,25 +897,25 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
       label: '未讀通知',
       value: inboxCount,
       hint: inboxCount > 0 ? '收件匣有新變化' : '目前已清空',
-      accent: '#F07A8A',
+      accent: mode === 'light' ? '#B4233C' : '#F07A8A',
     },
     {
       label: '逾期任務',
       value: summary?.total_overdue_tasks ?? 0,
       hint: summary?.total_overdue_tasks > 0 ? '建議先排除阻塞' : '目前控制良好',
-      accent: '#FDBA74',
+      accent: mode === 'light' ? '#C77829' : '#FDBA74',
     },
     {
       label: '危險專案',
       value: summary?.red_projects ?? 0,
       hint: summary?.red_projects > 0 ? '需要立即跟進' : '暫無紅燈',
-      accent: '#C084FC',
+      accent: mode === 'light' ? '#7C3AED' : '#C084FC',
     },
     {
       label: '本月到期',
       value: summary?.due_this_month ?? 0,
       hint: '近期里程碑與交付',
-      accent: '#7DD3FC',
+      accent: mode === 'light' ? '#1D75B8' : '#7DD3FC',
     },
   ];
 
@@ -812,7 +953,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(4, 8, 15, 0.52)',
+          background: panelTheme.overlay,
           backdropFilter: 'blur(8px)',
           zIndex: 350,
         }}
@@ -826,11 +967,10 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           width: 'min(420px, 100vw)',
           height: '100vh',
           zIndex: 360,
-          color: '#F8FAFC',
-          background:
-            'radial-gradient(circle at top right, rgba(180,35,60,0.28), transparent 28%), linear-gradient(180deg, #0B1018 0%, #131A24 56%, #0D121A 100%)',
-          borderLeft: '1px solid rgba(148, 163, 184, 0.18)',
-          boxShadow: '-24px 0 56px rgba(2, 6, 23, 0.5)',
+          color: panelTheme.text,
+          background: panelTheme.panelBg,
+          borderLeft: `1px solid ${panelTheme.panelBorder}`,
+          boxShadow: panelTheme.panelShadow,
           display: 'flex',
           flexDirection: 'column',
           animation: 'darkPanelSlideIn .18s ease',
@@ -843,18 +983,18 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           }
         `}</style>
 
-        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid rgba(148, 163, 184, 0.12)' }}>
+        <div style={{ padding: '24px 24px 20px', borderBottom: `1px solid ${panelTheme.line}` }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: 'rgba(15, 23, 42, 0.48)', border: '1px solid rgba(148, 163, 184, 0.16)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em' }}>
-                {Ic.moon}
-                DARK PANEL
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: panelTheme.eyebrowBg, border: `1px solid ${panelTheme.eyebrowBorder}`, color: panelTheme.eyebrowText, fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em' }}>
+                {panelIcon}
+                WORK PANEL
               </div>
               <div style={{ marginTop: '14px', fontSize: '28px', fontWeight: '900', letterSpacing: '-0.05em' }}>
-                暗黑面板
+                工作面板
               </div>
-              <div style={{ marginTop: '8px', fontSize: '13px', lineHeight: 1.7, color: 'rgba(226, 232, 240, 0.74)' }}>
-                {currentUser?.name || '團隊成員'}，這裡整理了今晚最值得先處理的風險、通知與快速入口。
+              <div style={{ marginTop: '8px', fontSize: '13px', lineHeight: 1.7, color: panelTheme.textSoft }}>
+                {currentUser?.name || '團隊成員'}，這裡整理了目前最值得先處理的風險、通知與快速入口。
               </div>
             </div>
 
@@ -864,9 +1004,9 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                 width: '38px',
                 height: '38px',
                 borderRadius: '12px',
-                border: '1px solid rgba(148, 163, 184, 0.16)',
-                background: 'rgba(15, 23, 42, 0.58)',
-                color: '#F8FAFC',
+                border: `1px solid ${panelTheme.closeBorder}`,
+                background: panelTheme.closeBg,
+                color: panelTheme.closeText,
                 cursor: 'pointer',
                 fontSize: '18px',
               }}
@@ -876,7 +1016,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           </div>
 
           <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-            <div style={{ fontSize: '12px', color: 'rgba(226, 232, 240, 0.64)' }}>
+            <div style={{ fontSize: '12px', color: panelTheme.textMuted }}>
               最後整理時間 {timeLabel}
             </div>
             <button
@@ -885,9 +1025,9 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                border: '1px solid rgba(148, 163, 184, 0.18)',
-                background: 'rgba(15, 23, 42, 0.58)',
-                color: '#E2E8F0',
+                border: `1px solid ${panelTheme.refreshBorder}`,
+                background: panelTheme.refreshBg,
+                color: panelTheme.refreshText,
                 borderRadius: '999px',
                 padding: '8px 12px',
                 fontSize: '12px',
@@ -899,6 +1039,49 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
               {loading ? '同步中' : '重新整理'}
             </button>
           </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '6px',
+              padding: '6px',
+              borderRadius: '16px',
+              background: panelTheme.modeRailBg,
+              border: `1px solid ${panelTheme.modeRailBorder}`,
+            }}>
+              {PANEL_MODE_OPTIONS.map((item) => {
+                const active = item.id === mode;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onModeChange?.(item.id)}
+                    style={{
+                      border: 'none',
+                      borderRadius: '12px',
+                      background: active ? panelTheme.modeButtonActiveBg : 'transparent',
+                      color: active ? panelTheme.modeButtonActiveText : panelTheme.modeButtonText,
+                      cursor: 'pointer',
+                      padding: '10px 12px',
+                      textAlign: 'left',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '800' }}>
+                      {item.id === 'light' ? Ic.sun : Ic.moon}
+                      {item.label}
+                    </div>
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: active ? panelTheme.modeButtonActiveText : panelTheme.modeHintText }}>
+                      {item.desc}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: panelTheme.textMuted }}>
+              目前為 {modeTitle}，可依環境亮度快速切換。
+            </div>
+          </div>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 28px' }}>
@@ -907,10 +1090,10 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
               marginBottom: '16px',
               padding: '12px 14px',
               borderRadius: '16px',
-              background: 'rgba(127, 29, 29, 0.32)',
-              border: '1px solid rgba(248, 113, 113, 0.26)',
+              background: panelTheme.errorBg,
+              border: `1px solid ${panelTheme.errorBorder}`,
               fontSize: '12px',
-              color: '#FECACA',
+              color: panelTheme.errorText,
               lineHeight: 1.7,
             }}>
               資料同步時發生問題：{error}
@@ -924,25 +1107,25 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                 style={{
                   borderRadius: '18px',
                   padding: '16px',
-                  background: 'rgba(15, 23, 42, 0.62)',
-                  border: '1px solid rgba(148, 163, 184, 0.14)',
+                  background: panelTheme.statBg,
+                  border: `1px solid ${panelTheme.statBorder}`,
                 }}
               >
-                <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>
+                <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.statLabel }}>
                   {item.label}
                 </div>
                 <div style={{ marginTop: '10px', fontSize: '28px', fontWeight: '900', color: item.accent }}>
                   {item.value}
                 </div>
-                <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.6, color: 'rgba(226, 232, 240, 0.72)' }}>
+                <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.6, color: panelTheme.statHint }}>
                   {item.hint}
                 </div>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: '20px', borderRadius: '22px', padding: '18px', background: 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(30,41,59,0.62))', border: '1px solid rgba(148, 163, 184, 0.14)' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>快捷入口</div>
+          <div style={{ marginTop: '20px', borderRadius: '22px', padding: '18px', background: panelTheme.sectionBg, border: `1px solid ${panelTheme.sectionBorder}` }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>快捷入口</div>
             <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: '800' }}>快速處理今晚的工作節點</div>
             <div style={{ display: 'grid', gap: '10px', marginTop: '16px' }}>
               {actionCards.map((item) => (
@@ -955,31 +1138,31 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                   style={{
                     width: '100%',
                     textAlign: 'left',
-                    border: '1px solid rgba(148, 163, 184, 0.14)',
-                    background: 'rgba(15, 23, 42, 0.58)',
+                    border: `1px solid ${panelTheme.sectionBorder}`,
+                    background: panelTheme.sectionSolidBg,
                     borderRadius: '16px',
                     padding: '14px 14px',
-                    color: '#F8FAFC',
+                    color: panelTheme.text,
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.label}</div>
-                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(226, 232, 240, 0.64)' }}>{item.desc}</div>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: panelTheme.sectionHint }}>{item.desc}</div>
                 </button>
               ))}
             </div>
           </div>
 
           <div style={{ marginTop: '20px', display: 'grid', gap: '12px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>風險專案</div>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>風險專案</div>
             {spotlightProjects.length === 0 ? (
               <div style={{
                 borderRadius: '18px',
                 padding: '18px',
-                background: 'rgba(15, 23, 42, 0.52)',
-                border: '1px solid rgba(148, 163, 184, 0.14)',
+                background: panelTheme.sectionMutedBg,
+                border: `1px solid ${panelTheme.sectionBorder}`,
                 fontSize: '13px',
-                color: 'rgba(226, 232, 240, 0.72)',
+                color: panelTheme.emptyText,
               }}>
                 目前沒有需要額外關注的專案，節奏維持得不錯。
               </div>
@@ -1003,11 +1186,11 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                     style={{
                       width: '100%',
                       textAlign: 'left',
-                      border: '1px solid rgba(148, 163, 184, 0.14)',
-                      background: 'rgba(15, 23, 42, 0.58)',
+                      border: `1px solid ${panelTheme.sectionBorder}`,
+                      background: panelTheme.sectionSolidBg,
                       borderRadius: '18px',
                       padding: '16px',
-                      color: '#F8FAFC',
+                      color: panelTheme.text,
                       cursor: 'pointer',
                     }}
                   >
@@ -1016,7 +1199,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                         <div style={{ fontSize: '13px', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {project.project_name ?? project.name}
                         </div>
-                        <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(226, 232, 240, 0.62)' }}>
+                        <div style={{ marginTop: '6px', fontSize: '11px', color: panelTheme.sectionHint }}>
                           {overdue > 0 ? `${overdue} 項逾期` : '目前無逾期項目'}
                         </div>
                       </div>
@@ -1024,7 +1207,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                         {progress}%
                       </div>
                     </div>
-                    <div style={{ marginTop: '12px', height: '6px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.14)', overflow: 'hidden' }}>
+                    <div style={{ marginTop: '12px', height: '6px', borderRadius: '999px', background: panelTheme.progressTrack, overflow: 'hidden' }}>
                       <div style={{ width: `${progress}%`, height: '100%', borderRadius: '999px', background: tone }} />
                     </div>
                   </button>
@@ -1034,15 +1217,15 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           </div>
 
           <div style={{ marginTop: '20px', display: 'grid', gap: '10px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>行動建議</div>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>行動建議</div>
             {insightCards.length === 0 ? (
               <div style={{
                 borderRadius: '18px',
                 padding: '18px',
-                background: 'rgba(15, 23, 42, 0.52)',
-                border: '1px solid rgba(148, 163, 184, 0.14)',
+                background: panelTheme.sectionMutedBg,
+                border: `1px solid ${panelTheme.sectionBorder}`,
                 fontSize: '13px',
-                color: 'rgba(226, 232, 240, 0.72)',
+                color: panelTheme.emptyText,
               }}>
                 系統目前沒有額外建議，可維持當前節奏。
               </div>
@@ -1053,12 +1236,12 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                   style={{
                     borderRadius: '18px',
                     padding: '16px',
-                    background: 'rgba(15, 23, 42, 0.52)',
-                    border: '1px solid rgba(148, 163, 184, 0.14)',
+                    background: panelTheme.sectionMutedBg,
+                    border: `1px solid ${panelTheme.sectionBorder}`,
                   }}
                 >
                   <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.title}</div>
-                  <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.7, color: 'rgba(226, 232, 240, 0.68)' }}>
+                  <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.7, color: panelTheme.sectionBody }}>
                     {item.body}
                   </div>
                 </div>
@@ -1075,6 +1258,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
 // Asana 風格「首頁」
 // ════════════════════════════════════════════════════════════
 function HomePage({ currentUser, onNavigate, dashData }) {
+  const { isDark } = useTheme();
   const { projects, workload, loading, error, refresh } = dashData;
   const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
   const [myTasks,       setMyTasks]       = useState([]);
@@ -1142,7 +1326,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       unit: '項任務',
       detail: tabTasks.upcoming.length > 0 ? '七天內需要安排的工作' : '目前沒有本週截止項目',
       nav: 'my-tasks',
-      tone: '#FFF7F7',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(56, 33, 43, 0.78), rgba(29, 36, 48, 0.96))'
+        : T.brandSoftStrong,
       accent: T.accent,
     },
     {
@@ -1151,8 +1337,10 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       unit: '項任務',
       detail: '最近七天已更新完成的工作',
       nav: 'my-tasks',
-      tone: '#F3FAF6',
-      accent: '#2F855A',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(22, 53, 36, 0.78), rgba(29, 36, 48, 0.96))'
+        : T.successSoft,
+      accent: T.success,
     },
     {
       label: '活躍專案',
@@ -1160,7 +1348,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       unit: '個',
       detail: '目前首頁顯示中的重點專案',
       nav: 'projects',
-      tone: '#F7F6FF',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(36, 42, 78, 0.76), rgba(29, 36, 48, 0.96))'
+        : 'color-mix(in srgb, var(--xc-info-soft) 28%, var(--xc-surface))',
       accent: '#5B57D9',
     },
     {
@@ -1169,8 +1359,10 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       unit: '位',
       detail: '近期在工作負載中出現的人員',
       nav: 'workload',
-      tone: '#F4F8FD',
-      accent: '#2C6ECB',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(23, 42, 67, 0.78), rgba(29, 36, 48, 0.96))'
+        : T.infoSoft,
+      accent: T.info,
     },
   ];
   const guideCards = [
@@ -1179,7 +1371,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       title: '整理個人任務',
       desc: '以截止日與優先順序檢視今天該推進的工作。',
       nav: 'my-tasks',
-      tone: '#FFF7F7',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(56, 33, 43, 0.68), rgba(29, 36, 48, 0.96))'
+        : T.brandSoftStrong,
       accent: T.accent,
     },
     {
@@ -1187,15 +1381,19 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       title: '檢查專案狀態',
       desc: '查看專案健康度、進度與待處理風險。',
       nav: 'projects',
-      tone: '#F7F3EF',
-      accent: '#8A5D3B',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(61, 45, 18, 0.7), rgba(29, 36, 48, 0.96))'
+        : 'color-mix(in srgb, var(--xc-warning-soft) 48%, var(--xc-surface))',
+      accent: isDark ? T.warning : '#8A5D3B',
     },
     {
       icon: Ic.rules,
       title: '設定自動化規則',
       desc: '把固定流程交給系統處理，減少手動追蹤。',
       nav: 'rules',
-      tone: '#F7F6FF',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(36, 42, 78, 0.68), rgba(29, 36, 48, 0.96))'
+        : 'color-mix(in srgb, var(--xc-info-soft) 28%, var(--xc-surface))',
       accent: '#5B57D9',
     },
     {
@@ -1203,10 +1401,33 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       title: '追蹤年度目標',
       desc: '從目標頁確認專案輸出是否對齊階段成果。',
       nav: 'goals',
-      tone: '#F3FAF6',
-      accent: '#2F855A',
+      tone: isDark
+        ? 'linear-gradient(180deg, rgba(22, 53, 36, 0.68), rgba(29, 36, 48, 0.96))'
+        : T.successSoft,
+      accent: T.success,
     },
   ];
+  const pageBg = isDark
+    ? 'linear-gradient(180deg, rgba(7,12,19,0.18), rgba(7,12,19,0.18)), linear-gradient(180deg, #111723 0%, #161D29 100%)'
+    : 'linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), linear-gradient(180deg, #F4EFE9 0%, #F6F1EB 100%)';
+  const heroBg = isDark
+    ? 'linear-gradient(180deg, rgba(56, 33, 43, 0.56), rgba(29, 36, 48, 0.98))'
+    : 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.98))';
+  const heroBadgeBg = isDark ? 'color-mix(in srgb, var(--xc-brand-soft) 88%, var(--xc-surface))' : T.brandSoft;
+  const heroBadgeText = isDark ? T.accent : T.accent2;
+  const neutralHoverBg = isDark ? T.mutedBg : '#FBF7F3';
+  const customizeActiveBg = isDark ? T.brandSoft : T.brandSoftStrong;
+  const toggleOffBg = isDark ? T.cardBgStrong : '#D5CCC5';
+  const toggleKnobBg = isDark ? 'color-mix(in srgb, var(--xc-surface) 82%, white)' : 'white';
+  const toggleKnobShadow = isDark ? '0 4px 12px rgba(2, 6, 23, 0.34)' : '0 1px 3px rgba(0,0,0,0.18)';
+  const myTasksIconBg = isDark ? 'color-mix(in srgb, var(--xc-brand-soft) 84%, var(--xc-surface))' : '#FFF1F3';
+  const projectsIconBg = isDark ? 'color-mix(in srgb, var(--xc-warning-soft) 72%, var(--xc-surface))' : '#F7F1EC';
+  const projectsIconColor = isDark ? T.warning : '#8A5D3B';
+  const progressTrackBg = isDark ? T.cardBgStrong : '#EFE6DF';
+  const tabActiveShadow = isDark ? '0 1px 0 rgba(255,255,255,0.06)' : '0 1px 2px rgba(52,36,30,0.08)';
+  const tabCountActiveBg = isDark ? T.brandSoft : '#FFF1F3';
+  const tabCountInactiveBg = isDark ? T.cardBgStrong : '#EEE4DD';
+  const guideIconShadow = isDark ? '0 10px 24px rgba(2, 6, 23, 0.28)' : '0 6px 14px rgba(52, 36, 30, 0.06)';
   const cardShell = {
     background: T.cardBg,
     borderRadius: '18px',
@@ -1217,7 +1438,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
   return (
     <div style={{
       minHeight: '100%',
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), linear-gradient(180deg, #F4EFE9 0%, #F6F1EB 100%)',
+      background: pageBg,
       padding: '32px 36px 40px',
       boxSizing: 'border-box',
     }}>
@@ -1231,7 +1452,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           <section style={{
             ...cardShell,
             padding: '24px 26px',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.98))',
+            background: heroBg,
           }}>
             <div style={{
               display: 'inline-flex',
@@ -1239,8 +1460,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               gap: '8px',
               padding: '6px 10px',
               borderRadius: '999px',
-              background: '#F8E8EB',
-              color: T.accent2,
+              background: heroBadgeBg,
+              color: heroBadgeText,
               fontSize: '11px',
               fontWeight: '800',
               letterSpacing: '0.05em',
@@ -1269,7 +1490,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   fontSize: '13px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  boxShadow: '0 10px 18px rgba(180, 35, 60, 0.14)',
+                  boxShadow: T.accentShadow,
                 }}
               >
                 前往我的任務
@@ -1407,9 +1628,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '10px 14px',
-                background: showCustomize ? '#FFF4F5' : T.cardBg,
+                background: showCustomize ? customizeActiveBg : T.cardBg,
                 borderRadius: '10px',
-                border: `1px solid ${showCustomize ? '#E9C6CE' : T.border}`,
+                border: `1px solid ${showCustomize ? T.borderStrong : T.border}`,
                 fontSize: '13px',
                 color: showCustomize ? T.accent2 : T.t2,
                 cursor: 'pointer',
@@ -1461,7 +1682,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         width: '38px',
                         height: '22px',
                         borderRadius: '999px',
-                        background: homeWidgets[w.key] ? T.accent : '#D5CCC5',
+                        background: homeWidgets[w.key] ? T.accent : toggleOffBg,
                         position: 'relative',
                         cursor: 'pointer',
                         transition: 'background 0.2s',
@@ -1475,9 +1696,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         width: '18px',
                         height: '18px',
                         borderRadius: '50%',
-                        background: 'white',
+                        background: toggleKnobBg,
                         transition: 'left 0.2s',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                        boxShadow: toggleKnobShadow,
                       }} />
                     </div>
                   </label>
@@ -1495,6 +1716,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                     fontSize: '13px',
                     fontWeight: '700',
                     cursor: 'pointer',
+                    boxShadow: T.accentShadow,
                   }}
                 >
                   套用設定
@@ -1528,7 +1750,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   width: '36px',
                   height: '36px',
                   borderRadius: '11px',
-                  background: '#FFF1F3',
+                  background: myTasksIconBg,
                   color: T.accent,
                   display: 'flex',
                   alignItems: 'center',
@@ -1571,7 +1793,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                       border: 'none',
                       borderRadius: '10px',
                       background: myTasksTab === tab.key ? T.cardBg : 'transparent',
-                      boxShadow: myTasksTab === tab.key ? '0 1px 2px rgba(52,36,30,0.08)' : 'none',
+                      boxShadow: myTasksTab === tab.key ? tabActiveShadow : 'none',
                       cursor: 'pointer',
                       color: myTasksTab === tab.key ? T.accent2 : T.t2,
                       fontWeight: myTasksTab === tab.key ? '700' : '600',
@@ -1587,7 +1809,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         height: '18px',
                         padding: '0 6px',
                         borderRadius: '999px',
-                        background: myTasksTab === tab.key ? '#FFF1F3' : '#EEE4DD',
+                        background: myTasksTab === tab.key ? tabCountActiveBg : tabCountInactiveBg,
                         color: myTasksTab === tab.key ? T.accent2 : T.t3,
                         fontSize: '10.5px',
                         fontWeight: '800',
@@ -1637,7 +1859,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#FBF7F3'}
+                      onMouseEnter={e => e.currentTarget.style.background = neutralHoverBg}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <div style={{
@@ -1646,8 +1868,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         borderRadius: '50%',
                         flexShrink: 0,
                         marginTop: '1px',
-                        border: `1.5px solid ${isDone ? '#2F855A' : isOverdue ? T.accent : '#D8CEC6'}`,
-                        background: isDone ? '#2F855A' : 'transparent',
+                        border: `1.5px solid ${isDone ? T.success : isOverdue ? T.accent : T.borderStrong}`,
+                        background: isDone ? T.success : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1708,8 +1930,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   width: '36px',
                   height: '36px',
                   borderRadius: '11px',
-                  background: '#F7F1EC',
-                  color: '#8A5D3B',
+                  background: projectsIconBg,
+                  color: projectsIconColor,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1775,7 +1997,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         cursor: 'pointer',
                         textAlign: 'left',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#FBF7F3'}
+                      onMouseEnter={e => e.currentTarget.style.background = neutralHoverBg}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <div style={{
@@ -1801,7 +2023,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         </div>
                         {total > 0 && (
                           <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: '#EFE6DF', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: progressTrackBg, overflow: 'hidden' }}>
                               <div style={{
                                 height: '100%',
                                 width: `${pct}%`,
@@ -1859,7 +2081,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 6px 14px rgba(52, 36, 30, 0.06)',
+                  boxShadow: guideIconShadow,
                 }}>
                   {card.icon}
                 </div>
@@ -1882,6 +2104,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 // 個人資料頁
 // ════════════════════════════════════════════════════════════
 function ProfilePage({ onBack, currentUser, onLogout }) {
+  const { isDark } = useTheme();
   const ROLE_LABEL = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
   const INFO_ROWS = [
     { label: '姓名',     value: currentUser?.name                        ?? '—' },
@@ -1893,6 +2116,9 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
     { label: '電話',     value: currentUser?.phone                        ?? '—' },
     { label: '加入日期', value: currentUser?.joinedAt                     ?? '—' },
   ];
+  const statusBadgeBg = isDark ? T.infoSoft : '#F4F8FD';
+  const hoverBg = isDark ? T.mutedBg : '#FBF7F3';
+  const dangerHoverBg = isDark ? T.brandSoft : T.brandSoftStrong;
 
   return (
     <div style={{ maxWidth: '680px', margin: '32px auto', padding: '0 28px' }}>
@@ -1913,8 +2139,8 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
           <div style={{ fontSize: '12px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>帳戶資訊</div>
           <div style={{ fontSize: '22px', fontWeight: '900', color: T.t1, marginTop: '6px' }}>{currentUser?.name ?? '—'}</div>
           <div style={{ fontSize: '13.5px', color: T.t2, marginTop: '4px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '4px 10px', background: '#F4F8FD', color: '#2C6ECB', borderRadius: '999px', fontSize: '11.5px', fontWeight: '700' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2C6ECB', display: 'inline-block' }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '4px 10px', background: statusBadgeBg, color: T.info, borderRadius: '999px', fontSize: '11.5px', fontWeight: '700' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: T.info, display: 'inline-block' }} />
             帳戶已啟用
           </div>
         </div>
@@ -1940,7 +2166,7 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
           <button key={item.label}
             onClick={item.onClick || undefined}
             style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < arr.length - 1 ? `1px solid ${T.div}` : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
-            onMouseOver={e => e.currentTarget.style.background = item.danger ? '#FFF4F5' : '#FBF7F3'}
+            onMouseOver={e => e.currentTarget.style.background = item.danger ? dangerHoverBg : hoverBg}
             onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '13px', fontWeight: '700', color: item.danger ? T.accent : T.t1 }}>{item.label}</div>
@@ -1960,6 +2186,8 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
 export default function Dashboard() {
   // ── 從登入 JWT 直接取得使用者資訊，不需要額外 API 呼叫 ───────
   const { user: currentUser, logout, authFetch } = useAuth();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const isDark = themeMode === 'dark';
 
   const [activeNav,       setActiveNav]       = useState(readHashNav);
   const [settingsState,   setSettingsState]   = useState(null);
@@ -2026,6 +2254,10 @@ export default function Dashboard() {
       return next;
     });
   }, []);
+
+  const changePanelMode = useCallback((nextMode) => {
+    setThemeMode(nextMode);
+  }, [setThemeMode]);
 
   useEffect(() => {
     const sync = () => setActiveNav(readHashNav());
@@ -2152,15 +2384,15 @@ export default function Dashboard() {
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ width: '60px', height: '60px', borderRadius: '14px', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>🚧</div>
-        <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>開發中</div>
-        <div style={{ fontSize: '13.5px', color: '#94A3B8' }}>此功能即將上線，敬請期待</div>
+        <div style={{ width: '60px', height: '60px', borderRadius: '14px', background: T.brandSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>🚧</div>
+        <div style={{ fontSize: '18px', fontWeight: '700', color: T.t1 }}>開發中</div>
+        <div style={{ fontSize: '13.5px', color: T.t3 }}>此功能即將上線，敬請期待</div>
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: T.pageBg }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: T.pageBg, color: isDark ? T.t1 : undefined }}>
       <Sidebar
         active={activeNav}
         onChange={navigate}
@@ -2176,8 +2408,9 @@ export default function Dashboard() {
           activeNav={activeNav}
           onNavigate={navigate}
           onToggleSidebar={toggleSidebar}
-          onOpenDarkPanel={() => setShowDarkPanel((current) => !current)}
-          darkPanelOpen={showDarkPanel}
+          onTogglePanel={() => setShowDarkPanel((current) => !current)}
+          panelOpen={showDarkPanel}
+          panelMode={themeMode}
         />
 
         <DarkPanel
@@ -2187,6 +2420,8 @@ export default function Dashboard() {
           currentUser={currentUser}
           inboxCount={inboxCount}
           dashData={dashData}
+          mode={themeMode}
+          onModeChange={changePanelMode}
         />
 
         <main style={{ flex: 1, minWidth: 0 }}>

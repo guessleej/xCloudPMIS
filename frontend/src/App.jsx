@@ -11,6 +11,7 @@
  */
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import LoginPage  from './components/auth/LoginPage';
 import Dashboard  from './components/dashboard/Dashboard';
 
@@ -19,11 +20,12 @@ function LoadingScreen() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f3eee8 0%, #f6f2ee 100%)',
+      background: 'linear-gradient(180deg, var(--xc-bg) 0%, var(--xc-bg-soft) 100%)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: '"Avenir Next", "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif',
+      fontFamily: 'var(--xc-font-sans)',
       gap: 20,
+      color: 'var(--xc-text)',
     }}>
       <style>{`
         @keyframes pulse {
@@ -35,10 +37,10 @@ function LoadingScreen() {
       {/* Logo */}
       <div style={{
         width: 64, height: 64, borderRadius: 18,
-        background: '#C41230',
+        background: 'var(--xc-brand)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'pulse 1.4s ease-in-out infinite',
-        boxShadow: '0 10px 24px rgba(196,18,48,0.16)',
+        boxShadow: 'var(--xc-shadow-strong)',
       }}>
         <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
           <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
@@ -48,10 +50,10 @@ function LoadingScreen() {
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#1f2937', marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 4 }}>
           xCloudPMIS
         </div>
-        <div style={{ fontSize: 13, color: '#6b7280' }}>
+        <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
           正在準備工作台...
         </div>
       </div>
@@ -76,8 +78,10 @@ function AuthGuard() {
 // ── 根元件 ────────────────────────────────────────────────────
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGuard />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthGuard />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

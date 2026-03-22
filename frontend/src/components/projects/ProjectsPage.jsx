@@ -24,9 +24,12 @@ const LS_COLOR   = 'xcloud_project_colors'; // localStorage key
 // Design System
 // ══════════════════════════════════════════════════════════════
 const C = {
-  brand: '#C41230', brandDk: '#8B0020',
-  ink: '#111827', ink2: '#374151', ink3: '#6B7280', ink4: '#9CA3AF',
-  line: '#E5E7EB', lineL: '#F3F4F6', bg: '#F7F2F2', white: '#FFFFFF',
+  brand: 'var(--xc-brand)', brandDk: 'var(--xc-brand-dark)',
+  ink: 'var(--xc-text)', ink2: 'var(--xc-text-soft)', ink3: 'var(--xc-text-muted)', ink4: 'var(--xc-text-muted)',
+  line: 'var(--xc-border)', lineL: 'var(--xc-surface-muted)', bg: 'var(--xc-bg)', white: 'var(--xc-surface-strong)',
+  surface: 'var(--xc-surface)', surfaceSoft: 'var(--xc-surface-soft)', surfaceMuted: 'var(--xc-surface-muted)',
+  successSoft: 'var(--xc-success-soft)', warningSoft: 'var(--xc-warning-soft)', dangerSoft: 'var(--xc-danger-soft)', infoSoft: 'var(--xc-info-soft)',
+  shadow: 'var(--xc-shadow)', shadowStrong: 'var(--xc-shadow-strong)',
 };
 
 // ── 8 色專案識別色盤 ──────────────────────────────────────
@@ -152,7 +155,7 @@ function Avatar({ name, size = 26, color = C.brand }) {
       background: name ? `linear-gradient(135deg, ${color}, ${C.brandDk})` : C.lineL,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: name ? 'white' : C.ink4, fontSize: size < 28 ? '10px' : '12px', fontWeight: '700',
-      border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      border: `2px solid ${C.surface}`, boxShadow: C.shadow,
     }}>
       {name ? initials(name) : '?'}
     </div>
@@ -189,7 +192,7 @@ function TemplatePickerModal({ onSelect, onClose }) {
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
           {/* 左側分類列 */}
-          <div style={{ width: '150px', flexShrink: 0, borderRight: `1px solid ${C.line}`, padding: '12px 8px', background: '#FAFAFA' }}>
+          <div style={{ width: '150px', flexShrink: 0, borderRight: `1px solid ${C.line}`, padding: '12px 8px', background: C.surfaceSoft }}>
             <div style={{ fontSize: '10.5px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.6px', padding: '0 8px', marginBottom: '8px' }}>
               分類
             </div>
@@ -418,7 +421,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               </div>
             )}
 
-            {error && <div style={{ background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>⚠️ {error}</div>}
+            {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>⚠️ {error}</div>}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button type="button" onClick={onClose} style={btnO}>取消</button>
@@ -451,17 +454,17 @@ function DeleteModal({ project, onClose, onDeleted }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: C.white, borderRadius: '16px', padding: '32px', width: '420px', maxWidth: '92vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-        <div style={{ width: 54, height: 54, borderRadius: '50%', background: '#FEE2E2', margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🗑️</div>
+        <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.dangerSoft, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🗑️</div>
         <h2 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: '700', color: C.ink }}>確認刪除專案？</h2>
         <p style={{ margin: '0 0 12px', fontSize: '13px', color: C.ink3 }}>
           「<strong>{project.name}</strong>」將被封存（軟刪除，可復原）
         </p>
         {project.taskTotal > 0 && (
-          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '9px 12px', fontSize: '12.5px', color: '#A16207', marginBottom: '14px', textAlign: 'left' }}>
+          <div style={{ background: C.warningSoft, border: '1px solid #FDE68A', borderRadius: '8px', padding: '9px 12px', fontSize: '12.5px', color: '#A16207', marginBottom: '14px', textAlign: 'left' }}>
             ⚠️ 此專案含 <strong>{project.taskTotal}</strong> 個任務，將一併封存。
           </div>
         )}
-        {err && <div style={{ background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', padding: '9px', fontSize: '13px', marginBottom: '12px' }}>❌ {err}</div>}
+        {err && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '9px', fontSize: '13px', marginBottom: '12px' }}>❌ {err}</div>}
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
           <button onClick={onClose} style={btnO} disabled={del}>取消</button>
           <button onClick={go} disabled={del} style={{ ...btnD, opacity: del ? 0.6 : 1 }}>{del ? '刪除中…' : '確認刪除'}</button>
@@ -476,11 +479,11 @@ function DeleteModal({ project, onClose, onDeleted }) {
 // ══════════════════════════════════════════════════════════════
 function ListView({ projects, onOpen, onEdit, onDelete }) {
   return (
-    <div style={{ background: C.white }}>
+    <div style={{ background: C.surface }}>
       <div style={{
         display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
         padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
-        position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 5, gap: '8px',
+        position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
       }}>
         {['', '', '專案名稱', '負責人', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
           <div key={i} style={{ fontSize: '10.5px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
@@ -498,7 +501,7 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
             style={{
               display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
               padding: '9px 18px', borderBottom: i < projects.length - 1 ? `1px solid ${C.lineL}` : 'none',
-              background: hov ? '#FAFAFA' : C.white, transition: 'background 0.1s', gap: '8px',
+              background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
               alignItems: 'center',
             }}>
             {/* 顏色條 */}
@@ -529,8 +532,8 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
             <div style={{ fontSize: '12px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
             {/* 操作 */}
             <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-              <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.white, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-              <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.white, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
+              <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
+              <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
             </div>
           </div>
         );
@@ -558,7 +561,7 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
             }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: st.dot }} />
               <span style={{ fontSize: '12.5px', fontWeight: '700', color: st.color }}>{st.label}</span>
-              <span style={{ marginLeft: 'auto', fontSize: '11px', background: 'white', color: st.color, borderRadius: '99px', padding: '1px 8px', fontWeight: '600' }}>
+              <span style={{ marginLeft: 'auto', fontSize: '11px', background: C.surface, color: st.color, borderRadius: '99px', padding: '1px 8px', fontWeight: '600' }}>
                 {col.length}
               </span>
             </div>
@@ -591,8 +594,8 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                     {/* 操作按鈕（懸停時） */}
                     <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
                       onClick={e => e.stopPropagation()}>
-                      <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.white, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.white, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
+                      <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
+                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
                     </div>
                   </div>
                 );
@@ -796,7 +799,7 @@ export default function ProjectsPage() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'system-ui, -apple-system, sans-serif', background: C.bg }}>
 
       {/* Toast */}
       {toast && (
@@ -806,7 +809,7 @@ export default function ProjectsPage() {
       )}
 
       {/* ── 頁首 ── */}
-      <div style={{ padding: '18px 24px 14px', background: C.white, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
+      <div style={{ padding: '18px 24px 14px', background: C.surface, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
         {/* 標題行 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
@@ -824,10 +827,10 @@ export default function ProjectsPage() {
         {/* KPI 統計列 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
           {[
-            { label: '全部專案', value: stats.total,     bg: C.lineL,   vc: C.ink2,    dot: C.ink3 },
-            { label: '進行中',   value: stats.active,    bg: '#F0FDF4', vc: '#15803D', dot: '#16A34A' },
-            { label: '有風險',   value: stats.at_risk,   bg: '#FFFBEB', vc: '#B45309', dot: '#D97706' },
-            { label: '已完成',   value: stats.completed, bg: '#F8FAFC', vc: '#475569', dot: '#64748B' },
+            { label: '全部專案', value: stats.total,     bg: C.surfaceMuted, vc: C.ink2,    dot: C.ink3 },
+            { label: '進行中',   value: stats.active,    bg: C.successSoft,  vc: '#15803D', dot: '#16A34A' },
+            { label: '有風險',   value: stats.at_risk,   bg: C.warningSoft,  vc: '#B45309', dot: '#D97706' },
+            { label: '已完成',   value: stats.completed, bg: C.surfaceSoft,  vc: '#475569', dot: '#64748B' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
@@ -844,7 +847,7 @@ export default function ProjectsPage() {
           <div style={{ display: 'flex', gap: '4px', flex: 1, flexWrap: 'wrap' }}>
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                background: filter === f.key ? C.ink : C.white,
+                background: filter === f.key ? C.ink : C.surface,
                 color: filter === f.key ? 'white' : C.ink2,
                 border: `1px solid ${filter === f.key ? C.ink : C.line}`,
                 borderRadius: '99px', padding: '5px 13px',
@@ -863,10 +866,10 @@ export default function ProjectsPage() {
             {VIEWS.map(v => (
               <button key={v.key} onClick={() => setView(v.key)} title={v.label} style={{
                 padding: '5px 11px', borderRadius: '6px', border: 'none',
-                background: view === v.key ? C.white : 'transparent',
+                background: view === v.key ? C.surface : 'transparent',
                 color: view === v.key ? C.ink : C.ink4, cursor: 'pointer',
                 fontSize: '14px',
-                boxShadow: view === v.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                boxShadow: view === v.key ? C.shadow : 'none',
                 transition: 'all 0.15s', fontFamily: 'inherit',
               }}>{v.icon}</button>
             ))}
@@ -875,7 +878,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* ── 內容區 ── */}
-      <div style={{ flex: 1, overflowY: 'auto', background: view === 'board' || view === 'calendar' ? C.bg : C.white }}>
+      <div style={{ flex: 1, overflowY: 'auto', background: view === 'board' || view === 'calendar' ? C.bg : C.surface }}>
         {loading ? (
           <div style={{ padding: '80px 0', textAlign: 'center' }}>
             <div style={{ display: 'inline-block', width: '34px', height: '34px', border: `3px solid ${C.brand}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />

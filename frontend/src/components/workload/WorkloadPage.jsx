@@ -3,8 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 
 // ─── Brand Colors ───────────────────────────────────────────────────────────
 const BRAND = {
-  accent: '#C41230',
-  pageBg: '#F7F2F2',
+  accent: 'var(--xc-brand)',
+  pageBg: 'var(--xc-bg)',
 };
 
 const LOAD_COLOR = {
@@ -830,9 +830,8 @@ export default function WorkloadPage({ onNavigate }) {
         }
       } catch {
         if (!cancelled) {
-          const mockMembers = MOCK_MEMBERS;
-          setMembers(mockMembers);
-          setTasks(generateMockTasks(mockMembers));
+          setMembers([]);
+          setTasks([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
