@@ -159,7 +159,7 @@ function Avatar({ member, size = 32 }) {
 }
 
 // ─── Tooltip Component ────────────────────────────────────────────────────────
-function TaskTooltip({ task, onClose }) {
+function TaskTooltip({ task, onClose, onNavigate }) {
   const priorityColor = { high: '#DC2626', medium: '#D97706', low: '#16A34A' };
   const priorityLabel = { high: '高', medium: '中', low: '低' };
 
@@ -212,7 +212,13 @@ function TaskTooltip({ task, onClose }) {
           />
         </div>
         <button
-          onClick={() => { console.log('Navigate to task:', task.id, task.name); onClose(); }}
+          onClick={() => {
+            if (task.projectId) {
+              sessionStorage.setItem('xcloud-open-project', String(task.projectId));
+            }
+            onClose();
+            if (onNavigate) onNavigate('projects');
+          }}
           style={{
             marginTop: 16, width: '100%', padding: '8px 0',
             background: BRAND.accent, color: '#fff',
@@ -237,7 +243,7 @@ function Row({ label, value }) {
 }
 
 // ─── Gantt View ───────────────────────────────────────────────────────────────
-function GanttView({ members, tasks, days, expandedMembers, onToggleMember }) {
+function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNavigate }) {
   const [tooltip, setTooltip] = useState(null);
   const today = isoDate(new Date());
   const LEFT_COL = 220;
@@ -264,7 +270,7 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      {tooltip && <TaskTooltip task={tooltip} onClose={() => setTooltip(null)} />}
+      {tooltip && <TaskTooltip task={tooltip} onClose={() => setTooltip(null)} onNavigate={onNavigate} />}
 
       {/* Scroll wrapper */}
       <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
@@ -738,7 +744,7 @@ function MemberFilterDropdown({ members, selected, onChange }) {
 }
 
 // ─── Main WorkloadPage ────────────────────────────────────────────────────────
-export default function WorkloadPage() {
+export default function WorkloadPage({ onNavigate }) {
   const { user } = useAuth();
   const companyId = user?.companyId;
 
@@ -779,12 +785,48 @@ export default function WorkloadPage() {
         const tasksData = await tasksRes.json();
 
         if (!cancelled) {
-          const memberList = Array.isArray(membersData) ? membersData
-            : membersData.members || membersData.data || [];
-          const taskList = Array.isArray(tasksData) ? tasksData
-            : tasksData.tasks || tasksData.data || [];
-          setMembers(memberList);
-          setTasks(taskList);
+          // members: { success, data: [...] }
+          const memberList = Array.isArray(membersData)
+            ? membersData
+            : Array.isArray(membersData?.data)
+              ? membersData.data
+              : Array.isArray(membersData?.members)
+                ? membersData.members
+                : [];
+
+          // tasks: { success, data: { tasks: [...] } } or { success, data: [...] }
+          const rawTasks = Array.isArray(tasksData)
+            ? tasksData
+            : Array.isArray(tasksData?.data)
+              ? tasksData.data
+              : Array.isArray(tasksData?.data?.tasks)
+                ? tasksData.data.tasks
+                : Array.isArray(tasksData?.tasks)
+                  ? tasksData.tasks
+                  : [];
+
+          // Normalize member shape: API uses avatarUrl, component expects avatar
+          const normalizedMembers = memberList.map(m => ({
+            ...m,
+            avatar: m.avatar ?? m.avatarUrl ?? null,
+            role: m.role || m.jobTitle || '',
+          }));
+
+          // Normalize task shape: API uses title + assignee obj, component expects name + assigneeId
+          const normalizedTasks = rawTasks.map(t => ({
+            ...t,
+            name: t.name ?? t.title ?? '(無標題)',
+            assigneeId: t.assigneeId ?? t.assignee?.id ?? null,
+            startDate: t.startDate ?? (t.startedAt ? t.startedAt.split('T')[0] : null),
+            dueDate: t.dueDate ? t.dueDate.split('T')[0] : null,
+            estimatedHours: t.estimatedHours ?? 0,
+            projectId: t.projectId ?? t.project?.id ?? null,
+            project: t.project?.name ?? t.projectName ?? (typeof t.project === 'string' ? t.project : null) ?? '—',
+            priority: t.priority ?? 'medium',
+          }));
+
+          setMembers(normalizedMembers);
+          setTasks(normalizedTasks);
         }
       } catch {
         if (!cancelled) {
@@ -982,6 +1024,7 @@ export default function WorkloadPage() {
                 days={days}
                 expandedMembers={expandedMembers}
                 onToggleMember={toggleMember}
+                onNavigate={onNavigate}
               />
             ) : (
               <div style={{ padding: 20 }}>

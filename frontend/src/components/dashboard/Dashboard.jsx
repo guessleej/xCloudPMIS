@@ -28,7 +28,7 @@ import McpConsolePage        from '../mcp/McpConsolePage';
 import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
 import FormsPage             from '../forms/FormsPage';
 import CustomFieldsPage      from '../customfields/CustomFieldsPage';
-import MyTasksPage           from '../mytasks/MyTasksPage';
+import MyTasksWorkspacePage  from '../mytasks/MyTasksWorkspacePage';
 import GoalsPage             from '../goals/GoalsPage';
 import InboxPage             from '../inbox/InboxPage';
 import PortfoliosPage        from '../portfolios/PortfoliosPage';
@@ -37,18 +37,22 @@ import RulesPage             from '../rules/RulesPage';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
-  sbBg:     '#1A0A0D',   // 側邊欄深色背景
-  sbHover:  '#2C1018',   // 懸停
-  sbActive: '#3D1520',   // 選中
-  accent:   '#C41230',   // xCloud 品牌紅
-  accent2:  '#F04060',   // 較亮紅（深色背景上）
-  t1:       '#F5EFEF',   // 主文字（暖白）
-  t2:       '#9E8890',   // 次要文字（暖灰）
-  t3:       '#5C4048',   // 更淡文字
-  div:      '#2A1218',   // 分隔線
-  pageBg:   '#F4F0F0',   // 頁面背景
-  cardBg:   '#FFFFFF',
-  border:   '#E2D8D8',
+  sbBg:     '#F8F3EE',
+  sbHover:  '#F1E9E2',
+  sbActive: '#F8E8EB',
+  accent:   '#B4233C',
+  accent2:  '#8B1128',
+  t1:       '#1F2937',
+  t2:       '#5F5650',
+  t3:       '#8A817A',
+  div:      '#E6DCD3',
+  pageBg:   '#F4EFE9',
+  cardBg:   '#FFFDFB',
+  border:   '#E6DCD3',
+  borderStrong: '#D9CCC1',
+  topbarBg: '#FCFAF7',
+  mutedBg:  '#F7F1EC',
+  shadow:   '0 12px 32px rgba(52, 36, 30, 0.08)',
 };
 
 // ── API ───────────────────────────────────────────────────────
@@ -76,6 +80,18 @@ const PAGE_TITLES = {
   'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
   'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
   profile:         { title: '個人資料',    sub: '帳戶設定' },
+};
+
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  type_assign: true,
+  type_mention: true,
+  type_comment: true,
+  type_done: true,
+  type_due: true,
+  email_daily: true,
+  email_instant: false,
+  app_desktop: true,
+  app_sound: false,
 };
 
 // ── 全部有效路由 ──────────────────────────────────────────────
@@ -120,6 +136,7 @@ const Ic = {
   mcp: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
   search: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   bell: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  moon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3c0 5 4 9 9 9 .27 0 .53-.01.79-.03A6.78 6.78 0 0021 12.79z"/></svg>,
   plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   chevRight: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
   chevDown: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
@@ -158,24 +175,25 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCo
       style={{
         width: '100%', display: 'flex', alignItems: 'center',
         gap: sbCollapsed ? '0' : '9px',
-        padding: sbCollapsed ? '8px 0' : indent ? '6px 10px 6px 28px' : '6px 10px',
+        padding: sbCollapsed ? '9px 0' : indent ? '7px 10px 7px 28px' : '7px 10px',
         justifyContent: sbCollapsed ? 'center' : 'flex-start',
-        borderRadius: '7px', border: 'none',
+        borderRadius: '10px',
+        border: `1px solid ${isActive ? '#E8C8CF' : 'transparent'}`,
         background: isActive ? T.sbActive : hov ? T.sbHover : 'transparent',
         color: isActive ? T.accent2 : hov ? T.t1 : T.t2,
-        fontSize: '13.5px', fontWeight: isActive ? '600' : '400',
+        fontSize: '13.5px', fontWeight: isActive ? '700' : '500',
         cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-        transition: 'background 0.12s, color 0.12s', position: 'relative',
+        transition: 'background 0.12s, color 0.12s, border-color 0.12s', position: 'relative',
         boxSizing: 'border-box',
       }}
     >
       {isActive && (
         <span style={{
           position: 'absolute', left: 0, top: '20%', height: '60%',
-          width: '3px', borderRadius: '0 2px 2px 0', background: T.accent,
+          width: '2px', borderRadius: '0 2px 2px 0', background: T.accent,
         }} />
       )}
-      <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.75 }}>
+      <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, opacity: isActive ? 1 : 0.8 }}>
         {icon}
       </span>
       {!sbCollapsed && (
@@ -208,7 +226,7 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: '4px',
-        padding: '10px 10px 4px', userSelect: 'none',
+        padding: '12px 10px 6px', userSelect: 'none',
       }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -218,8 +236,8 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
         style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: '4px',
           background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '11.5px', fontWeight: '700', color: T.t3,
-          letterSpacing: '0.06em', textTransform: 'uppercase',
+          fontSize: '11px', fontWeight: '700', color: T.t3,
+          letterSpacing: '0.03em',
           padding: 0, fontFamily: 'inherit', textAlign: 'left',
         }}
       >
@@ -251,10 +269,9 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
 // ════════════════════════════════════════════════════════════
 // Asana 風格側邊欄（支援收縮）
 // ════════════════════════════════════════════════════════════
-function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse }) {
+function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse, authFetch, inboxCount }) {
   const [collapsed, setCollapsed] = useState({ insights: false, projects: false, workflow: false, tools: false });
   const [apiProjects, setApiProjects] = useState([]);
-  const [inboxCount, setInboxCount] = useState(0);
 
   // 展開/收合 section
   const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
@@ -262,30 +279,14 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
   // 從 API 取得專案清單
   useEffect(() => {
     if (!currentUser?.companyId) return;
-    fetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}`)
+    authFetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}`)
       .then(r => r.json())
       .then(d => {
         const list = Array.isArray(d) ? d : (d.data || d.projects || []);
         setApiProjects(list.slice(0, 8));
       })
       .catch(() => {});
-  }, [currentUser?.companyId]);
-
-  // 計算未讀收件匣數量
-  useEffect(() => {
-    try {
-      const read = new Set(JSON.parse(localStorage.getItem('xcloud-inbox-read') || '[]'));
-      const comments = Object.keys(localStorage).filter(k => k.startsWith('xcloud-comments-'));
-      let count = 0;
-      comments.forEach(k => {
-        try {
-          const items = JSON.parse(localStorage.getItem(k) || '[]');
-          count += items.filter(c => !read.has(c.id)).length;
-        } catch {}
-      });
-      setInboxCount(count);
-    } catch {}
-  }, [active]);
+  }, [authFetch, currentUser?.companyId]);
 
   // 專案顏色
   const PROJECT_COLORS = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
@@ -299,6 +300,8 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
       background: T.sbBg, display: 'flex', flexDirection: 'column',
       position: 'sticky', top: 0, overflow: 'hidden', flexShrink: 0,
       transition: 'width 0.22s ease, min-width 0.22s ease',
+      borderRight: `1px solid ${T.div}`,
+      boxShadow: '8px 0 24px rgba(52, 36, 30, 0.04)',
     }}>
 
       {/* ── Logo 區 + 收縮按鈕 ───────────────────────────── */}
@@ -356,13 +359,13 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
             border: 'none', borderRadius: '8px',
             fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
             fontFamily: 'inherit', transition: 'background 0.15s',
-            boxShadow: '0 2px 8px rgba(196,18,48,0.35)',
+            boxShadow: '0 10px 18px rgba(180, 35, 60, 0.14)',
           }}
-          onMouseEnter={e => e.currentTarget.style.background = '#A00E26'}
+          onMouseEnter={e => e.currentTarget.style.background = '#9E1830'}
           onMouseLeave={e => e.currentTarget.style.background = T.accent}
         >
           {Ic.plus}
-          {!isCollapsed && '建立'}
+          {!isCollapsed && '新增項目'}
         </button>
       </div>
 
@@ -487,10 +490,10 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
             gap: isCollapsed ? '0' : '9px',
             padding: isCollapsed ? '8px 0' : '6px 10px',
             justifyContent: isCollapsed ? 'center' : 'flex-start',
-            borderRadius: '7px', border: 'none',
+            borderRadius: '10px', border: `1px solid ${active === 'team' ? '#E8C8CF' : 'transparent'}`,
             background: active === 'team' ? T.sbActive : 'transparent',
             color: active === 'team' ? T.accent2 : T.t2,
-            fontSize: '13.5px', fontWeight: active === 'team' ? '600' : '400',
+            fontSize: '13.5px', fontWeight: active === 'team' ? '700' : '500',
             cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
             transition: 'background 0.12s', boxSizing: 'border-box',
           }}
@@ -521,7 +524,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
             justifyContent: isCollapsed ? 'center' : 'flex-start',
             padding: isCollapsed ? '9px 0' : '8px 10px',
             marginTop: '4px', borderRadius: '8px',
-            border: 'none',
+            border: `1px solid ${active === 'profile' ? '#E8C8CF' : 'transparent'}`,
             background: active === 'profile' ? T.sbActive : 'transparent',
             cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit',
             boxSizing: 'border-box',
@@ -531,7 +534,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
         >
           <div style={{
             width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg,#C41230,#8B0020)',
+            background: 'linear-gradient(135deg,#C94A5D,#9E1830)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontWeight: '700', fontSize: '12px',
           }}>
@@ -559,17 +562,18 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse 
 // ════════════════════════════════════════════════════════════
 // 頂部搜尋列（Asana 風格）
 // ════════════════════════════════════════════════════════════
-function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
+function Topbar({ activeNav, onNavigate, onToggleSidebar, onOpenDarkPanel, darkPanelOpen = false }) {
   const [searchVal, setSearchVal] = useState('');
   const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
 
   return (
     <header style={{
-      background: 'white', borderBottom: `1px solid ${T.border}`,
-      padding: '0 24px', height: '56px',
+      background: T.topbarBg, borderBottom: `1px solid ${T.border}`,
+      padding: '0 20px 0 18px', minHeight: '64px',
       display: 'flex', alignItems: 'center', gap: '14px',
       flexShrink: 0, position: 'sticky', top: 0, zIndex: 100,
+      backdropFilter: 'blur(16px)',
     }}>
 
       {/* 漢堡選單（sidebar toggle）*/}
@@ -577,13 +581,13 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
         onClick={onToggleSidebar}
         title="切換側邊欄"
         style={{
-          width: '32px', height: '32px', borderRadius: '6px',
-          border: `1px solid ${T.border}`, background: 'white',
+          width: '36px', height: '36px', borderRadius: '10px',
+          border: `1px solid ${T.border}`, background: T.cardBg,
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#6B7280', flexShrink: 0, transition: 'all 0.15s',
+          color: T.t2, flexShrink: 0, transition: 'all 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; e.currentTarget.style.color = '#374151'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#6B7280'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = T.mutedBg; e.currentTarget.style.color = T.t1; }}
+        onMouseLeave={e => { e.currentTarget.style.background = T.cardBg; e.currentTarget.style.color = T.t2; }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -591,43 +595,62 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
       </button>
 
       {/* 頁面標題 */}
-      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'baseline', gap: '7px', minWidth: 0 }}>
-        <span style={{ fontSize: '16px', fontWeight: '700', color: '#111827', whiteSpace: 'nowrap' }}>
-          {page.title}
-        </span>
-        {page.sub && (
-          <span style={{ fontSize: '12px', color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-            / {page.sub}
+      <div style={{ flex: '0 1 auto', minWidth: 0 }}>
+        <div style={{ fontSize: '11px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>
+          WORKSPACE
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
+          <span style={{ fontSize: '18px', fontWeight: '800', color: T.t1, whiteSpace: 'nowrap' }}>
+            {page.title}
           </span>
-        )}
+          {page.sub && (
+            <span style={{ fontSize: '12px', color: T.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {page.sub}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 全域搜尋 */}
-      <div style={{ flex: 1, maxWidth: '480px', margin: '0 auto' }}>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: '560px', marginLeft: 'auto' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          background: searchFocus ? 'white' : '#F3F4F6',
-          borderRadius: '8px', padding: '7px 14px',
-          border: `1px solid ${searchFocus ? T.accent : 'transparent'}`,
-          transition: 'all 0.15s',
+          background: T.cardBg,
+          borderRadius: '11px', padding: '9px 14px',
+          border: `1px solid ${searchFocus ? T.borderStrong : T.border}`,
+          boxShadow: searchFocus ? '0 0 0 4px rgba(180, 35, 60, 0.08)' : 'none',
+          transition: 'all 0.15s ease',
         }}>
-          <span style={{ color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>{Ic.search}</span>
+          <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.search}</span>
           <input
             value={searchVal}
             onChange={e => setSearchVal(e.target.value)}
             onFocus={() => setSearchFocus(true)}
             onBlur={() => setSearchFocus(false)}
-            placeholder="搜尋專案、任務、成員⋯"
+            placeholder="搜尋任務、專案、表單或成員"
             style={{
               border: 'none', background: 'none', outline: 'none',
-              fontSize: '13.5px', color: '#374151',
+              fontSize: '13.5px', color: T.t1,
               width: '100%', fontFamily: 'inherit',
             }}
           />
+          {!searchVal && (
+            <span style={{
+              padding: '2px 7px',
+              borderRadius: '999px',
+              background: T.mutedBg,
+              color: T.t3,
+              fontSize: '11px',
+              fontWeight: '700',
+              flexShrink: 0,
+            }}>
+              /
+            </span>
+          )}
           {searchVal && (
             <button
               onClick={() => setSearchVal('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '16px', lineHeight: 1, padding: 0 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.t3, fontSize: '16px', lineHeight: 1, padding: 0 }}
             >×</button>
           )}
         </div>
@@ -635,32 +658,68 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
 
       {/* 右側操作列 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        {/* 說明 */}
         <button
-          title="說明"
-          style={{ width: '32px', height: '32px', borderRadius: '50%', border: `1px solid ${T.border}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#6B7280', fontWeight: '700' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-          onMouseLeave={e => e.currentTarget.style.background = 'white'}
+          onClick={onOpenDarkPanel}
+          title="暗黑面板"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            height: '36px',
+            borderRadius: '10px',
+            border: `1px solid ${darkPanelOpen ? '#2A3342' : T.border}`,
+            background: darkPanelOpen ? '#161C27' : T.cardBg,
+            cursor: 'pointer',
+            padding: '0 12px',
+            fontSize: '12.5px',
+            color: darkPanelOpen ? '#F4F7FB' : T.t2,
+            fontWeight: '700',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = '#161C27';
+            e.currentTarget.style.color = '#F4F7FB';
+            e.currentTarget.style.borderColor = '#2A3342';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = darkPanelOpen ? '#161C27' : T.cardBg;
+            e.currentTarget.style.color = darkPanelOpen ? '#F4F7FB' : T.t2;
+            e.currentTarget.style.borderColor = darkPanelOpen ? '#2A3342' : T.border;
+          }}
         >
-          ?
+          {Ic.moon}
+          暗黑面板
         </button>
 
-        {/* 通知鈴鐺 → 收件匣 */}
+        <button
+          title="說明"
+          style={{
+            height: '36px', borderRadius: '10px', border: `1px solid ${T.border}`,
+            background: T.cardBg, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '0 12px',
+            fontSize: '12.5px', color: T.t2, fontWeight: '700',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = T.mutedBg}
+          onMouseLeave={e => e.currentTarget.style.background = T.cardBg}
+        >
+          說明
+        </button>
+
         <button
           onClick={() => onNavigate('inbox')}
           title="收件匣"
           style={{
-            width: '32px', height: '32px', borderRadius: '50%',
+            width: '36px', height: '36px', borderRadius: '10px',
             border: `1px solid ${activeNav === 'inbox' ? T.accent : T.border}`,
-            background: activeNav === 'inbox' ? '#FFF0F2' : 'white',
+            background: activeNav === 'inbox' ? '#FFF4F5' : T.cardBg,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: activeNav === 'inbox' ? T.accent : '#6B7280',
+            color: activeNav === 'inbox' ? T.accent : T.t2,
             transition: 'all 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#FFF0F2'; e.currentTarget.style.color = T.accent; }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#FFF4F5'; e.currentTarget.style.color = T.accent; }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF0F2' : 'white';
-            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : '#6B7280';
+            e.currentTarget.style.background = activeNav === 'inbox' ? '#FFF4F5' : T.cardBg;
+            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : T.t2;
           }}
         >
           {Ic.bell}
@@ -670,11 +729,353 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar }) {
   );
 }
 
+function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashData }) {
+  const { summary, projects, insights, loading, error, refresh } = dashData;
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const focusStats = [
+    {
+      label: '未讀通知',
+      value: inboxCount,
+      hint: inboxCount > 0 ? '收件匣有新變化' : '目前已清空',
+      accent: '#F07A8A',
+    },
+    {
+      label: '逾期任務',
+      value: summary?.total_overdue_tasks ?? 0,
+      hint: summary?.total_overdue_tasks > 0 ? '建議先排除阻塞' : '目前控制良好',
+      accent: '#FDBA74',
+    },
+    {
+      label: '危險專案',
+      value: summary?.red_projects ?? 0,
+      hint: summary?.red_projects > 0 ? '需要立即跟進' : '暫無紅燈',
+      accent: '#C084FC',
+    },
+    {
+      label: '本月到期',
+      value: summary?.due_this_month ?? 0,
+      hint: '近期里程碑與交付',
+      accent: '#7DD3FC',
+    },
+  ];
+
+  const spotlightProjects = [...(projects || [])]
+    .sort((left, right) => {
+      const leftRisk = (left.overdue_tasks ?? left.taskOverdue ?? 0) + (left.health_status === 'red' ? 3 : 0);
+      const rightRisk = (right.overdue_tasks ?? right.taskOverdue ?? 0) + (right.health_status === 'red' ? 3 : 0);
+      return rightRisk - leftRisk;
+    })
+    .slice(0, 4);
+
+  const insightCards = (insights || []).slice(0, 3).map((item, index) => ({
+    id: item.id || `insight-${index}`,
+    title: item.title || item.headline || item.label || '今日提醒',
+    body: item.description || item.message || item.detail || item.recommendation || '系統已整理出需要優先查看的線索。',
+  }));
+
+  const actionCards = [
+    { label: '打開收件匣', desc: '先看通知與 @提及', nav: 'inbox' },
+    { label: '查看任務看板', desc: '重新排程與分派', nav: 'tasks' },
+    { label: '檢查自動化規則', desc: '確認提醒與流程', nav: 'rules' },
+  ];
+
+  const timeLabel = new Intl.DateTimeFormat('zh-TW', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(4, 8, 15, 0.52)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 350,
+        }}
+      />
+
+      <aside
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: 'min(420px, 100vw)',
+          height: '100vh',
+          zIndex: 360,
+          color: '#F8FAFC',
+          background:
+            'radial-gradient(circle at top right, rgba(180,35,60,0.28), transparent 28%), linear-gradient(180deg, #0B1018 0%, #131A24 56%, #0D121A 100%)',
+          borderLeft: '1px solid rgba(148, 163, 184, 0.18)',
+          boxShadow: '-24px 0 56px rgba(2, 6, 23, 0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          animation: 'darkPanelSlideIn .18s ease',
+        }}
+      >
+        <style>{`
+          @keyframes darkPanelSlideIn {
+            from { opacity: 0; transform: translateX(18px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
+
+        <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid rgba(148, 163, 184, 0.12)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: 'rgba(15, 23, 42, 0.48)', border: '1px solid rgba(148, 163, 184, 0.16)', fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em' }}>
+                {Ic.moon}
+                DARK PANEL
+              </div>
+              <div style={{ marginTop: '14px', fontSize: '28px', fontWeight: '900', letterSpacing: '-0.05em' }}>
+                暗黑面板
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '13px', lineHeight: 1.7, color: 'rgba(226, 232, 240, 0.74)' }}>
+                {currentUser?.name || '團隊成員'}，這裡整理了今晚最值得先處理的風險、通知與快速入口。
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
+                border: '1px solid rgba(148, 163, 184, 0.16)',
+                background: 'rgba(15, 23, 42, 0.58)',
+                color: '#F8FAFC',
+                cursor: 'pointer',
+                fontSize: '18px',
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <div style={{ fontSize: '12px', color: 'rgba(226, 232, 240, 0.64)' }}>
+              最後整理時間 {timeLabel}
+            </div>
+            <button
+              onClick={() => refresh()}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: '1px solid rgba(148, 163, 184, 0.18)',
+                background: 'rgba(15, 23, 42, 0.58)',
+                color: '#E2E8F0',
+                borderRadius: '999px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              {Ic.refresh}
+              {loading ? '同步中' : '重新整理'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 28px' }}>
+          {error && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              borderRadius: '16px',
+              background: 'rgba(127, 29, 29, 0.32)',
+              border: '1px solid rgba(248, 113, 113, 0.26)',
+              fontSize: '12px',
+              color: '#FECACA',
+              lineHeight: 1.7,
+            }}>
+              資料同步時發生問題：{error}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+            {focusStats.map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  borderRadius: '18px',
+                  padding: '16px',
+                  background: 'rgba(15, 23, 42, 0.62)',
+                  border: '1px solid rgba(148, 163, 184, 0.14)',
+                }}
+              >
+                <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>
+                  {item.label}
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '28px', fontWeight: '900', color: item.accent }}>
+                  {item.value}
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.6, color: 'rgba(226, 232, 240, 0.72)' }}>
+                  {item.hint}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '20px', borderRadius: '22px', padding: '18px', background: 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(30,41,59,0.62))', border: '1px solid rgba(148, 163, 184, 0.14)' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>快捷入口</div>
+            <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: '800' }}>快速處理今晚的工作節點</div>
+            <div style={{ display: 'grid', gap: '10px', marginTop: '16px' }}>
+              {actionCards.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => {
+                    onNavigate(item.nav);
+                    onClose();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    border: '1px solid rgba(148, 163, 184, 0.14)',
+                    background: 'rgba(15, 23, 42, 0.58)',
+                    borderRadius: '16px',
+                    padding: '14px 14px',
+                    color: '#F8FAFC',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.label}</div>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(226, 232, 240, 0.64)' }}>{item.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '20px', display: 'grid', gap: '12px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>風險專案</div>
+            {spotlightProjects.length === 0 ? (
+              <div style={{
+                borderRadius: '18px',
+                padding: '18px',
+                background: 'rgba(15, 23, 42, 0.52)',
+                border: '1px solid rgba(148, 163, 184, 0.14)',
+                fontSize: '13px',
+                color: 'rgba(226, 232, 240, 0.72)',
+              }}>
+                目前沒有需要額外關注的專案，節奏維持得不錯。
+              </div>
+            ) : (
+              spotlightProjects.map((project, index) => {
+                const overdue = project.overdue_tasks ?? project.taskOverdue ?? 0;
+                const progress = Math.round(parseFloat(project.completion_pct ?? project.completion ?? 0));
+                const tone = overdue > 0 || project.health_status === 'red'
+                  ? '#F07A8A'
+                  : overdue > 0 || project.health_status === 'yellow'
+                    ? '#FDBA74'
+                    : '#86EFAC';
+
+                return (
+                  <button
+                    key={project.id || `${project.name}-${index}`}
+                    onClick={() => {
+                      onNavigate('projects');
+                      onClose();
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      border: '1px solid rgba(148, 163, 184, 0.14)',
+                      background: 'rgba(15, 23, 42, 0.58)',
+                      borderRadius: '18px',
+                      padding: '16px',
+                      color: '#F8FAFC',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {project.project_name ?? project.name}
+                        </div>
+                        <div style={{ marginTop: '6px', fontSize: '11px', color: 'rgba(226, 232, 240, 0.62)' }}>
+                          {overdue > 0 ? `${overdue} 項逾期` : '目前無逾期項目'}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: '900', color: tone }}>
+                        {progress}%
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '12px', height: '6px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.14)', overflow: 'hidden' }}>
+                      <div style={{ width: `${progress}%`, height: '100%', borderRadius: '999px', background: tone }} />
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div style={{ marginTop: '20px', display: 'grid', gap: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: 'rgba(226, 232, 240, 0.58)' }}>行動建議</div>
+            {insightCards.length === 0 ? (
+              <div style={{
+                borderRadius: '18px',
+                padding: '18px',
+                background: 'rgba(15, 23, 42, 0.52)',
+                border: '1px solid rgba(148, 163, 184, 0.14)',
+                fontSize: '13px',
+                color: 'rgba(226, 232, 240, 0.72)',
+              }}>
+                系統目前沒有額外建議，可維持當前節奏。
+              </div>
+            ) : (
+              insightCards.map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    borderRadius: '18px',
+                    padding: '16px',
+                    background: 'rgba(15, 23, 42, 0.52)',
+                    border: '1px solid rgba(148, 163, 184, 0.14)',
+                  }}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.title}</div>
+                  <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.7, color: 'rgba(226, 232, 240, 0.68)' }}>
+                    {item.body}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // Asana 風格「首頁」
 // ════════════════════════════════════════════════════════════
 function HomePage({ currentUser, onNavigate, dashData }) {
-  const { summary, projects, workload, insights, loading, error, refresh } = dashData;
+  const { projects, workload, loading, error, refresh } = dashData;
   const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
   const [myTasks,       setMyTasks]       = useState([]);
   const [tasksLoading,  setTasksLoading]  = useState(true);
@@ -727,108 +1128,329 @@ function HomePage({ currentUser, onNavigate, dashData }) {
   }).length;
 
   const recentProjects = projects.slice(0, 6);
+  const workloadCount = Array.isArray(workload?.users)
+    ? workload.users.length
+    : Array.isArray(workload)
+      ? workload.length
+      : 0;
+  const nextDueTask = [...tabTasks.upcoming]
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+  const homeStats = [
+    {
+      label: '本週截止',
+      value: `${tabTasks.upcoming.length}`,
+      unit: '項任務',
+      detail: tabTasks.upcoming.length > 0 ? '七天內需要安排的工作' : '目前沒有本週截止項目',
+      nav: 'my-tasks',
+      tone: '#FFF7F7',
+      accent: T.accent,
+    },
+    {
+      label: '已完成',
+      value: `${completedCount}`,
+      unit: '項任務',
+      detail: '最近七天已更新完成的工作',
+      nav: 'my-tasks',
+      tone: '#F3FAF6',
+      accent: '#2F855A',
+    },
+    {
+      label: '活躍專案',
+      value: `${recentProjects.length}`,
+      unit: '個',
+      detail: '目前首頁顯示中的重點專案',
+      nav: 'projects',
+      tone: '#F7F6FF',
+      accent: '#5B57D9',
+    },
+    {
+      label: '協作成員',
+      value: `${workloadCount}`,
+      unit: '位',
+      detail: '近期在工作負載中出現的人員',
+      nav: 'workload',
+      tone: '#F4F8FD',
+      accent: '#2C6ECB',
+    },
+  ];
+  const guideCards = [
+    {
+      icon: Ic.myTasks,
+      title: '整理個人任務',
+      desc: '以截止日與優先順序檢視今天該推進的工作。',
+      nav: 'my-tasks',
+      tone: '#FFF7F7',
+      accent: T.accent,
+    },
+    {
+      icon: Ic.projects,
+      title: '檢查專案狀態',
+      desc: '查看專案健康度、進度與待處理風險。',
+      nav: 'projects',
+      tone: '#F7F3EF',
+      accent: '#8A5D3B',
+    },
+    {
+      icon: Ic.rules,
+      title: '設定自動化規則',
+      desc: '把固定流程交給系統處理，減少手動追蹤。',
+      nav: 'rules',
+      tone: '#F7F6FF',
+      accent: '#5B57D9',
+    },
+    {
+      icon: Ic.goals,
+      title: '追蹤年度目標',
+      desc: '從目標頁確認專案輸出是否對齊階段成果。',
+      nav: 'goals',
+      tone: '#F3FAF6',
+      accent: '#2F855A',
+    },
+  ];
+  const cardShell = {
+    background: T.cardBg,
+    borderRadius: '18px',
+    border: `1px solid ${T.border}`,
+    boxShadow: T.shadow,
+  };
 
   return (
-    <div style={{ minHeight: '100%', background: T.pageBg, padding: '32px 36px', boxSizing: 'border-box' }}>
-      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-
-        {/* ── 問候標題 ─────────────────────────────────────── */}
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px' }}>{dateStr}</div>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '800', color: '#111827', letterSpacing: '-0.5px' }}>
-            {currentUser ? `${currentUser.name.split(' ').pop()}，${greeting}` : `${greeting}！`}
-          </h1>
-        </div>
-
-        {/* ── 快速統計列 ────────────────────────────────────── */}
+    <div style={{
+      minHeight: '100%',
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), linear-gradient(180deg, #F4EFE9 0%, #F6F1EB 100%)',
+      padding: '32px 36px 40px',
+      boxSizing: 'border-box',
+    }}>
+      <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          marginBottom: '28px', flexWrap: 'wrap',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '18px',
+          marginBottom: '18px',
         }}>
-          {[
-            {
-              icon: '📅',
-              label: '我的一週',
-              value: `${displayTasks.length} 項任務`,
-              sub: '即將到期',
-              color: '#374151',
-            },
-            {
-              icon: '✓',
-              value: `${completedCount} 個`,
-              label: '已完成任務',
-              sub: '本週',
-              color: '#16A34A',
-            },
-            {
-              icon: '👥',
-              value: `${workload?.users?.length ?? (Array.isArray(workload) ? workload.length : 0)}`,
-              label: '位協作者',
-              sub: '',
-              color: '#2563EB',
-            },
-            {
-              icon: '📁',
-              value: `${recentProjects.length}`,
-              label: '個活躍專案',
-              sub: '',
-              color: '#7C3AED',
-            },
-          ].map((item, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '8px 16px', background: 'white',
-              borderRadius: '8px', border: `1px solid ${T.border}`,
-              cursor: 'default',
+          <section style={{
+            ...cardShell,
+            padding: '24px 26px',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.98))',
+          }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 10px',
+              borderRadius: '999px',
+              background: '#F8E8EB',
+              color: T.accent2,
+              fontSize: '11px',
+              fontWeight: '800',
+              letterSpacing: '0.05em',
             }}>
-              <span style={{ fontSize: '16px' }}>{item.icon}</span>
-              <div>
-                <span style={{ fontSize: '15px', fontWeight: '700', color: item.color }}>{item.value}</span>
-                <span style={{ fontSize: '13px', color: '#6B7280', marginLeft: '4px' }}>{item.label}</span>
-                {item.sub && <span style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '4px' }}>· {item.sub}</span>}
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: T.accent }} />
+              PERSONAL WORKSPACE
+            </div>
+
+            <div style={{ marginTop: '18px', fontSize: '13px', color: T.t3 }}>{dateStr}</div>
+            <h1 style={{ margin: '8px 0 0', fontSize: '30px', fontWeight: '900', color: T.t1, letterSpacing: '-0.04em' }}>
+              {currentUser ? `${currentUser.name}，${greeting}` : greeting}
+            </h1>
+            <p style={{ margin: '14px 0 0', maxWidth: '42rem', fontSize: '14px', lineHeight: 1.8, color: T.t2 }}>
+              首頁整理了今天最需要注意的任務、專案與協作狀態。先看即將到期的工作，再檢查進度異常的專案，日常節奏會更穩。
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '22px' }}>
+              <button
+                onClick={() => onNavigate('my-tasks')}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: T.accent,
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 10px 18px rgba(180, 35, 60, 0.14)',
+                }}
+              >
+                前往我的任務
+              </button>
+              <button
+                onClick={() => refresh()}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: `1px solid ${T.border}`,
+                  background: T.cardBg,
+                  color: T.t2,
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                }}
+              >
+                重新整理資料
+              </button>
+            </div>
+          </section>
+
+          <aside style={{
+            ...cardShell,
+            padding: '22px 22px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>
+                今日重點
+              </div>
+              <div style={{ marginTop: '14px', display: 'grid', gap: '12px' }}>
+                <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${T.div}` }}>
+                  <div style={{ fontSize: '12px', color: T.t3 }}>下一個截止</div>
+                  <div style={{ marginTop: '5px', fontSize: '15px', fontWeight: '800', color: T.t1 }}>
+                    {nextDueTask ? (nextDueTask.title || nextDueTask.name) : '目前沒有本週截止項目'}
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: T.t2 }}>
+                    {nextDueTask?.dueDate
+                      ? `截止於 ${new Date(nextDueTask.dueDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}`
+                      : '可以安排整理待辦或補充資料'}
+                  </div>
+                </div>
+                <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${T.div}` }}>
+                  <div style={{ fontSize: '12px', color: T.t3 }}>逾期關注</div>
+                  <div style={{ marginTop: '5px', fontSize: '22px', fontWeight: '900', color: tabTasks.overdue.length > 0 ? T.accent : T.t1 }}>
+                    {tabTasks.overdue.length}
+                  </div>
+                  <div style={{ marginTop: '2px', fontSize: '12px', color: T.t2 }}>
+                    {tabTasks.overdue.length > 0 ? '建議先確認責任人與阻塞原因' : '目前沒有逾期任務'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: T.t3 }}>同步狀態</div>
+                  <div style={{ marginTop: '5px', fontSize: '14px', fontWeight: '700', color: T.t1 }}>
+                    {loading ? '正在更新首頁資料' : error ? '資料更新時發生問題' : '首頁資料已同步'}
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '12px', color: T.t2 }}>
+                    {error ? '可稍後重新整理，或檢查後端服務狀態。' : '任務、專案與工作負載會在這裡彙整顯示。'}
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
+          </aside>
+        </div>
 
-          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '14px',
+          marginBottom: '20px',
+        }}>
+          {homeStats.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => onNavigate(item.nav)}
+              style={{
+                ...cardShell,
+                padding: '18px 18px 16px',
+                background: item.tone,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.04em' }}>{item.label}</div>
+              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '28px', fontWeight: '900', color: item.accent, letterSpacing: '-0.05em' }}>{item.value}</span>
+                <span style={{ fontSize: '13px', color: T.t2 }}>{item.unit}</span>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '12px', color: T.t2, lineHeight: 1.7 }}>
+                {item.detail}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          flexWrap: 'wrap',
+          marginBottom: '14px',
+        }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>首頁配置</div>
+            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1 }}>
+              工作概覽
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+            <button
+              onClick={() => onNavigate('projects')}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: `1px solid ${T.border}`,
+                background: T.cardBg,
+                color: T.t2,
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+              }}
+            >
+              查看所有專案
+            </button>
+
             <button
               onClick={() => setShowCustomize(v => !v)}
               style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '8px 14px', background: showCustomize ? '#F0F9FF' : 'white',
-                borderRadius: '8px', border: `1px solid ${showCustomize ? '#3B82F6' : T.border}`,
-                fontSize: '13px', color: showCustomize ? '#3B82F6' : '#6B7280',
-                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.1s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '10px 14px',
+                background: showCustomize ? '#FFF4F5' : T.cardBg,
+                borderRadius: '10px',
+                border: `1px solid ${showCustomize ? '#E9C6CE' : T.border}`,
+                fontSize: '13px',
+                color: showCustomize ? T.accent2 : T.t2,
+                cursor: 'pointer',
+                fontWeight: '700',
+                transition: 'all 0.12s',
               }}
-              onMouseEnter={e => { if (!showCustomize) { e.currentTarget.style.background = '#F9FAFB'; }}}
-              onMouseLeave={e => { if (!showCustomize) { e.currentTarget.style.background = 'white'; }}}
             >
-              ⚙ 自訂
+              版面設定
             </button>
+
             {showCustomize && (
               <div style={{
-                position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                background: 'white', borderRadius: '12px',
+                position: 'absolute',
+                right: 0,
+                top: 'calc(100% + 10px)',
+                background: T.cardBg,
+                borderRadius: '14px',
                 border: `1px solid ${T.border}`,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                zIndex: 200, minWidth: '220px', padding: '16px',
-              }}
-                onMouseLeave={() => {}}
-              >
-                <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '12px' }}>
-                  自訂首頁
+                boxShadow: T.shadow,
+                zIndex: 200,
+                minWidth: '250px',
+                padding: '16px',
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: T.t1, marginBottom: '12px' }}>
+                  顯示項目
                 </div>
                 {[
-                  { key: 'tasks',    label: '✅ 我的任務 Widget' },
-                  { key: 'projects', label: '📁 專案 Widget' },
-                  { key: 'learn',    label: '📖 瞭解 xCloudPMIS' },
-                ].map(w => (
+                  { key: 'tasks',    label: '我的任務面板' },
+                  { key: 'projects', label: '專案概覽面板' },
+                  { key: 'learn',    label: '常用入口面板' },
+                ].map((w) => (
                   <label key={w.key} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '8px 0', borderBottom: `1px solid #F3F4F6`,
-                    cursor: 'pointer', userSelect: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '9px 0',
+                    borderBottom: `1px solid ${T.div}`,
+                    cursor: 'pointer',
+                    userSelect: 'none',
                   }}>
-                    <span style={{ fontSize: '13px', color: '#374151' }}>{w.label}</span>
+                    <span style={{ fontSize: '13px', color: T.t1 }}>{w.label}</span>
                     <div
                       onClick={() => {
                         const next = { ...homeWidgets, [w.key]: !homeWidgets[w.key] };
@@ -836,18 +1458,26 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         try { localStorage.setItem('xcloud-home-widgets', JSON.stringify(next)); } catch {}
                       }}
                       style={{
-                        width: '36px', height: '20px', borderRadius: '10px',
-                        background: homeWidgets[w.key] ? '#10B981' : '#D1D5DB',
-                        position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                        width: '38px',
+                        height: '22px',
+                        borderRadius: '999px',
+                        background: homeWidgets[w.key] ? T.accent : '#D5CCC5',
+                        position: 'relative',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s',
                         flexShrink: 0,
                       }}
                     >
                       <div style={{
-                        position: 'absolute', top: '2px',
+                        position: 'absolute',
+                        top: '2px',
                         left: homeWidgets[w.key] ? '18px' : '2px',
-                        width: '16px', height: '16px', borderRadius: '50%',
-                        background: 'white', transition: 'left 0.2s',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        background: 'white',
+                        transition: 'left 0.2s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
                       }} />
                     </div>
                   </label>
@@ -855,280 +1485,334 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 <button
                   onClick={() => setShowCustomize(false)}
                   style={{
-                    width: '100%', marginTop: '12px',
-                    background: T.accent, color: 'white', border: 'none',
-                    borderRadius: '7px', padding: '8px 0', fontSize: '13px',
-                    fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+                    width: '100%',
+                    marginTop: '14px',
+                    background: T.accent,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '10px 0',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
                   }}
                 >
-                  完成
+                  套用設定
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── 主要內容 2欄 ──────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-
-          {/* 我的任務 Widget */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: '18px',
+          marginBottom: '18px',
+        }}>
           <div style={{
-            background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
-            display: homeWidgets.tasks ? 'flex' : 'none', flexDirection: 'column',
+            ...cardShell,
+            overflow: 'hidden',
+            display: homeWidgets.tasks ? 'flex' : 'none',
+            flexDirection: 'column',
           }}>
-            {/* Widget Header */}
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px 12px', borderBottom: `1px solid #F3F4F6`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '18px 20px 14px',
+              borderBottom: `1px solid ${T.div}`,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>✅</span>
-                <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>我的任務</span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: '2px 6px' }}>
-                  ⋯
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '11px',
+                  background: '#FFF1F3',
+                  color: T.accent,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {Ic.myTasks}
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>個人工作台</div>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>我的任務</div>
+                </div>
               </div>
               <button
                 onClick={() => onNavigate('my-tasks')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: 0, fontFamily: 'inherit' }}
-                onMouseEnter={e => e.currentTarget.style.color = T.accent}
-                onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '12px', fontWeight: '700', padding: 0 }}
               >
-                查看全部 →
+                查看全部
               </button>
             </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', padding: '0 20px', borderBottom: `1px solid #F3F4F6`, gap: '0' }}>
-              {[
-                { key: 'upcoming', label: '即將截止', count: tabTasks.upcoming.length },
-                { key: 'overdue',  label: '逾期',     count: tabTasks.overdue.length },
-                { key: 'completed',label: '已完成',   count: tabTasks.completed.length },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setMyTasksTab(tab.key)}
-                  style={{
-                    padding: '10px 14px', fontSize: '13px', border: 'none', background: 'transparent',
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    color: myTasksTab === tab.key ? T.accent : '#6B7280',
-                    fontWeight: myTasksTab === tab.key ? '600' : '400',
-                    borderBottom: myTasksTab === tab.key ? `2px solid ${T.accent}` : '2px solid transparent',
-                    marginBottom: '-1px', transition: 'all 0.15s',
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                  }}
-                >
-                  {tab.label}
-                  {tab.count > 0 && (
-                    <span style={{
-                      background: myTasksTab === tab.key ? '#FFF0F2' : '#F3F4F6',
-                      color: myTasksTab === tab.key ? T.accent : '#9CA3AF',
-                      fontSize: '10.5px', fontWeight: '700',
-                      padding: '1px 6px', borderRadius: '99px',
-                    }}>{tab.count}</span>
-                  )}
-                </button>
-              ))}
+            <div style={{ padding: '14px 20px 0' }}>
+              <div style={{
+                display: 'inline-flex',
+                padding: '4px',
+                borderRadius: '12px',
+                background: T.mutedBg,
+                gap: '4px',
+              }}>
+                {[
+                  { key: 'upcoming', label: '即將截止', count: tabTasks.upcoming.length },
+                  { key: 'overdue',  label: '逾期',     count: tabTasks.overdue.length },
+                  { key: 'completed',label: '已完成',   count: tabTasks.completed.length },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setMyTasksTab(tab.key)}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: '12.5px',
+                      border: 'none',
+                      borderRadius: '10px',
+                      background: myTasksTab === tab.key ? T.cardBg : 'transparent',
+                      boxShadow: myTasksTab === tab.key ? '0 1px 2px rgba(52,36,30,0.08)' : 'none',
+                      cursor: 'pointer',
+                      color: myTasksTab === tab.key ? T.accent2 : T.t2,
+                      fontWeight: myTasksTab === tab.key ? '700' : '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span style={{
+                        minWidth: '18px',
+                        height: '18px',
+                        padding: '0 6px',
+                        borderRadius: '999px',
+                        background: myTasksTab === tab.key ? '#FFF1F3' : '#EEE4DD',
+                        color: myTasksTab === tab.key ? T.accent2 : T.t3,
+                        fontSize: '10.5px',
+                        fontWeight: '800',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Task List */}
-            <div style={{ padding: '8px 0', minHeight: '180px', maxHeight: '320px', overflowY: 'auto' }}>
-              {/* 建立任務 */}
-              <button
-                onClick={() => onNavigate('my-tasks')}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
-                  padding: '8px 20px', border: 'none', background: 'transparent',
-                  cursor: 'pointer', fontSize: '13px', color: '#9CA3AF',
-                  fontFamily: 'inherit', textAlign: 'left', transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <span style={{ color: '#D1D5DB', display: 'flex' }}>{Ic.plus}</span>
-                建立任務
-              </button>
-
+            <div style={{ padding: '12px 0 8px', minHeight: '220px', maxHeight: '360px', overflowY: 'auto' }}>
               {tasksLoading ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>載入中⋯</div>
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '13px' }}>正在整理任務資料…</div>
               ) : displayTasks.length === 0 ? (
-                <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>
-                    {myTasksTab === 'completed' ? '🎉' : '🎯'}
+                <div style={{ padding: '40px 22px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1 }}>
+                    {myTasksTab === 'upcoming' ? '目前沒有本週截止項目' :
+                     myTasksTab === 'overdue' ? '沒有逾期任務' : '最近七天尚未完成任務'}
                   </div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
-                    {myTasksTab === 'upcoming' ? '本週沒有截止任務' :
-                     myTasksTab === 'overdue'  ? '沒有逾期任務，很棒！' : '本週尚未完成任務'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                    {myTasksTab === 'upcoming' ? '點擊上方建立任務' : '繼續保持！'}
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: T.t2, lineHeight: 1.7 }}>
+                    {myTasksTab === 'completed'
+                      ? '完成後的任務會整理在這裡，方便快速回顧。'
+                      : '可前往任務工作台新增或重新安排優先順序。'}
                   </div>
                 </div>
               ) : (
-                displayTasks.map(task => (
-                  <button
-                    key={task.id}
-                    onClick={() => onNavigate('my-tasks')}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-                      padding: '8px 20px', border: 'none', background: 'transparent',
-                      cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    {/* 勾選框 */}
-                    <div style={{
-                      width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
-                      border: `2px solid ${task.status === 'done' ? '#16A34A' : '#D1D5DB'}`,
-                      background: task.status === 'done' ? '#16A34A' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {task.status === 'done' && <span style={{ color: 'white', fontSize: '9px' }}>✓</span>}
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                displayTasks.map((task) => {
+                  const isDone = task.status === 'done';
+                  const isOverdue = task.dueDate && new Date(task.dueDate) < now && !isDone;
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => onNavigate('my-tasks')}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        padding: '12px 20px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#FBF7F3'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
                       <div style={{
-                        fontSize: '13px', color: task.status === 'done' ? '#9CA3AF' : '#111827',
-                        textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        marginTop: '1px',
+                        border: `1.5px solid ${isDone ? '#2F855A' : isOverdue ? T.accent : '#D8CEC6'}`,
+                        background: isDone ? '#2F855A' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontSize: '10px',
                       }}>
-                        {task.title || task.name}
+                        {isDone ? '✓' : ''}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '1px' }}>
-                        {task.project?.name || '—'}
-                        {task.dueDate && (
-                          <span style={{
-                            marginLeft: '8px',
-                            color: new Date(task.dueDate) < now ? '#EF4444' : '#6B7280',
-                          }}>
-                            {new Date(task.dueDate).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: '13px',
+                          color: isDone ? T.t3 : T.t1,
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          fontWeight: '600',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {task.title || task.name}
+                        </div>
+                        <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '11px', color: T.t3 }}>
+                            {task.project?.name || '未指定專案'}
                           </span>
-                        )}
+                          {task.dueDate && (
+                            <span style={{
+                              fontSize: '11px',
+                              color: isOverdue ? T.accent : T.t2,
+                              fontWeight: isOverdue ? '700' : '600',
+                            }}>
+                              截止 {new Date(task.dueDate).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
 
-          {/* 專案 Widget */}
           <div style={{
-            background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden',
-            display: homeWidgets.projects ? 'flex' : 'none', flexDirection: 'column',
+            ...cardShell,
+            overflow: 'hidden',
+            display: homeWidgets.projects ? 'flex' : 'none',
+            flexDirection: 'column',
           }}>
-            {/* Widget Header */}
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 20px 12px', borderBottom: `1px solid #F3F4F6`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '18px 20px 14px',
+              borderBottom: `1px solid ${T.div}`,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '16px' }}>📁</span>
-                <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>專案</span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: '2px 6px' }}>
-                  近期 ▾
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '11px',
+                  background: '#F7F1EC',
+                  color: '#8A5D3B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  {Ic.projects}
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>專案概覽</div>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>重點專案</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  onClick={() => refresh()}
+                  title="更新專案資料"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.t2, fontSize: '12px', fontWeight: '700', padding: 0 }}
+                >
+                  更新資料
+                </button>
+                <button
+                  onClick={() => onNavigate('projects')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '12px', fontWeight: '700', padding: 0 }}
+                >
+                  查看全部
                 </button>
               </div>
-              <button
-                onClick={() => onNavigate('projects')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: 0, fontFamily: 'inherit' }}
-                onMouseEnter={e => e.currentTarget.style.color = T.accent}
-                onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
-              >
-                查看全部 →
-              </button>
             </div>
 
-            {/* Project List */}
-            <div style={{ padding: '8px 0', minHeight: '180px', maxHeight: '320px', overflowY: 'auto' }}>
-              {/* 建立專案 */}
-              <button
-                onClick={() => onNavigate('projects')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '10px 20px', border: 'none', background: 'transparent',
-                  cursor: 'pointer', fontSize: '13px', color: '#9CA3AF',
-                  fontFamily: 'inherit', transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '8px',
-                  border: `1.5px dashed #D1D5DB`, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', color: '#D1D5DB', flexShrink: 0,
-                }}>
-                  {Ic.plus}
-                </div>
-                建立專案
-              </button>
-
+            <div style={{ padding: '12px 0 8px', minHeight: '220px', maxHeight: '360px', overflowY: 'auto' }}>
               {loading ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' }}>載入中⋯</div>
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '13px' }}>正在同步專案資料…</div>
               ) : recentProjects.length === 0 ? (
-                <div style={{ padding: '32px 20px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>📂</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#374151' }}>尚無專案</div>
+                <div style={{ padding: '40px 22px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1 }}>目前沒有可顯示的專案</div>
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: T.t2 }}>建立專案後，首頁會自動整理進度與風險。</div>
                 </div>
               ) : (
                 recentProjects.map((p, i) => {
-                  const colors = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488'];
+                  const colors = ['#B4233C', '#2C6ECB', '#2F855A', '#A5662B', '#5B57D9', '#18776B'];
                   const color = colors[i % colors.length];
-                  // API 回傳 snake_case 欄位
-                  const overdue = p.overdue_tasks  ?? p.taskOverdue ?? 0;
-                  const total   = p.total_tasks    ?? p.taskTotal   ?? 0;
-                  const done    = p.done_tasks     ?? p.taskDone    ?? 0;
+                  const overdue = p.overdue_tasks ?? p.taskOverdue ?? 0;
+                  const total   = p.total_tasks ?? p.taskTotal ?? 0;
+                  const done    = p.done_tasks ?? p.taskDone ?? 0;
+                  const pct = Math.round(parseFloat(p.completion_pct ?? p.completion ?? 0));
+                  const statusText = overdue > 0
+                    ? `${overdue} 項逾期`
+                    : total > 0
+                      ? `${done}/${total} 項已完成`
+                      : '尚未建立任務';
                   return (
                     <button
                       key={p.id}
                       onClick={() => onNavigate('projects')}
                       style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
-                        padding: '10px 20px', border: 'none', background: 'transparent',
-                        cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                        transition: 'background 0.1s',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        padding: '14px 20px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                      onMouseEnter={e => e.currentTarget.style.background = '#FBF7F3'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      {/* 專案色塊 icon */}
                       <div style={{
-                        width: '32px', height: '32px', borderRadius: '8px',
-                        background: color, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '11px',
+                        background: color,
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}>
-                        <span style={{ color: 'white', fontSize: '12px' }}>
-                          {Ic.projects}
-                        </span>
+                        {Ic.projects}
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13.5px', fontWeight: '600', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: '700', color: T.t1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {p.project_name ?? p.name}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                          {overdue > 0
-                            ? <span style={{ color: '#EF4444' }}>{overdue} 個任務即將截止</span>
-                            : total > 0
-                              ? `${done}/${total} 個任務完成`
-                              : '暫無任務'}
+                        <div style={{ marginTop: '4px', fontSize: '11.5px', color: overdue > 0 ? T.accent : T.t2, fontWeight: overdue > 0 ? '700' : '600' }}>
+                          {statusText}
                         </div>
-                      </div>
-
-                      {/* 進度 mini */}
-                      <div style={{ width: '36px', height: '36px', flexShrink: 0 }}>
-                        <svg width="36" height="36" style={{ transform: 'rotate(-90deg)' }}>
-                          <circle cx="18" cy="18" r="14" fill="none" stroke="#F3F4F6" strokeWidth="3" />
-                          <circle cx="18" cy="18" r="14" fill="none" stroke={color} strokeWidth="3"
-                            strokeDasharray={2 * Math.PI * 14}
-                            strokeDashoffset={2 * Math.PI * 14 * (1 - (parseFloat(p.completion_pct ?? p.completion ?? 0)) / 100)}
-                            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.4s' }}
-                          />
-                        </svg>
+                        {total > 0 && (
+                          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: '#EFE6DF', overflow: 'hidden' }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${pct}%`,
+                                borderRadius: '999px',
+                                background: overdue > 0 ? T.accent : color,
+                                transition: 'width 0.4s ease',
+                              }} />
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: '800', color: overdue > 0 ? T.accent : color }}>{pct}%</span>
+                          </div>
+                        )}
                       </div>
                     </button>
                   );
@@ -1138,45 +1822,57 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           </div>
         </div>
 
-        {/* ── 瞭解 xCloudPMIS（類 Asana 學習卡）──────────────── */}
-        <div style={{ background: 'white', borderRadius: '12px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', display: homeWidgets.learn ? 'block' : 'none' }}>
-          <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>瞭解 xCloudPMIS</span>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '16px' }}>×</button>
+        <div style={{
+          ...cardShell,
+          padding: '20px',
+          display: homeWidgets.learn ? 'block' : 'none',
+        }}>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>常用入口</div>
+            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1 }}>你可能接下來會用到</div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0' }}>
-            {[
-              { icon: '🚀', title: '開始使用', desc: '瞭解基本資訊以及 xCloudPMIS 如何協助您完成工作', color: '#C41230', nav: 'my-tasks' },
-              { icon: '⚡', title: '使用規則將工作自動化', desc: '瞭解如何透過自動化規則來簡化工作', color: '#7C3AED', nav: 'rules' },
-              { icon: '📊', title: '使用專案集管理工作', desc: '在單一檢視中追蹤多個專案和關鍵計劃', color: '#D97706', nav: 'portfolios' },
-              { icon: '🎯', title: '透過目標管理成效', desc: '設定 OKR 目標並追蹤關鍵結果', color: '#16A34A', nav: 'goals' },
-            ].map((card, i) => (
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '14px',
+          }}>
+            {guideCards.map((card) => (
               <button
-                key={i}
+                key={card.title}
                 onClick={() => onNavigate(card.nav)}
                 style={{
-                  padding: '20px', border: 'none',
-                  borderLeft: i > 0 ? '1px solid #F3F4F6' : 'none',
-                  background: 'transparent', cursor: 'pointer', textAlign: 'left',
-                  fontFamily: 'inherit', transition: 'background 0.1s',
+                  padding: '18px',
+                  borderRadius: '14px',
+                  border: `1px solid ${T.border}`,
+                  background: card.tone,
+                  cursor: 'pointer',
+                  textAlign: 'left',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{
-                  width: '48px', height: '48px', borderRadius: '12px',
-                  background: card.color, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: '22px', marginBottom: '12px',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  background: T.cardBg,
+                  color: card.accent,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 6px 14px rgba(52, 36, 30, 0.06)',
                 }}>
                   {card.icon}
                 </div>
-                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#111827', marginBottom: '6px' }}>{card.title}</div>
-                <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>{card.desc}</div>
+                <div style={{ marginTop: '14px', fontSize: '14px', fontWeight: '800', color: T.t1 }}>
+                  {card.title}
+                </div>
+                <div style={{ marginTop: '6px', fontSize: '12px', lineHeight: 1.7, color: T.t2 }}>
+                  {card.desc}
+                </div>
               </button>
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -1199,41 +1895,42 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
   ];
 
   return (
-    <div style={{ maxWidth: '640px', margin: '32px auto', padding: '0 28px' }}>
+    <div style={{ maxWidth: '680px', margin: '32px auto', padding: '0 28px' }}>
       <button
         onClick={onBack}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', color: '#64748B', fontSize: '13.5px', marginBottom: '22px', padding: 0, fontFamily: 'inherit' }}
-        onMouseOver={e => e.currentTarget.style.color = '#1e293b'}
-        onMouseOut={e => e.currentTarget.style.color = '#64748B'}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', color: T.t2, fontSize: '13.5px', marginBottom: '22px', padding: 0, fontFamily: 'inherit' }}
+        onMouseOver={e => e.currentTarget.style.color = T.t1}
+        onMouseOut={e => e.currentTarget.style.color = T.t2}
       >
         {Ic.arrowLeft} 返回首頁
       </button>
 
-      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '28px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '22px' }}>
-        <div style={{ width: '68px', height: '68px', flexShrink: 0, borderRadius: '50%', background: 'linear-gradient(135deg,#C41230,#8B0020)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '26px', boxShadow: '0 4px 14px rgba(196,18,48,0.35)' }}>
+      <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, padding: '30px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '22px', boxShadow: T.shadow }}>
+        <div style={{ width: '70px', height: '70px', flexShrink: 0, borderRadius: '50%', background: 'linear-gradient(135deg,#C94A5D,#9E1830)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '26px', boxShadow: '0 10px 18px rgba(180, 35, 60, 0.18)' }}>
           {currentUser ? currentUser.name.slice(0, 1) : '?'}
         </div>
         <div>
-          <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{currentUser?.name ?? '—'}</div>
-          <div style={{ fontSize: '13.5px', color: '#64748B', marginTop: '2px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginTop: '8px', padding: '3px 10px', background: '#F0FDF4', color: '#16a34a', borderRadius: '99px', fontSize: '11.5px', fontWeight: '600' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-            在線上
+          <div style={{ fontSize: '12px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>帳戶資訊</div>
+          <div style={{ fontSize: '22px', fontWeight: '900', color: T.t1, marginTop: '6px' }}>{currentUser?.name ?? '—'}</div>
+          <div style={{ fontSize: '13.5px', color: T.t2, marginTop: '4px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '4px 10px', background: '#F4F8FD', color: '#2C6ECB', borderRadius: '999px', fontSize: '11.5px', fontWeight: '700' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2C6ECB', display: 'inline-block' }} />
+            帳戶已啟用
           </div>
         </div>
       </div>
 
-      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden', marginBottom: '14px' }}>
+      <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, overflow: 'hidden', marginBottom: '16px', boxShadow: T.shadow }}>
         {INFO_ROWS.map((row, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < INFO_ROWS.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
-            <div style={{ width: '96px', fontSize: '12.5px', color: '#94A3B8', flexShrink: 0 }}>{row.label}</div>
-            <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '500' }}>{row.value}</div>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < INFO_ROWS.length - 1 ? `1px solid ${T.div}` : 'none' }}>
+            <div style={{ width: '96px', fontSize: '12.5px', color: T.t3, flexShrink: 0 }}>{row.label}</div>
+            <div style={{ fontSize: '13px', color: T.t1, fontWeight: '600' }}>{row.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ background: 'white', borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '700', color: '#374151' }}>帳戶設定</div>
+      <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: T.shadow }}>
+        <div style={{ padding: '15px 20px', borderBottom: `1px solid ${T.div}`, fontSize: '13px', fontWeight: '800', color: T.t1 }}>帳戶設定</div>
         {[
           { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全', onClick: null },
           { label: '通知偏好', desc: '設定 Email / App 通知類型', onClick: null },
@@ -1242,14 +1939,14 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
         ].map((item, i, arr) => (
           <button key={item.label}
             onClick={item.onClick || undefined}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '13px 20px', borderBottom: i < arr.length - 1 ? '1px solid #F8FAFC' : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
-            onMouseOver={e => e.currentTarget.style.background = item.danger ? '#FFF5F5' : '#F8FAFC'}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < arr.length - 1 ? `1px solid ${T.div}` : 'none', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+            onMouseOver={e => e.currentTarget.style.background = item.danger ? '#FFF4F5' : '#FBF7F3'}
             onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: item.danger ? '#EF4444' : '#1e293b' }}>{item.label}</div>
-              <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '1px' }}>{item.desc}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: item.danger ? T.accent : T.t1 }}>{item.label}</div>
+              <div style={{ fontSize: '11.5px', color: T.t3, marginTop: '2px' }}>{item.desc}</div>
             </div>
-            <span style={{ color: '#D1D5DB', fontSize: '18px' }}>›</span>
+            <span style={{ color: T.t3, fontSize: '18px' }}>›</span>
           </button>
         ))}
       </div>
@@ -1262,14 +1959,65 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
 // ════════════════════════════════════════════════════════════
 export default function Dashboard() {
   // ── 從登入 JWT 直接取得使用者資訊，不需要額外 API 呼叫 ───────
-  const { user: currentUser, logout } = useAuth();
+  const { user: currentUser, logout, authFetch } = useAuth();
 
   const [activeNav,       setActiveNav]       = useState(readHashNav);
   const [settingsState,   setSettingsState]   = useState(null);
+  const [inboxCount,      setInboxCount]      = useState(0);
+  const [showDarkPanel,   setShowDarkPanel]   = useState(false);
   const [sbCollapsed,     setSbCollapsed]     = useState(() => {
     try { return localStorage.getItem('xcloud-sb-collapsed') === '1'; } catch { return false; }
   });
   const dashData = useDashboard();
+  const latestNotificationIdRef = useRef(0);
+
+  const playNotificationSound = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      const audioContext = new AudioContextClass();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(660, audioContext.currentTime + 0.12);
+      gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.16);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.18);
+      window.setTimeout(() => {
+        audioContext.close().catch(() => {});
+      }, 240);
+    } catch {}
+  }, []);
+
+  const dispatchDesktopNotification = useCallback((notification) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+
+    try {
+      const desktopNotification = new Notification(notification.title, {
+        body: notification.body || '您有新的工作通知',
+        tag: `xcloud-notification-${notification.id}`,
+      });
+
+      desktopNotification.onclick = () => {
+        window.focus();
+        if (notification.resourceType === 'task') {
+          writeHashNav('tasks');
+        } else {
+          writeHashNav('inbox');
+        }
+      };
+    } catch {}
+  }, []);
 
   const toggleSidebar = useCallback(() => {
     setSbCollapsed(prev => {
@@ -1291,6 +2039,7 @@ export default function Dashboard() {
 
   const navigate = useCallback((id) => {
     setActiveNav(id);
+    setShowDarkPanel(false);
     writeHashNav(id);
   }, []);
 
@@ -1307,11 +2056,82 @@ export default function Dashboard() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    let cancelled = false;
+
+    const syncNotifications = async (initialLoad = false) => {
+      try {
+        const [countResponse, settingsResponse, notificationsResponse] = await Promise.all([
+          authFetch('/api/notifications/unread-count'),
+          authFetch(`/api/settings/notifications?userId=${currentUser.id}`),
+          authFetch('/api/notifications?limit=10'),
+        ]);
+
+        const [countPayload, settingsPayload, notificationsPayload] = await Promise.all([
+          countResponse.json(),
+          settingsResponse.json(),
+          notificationsResponse.json(),
+        ]);
+
+        if (cancelled) return;
+
+        setInboxCount(Number(countPayload?.data?.count || 0));
+
+        const settings = settingsPayload?.settings || DEFAULT_NOTIFICATION_SETTINGS;
+        const notifications = Array.isArray(notificationsPayload?.data) ? notificationsPayload.data : [];
+        const newestId = notifications.reduce((maxId, item) => Math.max(maxId, Number(item.id) || 0), 0);
+
+        if (initialLoad || latestNotificationIdRef.current === 0) {
+          latestNotificationIdRef.current = newestId;
+          return;
+        }
+
+        const freshNotifications = notifications
+          .filter((item) => Number(item.id) > latestNotificationIdRef.current)
+          .sort((left, right) => Number(left.id) - Number(right.id));
+
+        if (newestId > latestNotificationIdRef.current) {
+          latestNotificationIdRef.current = newestId;
+        }
+
+        if (freshNotifications.length === 0) return;
+
+        freshNotifications.forEach((item) => {
+          if (settings.app_desktop) {
+            dispatchDesktopNotification(item);
+          }
+          if (settings.app_sound) {
+            playNotificationSound();
+          }
+        });
+      } catch {}
+    };
+
+    syncNotifications(true);
+    const resyncNotifications = () => {
+      syncNotifications(false);
+    };
+    const timer = window.setInterval(() => {
+      syncNotifications(false);
+    }, 30000);
+    window.addEventListener('xcloud-notifications-updated', resyncNotifications);
+    window.addEventListener('xcloud-notification-settings-updated', resyncNotifications);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('xcloud-notifications-updated', resyncNotifications);
+      window.removeEventListener('xcloud-notification-settings-updated', resyncNotifications);
+    };
+  }, [authFetch, currentUser?.id, dispatchDesktopNotification, playNotificationSound]);
+
   // ── 頁面路由 ──────────────────────────────────────────────
   const renderPage = () => {
     if (activeNav === 'home')          return <HomePage currentUser={currentUser} onNavigate={navigate} dashData={dashData} />;
     if (activeNav === 'inbox')         return <InboxPage />;
-    if (activeNav === 'my-tasks')      return <MyTasksPage />;
+    if (activeNav === 'my-tasks')      return <MyTasksWorkspacePage />;
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
@@ -1319,8 +2139,8 @@ export default function Dashboard() {
     if (activeNav === 'rules')         return <RulesPage />;
     if (activeNav === 'time')          return <TimeTrackingPage />;
     if (activeNav === 'goals')         return <GoalsPage />;
-    if (activeNav === 'portfolios')    return <PortfoliosPage />;
-    if (activeNav === 'workload')      return <WorkloadPage />;
+    if (activeNav === 'portfolios')    return <PortfoliosPage onNavigate={navigate} />;
+    if (activeNav === 'workload')      return <WorkloadPage onNavigate={navigate} />;
     if (activeNav === 'reports')       return <ReportsPage />;
     if (activeNav === 'team')          return <TeamPage />;
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
@@ -1347,10 +2167,27 @@ export default function Dashboard() {
         currentUser={currentUser}
         isCollapsed={sbCollapsed}
         onToggleCollapse={toggleSidebar}
+        authFetch={authFetch}
+        inboxCount={inboxCount}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
-        <Topbar activeNav={activeNav} onNavigate={navigate} onToggleSidebar={toggleSidebar} />
+        <Topbar
+          activeNav={activeNav}
+          onNavigate={navigate}
+          onToggleSidebar={toggleSidebar}
+          onOpenDarkPanel={() => setShowDarkPanel((current) => !current)}
+          darkPanelOpen={showDarkPanel}
+        />
+
+        <DarkPanel
+          open={showDarkPanel}
+          onClose={() => setShowDarkPanel(false)}
+          onNavigate={navigate}
+          currentUser={currentUser}
+          inboxCount={inboxCount}
+          dashData={dashData}
+        />
 
         <main style={{ flex: 1, minWidth: 0 }}>
           {renderPage()}

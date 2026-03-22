@@ -13,7 +13,7 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3001
+EXPOSE 3838
 
 # Vite 開發伺服器，--host 讓容器外部可以訪問
 CMD ["npm", "run", "dev"]

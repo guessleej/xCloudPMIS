@@ -13,6 +13,7 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import './LoginPage.css';
 
 // 使用相對路徑，由 Vite proxy 轉發到後端
 const API_BASE = '';
@@ -22,7 +23,7 @@ const C = {
   accent:    '#C41230',
   accentDk:  '#A00E26',
   accentLt:  '#FDF1F3',
-  pageBg:    '#F4F0F0',
+  pageBg:    '#F4EFE9',
   white:     '#FFFFFF',
   border:    '#E5E7EB',
   borderFocus:'#C41230',
@@ -221,89 +222,72 @@ export default function LoginPage() {
         }
       `}</style>
 
-      {/* 頁面背景 */}
-      <div style={{
-        minHeight: '100vh',
-        background: `linear-gradient(135deg, ${C.pageBg} 0%, #EDE5E5 50%, #F4F0F0 100%)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-        padding: '20px',
-      }}>
+      <div className="login-page">
+        <div className="login-page__shell">
+          <section className="login-page__brand" style={{ animation: 'fadeIn 0.4s ease' }}>
+            <div>
+              <div className="login-page__brand-badge">
+                <span className="login-page__brand-dot" />
+                xCloudPMIS Workspace
+              </div>
 
-        {/* 背景裝飾圓圈 */}
-        <div style={{
-          position: 'fixed', top: -100, right: -100,
-          width: 400, height: 400, borderRadius: '50%',
-          background: `${C.accent}08`, pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'fixed', bottom: -80, left: -80,
-          width: 300, height: 300, borderRadius: '50%',
-          background: `${C.accent}06`, pointerEvents: 'none',
-        }} />
+              <h1 className="login-page__brand-title">
+                專案管理，少一點表演，多一點進度。
+              </h1>
 
-        {/* 登入卡片 */}
-        <div style={{
-          width: '100%', maxWidth: 420,
-          background: C.white,
-          borderRadius: 20,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)',
-          padding: '44px 40px 36px 40px',
-          animation: 'fadeIn 0.4s ease',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
+              <p className="login-page__brand-copy">
+                給正在處理真實工作的人用的 PMIS。任務、專案、流程、工時與報告放在同一個系統裡，資訊一致，決策才會穩。
+              </p>
 
-          {/* 頂部品牌色條 */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            height: 4,
-            background: `linear-gradient(90deg, ${C.accent}, #E84060)`,
-          }} />
-
-          {/* Logo + 品牌 */}
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
-            {/* Logo 圖示 */}
-            <div style={{
-              width: 60, height: 60, borderRadius: 16,
-              background: C.accent,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 16,
-              boxShadow: `0 4px 16px ${C.accent}40`,
-            }}>
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
-                <path d="M16 8L24 22" stroke="white" strokeWidth="1.5" strokeOpacity="0.5" />
-                <circle cx="24" cy="10" r="3" fill="white" fillOpacity="0.6" />
-              </svg>
+              <div className="login-page__feature-list">
+                {[
+                  ['01', '任務與專案在同一條資料線上', '不用在不同工具之間手動比對狀態，進度與責任歸屬自然能接起來。'],
+                  ['02', '管理者與執行者看到的是同一套事實', '首頁、報告、工作台與收件匣共享資料來源，減少認知落差。'],
+                  ['03', '系統的節奏是幫助工作，而不是干擾工作', '把常用入口、搜尋與個人工作台放在第一層，維持日常操作的流暢度。'],
+                ].map(([index, title, copy]) => (
+                  <div key={index} className="login-page__feature">
+                    <div className="login-page__feature-index">{index}</div>
+                    <div>
+                      <div className="login-page__feature-title">{title}</div>
+                      <div className="login-page__feature-copy">{copy}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <h1 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 800, color: C.t1 }}>
-              xCloudPMIS
-            </h1>
-            <p style={{ margin: 0, fontSize: 13, color: C.t3 }}>
-              專案管理資訊系統
-            </p>
-          </div>
+            <div className="login-page__brand-footer">
+              <div className="login-page__brand-pill">任務、專案、流程、工時</div>
+              <div className="login-page__brand-pill">繁體中文企業協作介面</div>
+              <div className="login-page__brand-pill">xCloud 科技內部工作台</div>
+            </div>
+          </section>
 
-          {/* 歡迎文字 */}
-          <div style={{ marginBottom: 28 }}>
-            <h2 style={{ margin: '0 0 4px 0', fontSize: 18, fontWeight: 700, color: C.t1 }}>
-              歡迎回來
-            </h2>
-            <p style={{ margin: 0, fontSize: 13, color: C.t3 }}>
-              請輸入您的帳號和密碼以繼續
-            </p>
-          </div>
+          <section className="login-page__card" style={{ animation: 'fadeIn 0.4s ease' }}>
+            <div className="login-page__logo-wrap">
+              <div className="login-page__logo-row">
+                <div className="login-page__logo-box">
+                  <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                    <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
+                    <path d="M16 8L24 22" stroke="white" strokeWidth="1.5" strokeOpacity="0.5" />
+                    <circle cx="24" cy="10" r="3" fill="white" fillOpacity="0.6" />
+                  </svg>
+                </div>
+
+                <div>
+                  <p className="login-page__eyebrow">Secure Sign In</p>
+                  <h1 className="login-page__heading">登入 xCloudPMIS</h1>
+                </div>
+              </div>
+
+              <p className="login-page__subheading">
+                使用你的系統帳號進入工作台。登入後會直接回到個人首頁與工作區。
+              </p>
+            </div>
 
           {/* 全域錯誤提示 */}
           {errorMsg && (
-            <div style={{
-              background: '#FEF2F2', border: `1px solid #FCA5A5`,
-              borderRadius: 10, padding: '11px 14px',
-              marginBottom: 20, fontSize: 13, color: '#DC2626',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
+            <div className="login-page__error">
               <span style={{ fontSize: 16 }}>⛔</span>
               {errorMsg}
             </div>
@@ -357,26 +341,7 @@ export default function LoginPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '13px 0',
-              background: loading
-                ? '#E5A0AA'
-                : `linear-gradient(135deg, ${C.accent} 0%, #E84060 100%)`,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 15, fontWeight: 700,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transition: 'opacity 0.15s, transform 0.1s',
-              boxShadow: loading ? 'none' : `0 4px 16px ${C.accent}40`,
-              marginBottom: 20,
-            }}
-            onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.90'; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-            onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)'; }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            className="login-page__submit"
           >
             {loading ? (
               <>
@@ -387,24 +352,18 @@ export default function LoginPage() {
           </button>
 
           {/* 底部提示 */}
-          <div style={{
-            borderTop: `1px solid ${C.border}`,
-            paddingTop: 18, textAlign: 'center',
-          }}>
-            <p style={{ margin: 0, fontSize: 12, color: C.t3, lineHeight: 1.6 }}>
+          <div className="login-page__credentials">
+            <p style={{ margin: 0 }}>
               預設管理員帳號：<strong style={{ color: C.t2 }}>admin@dev.local</strong>
               <br />
               密碼：<strong style={{ color: C.t2 }}>dev@2026</strong>
             </p>
           </div>
-        </div>
 
-        {/* 版權 */}
-        <div style={{
-          position: 'fixed', bottom: 20, left: 0, right: 0,
-          textAlign: 'center', fontSize: 12, color: C.t3,
-        }}>
-          © 2026 xCloud 科技 · xCloudPMIS v2.0
+          <div className="login-page__footer">
+            © 2026 xCloud 科技 · xCloudPMIS v2.0
+          </div>
+        </section>
         </div>
       </div>
     </>

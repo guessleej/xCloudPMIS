@@ -1,0 +1,84 @@
+:root {
+  --xc-font-sans: "Avenir Next", "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+  --xc-bg: #f4efe9;
+  --xc-surface: #fffdfb;
+  --xc-surface-soft: #faf6f2;
+  --xc-border: #e6ddd4;
+  --xc-border-strong: #d9ccc1;
+  --xc-text: #1f2937;
+  --xc-text-soft: #6b7280;
+  --xc-brand: #c41230;
+  --xc-brand-dark: #8b1128;
+  --xc-shadow: 0 10px 28px rgba(52, 36, 30, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: var(--xc-bg);
+  color: var(--xc-text);
+  font-family: var(--xc-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)),
+    linear-gradient(180deg, #f3eee8 0%, #f6f2ee 100%);
+  color: var(--xc-text);
+  font-family: var(--xc-font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  letter-spacing: 0;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+}
+
+::selection {
+  background: rgba(196, 18, 48, 0.14);
+  color: #111827;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(139, 112, 90, 0.24);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 112, 90, 0.36);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}

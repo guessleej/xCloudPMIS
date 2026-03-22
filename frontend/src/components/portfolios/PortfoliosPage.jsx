@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const API = '';
@@ -142,24 +143,49 @@ function HealthBadge({ hkey, onClick }) {
 }
 
 // ── 狀態標籤 ─────────────────────────────────────────────────
+// 使用 position: fixed + Portal，避免被 overflow:hidden 的父容器裁切
 function StatusBadge({ skey, onChange }) {
   const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef();
   const s = STATUS_MAP[skey] || STATUS_MAP.active;
+
+  function handleToggle(e) {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left });
+    }
+    setOpen(o => !o);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
   return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{ background: s.bg, color: s.color, border: 'none', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button ref={btnRef} onClick={handleToggle}
+        style={{ background: s.bg, color: s.color, border: 'none', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' }}>
         {s.label} ▾
       </button>
-      {open && (
-        <div style={{ position: 'absolute', top: '110%', left: 0, background: C.white, border: `1px solid ${C.line}`, borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, minWidth: '110px', overflow: 'hidden' }}>
+      {open && createPortal(
+        <div onMouseDown={e => e.stopPropagation()}
+          style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, background: C.white, border: `1px solid ${C.line}`, borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 9999, minWidth: '120px', overflow: 'hidden' }}>
           {STATUS_OPTIONS.map(opt => (
-            <div key={opt.key} onClick={() => { onChange(opt.key); setOpen(false); }} style={{ padding: '8px 14px', fontSize: '13px', cursor: 'pointer', background: opt.key === skey ? opt.bg : 'transparent', color: opt.color, fontWeight: opt.key === skey ? '700' : '500' }}
+            <div key={opt.key}
+              onClick={() => { onChange(opt.key); setOpen(false); }}
+              style={{ padding: '9px 14px', fontSize: '13px', cursor: 'pointer', background: opt.key === skey ? opt.bg : 'transparent', color: opt.color, fontWeight: opt.key === skey ? '700' : '500' }}
               onMouseEnter={e => e.currentTarget.style.background = opt.bg}
               onMouseLeave={e => e.currentTarget.style.background = opt.key === skey ? opt.bg : 'transparent'}>
               {opt.label}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -392,7 +418,7 @@ function ColumnManager({ visible, onChange, onClose }) {
 // ══════════════════════════════════════════════════════════════
 // 主頁面
 // ══════════════════════════════════════════════════════════════
-export default function PortfoliosPage() {
+export default function PortfoliosPage({ onNavigate }) {
   const { user } = useAuth();
   const COMPANY_ID = user?.companyId;
 
@@ -664,7 +690,18 @@ export default function PortfoliosPage() {
                           <td style={tdStyle()}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                               <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: colorHex, flexShrink: 0 }} />
-                              <span style={{ fontWeight: '600', color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span
+                                onClick={() => onNavigate && onNavigate('projects')}
+                                title="點擊開啟專案"
+                                style={{
+                                  fontWeight: '600', color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  cursor: onNavigate ? 'pointer' : 'default',
+                                  textDecoration: isHovered && onNavigate ? 'underline' : 'none',
+                                  transition: 'color 0.1s',
+                                }}
+                                onMouseEnter={e => { if (onNavigate) e.currentTarget.style.color = C.brand; }}
+                                onMouseLeave={e => { e.currentTarget.style.color = C.ink; }}
+                              >
                                 {project.name}
                               </span>
                             </div>

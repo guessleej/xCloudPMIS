@@ -59,7 +59,7 @@ const CLIENT_ID     = () => process.env.OAUTH_MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = () => process.env.OAUTH_MICROSOFT_CLIENT_SECRET;
 const TENANT_ID     = () => process.env.OAUTH_MICROSOFT_TENANT_ID || 'common';
 const REDIRECT_URI  = () => process.env.OAUTH_REDIRECT_URI;
-const FRONTEND_URL  = () => process.env.FRONTEND_URL || 'http://localhost:3001';
+const FRONTEND_URL  = () => process.env.FRONTEND_URL || 'http://localhost:3838';
 
 // ── 佔位符偵測（.env 預設值尚未替換的常見格式）──────────────
 const PLACEHOLDER_PATTERNS = [

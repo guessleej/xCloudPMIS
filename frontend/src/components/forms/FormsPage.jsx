@@ -214,11 +214,17 @@ function FormCard({ form, selected, onClick }) {
         }}>{form.name}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {form.projectName && (
+        {form.projectId ? (
           <Badge
-            label={form.projectName}
+            label={form.projectName || '已綁定'}
             color={C.accent}
             bg={C.accentLt}
+          />
+        ) : (
+          <Badge
+            label="⚠ 未綁定專案"
+            color="#92400E"
+            bg="#FFFBEB"
           />
         )}
         <span style={{ fontSize: 11, color: C.ink4, marginLeft: 'auto' }}>
@@ -1072,6 +1078,7 @@ export default function FormsPage() {
 
   // ── Fetch projects from API ───────────────────────────────
   useEffect(() => {
+    if (!COMPANY_ID) return;
     setProjectsLoading(true);
     fetch(`${API}/api/projects?companyId=${COMPANY_ID}`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
@@ -1081,7 +1088,7 @@ export default function FormsPage() {
       })
       .catch(() => setProjects([]))
       .finally(() => setProjectsLoading(false));
-  }, []);
+  }, [COMPANY_ID]);
 
   // ── Derived state ─────────────────────────────────────────
   const filteredForms = filterProjectId

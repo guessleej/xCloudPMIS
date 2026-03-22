@@ -19,10 +19,10 @@ function LoadingScreen() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#F4F0F0',
+      background: 'linear-gradient(180deg, #f3eee8 0%, #f6f2ee 100%)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+      fontFamily: '"Avenir Next", "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif',
       gap: 20,
     }}>
       <style>{`
@@ -38,7 +38,7 @@ function LoadingScreen() {
         background: '#C41230',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'pulse 1.4s ease-in-out infinite',
-        boxShadow: '0 4px 20px rgba(196,18,48,0.30)',
+        boxShadow: '0 10px 24px rgba(196,18,48,0.16)',
       }}>
         <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
           <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
@@ -48,11 +48,11 @@ function LoadingScreen() {
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1010', marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1f2937', marginBottom: 4 }}>
           xCloudPMIS
         </div>
-        <div style={{ fontSize: 13, color: '#9E8E8E' }}>
-          系統載入中...
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          正在準備工作台...
         </div>
       </div>
     </div>

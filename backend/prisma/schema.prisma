@@ -39,6 +39,9 @@ model Company {
 
   users         User[]
   projects      Project[]
+  workspaces    Workspace[]
+  automationRules AutomationRule[]
+  automationRuleRuns AutomationRuleRun[]
   tags          Tag[]           // ← Phase 3 新增：公司共用標籤庫
   aiModelConfig AiModelConfig[] // ← Phase 4 新增：AI 模型設定
 
@@ -63,11 +66,25 @@ model User {
   phone       String?   @db.VarChar(50)            // 電話
   jobTitle    String?   @map("job_title") @db.VarChar(100) // 職稱
   joinedAt    DateTime? @map("joined_at") @db.Date // 加入日期
+  settings    Json?     @map("settings_json")      // 個人偏好（通知、介面設定）
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownedProjects Project[]
   assignedTasks Task[]         @relation("TaskAssignee")
   createdTasks  Task[]         @relation("TaskCreator")
+  createdWorkspaces Workspace[] @relation("WorkspaceCreator")
+  workspaceMemberships WorkspaceMember[]
+  createdTeams Team[] @relation("TeamCreator")
+  teamMemberships TeamMember[]
+  projectMemberships ProjectMember[]
+  taskAssigneeLinks TaskAssigneeLink[] @relation("TaskAssigneeLinkUser")
+  taskAssigneeAssignedBy TaskAssigneeLink[] @relation("TaskAssigneeLinkAssignedBy")
+  taskProjectAdded TaskProject[] @relation("TaskProjectAddedBy")
+  customFieldDefinitions CustomFieldDefinition[] @relation("CustomFieldCreator")
+  customFieldUserValues CustomFieldValue[] @relation("CustomFieldUserValue")
+  automationRulesCreated AutomationRule[] @relation("AutomationRuleCreator")
+  automationRulesUpdated AutomationRule[] @relation("AutomationRuleUpdater")
+  automationRuleRunsTriggered AutomationRuleRun[] @relation("AutomationRuleTriggeredBy")
 
   // ── Phase 3 新增的關聯 ────────────────────────────────
   timeEntries   TimeEntry[]    // 這個人的所有工時記錄
@@ -90,27 +107,100 @@ enum Role {
   member
 }
 
+enum WorkspaceVisibility {
+  company
+  private
+}
+
+enum WorkspaceMemberRole {
+  admin
+  member
+  guest
+}
+
+enum TeamPrivacy {
+  open
+  closed
+  private
+}
+
+enum TeamMemberRole {
+  lead
+  member
+  guest
+}
+
+enum ProjectAccess {
+  team
+  private
+}
+
+enum ProjectMemberRole {
+  owner
+  editor
+  commenter
+  viewer
+}
+
+enum CustomFieldScope {
+  workspace
+  team
+  project
+}
+
+enum CustomFieldEntityType {
+  task
+  project
+}
+
+enum CustomFieldType {
+  text
+  number
+  currency
+  percent
+  checkbox
+  date
+  datetime
+  single_select
+  multi_select
+  people
+}
+
 model Project {
   id          Int           @id @default(autoincrement())
   companyId   Int           @map("company_id")
+  workspaceId Int?          @map("workspace_id")
+  teamId      Int?          @map("team_id")
   ownerId     Int?          @map("owner_id")
   name        String        @db.VarChar(255)
   description String        @default("")
   status      ProjectStatus @default(active)
+  access      ProjectAccess @default(team)
   budget      Decimal?      @db.Decimal(15, 2)
   startDate   DateTime?     @map("start_date") @db.Date
   endDate     DateTime?     @map("end_date") @db.Date
+  archivedAt  DateTime?     @map("archived_at")
   deletedAt   DateTime?     @map("deleted_at")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workspace  Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  team       Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
   owner      User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   tasks      Task[]
+  taskProjects TaskProject[]
+  automationRuleScopes AutomationRuleProject[]
+  automationRuleRuns AutomationRuleRun[]
+  members    ProjectMember[]
+  customFieldLinks ProjectCustomField[]
+  customFieldValues CustomFieldValue[] @relation("ProjectCustomFieldValues")
   milestones Milestone[] // ← Phase 3 新增：里程碑
   aiDecisions AiDecision[] // ← AI 自主代理決策記錄
 
   @@index([companyId])
+  @@index([workspaceId])
+  @@index([teamId])
   @@index([ownerId])
   @@index([status])
   @@index([deletedAt])
@@ -123,6 +213,96 @@ enum ProjectStatus {
   on_hold
   completed
   cancelled
+  archived
+}
+
+enum AutomationRuleTriggerType {
+  task_created
+  task_completed
+  due_date_approaching
+  status_changed
+  assignee_changed
+  field_changed
+}
+
+enum AutomationRuleRunStatus {
+  success
+  skipped
+  failed
+}
+
+model AutomationRule {
+  id              Int                       @id @default(autoincrement())
+  companyId       Int                       @map("company_id")
+  createdById     Int?                      @map("created_by_id")
+  updatedById     Int?                      @map("updated_by_id")
+  ruleKey         String                    @default(cuid()) @map("rule_key") @db.VarChar(120)
+  name            String                    @db.VarChar(255)
+  description     String                    @default("")
+  isEnabled       Boolean                   @default(true) @map("is_enabled")
+  isSystem        Boolean                   @default(false) @map("is_system")
+  triggerType     AutomationRuleTriggerType @map("trigger_type")
+  triggerConfig   Json?                     @map("trigger_config")
+  conditions      Json?
+  actions         Json?
+  triggerCount    Int                       @default(0) @map("trigger_count")
+  lastTriggeredAt DateTime?                 @map("last_triggered_at")
+  deletedAt       DateTime?                 @map("deleted_at")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("AutomationRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?   @relation("AutomationRuleUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  projectScopes AutomationRuleProject[]
+  runs          AutomationRuleRun[]
+
+  @@unique([companyId, ruleKey])
+  @@index([companyId, isEnabled])
+  @@index([createdById])
+  @@index([updatedById])
+  @@index([deletedAt])
+  @@map("automation_rules")
+}
+
+model AutomationRuleProject {
+  ruleId     Int      @map("rule_id")
+  projectId  Int      @map("project_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  rule    AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([ruleId, projectId])
+  @@index([projectId])
+  @@map("automation_rule_projects")
+}
+
+model AutomationRuleRun {
+  id            Int                     @id @default(autoincrement())
+  ruleId         Int                     @map("rule_id")
+  companyId      Int                     @map("company_id")
+  projectId      Int?                    @map("project_id")
+  taskId         Int?                    @map("task_id")
+  triggeredById  Int?                    @map("triggered_by_id")
+  status         AutomationRuleRunStatus @default(success)
+  context        Json?
+  result         Json?
+  createdAt      DateTime                @default(now()) @map("created_at")
+
+  rule        AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task        Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  triggeredBy User?          @relation("AutomationRuleTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([ruleId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([triggeredById])
+  @@map("automation_rule_runs")
 }
 
 // ── 任務表（Phase 3 新增三個欄位 + 多個新關聯）─────────────
@@ -131,6 +311,7 @@ model Task {
   projectId      Int        @map("project_id")
   assigneeId     Int?       @map("assignee_id")
   createdById    Int?       @map("created_by")
+  parentTaskId   Int?       @map("parent_task_id")
   title          String     @db.VarChar(500)
   description    String     @default("")
   status         TaskStatus @default(todo)
@@ -140,6 +321,8 @@ model Task {
   // ── Phase 3 新增欄位 ──────────────────────────────────
   /// 實際花費工時（從 time_entries 匯總，方便快速查詢不用每次計算）
   actualHours    Decimal?   @map("actual_hours") @db.Decimal(6, 2)
+  /// 用於顯示父任務/大型任務的完成進度條（0~100）
+  progressPercent Int       @default(0) @map("progress_percent")
   /// 任務實際開始時間（第一次把狀態改為 in_progress 的時間）
   startedAt      DateTime?  @map("started_at")
   /// 任務實際完成時間（把狀態改為 done 的時間）
@@ -155,6 +338,11 @@ model Task {
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignee     User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   createdBy    User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  parentTask   Task?    @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks     Task[]   @relation("TaskSubtasks")
+  taskProjects TaskProject[]
+  taskAssigneeLinks TaskAssigneeLink[]
+  customFieldValues CustomFieldValue[] @relation("TaskCustomFieldValues")
 
   // ── Phase 3 新增的關聯 ────────────────────────────────
   /// 這個任務「依賴哪些前置任務」（例：Task A 必須先完成，我才能開始）
@@ -169,13 +357,143 @@ model Task {
   taskTags        TaskTag[]     // 這個任務的所有標籤（多對多）
   aiDecisions     AiDecision[]  // ← AI 自主代理決策記錄
   checklistItems  ChecklistItem[] // 任務待辦清單項目
+  automationRuleRuns AutomationRuleRun[]
 
   @@index([projectId])
   @@index([assigneeId])
+  @@index([parentTaskId])
   @@index([status])
   @@index([priority])
   @@index([deletedAt])
   @@map("tasks")
+}
+
+model Workspace {
+  id          Int                 @id @default(autoincrement())
+  companyId   Int                 @map("company_id")
+  createdById Int?                @map("created_by_id")
+  name        String              @db.VarChar(255)
+  slug        String              @db.VarChar(100)
+  description String              @default("")
+  visibility  WorkspaceVisibility @default(company)
+  isDefault   Boolean             @default(false) @map("is_default")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members                WorkspaceMember[]
+  teams                  Team[]
+  projects               Project[]
+  customFieldDefinitions CustomFieldDefinition[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@index([createdById])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId Int                 @map("workspace_id")
+  userId      Int                 @map("user_id")
+  role        WorkspaceMemberRole @default(member)
+  joinedAt    DateTime            @default(now()) @map("joined_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model Team {
+  id          Int         @id @default(autoincrement())
+  workspaceId Int         @map("workspace_id")
+  createdById Int?        @map("created_by_id")
+  name        String      @db.VarChar(255)
+  slug        String      @db.VarChar(100)
+  description String      @default("")
+  privacy     TeamPrivacy @default(private)
+  color       String?     @db.VarChar(20)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("TeamCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members  TeamMember[]
+  projects Project[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId   Int            @map("team_id")
+  userId   Int            @map("user_id")
+  role     TeamMemberRole @default(member)
+  joinedAt DateTime       @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+model ProjectMember {
+  projectId Int               @map("project_id")
+  userId    Int               @map("user_id")
+  role      ProjectMemberRole @default(editor)
+  joinedAt  DateTime          @default(now()) @map("joined_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model TaskProject {
+  taskId     Int      @map("task_id")
+  projectId  Int      @map("project_id")
+  addedById  Int?     @map("added_by_id")
+  position   Int      @default(0)
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  addedBy User?   @relation("TaskProjectAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([taskId, projectId])
+  @@index([projectId, position])
+  @@index([addedById])
+  @@map("task_projects")
+}
+
+model TaskAssigneeLink {
+  taskId       Int      @map("task_id")
+  userId       Int      @map("user_id")
+  assignedById Int?     @map("assigned_by_id")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+
+  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User  @relation("TaskAssigneeLinkUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("TaskAssigneeLinkAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@index([assignedById])
+  @@map("task_assignees")
 }
 
 model ChecklistItem {
@@ -340,6 +658,20 @@ model Attachment {
   @@map("attachments")
 }
 
+model MyFile {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @default(4) @map("user_id")
+  originalName  String   @map("original_name") @db.VarChar(255)
+  storedName    String   @unique @map("stored_name") @db.VarChar(255)
+  mimeType      String   @default("") @map("mime_type") @db.VarChar(100)
+  fileSizeBytes BigInt   @default(0) @map("file_size_bytes")
+  filePath      String   @map("file_path") @db.VarChar(500)
+  ext           String   @default("") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("my_files")
+}
+
 // ── 表格 9：comments（評論與回覆串）─────────────────────────
 //
 // 巢狀評論結構：
@@ -408,6 +740,116 @@ model TaskTag {
 
   @@id([taskId, tagId])  // 複合主鍵：一個任務不能有兩個相同標籤
   @@map("task_tags")
+}
+
+model CustomFieldDefinition {
+  id           Int                   @id @default(autoincrement())
+  workspaceId  Int?                  @map("workspace_id")
+  createdById  Int?                  @map("created_by_id")
+  name         String                @db.VarChar(255)
+  description  String                @default("")
+  fieldType    CustomFieldType       @map("field_type")
+  entityType   CustomFieldEntityType @default(task) @map("entity_type")
+  scope        CustomFieldScope      @default(project)
+  isRequired   Boolean               @default(false) @map("is_required")
+  isArchived   Boolean               @default(false) @map("is_archived")
+  sortOrder    Int                   @default(0) @map("sort_order")
+  currencyCode String?               @map("currency_code") @db.VarChar(3)
+  settings     Json?                 @map("settings_json")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  createdBy User?      @relation("CustomFieldCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  options  CustomFieldOption[]
+  projects ProjectCustomField[]
+  values   CustomFieldValue[]
+
+  @@index([workspaceId, entityType])
+  @@index([createdById])
+  @@index([scope])
+  @@map("custom_field_definitions")
+}
+
+model CustomFieldOption {
+  id           Int      @id @default(autoincrement())
+  definitionId Int      @map("definition_id")
+  name         String   @db.VarChar(255)
+  color        String?  @db.VarChar(20)
+  sortOrder    Int      @default(0) @map("sort_order")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  definition         CustomFieldDefinition  @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  singleSelectValues CustomFieldValue[]     @relation("SingleSelectOptionValue")
+  multiSelectValues  CustomFieldValueOption[]
+
+  @@unique([definitionId, name])
+  @@index([definitionId, sortOrder])
+  @@map("custom_field_options")
+}
+
+model ProjectCustomField {
+  projectId    Int      @map("project_id")
+  definitionId Int      @map("definition_id")
+  isPinned     Boolean  @default(false) @map("is_pinned")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  definition CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, definitionId])
+  @@index([definitionId])
+  @@map("project_custom_fields")
+}
+
+model CustomFieldValue {
+  id            Int       @id @default(autoincrement())
+  definitionId  Int       @map("definition_id")
+  taskId        Int?      @map("task_id")
+  projectId     Int?      @map("project_id")
+  textValue     String?   @map("text_value") @db.Text
+  numberValue   Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue  Boolean?  @map("boolean_value")
+  dateValue     DateTime? @map("date_value") @db.Date
+  dateTimeValue DateTime? @map("datetime_value")
+  userValueId   Int?      @map("user_value_id")
+  optionValueId Int?      @map("option_value_id")
+  jsonValue     Json?     @map("json_value")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  definition  CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  task        Task?                 @relation("TaskCustomFieldValues", fields: [taskId], references: [id], onDelete: Cascade)
+  project     Project?              @relation("ProjectCustomFieldValues", fields: [projectId], references: [id], onDelete: Cascade)
+  userValue   User?                 @relation("CustomFieldUserValue", fields: [userValueId], references: [id], onDelete: SetNull)
+  optionValue CustomFieldOption?    @relation("SingleSelectOptionValue", fields: [optionValueId], references: [id], onDelete: SetNull)
+
+  multiSelectOptions CustomFieldValueOption[]
+
+  @@unique([definitionId, taskId])
+  @@unique([definitionId, projectId])
+  @@index([taskId])
+  @@index([projectId])
+  @@index([userValueId])
+  @@index([optionValueId])
+  @@map("custom_field_values")
+}
+
+model CustomFieldValueOption {
+  valueId   Int      @map("value_id")
+  optionId  Int      @map("option_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  value  CustomFieldValue  @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  option CustomFieldOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([valueId, optionId])
+  @@index([optionId])
+  @@map("custom_field_value_options")
 }
 
 // ── 表格 12：notifications（使用者通知）─────────────────────

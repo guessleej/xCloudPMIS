@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
@@ -16,22 +18,32 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@azure/msal-node": "^3.8.10",
     "@prisma/client": "^5.8.1",
+    "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
-    "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^6.32.0",
     "pg": "^8.11.3",
-    "redis": "^4.6.13"
+    "redis": "^4.6.13",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
     "prisma": "^5.8.1"
   },
   "nodemonConfig": {
-    "watch": ["src"],
+    "watch": [
+      "src"
+    ],
     "ext": "js,json",
-    "ignore": ["node_modules", "prisma"]
+    "ignore": [
+      "node_modules",
+      "prisma"
+    ]
   }
 }

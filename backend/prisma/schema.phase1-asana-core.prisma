@@ -1,0 +1,520 @@
+// ============================================================
+// xCloudPMIS Phase 1 Core Schema Draft
+// Asana-aligned core data model for:
+//   - Workspace -> Team -> Project hierarchy
+//   - Task <-> Project many-to-many membership
+//   - Unlimited subtasks via adjacency list
+//   - Custom field definitions and typed values
+//
+// Notes
+// 1. Company is intentionally retained as the SaaS tenant boundary.
+// 2. Workspace is introduced as the collaboration boundary inside a company.
+// 3. This file is a migration target draft, so the current runtime schema
+//    can stay stable while Phase 1 API work is still in progress.
+// ============================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  admin
+  pm
+  member
+}
+
+enum WorkspaceVisibility {
+  company
+  private
+}
+
+enum WorkspaceMemberRole {
+  admin
+  member
+  guest
+}
+
+enum TeamPrivacy {
+  open
+  closed
+  private
+}
+
+enum TeamMemberRole {
+  lead
+  member
+  guest
+}
+
+enum ProjectStatus {
+  planning
+  active
+  on_hold
+  completed
+  cancelled
+  archived
+}
+
+enum ProjectAccess {
+  team
+  private
+}
+
+enum ProjectMemberRole {
+  owner
+  editor
+  commenter
+  viewer
+}
+
+enum TaskStatus {
+  backlog
+  todo
+  in_progress
+  blocked
+  review
+  done
+  cancelled
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum DependencyType {
+  finish_to_start
+  start_to_start
+  finish_to_finish
+  start_to_finish
+}
+
+enum CustomFieldScope {
+  workspace
+  team
+  project
+}
+
+enum CustomFieldEntityType {
+  task
+  project
+}
+
+enum CustomFieldType {
+  text
+  number
+  currency
+  percent
+  checkbox
+  date
+  datetime
+  single_select
+  multi_select
+  people
+}
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  logoUrl   String?  @map("logo_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users      User[]
+  workspaces Workspace[]
+  projects   Project[]
+  tasks      Task[]
+
+  @@map("companies")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  companyId    Int       @map("company_id")
+  name         String    @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash")
+  role         Role      @default(member)
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  department String?   @db.VarChar(100)
+  phone      String?   @db.VarChar(50)
+  jobTitle   String?   @map("job_title") @db.VarChar(100)
+  joinedAt   DateTime? @map("joined_at") @db.Date
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdWorkspaces      Workspace[]          @relation("WorkspaceCreator")
+  workspaceMemberships   WorkspaceMember[]
+  createdTeams           Team[]               @relation("TeamCreator")
+  teamMemberships        TeamMember[]
+  ownedProjects          Project[]            @relation("ProjectOwner")
+  projectMemberships     ProjectMember[]
+  createdTasks           Task[]               @relation("TaskCreator")
+  taskAssignments        TaskAssignee[]       @relation("AssignedUser")
+  taskAssignmentActions  TaskAssignee[]       @relation("TaskAssignedBy")
+  taskProjectActions     TaskProject[]        @relation("TaskProjectAddedBy")
+  customFieldDefinitions CustomFieldDefinition[] @relation("CustomFieldCreator")
+  customFieldUserValues  CustomFieldValue[]   @relation("CustomFieldUserValue")
+
+  @@index([companyId])
+  @@index([email])
+  @@map("users")
+}
+
+model Workspace {
+  id          Int                 @id @default(autoincrement())
+  companyId   Int                 @map("company_id")
+  createdById Int?                @map("created_by_id")
+  name        String              @db.VarChar(255)
+  slug        String              @db.VarChar(100)
+  description String              @default("")
+  visibility  WorkspaceVisibility @default(company)
+  isDefault   Boolean             @default(false) @map("is_default")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members                WorkspaceMember[]
+  teams                  Team[]
+  projects               Project[]
+  tasks                  Task[]
+  customFieldDefinitions CustomFieldDefinition[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@index([createdById])
+  @@map("workspaces")
+}
+
+// Workspace membership is explicit so private workspaces and future guests
+// can be modeled without overloading the company-wide user table.
+model WorkspaceMember {
+  workspaceId Int                 @map("workspace_id")
+  userId      Int                 @map("user_id")
+  role        WorkspaceMemberRole @default(member)
+  joinedAt    DateTime            @default(now()) @map("joined_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model Team {
+  id          Int         @id @default(autoincrement())
+  workspaceId Int         @map("workspace_id")
+  createdById Int?        @map("created_by_id")
+  name        String      @db.VarChar(255)
+  slug        String      @db.VarChar(100)
+  description String      @default("")
+  privacy     TeamPrivacy @default(private)
+  color       String?     @db.VarChar(20)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("TeamCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members  TeamMember[]
+  projects Project[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId    Int            @map("team_id")
+  userId    Int            @map("user_id")
+  role      TeamMemberRole @default(member)
+  joinedAt  DateTime       @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+model Project {
+  id          Int           @id @default(autoincrement())
+  companyId   Int           @map("company_id")
+  workspaceId Int           @map("workspace_id")
+  teamId      Int?          @map("team_id")
+  ownerId     Int?          @map("owner_id")
+  name        String        @db.VarChar(255)
+  description String        @default("")
+  status      ProjectStatus @default(active)
+  access      ProjectAccess @default(team)
+  startDate   DateTime?     @map("start_date") @db.Date
+  endDate     DateTime?     @map("end_date") @db.Date
+  archivedAt  DateTime?     @map("archived_at")
+  deletedAt   DateTime?     @map("deleted_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  owner     User?     @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  members           ProjectMember[]
+  taskLinks         TaskProject[]
+  customFieldLinks  ProjectCustomField[]
+  customFieldValues CustomFieldValue[] @relation("ProjectCustomFieldValues")
+
+  @@index([companyId])
+  @@index([workspaceId])
+  @@index([teamId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId Int               @map("project_id")
+  userId    Int               @map("user_id")
+  role      ProjectMemberRole @default(editor)
+  joinedAt  DateTime          @default(now()) @map("joined_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+// Task is anchored to a workspace instead of a single project. The actual
+// project memberships now live in TaskProject so one task can appear in
+// multiple projects while still preserving one tenant/workspace boundary.
+model Task {
+  id             Int        @id @default(autoincrement())
+  companyId      Int        @map("company_id")
+  workspaceId    Int        @map("workspace_id")
+  createdById    Int?       @map("created_by_id")
+  parentTaskId   Int?       @map("parent_task_id")
+  title          String     @db.VarChar(500)
+  description    String     @default("")
+  status         TaskStatus @default(todo)
+  priority       Priority   @default(medium)
+  estimatedHours Decimal?   @map("estimated_hours") @db.Decimal(8, 2)
+  actualHours    Decimal?   @map("actual_hours") @db.Decimal(8, 2)
+  startDate      DateTime?  @map("start_date") @db.Date
+  dueDate        DateTime?  @map("due_date") @db.Date
+  completedAt    DateTime?  @map("completed_at")
+  deletedAt      DateTime?  @map("deleted_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  parent   Task?  @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks Task[] @relation("TaskSubtasks")
+
+  projects          TaskProject[]
+  assignees         TaskAssignee[]
+  dependencies      TaskDependency[] @relation("TaskDependencies")
+  dependents        TaskDependency[] @relation("TaskDependents")
+  customFieldValues CustomFieldValue[] @relation("TaskCustomFieldValues")
+
+  @@index([companyId])
+  @@index([workspaceId])
+  @@index([createdById])
+  @@index([parentTaskId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+// TaskProject stores per-project placement metadata. isPrimary is the
+// compatibility bridge for legacy flows that still assume a "main" project.
+model TaskProject {
+  taskId     Int      @map("task_id")
+  projectId  Int      @map("project_id")
+  addedById  Int?     @map("added_by_id")
+  position   Int      @default(0)
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  task     Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  addedBy  User?   @relation("TaskProjectAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([taskId, projectId])
+  @@index([projectId, position])
+  @@index([taskId, isPrimary])
+  @@index([addedById])
+  @@map("task_projects")
+}
+
+model TaskAssignee {
+  taskId       Int      @map("task_id")
+  userId       Int      @map("user_id")
+  assignedById Int?     @map("assigned_by_id")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+
+  task       Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User  @relation("AssignedUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@index([assignedById])
+  @@map("task_assignees")
+}
+
+model TaskDependency {
+  taskId          Int            @map("task_id")
+  dependsOnTaskId Int            @map("depends_on_task_id")
+  dependencyType  DependencyType @default(finish_to_start) @map("dependency_type")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  task          Task @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTask Task @relation("TaskDependents", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, dependsOnTaskId])
+  @@index([dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+model CustomFieldDefinition {
+  id           Int                   @id @default(autoincrement())
+  workspaceId  Int                   @map("workspace_id")
+  createdById  Int?                  @map("created_by_id")
+  name         String                @db.VarChar(255)
+  description  String                @default("")
+  fieldType    CustomFieldType       @map("field_type")
+  entityType   CustomFieldEntityType @default(task) @map("entity_type")
+  scope        CustomFieldScope      @default(project)
+  isRequired   Boolean               @default(false) @map("is_required")
+  isArchived   Boolean               @default(false) @map("is_archived")
+  sortOrder    Int                   @default(0) @map("sort_order")
+  currencyCode String?               @map("currency_code") @db.VarChar(3)
+  settings     Json?                 @map("settings_json")
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("CustomFieldCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  options      CustomFieldOption[]
+  projects     ProjectCustomField[]
+  values       CustomFieldValue[]
+
+  @@index([workspaceId, entityType])
+  @@index([createdById])
+  @@index([scope])
+  @@map("custom_field_definitions")
+}
+
+model CustomFieldOption {
+  id           Int      @id @default(autoincrement())
+  definitionId Int      @map("definition_id")
+  name         String   @db.VarChar(255)
+  color        String?  @db.VarChar(20)
+  sortOrder    Int      @default(0) @map("sort_order")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  definition         CustomFieldDefinition   @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  singleSelectValues CustomFieldValue[]      @relation("SingleSelectOptionValue")
+  multiSelectValues  CustomFieldValueOption[]
+
+  @@unique([definitionId, name])
+  @@index([definitionId, sortOrder])
+  @@map("custom_field_options")
+}
+
+model ProjectCustomField {
+  projectId    Int      @map("project_id")
+  definitionId Int      @map("definition_id")
+  isPinned     Boolean  @default(false) @map("is_pinned")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project    Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  definition CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, definitionId])
+  @@index([definitionId])
+  @@map("project_custom_fields")
+}
+
+// Prisma cannot express XOR checks like:
+//   1. exactly one of taskId/projectId must be present
+//   2. only the typed value column allowed by fieldType may be populated
+// Add those as SQL CHECK constraints in the migration layer.
+model CustomFieldValue {
+  id            Int       @id @default(autoincrement())
+  definitionId  Int       @map("definition_id")
+  taskId        Int?      @map("task_id")
+  projectId     Int?      @map("project_id")
+  textValue     String?   @map("text_value") @db.Text
+  numberValue   Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue  Boolean?  @map("boolean_value")
+  dateValue     DateTime? @map("date_value") @db.Date
+  dateTimeValue DateTime? @map("datetime_value")
+  userValueId   Int?      @map("user_value_id")
+  optionValueId Int?      @map("option_value_id")
+  jsonValue     Json?     @map("json_value")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  definition  CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  task        Task?                 @relation("TaskCustomFieldValues", fields: [taskId], references: [id], onDelete: Cascade)
+  project     Project?              @relation("ProjectCustomFieldValues", fields: [projectId], references: [id], onDelete: Cascade)
+  userValue   User?                 @relation("CustomFieldUserValue", fields: [userValueId], references: [id], onDelete: SetNull)
+  optionValue CustomFieldOption?    @relation("SingleSelectOptionValue", fields: [optionValueId], references: [id], onDelete: SetNull)
+
+  multiSelectOptions CustomFieldValueOption[]
+
+  @@unique([definitionId, taskId])
+  @@unique([definitionId, projectId])
+  @@index([taskId])
+  @@index([projectId])
+  @@index([userValueId])
+  @@index([optionValueId])
+  @@map("custom_field_values")
+}
+
+model CustomFieldValueOption {
+  valueId    Int      @map("value_id")
+  optionId   Int      @map("option_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  value  CustomFieldValue  @relation(fields: [valueId], references: [id], onDelete: Cascade)
+  option CustomFieldOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([valueId, optionId])
+  @@index([optionId])
+  @@map("custom_field_value_options")
+}
