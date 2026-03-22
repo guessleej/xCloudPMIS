@@ -865,11 +865,13 @@ xCloudPMIS/
 - **專案集狀態 Dropdown 修復**：`StatusBadge` 改用 `position: fixed` + React `createPortal` 渲染至 `document.body`，解決父容器 `overflow: hidden` 裁切問題
 - **專案集名稱可點擊導航**：點擊表格中的專案名稱直接跳轉至「所有專案」頁面，hover 顯示品牌色底線
 
-### 🚧 Phase 8 — 計畫中
-- GitHub Actions CI/CD 自動化流程
-- 完整 JWT 認證前端整合
-- Kubernetes Helm Chart 支援
-- 多語言 i18n（繁中 / 英文）
+### ✅ Phase 8 — QA 驗收 + 安全加固（2026-03-22）
+- **JWT 完整前端認證整合**：登入系統實作（bcrypt 密碼驗證、JWT 簽發、AuthContext、authFetch 攔截器、登出）
+- **dev-token 資安修正**：`/api/auth/dev-token` 改為 production 環境完全不掛載（Node.js 條件 require）
+- **Dashboard 即時進度**：專案清單新增水平進度條（紅 / 橙 / 綠三色依完成率），30 秒自動輪詢 + 🔄 手動刷新
+- **程式碼清理**：移除孤立元件（RealtimeEditor、DiscoveryPage）、重複服務目錄、孤立 `.ts` 型別檔
+- **依賴修正**：前端移除 `@tiptap/*`、`yjs` 系列（~500 KB）；後端補宣告 `dotenv`、`multer`、`uuid`，移除 `express-validator`、`typescript`、`ts-node`
+- **dev seed 整理**：財政部示範資料移至 `backend/scripts/seeds/`，明確標示不可用於 production
 
 ---
 
