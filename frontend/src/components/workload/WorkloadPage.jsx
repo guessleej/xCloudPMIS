@@ -4,7 +4,25 @@ import { useAuth } from '../../context/AuthContext';
 // ─── Brand Colors ───────────────────────────────────────────────────────────
 const BRAND = {
   accent: 'var(--xc-brand)',
-  pageBg: 'var(--xc-bg)',
+  accentDeep: 'var(--xc-brand-dark)',
+  accentSoft: 'var(--xc-brand-soft)',
+  pageBg: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 10%, var(--xc-bg) 90%) 0%, var(--xc-bg) 18%, var(--xc-bg-soft) 100%)',
+  surface: 'var(--xc-surface)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  successSoft: 'var(--xc-success-soft)',
+  panel: 'color-mix(in srgb, var(--xc-surface) 94%, transparent)',
+  panelStrong: 'color-mix(in srgb, var(--xc-surface-strong) 84%, var(--xc-surface) 16%)',
+  rowHover: 'color-mix(in srgb, var(--xc-brand) 8%, var(--xc-surface-strong))',
 };
 
 const LOAD_COLOR = {
@@ -174,9 +192,10 @@ function TaskTooltip({ task, onClose, onNavigate }) {
     >
       <div
         style={{
-          background: '#fff', borderRadius: 12, padding: 20,
+          background: BRAND.panelStrong, borderRadius: 12, padding: 20,
+          border: `1px solid ${BRAND.border}`,
           minWidth: 280, maxWidth: 360,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          boxShadow: BRAND.shadowStrong,
           position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -186,12 +205,12 @@ function TaskTooltip({ task, onClose, onNavigate }) {
           style={{
             position: 'absolute', top: 12, right: 12,
             background: 'none', border: 'none',
-            cursor: 'pointer', fontSize: 18, color: '#9CA3AF',
+            cursor: 'pointer', fontSize: 18, color: BRAND.textMuted,
           }}
         >
           ✕
         </button>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 12, paddingRight: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: BRAND.text, marginBottom: 12, paddingRight: 24 }}>
           {task.name}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -236,8 +255,8 @@ function TaskTooltip({ task, onClose, onNavigate }) {
 function Row({ label, value }) {
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      <span style={{ color: '#6B7280', fontSize: 13, minWidth: 70 }}>{label}</span>
-      <span style={{ color: '#111', fontSize: 13, fontWeight: 500 }}>{value}</span>
+      <span style={{ color: BRAND.textMuted, fontSize: 13, minWidth: 70 }}>{label}</span>
+      <span style={{ color: BRAND.text, fontSize: 13, fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
@@ -279,15 +298,15 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
           {/* Sticky header */}
           <div style={{
             display: 'flex', position: 'sticky', top: 0, zIndex: 10,
-            background: '#fff', borderBottom: '2px solid #E5E7EB',
+            background: BRAND.panelStrong, borderBottom: `2px solid ${BRAND.border}`,
           }}>
             {/* Left corner */}
             <div style={{
               width: LEFT_COL, flexShrink: 0,
-              borderRight: '1px solid #E5E7EB',
+              borderRight: `1px solid ${BRAND.border}`,
               padding: '8px 16px',
               display: 'flex', alignItems: 'center',
-              fontSize: 12, fontWeight: 600, color: '#6B7280',
+              fontSize: 12, fontWeight: 600, color: BRAND.textMuted,
             }}>
               成員
             </div>
@@ -302,19 +321,19 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
                   style={{
                     width: DAY_W, flexShrink: 0, textAlign: 'center',
                     padding: '6px 2px',
-                    background: isToday ? '#EFF6FF' : 'transparent',
-                    borderRight: '1px solid #F3F4F6',
+                    background: isToday ? BRAND.accentSoft : 'transparent',
+                    borderRight: `1px solid ${BRAND.surfaceMuted}`,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                   }}
                 >
-                  <span style={{ fontSize: 11, color: isToday ? '#2563EB' : '#9CA3AF', fontWeight: 600 }}>{top}</span>
+                  <span style={{ fontSize: 11, color: isToday ? BRAND.accentDeep : BRAND.textMuted, fontWeight: 600 }}>{top}</span>
                   <span style={{
                     fontSize: 12, fontWeight: 700,
-                    color: isToday ? '#2563EB' : '#374151',
+                    color: isToday ? BRAND.accentDeep : BRAND.textSoft,
                   }}>{bottom}</span>
                   {isToday && (
-                    <div style={{ width: 20, height: 3, borderRadius: 2, background: '#2563EB', marginTop: 2 }} />
+                    <div style={{ width: 20, height: 3, borderRadius: 2, background: BRAND.accent, marginTop: 2 }} />
                   )}
                 </div>
               );
@@ -331,32 +350,32 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
             const isExpanded = expandedMembers.has(member.id);
 
             return (
-              <div key={member.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
+              <div key={member.id} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
                 {/* Row */}
                 <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 56 }}>
                   {/* Left: member info */}
                   <div
                     style={{
                       width: LEFT_COL, flexShrink: 0,
-                      borderRight: '1px solid #E5E7EB',
+                      borderRight: `1px solid ${BRAND.border}`,
                       padding: '8px 12px',
                       display: 'flex', alignItems: 'center', gap: 10,
                       cursor: 'pointer',
-                      background: isExpanded ? '#FEF2F2' : '#fff',
+                      background: isExpanded ? BRAND.accentSoft : BRAND.panelStrong,
                       transition: 'background 0.15s',
                     }}
                     onClick={() => onToggleMember(member.id)}
                   >
                     <Avatar member={member} size={36} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: BRAND.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {member.name}
                       </div>
-                      <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>
+                      <div style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 1 }}>
                         {totalTasks} 任務 · {totalHours}h
                       </div>
                     </div>
-                    <span style={{ fontSize: 12, color: '#9CA3AF', flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: BRAND.textMuted, flexShrink: 0 }}>
                       {isExpanded ? '▲' : '▼'}
                     </span>
                   </div>
@@ -374,8 +393,8 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
                         key={iso}
                         style={{
                           width: DAY_W, flexShrink: 0,
-                          borderRight: '1px solid #F3F4F6',
-                          background: isToday ? '#EFF6FF' : 'transparent',
+                          borderRight: `1px solid ${BRAND.surfaceMuted}`,
+                          background: isToday ? BRAND.accentSoft : 'transparent',
                           display: 'flex', flexDirection: 'column',
                           alignItems: 'center', justifyContent: 'center',
                           padding: '4px 2px', gap: 2,
@@ -409,7 +428,7 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
                           </div>
                         ))}
                         {count === 0 && (
-                          <div style={{ width: '90%', height: 18, borderRadius: 4, background: '#F3F4F6' }} />
+                          <div style={{ width: '90%', height: 18, borderRadius: 4, background: BRAND.surfaceSoft }} />
                         )}
                       </div>
                     );
@@ -418,16 +437,16 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
 
                 {/* Expanded task list */}
                 {isExpanded && (
-                  <div style={{ background: '#FEF9F9', borderTop: '1px solid #FCE7E7', padding: '8px 12px 8px', paddingLeft: LEFT_COL + 12 }}>
+                  <div style={{ background: BRAND.surfaceSoft, borderTop: `1px solid ${BRAND.border}`, padding: '8px 12px 8px', paddingLeft: LEFT_COL + 12 }}>
                     {tasks.filter((t) => t.assigneeId === member.id).length === 0 ? (
-                      <div style={{ color: '#9CA3AF', fontSize: 13 }}>本週無任務</div>
+                      <div style={{ color: BRAND.textMuted, fontSize: 13 }}>本週無任務</div>
                     ) : (
                       tasks.filter((t) => t.assigneeId === member.id).map((task) => (
                         <div
                           key={task.id}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '6px 0', borderBottom: '1px solid #F3F4F6',
+                            padding: '6px 0', borderBottom: `1px solid ${BRAND.border}`,
                             cursor: 'pointer',
                           }}
                           onClick={() => { console.log('Navigate to task:', task.id, task.name); }}
@@ -437,9 +456,9 @@ function GanttView({ members, tasks, days, expandedMembers, onToggleMember, onNa
                             background: getLoadColor(tasks.filter((t2) => t2.assigneeId === member.id).length),
                             flexShrink: 0,
                           }} />
-                          <span style={{ fontSize: 13, color: '#374151', flex: 1 }}>{task.name}</span>
-                          <span style={{ fontSize: 11, color: '#9CA3AF' }}>{task.dueDate}</span>
-                          <span style={{ fontSize: 11, color: '#6B7280' }}>{task.estimatedHours}h</span>
+                          <span style={{ fontSize: 13, color: BRAND.textSoft, flex: 1 }}>{task.name}</span>
+                          <span style={{ fontSize: 11, color: BRAND.textMuted }}>{task.dueDate}</span>
+                          <span style={{ fontSize: 11, color: BRAND.textMuted }}>{task.estimatedHours}h</span>
                         </div>
                       ))
                     )}
@@ -505,46 +524,46 @@ function CardView({ members, tasks, days }) {
           <div
             key={member.id}
             style={{
-              background: '#fff', borderRadius: 16,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+              background: BRAND.panelStrong, borderRadius: 16,
+              boxShadow: BRAND.shadow,
               overflow: 'hidden',
-              border: loadLabel === 'high' ? `2px solid ${LOAD_COLOR.high}` : '2px solid transparent',
+              border: loadLabel === 'high' ? `2px solid ${LOAD_COLOR.high}` : `1px solid ${BRAND.border}`,
               transition: 'box-shadow 0.2s',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.13)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.07)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = BRAND.shadowStrong; }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = BRAND.shadow; }}
           >
             {/* Card header */}
-            <div style={{ background: BRAND.pageBg, padding: '20px 20px 16px', textAlign: 'center' }}>
+            <div style={{ background: BRAND.surfaceSoft, padding: '20px 20px 16px', textAlign: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
                 <Avatar member={member} size={56} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>{member.name}</div>
-              <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{member.role}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: BRAND.text }}>{member.name}</div>
+              <div style={{ fontSize: 12, color: BRAND.textMuted, marginTop: 2 }}>{member.role}</div>
             </div>
 
             {/* Stats */}
             <div style={{ padding: '12px 20px 0' }}>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                <div style={{ flex: 1, textAlign: 'center', background: '#F9FAFB', borderRadius: 8, padding: '8px 4px' }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#111' }}>{count}</div>
-                  <div style={{ fontSize: 11, color: '#6B7280' }}>本週任務</div>
+                <div style={{ flex: 1, textAlign: 'center', background: BRAND.surface, borderRadius: 8, padding: '8px 4px' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: BRAND.text }}>{count}</div>
+                  <div style={{ fontSize: 11, color: BRAND.textMuted }}>本週任務</div>
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', background: '#F9FAFB', borderRadius: 8, padding: '8px 4px' }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#111' }}>{totalHours}</div>
-                  <div style={{ fontSize: 11, color: '#6B7280' }}>預估工時 (h)</div>
+                <div style={{ flex: 1, textAlign: 'center', background: BRAND.surface, borderRadius: 8, padding: '8px 4px' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: BRAND.text }}>{totalHours}</div>
+                  <div style={{ fontSize: 11, color: BRAND.textMuted }}>預估工時 (h)</div>
                 </div>
               </div>
 
               {/* Load bar */}
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, color: '#6B7280' }}>工作負載</span>
+                  <span style={{ fontSize: 12, color: BRAND.textMuted }}>工作負載</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: loadTextColors[loadLabel] }}>
                     {loadLabels[loadLabel]}
                   </span>
                 </div>
-                <div style={{ height: 6, borderRadius: 3, background: '#E5E7EB' }}>
+                <div style={{ height: 6, borderRadius: 3, background: BRAND.surfaceMuted }}>
                   <div style={{
                     height: 6, borderRadius: 3,
                     background: loadBarColors[loadLabel],
@@ -555,9 +574,9 @@ function CardView({ members, tasks, days }) {
               </div>
 
               {/* Task list */}
-              <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 8 }}>
+              <div style={{ borderTop: `1px solid ${BRAND.border}`, paddingTop: 8 }}>
                 {memberTasks.length === 0 ? (
-                  <div style={{ fontSize: 13, color: '#9CA3AF', padding: '8px 0', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, color: BRAND.textMuted, padding: '8px 0', textAlign: 'center' }}>
                     目前無任務
                   </div>
                 ) : (
@@ -566,7 +585,7 @@ function CardView({ members, tasks, days }) {
                       key={task.id}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '6px 0', borderBottom: '1px solid #F9FAFB',
+                        padding: '6px 0', borderBottom: `1px solid ${BRAND.border}`,
                         cursor: 'pointer',
                       }}
                       onClick={() => { console.log('Navigate to task:', task.id, task.name); }}
@@ -576,12 +595,12 @@ function CardView({ members, tasks, days }) {
                         background: loadColor || '#E5E7EB', flexShrink: 0,
                       }} />
                       <span style={{
-                        fontSize: 13, color: '#374151', flex: 1,
+                        fontSize: 13, color: BRAND.textSoft, flex: 1,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
                         {task.name}
                       </span>
-                      <span style={{ fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, color: BRAND.textMuted, flexShrink: 0 }}>
                         {task.estimatedHours}h
                       </span>
                     </div>
@@ -597,7 +616,7 @@ function CardView({ members, tasks, days }) {
                 style={{
                   width: '100%', padding: '10px 0',
                   background: 'none', border: 'none',
-                  borderTop: '1px solid #F3F4F6',
+                  borderTop: `1px solid ${BRAND.border}`,
                   cursor: 'pointer', color: BRAND.accent,
                   fontSize: 13, fontWeight: 600,
                 }}
@@ -625,7 +644,7 @@ function SummaryBar({ members, tasks }) {
   }).length;
 
   const stats = [
-    { label: '總成員數', value: members.length, color: '#374151' },
+    { label: '總成員數', value: members.length, color: BRAND.textSoft },
     { label: '過載成員', value: overloaded, color: LOAD_COLOR.high },
     { label: '負載正常', value: ok, color: LOAD_COLOR.low },
     { label: '本週總任務', value: tasks.length, color: '#2563EB' },
@@ -639,14 +658,15 @@ function SummaryBar({ members, tasks }) {
         <div
           key={s.label}
           style={{
-            background: '#fff', borderRadius: 12,
+            background: BRAND.panelStrong, borderRadius: 12,
             padding: '12px 20px', flex: '1 1 140px',
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+            boxShadow: BRAND.shadow,
+            border: `1px solid ${BRAND.border}`,
             display: 'flex', flexDirection: 'column', gap: 4,
           }}
         >
           <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
-          <div style={{ fontSize: 12, color: '#6B7280' }}>{s.label}</div>
+          <div style={{ fontSize: 12, color: BRAND.textMuted }}>{s.label}</div>
         </div>
       ))}
     </div>
@@ -682,8 +702,8 @@ function MemberFilterDropdown({ members, selected, onChange }) {
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '7px 14px', borderRadius: 8,
-          border: '1.5px solid #E5E7EB', background: '#fff',
-          cursor: 'pointer', fontSize: 13, color: '#374151',
+          border: `1.5px solid ${BRAND.border}`, background: BRAND.panelStrong,
+          cursor: 'pointer', fontSize: 13, color: BRAND.textSoft,
           fontWeight: 500,
         }}
       >
@@ -696,17 +716,17 @@ function MemberFilterDropdown({ members, selected, onChange }) {
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0,
-          background: '#fff', borderRadius: 10, padding: 8,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          background: BRAND.panelStrong, borderRadius: 10, padding: 8,
+          boxShadow: BRAND.shadowStrong,
           minWidth: 180, zIndex: 100,
-          border: '1px solid #E5E7EB',
+          border: `1px solid ${BRAND.border}`,
         }}>
           <div
             style={{
               padding: '6px 10px', borderRadius: 6, cursor: 'pointer',
-              fontSize: 13, color: allSelected ? BRAND.accent : '#374151',
+              fontSize: 13, color: allSelected ? BRAND.accent : BRAND.textSoft,
               fontWeight: allSelected ? 700 : 500,
-              background: allSelected ? '#FEF2F2' : 'transparent',
+              background: allSelected ? BRAND.accentSoft : 'transparent',
               marginBottom: 4,
             }}
             onClick={() => { onChange(new Set()); setOpen(false); }}
@@ -722,7 +742,7 @@ function MemberFilterDropdown({ members, selected, onChange }) {
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '6px 10px', borderRadius: 6,
                   cursor: 'pointer',
-                  background: checked && selected.size > 0 ? '#FEF2F2' : 'transparent',
+                  background: checked && selected.size > 0 ? BRAND.accentSoft : 'transparent',
                 }}
                 onClick={() => toggle(m.id)}
               >
@@ -733,7 +753,7 @@ function MemberFilterDropdown({ members, selected, onChange }) {
                   style={{ accentColor: BRAND.accent, width: 14, height: 14 }}
                 />
                 <Avatar member={m} size={22} />
-                <span style={{ fontSize: 13, color: '#374151' }}>{m.name}</span>
+                <span style={{ fontSize: 13, color: BRAND.textSoft }}>{m.name}</span>
               </div>
             );
           })}
@@ -871,18 +891,18 @@ export default function WorkloadPage({ onNavigate }) {
         flexWrap: 'wrap', gap: 16, marginBottom: 24,
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#111' }}>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: BRAND.text }}>
             工作負載
           </h1>
-          <div style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>{rangeLabel}</div>
+          <div style={{ fontSize: 13, color: BRAND.textMuted, marginTop: 4 }}>{rangeLabel}</div>
         </div>
 
         {/* Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {/* Mode buttons */}
           <div style={{
-            display: 'flex', background: '#fff', borderRadius: 8,
-            border: '1.5px solid #E5E7EB', overflow: 'hidden',
+            display: 'flex', background: BRAND.panelStrong, borderRadius: 8,
+            border: `1.5px solid ${BRAND.border}`, overflow: 'hidden',
           }}>
             {['week', 'month'].map((m) => (
               <button
@@ -892,7 +912,7 @@ export default function WorkloadPage({ onNavigate }) {
                   padding: '7px 16px', border: 'none', cursor: 'pointer',
                   fontSize: 13, fontWeight: 600,
                   background: mode === m ? BRAND.accent : 'transparent',
-                  color: mode === m ? '#fff' : '#6B7280',
+                  color: mode === m ? '#fff' : BRAND.textMuted,
                   transition: 'all 0.15s',
                 }}
               >
@@ -907,8 +927,8 @@ export default function WorkloadPage({ onNavigate }) {
               onClick={() => navigate(-1)}
               style={{
                 width: 34, height: 34, borderRadius: 8,
-                border: '1.5px solid #E5E7EB', background: '#fff',
-                cursor: 'pointer', fontSize: 16, color: '#374151',
+                border: `1.5px solid ${BRAND.border}`, background: BRAND.panelStrong,
+                cursor: 'pointer', fontSize: 16, color: BRAND.textSoft,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -918,8 +938,8 @@ export default function WorkloadPage({ onNavigate }) {
               onClick={() => { setAnchor(new Date()); }}
               style={{
                 padding: '0 12px', height: 34, borderRadius: 8,
-                border: '1.5px solid #E5E7EB', background: '#fff',
-                cursor: 'pointer', fontSize: 12, color: '#374151', fontWeight: 600,
+                border: `1.5px solid ${BRAND.border}`, background: BRAND.panelStrong,
+                cursor: 'pointer', fontSize: 12, color: BRAND.textSoft, fontWeight: 600,
               }}
             >
               今天
@@ -928,8 +948,8 @@ export default function WorkloadPage({ onNavigate }) {
               onClick={() => navigate(1)}
               style={{
                 width: 34, height: 34, borderRadius: 8,
-                border: '1.5px solid #E5E7EB', background: '#fff',
-                cursor: 'pointer', fontSize: 16, color: '#374151',
+                border: `1.5px solid ${BRAND.border}`, background: BRAND.panelStrong,
+                cursor: 'pointer', fontSize: 16, color: BRAND.textSoft,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -946,8 +966,8 @@ export default function WorkloadPage({ onNavigate }) {
 
           {/* View toggle */}
           <div style={{
-            display: 'flex', background: '#fff', borderRadius: 8,
-            border: '1.5px solid #E5E7EB', overflow: 'hidden',
+            display: 'flex', background: BRAND.panelStrong, borderRadius: 8,
+            border: `1.5px solid ${BRAND.border}`, overflow: 'hidden',
           }}>
             <button
               onClick={() => setView('gantt')}
@@ -956,7 +976,7 @@ export default function WorkloadPage({ onNavigate }) {
                 padding: '7px 14px', border: 'none', cursor: 'pointer',
                 fontSize: 16,
                 background: view === 'gantt' ? BRAND.accent : 'transparent',
-                color: view === 'gantt' ? '#fff' : '#6B7280',
+                color: view === 'gantt' ? '#fff' : BRAND.textMuted,
                 transition: 'all 0.15s',
               }}
             >
@@ -969,7 +989,7 @@ export default function WorkloadPage({ onNavigate }) {
                 padding: '7px 14px', border: 'none', cursor: 'pointer',
                 fontSize: 16,
                 background: view === 'card' ? BRAND.accent : 'transparent',
-                color: view === 'card' ? '#fff' : '#6B7280',
+                color: view === 'card' ? '#fff' : BRAND.textMuted,
                 transition: 'all 0.15s',
               }}
             >
@@ -983,7 +1003,7 @@ export default function WorkloadPage({ onNavigate }) {
       {loading ? (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          height: 200, color: '#9CA3AF', fontSize: 15,
+          height: 200, color: BRAND.textMuted, fontSize: 15,
         }}>
           載入中…
         </div>
@@ -996,24 +1016,25 @@ export default function WorkloadPage({ onNavigate }) {
           <div style={{
             display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center',
           }}>
-            <span style={{ fontSize: 12, color: '#6B7280' }}>負載說明：</span>
+            <span style={{ fontSize: 12, color: BRAND.textMuted }}>負載說明：</span>
             {[
-              { label: '無任務', color: '#E5E7EB', text: '#6B7280' },
+              { label: '無任務', color: BRAND.surfaceMuted, text: BRAND.textMuted },
               { label: '1–3 任務', color: LOAD_COLOR.low, text: '#fff' },
               { label: '4–6 任務', color: LOAD_COLOR.mid, text: '#fff' },
               { label: '7+ 任務（過載）', color: LOAD_COLOR.high, text: '#fff' },
             ].map((item) => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 16, height: 16, borderRadius: 4, background: item.color }} />
-                <span style={{ fontSize: 12, color: '#6B7280' }}>{item.label}</span>
+                <span style={{ fontSize: 12, color: BRAND.textMuted }}>{item.label}</span>
               </div>
             ))}
           </div>
 
           {/* ── Main View ── */}
           <div style={{
-            background: '#fff', borderRadius: 16,
-            boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+            background: BRAND.panel, borderRadius: 16,
+            boxShadow: BRAND.shadow,
+            border: `1px solid ${BRAND.border}`,
             overflow: 'hidden',
           }}>
             {view === 'gantt' ? (
@@ -1034,7 +1055,7 @@ export default function WorkloadPage({ onNavigate }) {
             {visibleMembers.length === 0 && (
               <div style={{
                 padding: 60, textAlign: 'center',
-                color: '#9CA3AF', fontSize: 15,
+                color: BRAND.textMuted, fontSize: 15,
               }}>
                 沒有符合條件的成員
               </div>

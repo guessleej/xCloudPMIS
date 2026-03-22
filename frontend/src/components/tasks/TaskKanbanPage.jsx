@@ -29,8 +29,9 @@ const API      = '/api/projects';
 // TEAM_API & CURRENT_USER 改由 useAuth() 動態提供，不再硬編碼
 
 const BRAND = {
-  crimson: 'var(--xc-brand)',
-  crimsonDeep: 'var(--xc-brand-dark)',
+  crimson: '#C70018',
+  crimsonDeep: '#6E0615',
+  crimsonNight: '#161112',
   ink: 'var(--xc-text)',
   carbon: 'var(--xc-text-soft)',
   muted: 'var(--xc-text-muted)',
@@ -42,6 +43,13 @@ const BRAND = {
   surfaceSoft: 'var(--xc-surface-soft)',
   surfaceMuted: 'var(--xc-surface-muted)',
   white: 'var(--xc-surface-strong)',
+  panel: 'color-mix(in srgb, var(--xc-surface) 92%, transparent)',
+  panelStrong: 'color-mix(in srgb, var(--xc-surface-strong) 82%, var(--xc-surface) 18%)',
+  accentSoft: 'color-mix(in srgb, #C70018 12%, var(--xc-surface-soft))',
+  accentSurface: 'color-mix(in srgb, #C70018 8%, var(--xc-surface))',
+  accentBorder: 'color-mix(in srgb, #C70018 28%, var(--xc-border))',
+  pageBg: 'linear-gradient(180deg, #13090A 0%, #2A0C11 18%, var(--xc-bg) 18%, var(--xc-bg-soft) 100%)',
+  heroBg: 'linear-gradient(135deg, #161112 0%, #6E0615 44%, #C70018 100%)',
   success: 'var(--xc-success)',
   successSoft: 'var(--xc-success-soft)',
   warning: 'var(--xc-warning)',
@@ -51,15 +59,15 @@ const BRAND = {
 };
 
 const COLUMNS = [
-  { id: 'todo',        label: '待辦',   emoji: '◌', color: '#6B6461', accent: '#ECE6E1' },
-  { id: 'in_progress', label: '進行中', emoji: '↗', color: '#8F0013', accent: '#F8D8DD' },
-  { id: 'review',      label: '審核中', emoji: '◈', color: '#C97415', accent: '#F5E2CE' },
-  { id: 'done',        label: '已完成', emoji: '✓', color: '#16824B', accent: '#DDF2E4' },
+  { id: 'todo',        label: '待辦',   emoji: '◌', color: '#6B6461', accent: 'color-mix(in srgb, #6B6461 16%, var(--xc-surface-strong))' },
+  { id: 'in_progress', label: '進行中', emoji: '↗', color: '#8F0013', accent: 'color-mix(in srgb, #C70018 14%, var(--xc-surface-strong))' },
+  { id: 'review',      label: '審核中', emoji: '◈', color: '#C97415', accent: 'color-mix(in srgb, #C97415 14%, var(--xc-surface-strong))' },
+  { id: 'done',        label: '已完成', emoji: '✓', color: '#16824B', accent: 'color-mix(in srgb, #16824B 14%, var(--xc-surface-strong))' },
 ];
 
 const PRIORITY_MAP = {
-  urgent: { label: '緊急', bg: '#FDE1E4', color: '#C70018', dot: '#C70018' },
-  high:   { label: '高',   bg: '#FBE7D5', color: '#B35810', dot: '#D16D18' },
+  urgent: { label: '緊急', bg: 'color-mix(in srgb, #C70018 12%, var(--xc-surface-strong))', color: '#C70018', dot: '#C70018' },
+  high:   { label: '高',   bg: 'color-mix(in srgb, #D16D18 14%, var(--xc-surface-strong))', color: '#B35810', dot: '#D16D18' },
   medium: { label: '中',   bg: 'var(--xc-surface-muted)', color: 'var(--xc-text-soft)', dot: 'var(--xc-text-soft)' },
   low:    { label: '低',   bg: 'var(--xc-surface-soft)', color: 'var(--xc-text-muted)', dot: 'var(--xc-border-strong)' },
 };
@@ -457,7 +465,7 @@ function TaskCard({
           <span style={{
             fontSize: '10px',
             fontWeight: 800,
-            background: 'var(--xc-brand-soft)',
+            background: BRAND.accentSoft,
             color: BRAND.crimsonDeep,
             padding: '5px 9px',
             borderRadius: 999,
@@ -786,12 +794,12 @@ function KanbanColumn({
     <div style={{
       flex: '1 1 280px',
       minWidth: 280,
-      background: isDropTarget ? 'var(--xc-brand-soft)' : BRAND.surface,
+      background: isDropTarget ? BRAND.accentSoft : BRAND.panel,
       borderRadius: '24px',
       padding: '14px 12px 12px',
       display: 'flex',
       flexDirection: 'column',
-      border: `1.5px solid ${isDropTarget ? BRAND.crimson : BRAND.mist}`,
+      border: `1.5px solid ${isDropTarget ? BRAND.accentBorder : BRAND.mist}`,
       boxShadow: isDropTarget ? 'var(--xc-shadow-strong)' : 'var(--xc-shadow)',
       transition: 'border-color .18s, box-shadow .18s, background .18s',
     }}>
@@ -842,7 +850,7 @@ function KanbanColumn({
           style={{
             width: 30, height: 30, borderRadius: 999,
             border: `1px dashed ${col.color}`,
-            background: BRAND.white, cursor: 'pointer',
+            background: BRAND.panelStrong, cursor: 'pointer',
             fontSize: 18, color: col.color,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -857,7 +865,7 @@ function KanbanColumn({
           overflowY: 'auto',
           padding: 4,
           borderRadius: 18,
-          background: isDropTarget ? 'rgba(199,0,24,0.04)' : 'transparent',
+          background: isDropTarget ? 'color-mix(in srgb, #C70018 8%, transparent)' : 'transparent',
           outline: draggingTaskId && isDropTarget ? `2px dashed ${BRAND.crimson}` : 'none',
           outlineOffset: '-10px',
           minHeight: 160,
@@ -871,7 +879,7 @@ function KanbanColumn({
             fontSize: '12px',
             borderRadius: 18,
             border: `1px dashed ${BRAND.silver}`,
-            background: BRAND.surfaceSoft,
+            background: BRAND.panelStrong,
           }}>
             <div style={{ fontSize: 28, marginBottom: 8, opacity: .9, color: col.color }}>{col.emoji}</div>
             <div style={{ fontWeight: 700, color: BRAND.carbon, marginBottom: 4 }}>目前沒有任務</div>
@@ -1603,7 +1611,7 @@ export default function TaskKanbanPage() {
   return (
     <div style={{
       minHeight: '100%',
-      background: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 28%, var(--xc-bg) 72%) 0%, color-mix(in srgb, var(--xc-brand-dark) 34%, var(--xc-bg) 66%) 16%, var(--xc-bg) 16%, var(--xc-bg-soft) 100%)',
+      background: BRAND.pageBg,
       padding: '24px clamp(18px, 3vw, 32px) 32px',
       boxSizing: 'border-box',
       fontFamily: '"Avenir Next", "Trebuchet MS", sans-serif',
@@ -1641,7 +1649,7 @@ export default function TaskKanbanPage() {
           borderRadius: 30,
           padding: '28px clamp(18px, 3vw, 32px)',
           color: '#fff',
-          background: `linear-gradient(135deg, ${BRAND.ink} 0%, ${BRAND.crimsonDeep} 38%, ${BRAND.crimson} 100%)`,
+          background: BRAND.heroBg,
           boxShadow: '0 28px 56px rgba(18,18,18,.28)',
         }}>
           <div style={{
@@ -1666,7 +1674,7 @@ export default function TaskKanbanPage() {
           <div style={{ position: 'relative', display: 'flex', gap: 24, justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 620px', minWidth: 280 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                {['Rule Engine Live', 'Drag to Complete', 'Asana-style Flow'].map((chip) => (
+                {['Rule Engine Live', 'Drag to Complete', 'Workflow Board'].map((chip) => (
                   <span key={chip} style={{
                     padding: '6px 10px',
                     borderRadius: 999,
@@ -1698,7 +1706,7 @@ export default function TaskKanbanPage() {
                 color: 'rgba(255,255,255,.82)',
                 maxWidth: 760,
               }}>
-                把任務拖進「已完成」欄位，系統會自動結案、回填父任務進度條，並通知追蹤該專案的成員。右側面板依然保留，現在看板互動更接近 Asana 的節奏。
+                把任務拖進「已完成」欄位，系統會自動結案、回填父任務進度條，並通知追蹤該專案的成員。這頁的色系與自動化規則頁現在使用同一套深紅工作流語言。
               </p>
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
@@ -1708,7 +1716,7 @@ export default function TaskKanbanPage() {
                     padding: '11px 18px',
                     borderRadius: 999,
                     border: 'none',
-                    background: BRAND.white,
+                    background: 'rgba(255,255,255,.92)',
                     color: BRAND.crimsonDeep,
                     fontSize: '13px',
                     fontWeight: 800,
@@ -1738,7 +1746,7 @@ export default function TaskKanbanPage() {
             <div style={{
               flex: '0 1 340px',
               minWidth: 280,
-              background: 'rgba(255,255,255,.09)',
+              background: 'rgba(255,255,255,.08)',
               border: '1px solid rgba(255,255,255,.14)',
               borderRadius: 24,
               padding: 18,
@@ -1774,7 +1782,7 @@ export default function TaskKanbanPage() {
                 marginTop: 16,
                 padding: '14px 16px',
                 borderRadius: 18,
-                background: 'rgba(18,18,18,.2)',
+                background: 'rgba(18,18,18,.18)',
                 border: '1px solid rgba(255,255,255,.12)',
               }}>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 6 }}>
@@ -1810,7 +1818,7 @@ export default function TaskKanbanPage() {
                 flex: '1 1 120px',
                 padding: '14px 16px',
                 borderRadius: 18,
-                background: 'rgba(255,255,255,.08)',
+                background: 'rgba(255,255,255,.07)',
                 border: '1px solid rgba(255,255,255,.12)',
               }}>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,.68)', marginBottom: 8, letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -1828,8 +1836,8 @@ export default function TaskKanbanPage() {
           marginTop: 18,
           padding: '18px 20px',
           borderRadius: 24,
-          background: BRAND.surface,
-          border: `1px solid ${BRAND.mist}`,
+          background: BRAND.panel,
+          border: `1px solid ${BRAND.accentBorder}`,
           boxShadow: 'var(--xc-shadow)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -1844,8 +1852,8 @@ export default function TaskKanbanPage() {
             <div style={{
               padding: '10px 12px',
               borderRadius: 16,
-              background: automationFeed ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
-              border: `1px solid ${automationFeed ? 'color-mix(in srgb, var(--xc-brand) 26%, var(--xc-border))' : BRAND.mist}`,
+              background: automationFeed ? BRAND.accentSoft : BRAND.surfaceMuted,
+              border: `1px solid ${automationFeed ? BRAND.accentBorder : BRAND.mist}`,
               color: automationFeed ? BRAND.crimsonDeep : BRAND.carbon,
               fontSize: 12,
               fontWeight: 700,
@@ -1932,7 +1940,7 @@ export default function TaskKanbanPage() {
               textAlign: 'center',
               padding: '64px 20px',
               color: BRAND.crimson,
-              background: BRAND.surface,
+              background: BRAND.panel,
               borderRadius: 24,
               border: `1px solid ${BRAND.mist}`,
             }}>
@@ -1942,7 +1950,7 @@ export default function TaskKanbanPage() {
                 padding: '10px 18px',
                 borderRadius: 999,
                 border: `1px solid ${BRAND.crimson}`,
-                background: BRAND.white,
+                background: BRAND.panelStrong,
                 color: BRAND.crimson,
                 cursor: 'pointer',
                 fontSize: '13px',
@@ -1957,7 +1965,7 @@ export default function TaskKanbanPage() {
                   minWidth: 280,
                   minHeight: 280,
                   borderRadius: 24,
-                  background: BRAND.surface,
+                  background: BRAND.panel,
                   border: `1px solid ${BRAND.mist}`,
                   display: 'flex',
                   alignItems: 'center',
