@@ -63,8 +63,12 @@ export function useDashboard() {
     }
   }, [companyId, authFetch]);
 
-  // 元件掛載或 companyId 就緒時自動載入
-  useEffect(() => { load(); }, [load]);
+  // 元件掛載或 companyId 就緒時自動載入，之後每 30 秒輪詢更新
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => clearInterval(timer);
+  }, [load]);
 
   return { summary, projects, workload, insights, loading, error, refresh: load };
 }

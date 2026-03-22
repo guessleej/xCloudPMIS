@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
@@ -669,7 +670,7 @@ function ActionBtn({ children, onClick, title }) {
 }
 
 // ── 通知項目 ───────────────────────────────────────────────────
-function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onArchive }) {
+function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onArchive, onOpen, isSelected }) {
   const [hovered, setHovered] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const icon = typeIcon(notif.type);
@@ -678,11 +679,12 @@ function NotificationItem({ notif, isRead, isBookmarked, onRead, onBookmark, onA
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => !isRead && onRead(notif.id)}
+      onClick={() => { if (!isRead) onRead(notif.id); onOpen(notif); }}
       style={{
         display: 'flex', alignItems: 'flex-start', gap: 12,
         padding: '12px 16px',
-        background: hovered ? T.hoverBg : T.white,
+        background: isSelected ? '#FFF0F2' : hovered ? T.hoverBg : T.white,
+        borderLeft: isSelected ? `3px solid ${T.accent}` : '3px solid transparent',
         cursor: 'pointer', transition: 'background 0.1s',
         position: 'relative', borderRadius: 8,
       }}
@@ -938,6 +940,231 @@ function AddTabPopup({ anchor, onAdd, onClose, customTabCount }) {
         </button>
       </div>
     </div>
+  );
+}
+
+// ── 通知詳情面板 ────────────────────────────────────────────────
+function NotificationDetailPanel({ notif, isRead, isBookmarked, onRead, onBookmark, onArchive, onClose }) {
+  const [replyText, setReplyText] = useState('');
+  const icon = typeIcon(notif.type);
+
+  const typeLabel = {
+    mention:       '@提及',
+    task_assigned: '任務指派',
+    comment:       '留言',
+    done:          '任務完成',
+    task_due:      '任務到期',
+    team_welcome:  '歡迎通知',
+  }[notif.type] || '通知';
+
+  return (
+    <>
+      {/* 透明遮罩 */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, zIndex: 299, background: 'transparent' }}
+      />
+
+      {/* 面板本體 */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'fixed', right: 0, top: 0,
+          width: 420, height: '100vh',
+          background: T.white,
+          boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+          zIndex: 300,
+          display: 'flex', flexDirection: 'column',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+          animation: 'detailSlideIn 0.18s ease',
+        }}
+      >
+        <style>{`@keyframes detailSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`}</style>
+
+        {/* 標頭 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px',
+          borderBottom: `1px solid ${T.border}`,
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: '50%',
+              border: `2px solid ${icon.color}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: icon.color, fontSize: 11, fontWeight: 700,
+            }}>
+              {icon.symbol.length <= 2 ? icon.symbol : ''}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: T.t3 }}>{typeLabel}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            {/* 快速操作 */}
+            <ActionBtn title={isRead ? '標記未讀' : '標記已讀'} onClick={() => onRead(notif.id)}>
+              <IconCheck size={14} color={isRead ? T.t3 : T.assign} />
+            </ActionBtn>
+            <ActionBtn title={isBookmarked ? '取消書籤' : '加入書籤'} onClick={() => onBookmark(notif.id)}>
+              <IconBookmark size={14} color={isBookmarked ? T.accent : T.t3} filled={isBookmarked} />
+            </ActionBtn>
+            <ActionBtn title="封存" onClick={() => { onArchive(notif.id); onClose(); }}>
+              <IconArchive size={14} color={T.t3} />
+            </ActionBtn>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', padding: 5, borderRadius: 5, color: T.t3,
+                marginLeft: 4,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = T.hoverBg}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <IconX size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* 主體內容 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 0 20px' }}>
+
+          {/* 發件人 + 時間 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <Avatar name={notif.sender?.name} size={36} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.t1 }}>{notif.sender?.name}</div>
+              <div style={{ fontSize: 12, color: T.t3 }}>{relativeTime(notif.time)}</div>
+            </div>
+            {!isRead && (
+              <div style={{
+                marginLeft: 'auto',
+                width: 8, height: 8, borderRadius: '50%', background: T.unreadDot, flexShrink: 0,
+              }} />
+            )}
+          </div>
+
+          {/* 標題 */}
+          <h2 style={{
+            margin: '0 0 12px 0', fontSize: 16, fontWeight: 700,
+            color: T.t1, lineHeight: 1.4,
+          }}>
+            {notif.title}
+          </h2>
+
+          {/* 分隔線 */}
+          <div style={{ height: 1, background: T.border, margin: '0 0 16px 0' }} />
+
+          {/* 完整內容 */}
+          {notif.body && (
+            <div style={{
+              fontSize: 14, color: T.t2, lineHeight: 1.7,
+              background: T.cardBg, borderRadius: 8, padding: '12px 14px',
+              marginBottom: 16, whiteSpace: 'pre-wrap',
+            }}>
+              {notif.body}
+            </div>
+          )}
+
+          {/* 類型專屬細節 */}
+          {notif.type === 'task_assigned' && (
+            <div style={{
+              background: '#F0FDF4', border: '1px solid #BBF7D0',
+              borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                任務資訊
+              </div>
+              {notif.body?.split('·').map((part, i) => (
+                <div key={i} style={{ fontSize: 13, color: '#15803D', marginTop: i > 0 ? 4 : 0 }}>
+                  {part.trim()}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {notif.type === 'mention' && (
+            <div style={{
+              background: '#EFF6FF', border: '1px solid #BFDBFE',
+              borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                提及內容
+              </div>
+              <div style={{ fontSize: 13, color: '#1E40AF', lineHeight: 1.6 }}>
+                「{notif.body}」
+              </div>
+            </div>
+          )}
+
+          {notif.type === 'task_due' && (
+            <div style={{
+              background: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                ⏰ 截止提醒
+              </div>
+              <div style={{ fontSize: 13, color: '#DC2626' }}>{notif.body}</div>
+            </div>
+          )}
+
+          {notif.type === 'comment' && (
+            <div style={{
+              background: '#FFFBEB', border: '1px solid #FDE68A',
+              borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                💬 留言
+              </div>
+              <div style={{ fontSize: 13, color: '#78350F', lineHeight: 1.6 }}>{notif.body}</div>
+            </div>
+          )}
+        </div>
+
+        {/* 回覆輸入框 */}
+        <div style={{
+          padding: '12px 20px 16px',
+          borderTop: `1px solid ${T.border}`,
+          flexShrink: 0,
+        }}>
+          <div style={{
+            border: `1px solid ${replyText ? T.accent : T.border}`,
+            borderRadius: 8, padding: '8px 12px',
+            background: T.cardBg,
+            transition: 'border-color 0.15s',
+          }}>
+            <textarea
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              placeholder="回覆此通知..."
+              rows={2}
+              style={{
+                width: '100%', border: 'none', outline: 'none',
+                background: 'transparent', resize: 'none',
+                fontSize: 13, color: T.t1, fontFamily: 'inherit',
+                lineHeight: 1.5,
+              }}
+            />
+            {replyText.trim() && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                <button
+                  onClick={() => setReplyText('')}
+                  style={{
+                    padding: '5px 16px', background: T.accent, color: '#fff',
+                    border: 'none', borderRadius: 6, cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                >
+                  送出回覆
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1275,6 +1502,9 @@ function TabItem({ tab, isActive, isFixed, unread, onClick, onRename, onDelete }
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function InboxPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   // 通知資料（初始用示範資料，API 成功後替換）
   const [notifications, setNotifications] = useState(() => {
     const ls = loadLocalStorageNotifications();
@@ -1290,9 +1520,10 @@ export default function InboxPage() {
 
   // ── 從 API 取得通知 ──────────────────────────────────────────
   useEffect(() => {
+    if (!companyId) return;
     let cancelled = false;
     setLoading(true);
-    fetch('/api/notifications?companyId=2&limit=100')
+    fetch(`/api/notifications?companyId=${companyId}&limit=100`)
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
@@ -1320,7 +1551,7 @@ export default function InboxPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UI 狀態
   const [activeTab,      setActiveTab]      = useState('activity');
@@ -1332,6 +1563,7 @@ export default function InboxPage() {
   const [sortMode,       setSortMode]       = useState('最新');
   const [densityMode,    setDensityMode]    = useState('詳細');
   const [showManagePanel, setShowManagePanel] = useState(false);
+  const [selectedNotif, setSelectedNotif] = useState(null);
 
   // 新增 Tab popup
   const [addTabPopupAnchor, setAddTabPopupAnchor] = useState(null); // {top, left, bottom}
@@ -1696,6 +1928,8 @@ export default function InboxPage() {
                       onRead={toggleRead}
                       onBookmark={toggleBookmark}
                       onArchive={toggleArchive}
+                      onOpen={setSelectedNotif}
+                      isSelected={selectedNotif?.id === notif.id}
                     />
                     {ni < group.items.length - 1 && (
                       <div style={{ height: 1, background: T.border, marginLeft: 60 }} />
@@ -1730,6 +1964,19 @@ export default function InboxPage() {
           </button>
         )}
       </div>
+
+      {/* ── 通知詳情面板 ──────────────────────────────────────── */}
+      {selectedNotif && (
+        <NotificationDetailPanel
+          notif={selectedNotif}
+          isRead={readIds.has(selectedNotif.id) || selectedNotif.read}
+          isBookmarked={bookmarkIds.has(selectedNotif.id) || selectedNotif.bookmarked}
+          onRead={toggleRead}
+          onBookmark={toggleBookmark}
+          onArchive={toggleArchive}
+          onClose={() => setSelectedNotif(null)}
+        />
+      )}
 
       {/* ── 管理通知面板 ──────────────────────────────────────── */}
       {showManagePanel && (

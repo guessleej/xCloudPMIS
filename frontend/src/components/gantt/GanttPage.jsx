@@ -26,6 +26,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 常數設定 ────────────────────────────────────────────────
 const API_BASE   = '/api';
@@ -634,6 +635,9 @@ function DeleteTaskModal({ task, project, onClose, onDeleted }) {
 // 主元件：GanttPage
 // ════════════════════════════════════════════════════════════
 export default function GanttPage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   const [data,          setData]          = useState(null);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(null);
@@ -656,10 +660,11 @@ export default function GanttPage() {
 
   // ── 載入甘特圖資料 ──────────────────────────────────────
   const load = async () => {
+    if (!companyId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/gantt?companyId=2`);
+      const res = await fetch(`${API_BASE}/gantt?companyId=${companyId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData(json);
@@ -674,15 +679,16 @@ export default function GanttPage() {
 
   // ── 載入成員列表 ────────────────────────────────────────
   const loadUsers = async () => {
+    if (!companyId) return;
     try {
-      const res = await fetch(`${API_BASE}/projects/users?companyId=2`);
+      const res = await fetch(`${API_BASE}/projects/users?companyId=${companyId}`);
       if (!res.ok) return;
       const json = await res.json();
-      setUsers(Array.isArray(json) ? json : (json.users || []));
+      setUsers(Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : (json.users || [])));
     } catch {}
   };
 
-  useEffect(() => { load(); loadUsers(); }, []);
+  useEffect(() => { load(); loadUsers(); }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 計算每日寬度（px） ──────────────────────────────────
   const dayW = useMemo(() => {

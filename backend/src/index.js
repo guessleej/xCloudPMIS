@@ -26,11 +26,11 @@ const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoft');
-const devTokenRouter      = require('./routes/auth/devToken');
 const adminMcpRouter      = require('./routes/adminMcp');
 const tasksRouter         = require('./routes/tasks');
 const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
+const rulesRouter         = require('./routes/rules');
 const authRouter          = require('./routes/auth/login');
 const optionalAuth        = require('./middleware/optionalAuth');
 
@@ -38,10 +38,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ── 中介軟體設定 ─────────────────────────────────────────────
-// 跨來源資源共用（CORS）：允許前端（埠 3001）呼叫後端 API
+// 跨來源資源共用（CORS）：允許前端（埠 3838）呼叫後端 API
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://127.0.0.1:3001',
-           'http://host.docker.internal:3001'],
+  origin: ['http://localhost:3838', 'http://127.0.0.1:3838',
+           'http://host.docker.internal:3838'],
   credentials: true,
 }));
 // 解析 JSON 格式的請求主體
@@ -176,9 +176,11 @@ app.use('/api/admin/mcp', adminMcpRouter);
 // DELETE /auth/microsoft/revoke     → 撤銷授權
 app.use('/auth/microsoft', microsoftAuthRouter);
 
-// ── 開發用 JWT 產生端點（正式環境請勿使用）────────────────────
-// GET /api/auth/dev-token → 回傳模擬使用者 JWT，供前端呼叫 requireAuth API
-app.use('/api/auth/dev-token', devTokenRouter);
+// ── 開發用 JWT 產生端點（production 完全不掛載）──────────────
+if (process.env.NODE_ENV !== 'production') {
+  const devTokenRouter = require('./routes/auth/devToken');
+  app.use('/api/auth/dev-token', devTokenRouter);
+}
 
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
 // GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
@@ -196,6 +198,13 @@ app.use('/api/users', usersRouter);
 // POST   /api/notifications             → 建立通知（系統/測試用）
 // DELETE /api/notifications/:id         → 刪除通知
 app.use('/api/notifications', notificationsRouter);
+
+// ── 自動化規則路由 ────────────────────────────────────────────
+// GET    /api/rules              → 規則列表（含系統內建規則）
+// POST   /api/rules              → 建立規則
+// PATCH  /api/rules/:id          → 更新規則
+// DELETE /api/rules/:id          → 刪除規則
+app.use('/api/rules', rulesRouter);
 
 // ── 身分驗證路由 ─────────────────────────────────────────────
 // POST /api/auth/login  → Email/密碼登入，回傳 JWT

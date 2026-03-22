@@ -752,6 +752,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               value: `${displayTasks.length} 項任務`,
               sub: '即將到期',
               color: '#374151',
+              nav: 'my-tasks',
             },
             {
               icon: '✓',
@@ -759,6 +760,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               label: '已完成任務',
               sub: '本週',
               color: '#16A34A',
+              nav: 'my-tasks',
             },
             {
               icon: '👥',
@@ -766,6 +768,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               label: '位協作者',
               sub: '',
               color: '#2563EB',
+              nav: 'workload',
             },
             {
               icon: '📁',
@@ -773,14 +776,19 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               label: '個活躍專案',
               sub: '',
               color: '#7C3AED',
+              nav: 'projects',
             },
           ].map((item, i) => (
-            <div key={i} style={{
+            <div key={i} onClick={() => onNavigate(item.nav)} style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               padding: '8px 16px', background: 'white',
               borderRadius: '8px', border: `1px solid ${T.border}`,
-              cursor: 'default',
-            }}>
+              cursor: 'pointer',
+              transition: 'box-shadow 0.15s, border-color 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)'; e.currentTarget.style.borderColor = '#C41230'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = T.border; }}
+            >
               <span style={{ fontSize: '16px' }}>{item.icon}</span>
               <div>
                 <span style={{ fontSize: '15px', fontWeight: '700', color: item.color }}>{item.value}</span>
@@ -1029,8 +1037,14 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '16px' }}>📁</span>
                 <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>專案</span>
-                <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '12px', padding: '2px 6px' }}>
-                  近期 ▾
+                <button
+                  onClick={() => dashData.refresh()}
+                  title="立即更新"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: '13px', padding: '2px 5px', lineHeight: 1 }}
+                  onMouseEnter={e => e.currentTarget.style.color = T.accent}
+                  onMouseLeave={e => e.currentTarget.style.color = '#9CA3AF'}
+                >
+                  🔄
                 </button>
               </div>
               <button
@@ -1112,23 +1126,28 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         </div>
                         <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
                           {overdue > 0
-                            ? <span style={{ color: '#EF4444' }}>{overdue} 個任務即將截止</span>
+                            ? <span style={{ color: '#EF4444' }}>⚠ {overdue} 個任務逾期</span>
                             : total > 0
                               ? `${done}/${total} 個任務完成`
                               : '暫無任務'}
                         </div>
-                      </div>
-
-                      {/* 進度 mini */}
-                      <div style={{ width: '36px', height: '36px', flexShrink: 0 }}>
-                        <svg width="36" height="36" style={{ transform: 'rotate(-90deg)' }}>
-                          <circle cx="18" cy="18" r="14" fill="none" stroke="#F3F4F6" strokeWidth="3" />
-                          <circle cx="18" cy="18" r="14" fill="none" stroke={color} strokeWidth="3"
-                            strokeDasharray={2 * Math.PI * 14}
-                            strokeDashoffset={2 * Math.PI * 14 * (1 - (parseFloat(p.completion_pct ?? p.completion ?? 0)) / 100)}
-                            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.4s' }}
-                          />
-                        </svg>
+                        {/* 橫向進度條 */}
+                        {total > 0 && (() => {
+                          const pct = Math.round(parseFloat(p.completion_pct ?? p.completion ?? 0));
+                          const barColor = overdue > 0 ? '#EF4444' : pct >= 80 ? '#16A34A' : pct >= 40 ? '#D97706' : color;
+                          return (
+                            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ flex: 1, height: '5px', borderRadius: '99px', background: '#F3F4F6', overflow: 'hidden' }}>
+                                <div style={{
+                                  height: '100%', borderRadius: '99px',
+                                  width: `${pct}%`, background: barColor,
+                                  transition: 'width 0.5s ease',
+                                }} />
+                              </div>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: barColor, flexShrink: 0 }}>{pct}%</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </button>
                   );
@@ -1280,9 +1299,13 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const onPop = () => setActiveNav(readHashNav());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    const sync = () => setActiveNav(readHashNav());
+    window.addEventListener('popstate',   sync);   // pushState 後退/前進
+    window.addEventListener('hashchange', sync);   // location.hash = '...' 或 <a href="#...">
+    return () => {
+      window.removeEventListener('popstate',   sync);
+      window.removeEventListener('hashchange', sync);
+    };
   }, []);
 
   const navigate = useCallback((id) => {
@@ -1311,19 +1334,19 @@ export default function Dashboard() {
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
-    if (activeNav === 'workflow')      return <WorkflowDiagramPage />;
+    if (activeNav === 'workflow')      return <WorkflowDiagramPage onNavigate={navigate} />;
     if (activeNav === 'rules')         return <RulesPage />;
     if (activeNav === 'time')          return <TimeTrackingPage />;
     if (activeNav === 'goals')         return <GoalsPage />;
-    if (activeNav === 'portfolios')    return <PortfoliosPage />;
-    if (activeNav === 'workload')      return <WorkloadPage />;
+    if (activeNav === 'portfolios')    return <PortfoliosPage onNavigate={navigate} />;
+    if (activeNav === 'workload')      return <WorkloadPage onNavigate={navigate} />;
     if (activeNav === 'reports')       return <ReportsPage />;
     if (activeNav === 'team')          return <TeamPage />;
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
     if (activeNav === 'ai-center')     return <AiDecisionCenter />;
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
     if (activeNav === 'forms')         return <FormsPage />;
-    if (activeNav === 'custom-fields') return <CustomFieldsPage />;
+    if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
     if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} />;
 
     return (

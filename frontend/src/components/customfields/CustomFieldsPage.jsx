@@ -52,9 +52,9 @@ function buildSeedData() {
       description: '任務的優先等級',
       options: ['緊急', '高', '中', '低'],
       global: true,
-      usedInProjects: ['電商平台開發', 'ERP 系統升級'],
+      usedInProjects: [],   // 使用真實專案 ID（由用戶在 Modal 中選擇）
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-2',
@@ -63,9 +63,9 @@ function buildSeedData() {
       description: '完成任務所需的預估小時數',
       options: [],
       global: false,
-      usedInProjects: ['電商平台開發'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-3',
@@ -74,9 +74,9 @@ function buildSeedData() {
       description: '',
       options: [],
       global: false,
-      usedInProjects: ['ERP 系統升級', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '王小明',
+      createdBy: '',
     },
     {
       id: 'cf-4',
@@ -85,9 +85,9 @@ function buildSeedData() {
       description: '負責執行此任務的部門',
       options: ['工程部', '設計部', '行銷部', '業務部', 'PM部'],
       global: true,
-      usedInProjects: ['電商平台開發', 'ERP 系統升級', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '陳志明',
+      createdBy: '',
     },
     {
       id: 'cf-5',
@@ -96,9 +96,9 @@ function buildSeedData() {
       description: '',
       options: [],
       global: false,
-      usedInProjects: ['ERP 系統升級'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '李大華',
+      createdBy: '',
     },
     {
       id: 'cf-6',
@@ -107,9 +107,9 @@ function buildSeedData() {
       description: '負責審核此任務結果的人員',
       options: [],
       global: true,
-      usedInProjects: ['電商平台開發', 'CRM 導入計畫'],
+      usedInProjects: [],
       createdAt: now,
-      createdBy: '王小明',
+      createdBy: '',
     },
   ];
 }
@@ -117,7 +117,15 @@ function buildSeedData() {
 function loadFields() {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // 遷移：如果 usedInProjects 含有字串名稱（舊格式），清空為空陣列
+      const migrated = parsed.map(f => ({
+        ...f,
+        usedInProjects: (f.usedInProjects || []).filter(v => typeof v === 'number' || /^\d+$/.test(String(v))),
+      }));
+      return migrated;
+    }
   } catch (_) { /* ignore */ }
   const seed = buildSeedData();
   localStorage.setItem(LS_KEY, JSON.stringify(seed));
@@ -187,20 +195,48 @@ function TypeBadge({ type }) {
   );
 }
 
-/** ProjectCount badge */
-function ProjectBadge({ count }) {
+/**
+ * ProjectLinks — 可點擊的專案標籤列
+ * 直接顯示專案名稱（非 hover），點擊跳轉到對應專案看板
+ */
+function ProjectLinks({ linkedProjects = [], onGoToProject }) {
+  if (linkedProjects.length === 0) {
+    return (
+      <span style={{
+        fontSize: 12, color: '#9ca3af',
+        fontStyle: 'italic', display: 'inline-block',
+      }}>未套用至任何專案</span>
+    );
+  }
   return (
-    <span style={{
-      display:      'inline-block',
-      padding:      '2px 8px',
-      borderRadius: 99,
-      background:   count > 0 ? '#e0f2fe' : '#f3f4f6',
-      color:        count > 0 ? '#0369a1' : '#9ca3af',
-      fontSize:     12,
-      fontWeight:   600,
-    }}>
-      使用於 {count} 個專案
-    </span>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      {linkedProjects.map(p => (
+        <button
+          key={p.id}
+          onClick={() => onGoToProject(p.id)}
+          title={`前往「${p.name}」任務看板`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '3px 10px', borderRadius: 99,
+            background: '#EFF6FF', border: '1px solid #BFDBFE',
+            color: '#1D4ED8', fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap',
+            transition: 'all 0.15s',
+          }}
+          onMouseOver={e => {
+            e.currentTarget.style.background = '#DBEAFE';
+            e.currentTarget.style.borderColor = '#93C5FD';
+          }}
+          onMouseOut={e => {
+            e.currentTarget.style.background = '#EFF6FF';
+            e.currentTarget.style.borderColor = '#BFDBFE';
+          }}
+        >
+          📁 {p.name}
+          <span style={{ fontSize: 10, opacity: 0.6 }}>↗</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -241,8 +277,22 @@ function OptionChip({ label, onRemove }) {
   );
 }
 
+// 欄位類型 → 使用位置描述
+const FIELD_LOCATION = {
+  text:     '任務詳情 · 文字輸入',
+  number:   '任務詳情 · 數值輸入',
+  select:   '任務詳情 · 下拉選單',
+  date:     '任務詳情 · 日期選擇',
+  checkbox: '任務詳情 · 勾選框',
+  currency: '任務詳情 · 金額輸入',
+  people:   '任務詳情 · 人員指派',
+};
+
 /** FieldCard — 卡片視圖的單一欄位卡 */
-function FieldCard({ field, onEdit, onDelete }) {
+function FieldCard({ field, onEdit, onDelete, projects = [], onGoToProject }) {
+  const linkedProjects = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid)))
+    .filter(Boolean);
   const [hovered, setHovered] = useState(false);
   const def = TYPE_MAP[field.type] || TYPE_MAP.text;
 
@@ -331,17 +381,39 @@ function FieldCard({ field, onEdit, onDelete }) {
         </div>
       )}
 
-      {/* 底部：使用專案數 + 操作按鈕 */}
+      {/* 套用專案區塊 */}
       <div style={{
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'space-between',
-        marginTop:      'auto',
-        paddingTop:     8,
-        borderTop:      '1px solid #f3f4f6',
+        marginTop: 'auto',
+        paddingTop: 10,
+        borderTop: '1px solid #f3f4f6',
       }}>
-        <ProjectBadge count={field.usedInProjects.length} />
-        <div style={{ display: 'flex', gap: 6 }}>
+        {/* 使用位置標示 */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6,
+        }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            textTransform: 'uppercase', letterSpacing: '0.5px',
+          }}>使用位置</span>
+          <span style={{
+            fontSize: 11, color: '#9ca3af',
+            background: '#f3f4f6', borderRadius: 4, padding: '1px 6px',
+          }}>
+            {FIELD_LOCATION[field.type] || '任務詳情'}
+          </span>
+        </div>
+
+        {/* 套用的專案（可點擊跳轉） */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: '#6b7280',
+            textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5,
+          }}>套用專案</div>
+          <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
+        </div>
+
+        {/* 操作按鈕 */}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
           <ActionBtn label="編輯" onClick={() => onEdit(field)} color="#3b82f6" />
           <ActionBtn label="刪除" onClick={() => onDelete(field)} color="#ef4444" />
         </div>
@@ -376,7 +448,7 @@ function ActionBtn({ label, onClick, color }) {
 }
 
 /** TableView — 表格視圖 */
-function TableView({ fields, onEdit, onDelete }) {
+function TableView({ fields, onEdit, onDelete, projects = [], onGoToProject }) {
   const thStyle = {
     padding:        '10px 14px',
     textAlign:      'left',
@@ -409,7 +481,8 @@ function TableView({ fields, onEdit, onDelete }) {
             <th style={thStyle}>欄位名稱</th>
             <th style={thStyle}>類型</th>
             <th style={thStyle}>說明</th>
-            <th style={thStyle}>使用專案</th>
+            <th style={thStyle}>使用位置</th>
+            <th style={thStyle}>套用專案 <span style={{ color: '#9ca3af', fontWeight: 400 }}>(可點擊跳轉)</span></th>
             <th style={thStyle}>建立者</th>
             <th style={thStyle}>建立時間</th>
             <th style={{ ...thStyle, textAlign: 'center' }}>操作</th>
@@ -424,11 +497,13 @@ function TableView({ fields, onEdit, onDelete }) {
               onEdit={onEdit}
               onDelete={onDelete}
               isLast={idx === fields.length - 1}
+              projects={projects}
+              onGoToProject={onGoToProject}
             />
           ))}
           {fields.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ ...tdStyle, textAlign: 'center', color: '#9ca3af', padding: 40 }}>
+              <td colSpan={8} style={{ ...tdStyle, textAlign: 'center', color: '#9ca3af', padding: 40 }}>
                 沒有符合條件的欄位
               </td>
             </tr>
@@ -439,9 +514,12 @@ function TableView({ fields, onEdit, onDelete }) {
   );
 }
 
-function TableRow({ field, tdStyle, onEdit, onDelete, isLast }) {
+function TableRow({ field, tdStyle, onEdit, onDelete, isLast, projects = [], onGoToProject }) {
   const [hov, setHov] = useState(false);
   const lastStyle = isLast ? { borderBottom: 'none' } : {};
+  const linkedProjects = field.usedInProjects
+    .map(pid => projects.find(p => String(p.id) === String(pid)))
+    .filter(Boolean);
 
   return (
     <tr
@@ -470,7 +548,7 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast }) {
       <td style={{ ...tdStyle, ...lastStyle }}>
         <TypeBadge type={field.type} />
       </td>
-      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 200 }}>
+      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 180 }}>
         <span style={{
           display:      '-webkit-box',
           WebkitLineClamp: 2,
@@ -481,8 +559,19 @@ function TableRow({ field, tdStyle, onEdit, onDelete, isLast }) {
           {field.description || '—'}
         </span>
       </td>
+      {/* 使用位置欄 */}
       <td style={{ ...tdStyle, ...lastStyle }}>
-        <ProjectBadge count={field.usedInProjects.length} />
+        <span style={{
+          fontSize: 11, color: '#6b7280',
+          background: '#f3f4f6', borderRadius: 4, padding: '2px 7px',
+          whiteSpace: 'nowrap',
+        }}>
+          {FIELD_LOCATION[field.type] || '任務詳情'}
+        </span>
+      </td>
+      {/* 套用專案欄（可點擊跳轉） */}
+      <td style={{ ...tdStyle, ...lastStyle, maxWidth: 240 }}>
+        <ProjectLinks linkedProjects={linkedProjects} onGoToProject={onGoToProject} />
       </td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{field.createdBy || '—'}</td>
       <td style={{ ...tdStyle, ...lastStyle, color: '#6b7280' }}>{formatDate(field.createdAt)}</td>
@@ -649,7 +738,7 @@ function Overlay({ children, onClick }) {
 }
 
 /** FieldModal — 新增 / 編輯欄位 Modal */
-function FieldModal({ field, projects, onSave, onClose }) {
+function FieldModal({ field, projects, onSave, onClose, userName = '我' }) {
   const isEdit = Boolean(field?.id);
 
   const [name, setName]             = useState(field?.name || '');
@@ -665,9 +754,11 @@ function FieldModal({ field, projects, onSave, onClose }) {
     if (newType !== 'select') setOptions([]);
   }
 
-  function toggleProject(pName) {
+  // 改用 project ID（不用 name），確保與後端資料一致
+  function toggleProject(pId) {
+    const id = String(pId);
     setUsedIn(prev =>
-      prev.includes(pName) ? prev.filter(p => p !== pName) : [...prev, pName]
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   }
 
@@ -686,7 +777,7 @@ function FieldModal({ field, projects, onSave, onClose }) {
       global,
       usedInProjects: usedIn,
       createdAt:      field?.createdAt || now,
-      createdBy:      field?.createdBy || '陳志明',
+      createdBy:      field?.createdBy || userName,
     };
     onSave(saved);
   }
@@ -884,11 +975,11 @@ function FieldModal({ field, projects, onSave, onClose }) {
                 gap:          8,
               }}>
                 {projects.map(p => {
-                  const selected = usedIn.includes(p.name);
+                  const selected = usedIn.includes(String(p.id));
                   return (
                     <button
                       key={p.id}
-                      onClick={() => toggleProject(p.name)}
+                      onClick={() => toggleProject(p.id)}
                       style={{
                         padding:      '4px 12px',
                         borderRadius: 99,
@@ -1048,9 +1139,21 @@ function EmptyState({ onAdd }) {
 // 主頁面
 // ════════════════════════════════════════════════════════════════
 
-export default function CustomFieldsPage() {
+export default function CustomFieldsPage({ onNavigate }) {
   const { user } = useAuth();
   const COMPANY_ID = user?.companyId;
+
+  // 跳轉到指定專案的看板
+  const handleGoToProject = (projectId) => {
+    if (projectId) {
+      sessionStorage.setItem('xcloud-open-project', String(projectId));
+    }
+    if (onNavigate) {
+      onNavigate('projects');
+    } else {
+      window.location.hash = '#projects';
+    }
+  };
 
   const [fields, setFields]           = useState([]);
   const [projects, setProjects]       = useState([]);
@@ -1067,6 +1170,7 @@ export default function CustomFieldsPage() {
   }, []);
 
   useEffect(() => {
+    if (!COMPANY_ID) return;
     fetch(`${API_BASE}/api/projects?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(data => {
@@ -1079,15 +1183,8 @@ export default function CustomFieldsPage() {
           : [];
         setProjects(list.map(p => ({ id: p.id, name: p.name })));
       })
-      .catch(() => {
-        // API 不可用時使用靜態清單
-        setProjects([
-          { id: 1, name: '電商平台開發' },
-          { id: 2, name: 'ERP 系統升級' },
-          { id: 3, name: 'CRM 導入計畫' },
-        ]);
-      });
-  }, []);
+      .catch(() => setProjects([]));   // API 不可用時不填入假資料
+  }, [COMPANY_ID]);
 
   // ── 篩選邏輯 ───────────────────────────────────────────────
   const filtered = fields.filter(f => {
@@ -1323,6 +1420,8 @@ export default function CustomFieldsPage() {
                 field={f}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
+                projects={projects}
+                onGoToProject={handleGoToProject}
               />
             ))}
           </div>
@@ -1331,6 +1430,8 @@ export default function CustomFieldsPage() {
             fields={filtered}
             onEdit={openEdit}
             onDelete={setDeleteTarget}
+            projects={projects}
+            onGoToProject={handleGoToProject}
           />
         )}
       </div>
@@ -1342,6 +1443,7 @@ export default function CustomFieldsPage() {
           projects={projects}
           onSave={handleSave}
           onClose={() => { setShowModal(false); setEditTarget(null); }}
+          userName={user?.name || '我'}
         />
       )}
 

@@ -15,7 +15,7 @@
  *   菱形（Decision）  = 審核決策點
  *   箭頭（Arrow）     = 流程方向
  *
- * 資料來源：GET /api/gantt?companyId=2
+ * 資料來源：GET /api/gantt?companyId={user.companyId}
  */
 
 import { useState, useEffect } from 'react';
@@ -216,7 +216,7 @@ function Arrow({ label, color = '#CBD5E1', vertical = false }) {
 // ════════════════════════════════════════════════════════════
 // 任務卡片
 // ════════════════════════════════════════════════════════════
-function TaskCard({ task }) {
+function TaskCard({ task, onGoToProject }) {
   const pColor  = PRIORITY_COLOR[task.priority] || '#94A3B8';
   const pLabel  = PRIORITY_LABEL[task.priority] || task.priority;
   const due     = task.planEnd ? fmtDate(task.planEnd) : null;
@@ -224,6 +224,7 @@ function TaskCard({ task }) {
 
   return (
     <div
+      onClick={() => onGoToProject && onGoToProject(task.projectId)}
       style={{
         background: 'white',
         border: '1px solid #E8EDF4',
@@ -231,7 +232,7 @@ function TaskCard({ task }) {
         borderRadius: '7px',
         padding: '9px 11px',
         marginBottom: '6px',
-        cursor: 'default',
+        cursor: 'pointer',
         transition: 'box-shadow 0.15s, transform 0.15s',
       }}
       onMouseOver={e => {
@@ -284,6 +285,8 @@ function TaskCard({ task }) {
             {overdue ? '⚠ ' : '📅 '}{due}
           </span>
         )}
+
+        <span style={{ marginLeft: 'auto', fontSize: '9px', color: '#CBD5E1' }}>↗ 查看</span>
       </div>
     </div>
   );
@@ -292,7 +295,7 @@ function TaskCard({ task }) {
 // ════════════════════════════════════════════════════════════
 // 泳道列
 // ════════════════════════════════════════════════════════════
-function SwimLaneRow({ project, tasksByStage, isLast }) {
+function SwimLaneRow({ project, tasksByStage, isLast, onGoToProject }) {
   const totalDone  = (tasksByStage['done'] || []).length;
   const totalAll   = project.totalTasks || 1;
   const progress   = Math.round((totalDone / totalAll) * 100);
@@ -318,11 +321,18 @@ function SwimLaneRow({ project, tasksByStage, isLast }) {
             width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
             background: project.statusColor, marginTop: '3px',
           }} />
-          <div>
-            <div style={{
-              fontSize: '12.5px', fontWeight: '700', color: '#1e293b',
-              lineHeight: '1.35', wordBreak: 'break-all',
-            }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              onClick={() => onGoToProject(project.id)}
+              title="前往專案管理"
+              style={{
+                fontSize: '12.5px', fontWeight: '700', color: '#1e293b',
+                lineHeight: '1.35', wordBreak: 'break-all',
+                cursor: 'pointer', textDecoration: 'none',
+              }}
+              onMouseOver={e => { e.currentTarget.style.color = '#C41230'; e.currentTarget.style.textDecoration = 'underline'; }}
+              onMouseOut={e => { e.currentTarget.style.color = '#1e293b'; e.currentTarget.style.textDecoration = 'none'; }}
+            >
               {project.name}
             </div>
             <div style={{
@@ -350,6 +360,20 @@ function SwimLaneRow({ project, tasksByStage, isLast }) {
             完成 {totalDone}/{totalAll} · {progress}%
           </div>
         </div>
+
+        {/* 前往專案按鈕 */}
+        <button
+          onClick={() => onGoToProject(project.id)}
+          style={{
+            marginTop: '8px', width: '100%',
+            background: '#EFF6FF', border: '1px solid #BFDBFE',
+            borderRadius: '6px', padding: '4px 0',
+            cursor: 'pointer', fontSize: '10.5px', color: '#2563EB', fontWeight: '600',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+          }}
+        >
+          📁 前往專案
+        </button>
       </div>
 
       {/* 各階段任務格子 */}
@@ -364,7 +388,7 @@ function SwimLaneRow({ project, tasksByStage, isLast }) {
           }}
         >
           {(tasksByStage[stage.id] || []).map(task => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard key={task.id} task={{ ...task, projectId: project.id }} onGoToProject={onGoToProject} />
           ))}
           {!(tasksByStage[stage.id] || []).length && (
             <div style={{
@@ -382,7 +406,7 @@ function SwimLaneRow({ project, tasksByStage, isLast }) {
 // ════════════════════════════════════════════════════════════
 // 主元件：WorkflowDiagramPage
 // ════════════════════════════════════════════════════════════
-export default function WorkflowDiagramPage() {
+export default function WorkflowDiagramPage({ onNavigate }) {
   const { user } = useAuth();
   const COMPANY_ID = user?.companyId;
 
@@ -392,12 +416,25 @@ export default function WorkflowDiagramPage() {
   const [filterProject,  setFilterProject]  = useState('all');
 
   useEffect(() => {
+    if (!COMPANY_ID) return;
     setLoading(true);
     fetch(`${API_BASE}/api/gantt?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(data => { setProjects(data.projects || []); setLoading(false); })
       .catch(e  => { setError(e.message); setLoading(false); });
-  }, []);
+  }, [COMPANY_ID]);
+
+  // 導向專案管理頁面，並透過 sessionStorage 傳遞目標專案 ID
+  const handleGoToProject = (projectId) => {
+    if (projectId) {
+      sessionStorage.setItem('xcloud-open-project', String(projectId));
+    }
+    if (onNavigate) {
+      onNavigate('projects');  // 直接呼叫 Dashboard 的 navigate，確保 React state 更新
+    } else {
+      window.location.hash = '#projects';
+    }
+  };
 
   // 整理泳道資料
   const processed = projects
@@ -635,6 +672,7 @@ export default function WorkflowDiagramPage() {
                 project={project}
                 tasksByStage={project.tasksByStage}
                 isLast={i === processed.length - 1}
+                onGoToProject={handleGoToProject}
               />
             ))}
           </div>

@@ -1,0 +1,1471 @@
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+
+type EntityId = string | number;
+
+type CustomFieldType =
+  | 'text'
+  | 'number'
+  | 'select'
+  | 'date'
+  | 'multi_select'
+  | 'people';
+
+type CustomFieldPrimitive = string | number | null;
+type CustomFieldStoredValue = CustomFieldPrimitive | string[] | number[];
+
+export interface TaskPanelMember {
+  id: EntityId;
+  name: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface TaskPanelProject {
+  id: EntityId;
+  name: string;
+  color?: string | null;
+}
+
+export interface TaskCustomFieldOption {
+  id?: EntityId;
+  label: string;
+  value: string;
+  color?: string | null;
+}
+
+export interface TaskCustomFieldDefinition {
+  id: EntityId;
+  name: string;
+  type: CustomFieldType;
+  placeholder?: string;
+  description?: string;
+  unit?: string;
+  options?: TaskCustomFieldOption[];
+}
+
+export interface TaskSubtaskNode {
+  id: EntityId;
+  title: string;
+  completed?: boolean;
+  dueDate?: string | null;
+  progressPercent?: number | null;
+  assignee?: TaskPanelMember | null;
+  children?: TaskSubtaskNode[];
+}
+
+export interface TaskActivityMention {
+  id: EntityId;
+  name: string;
+}
+
+export interface TaskActivityItem {
+  id: EntityId;
+  type: 'comment' | 'history';
+  actor: TaskPanelMember;
+  createdAt: string;
+  text: string;
+  mentions?: TaskActivityMention[];
+  meta?: string[];
+}
+
+export interface TaskDetailRecord {
+  id: EntityId;
+  title: string;
+  status?: string | null;
+  assignee?: TaskPanelMember | null;
+  dueDate?: string | null;
+  projects: TaskPanelProject[];
+  customFieldValues?: Record<string, CustomFieldStoredValue | undefined>;
+  subtasks?: TaskSubtaskNode[];
+  activity?: TaskActivityItem[];
+}
+
+export interface TaskDetailSavePayload {
+  title: string;
+  assigneeId: EntityId | null;
+  dueDate: string | null;
+  projectIds: EntityId[];
+  customFieldValues: Record<string, CustomFieldStoredValue | undefined>;
+}
+
+export interface TaskDetailPanelProps {
+  open: boolean;
+  task: TaskDetailRecord | null;
+  members: TaskPanelMember[];
+  availableProjects: TaskPanelProject[];
+  customFields: TaskCustomFieldDefinition[];
+  lockedProjectIds?: EntityId[];
+  saving?: boolean;
+  onClose: () => void;
+  onSave: (payload: TaskDetailSavePayload) => Promise<void> | void;
+  onDelete?: (taskId: EntityId) => Promise<void> | void;
+  onQuickAddSubtask?: (input: {
+    parentTaskId: EntityId;
+    title: string;
+  }) => Promise<void> | void;
+  onToggleSubtask?: (input: {
+    subtaskId: EntityId;
+    completed: boolean;
+  }) => Promise<void> | void;
+}
+
+const BRAND = {
+  crimson: '#C70018',
+  crimsonDeep: '#8F0013',
+  ink: '#111111',
+  carbon: '#2B2B2B',
+  paper: '#F7F2EE',
+  mist: '#E8DFD8',
+  line: '#D9CDC4',
+  white: '#FFFFFF',
+  success: '#16824B',
+  warning: '#C97415',
+  muted: '#7C726C',
+};
+
+const STATUS_TONES: Record<string, { label: string; bg: string; color: string }> = {
+  todo: { label: '待辦', bg: '#EEE7E2', color: '#6B6461' },
+  in_progress: { label: '進行中', bg: '#F8D8DD', color: '#8F0013' },
+  review: { label: '審核中', bg: '#F5E2CE', color: '#B35810' },
+  done: { label: '已完成', bg: '#DDF2E4', color: '#16824B' },
+  completed: { label: '已完成', bg: '#DDF2E4', color: '#16824B' },
+};
+
+const shellStyle = {
+  border: `1px solid ${BRAND.line}`,
+  borderRadius: 14,
+  background: BRAND.white,
+  color: BRAND.ink,
+  width: '100%',
+  boxSizing: 'border-box' as const,
+};
+
+const inputStyle = {
+  ...shellStyle,
+  minHeight: 42,
+  padding: '10px 12px',
+  fontSize: 13,
+  outline: 'none',
+};
+
+function toKey(id: EntityId) {
+  return String(id);
+}
+
+function getAvatarHue(seed: string) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 33 + seed.charCodeAt(index)) % 360;
+  }
+  return hash;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase())
+    .join('') || '?';
+}
+
+function formatDateInputValue(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatHumanDate(value?: string | null) {
+  if (!value) return '未設定';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未設定';
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(date);
+}
+
+function formatActivityTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function flattenSubtasks(nodes: TaskSubtaskNode[]) {
+  return nodes.flatMap((node) => [node, ...flattenSubtasks(node.children || [])]);
+}
+
+function getSubtaskStats(nodes: TaskSubtaskNode[]) {
+  const flattened = flattenSubtasks(nodes);
+  const total = flattened.length;
+  const completed = flattened.filter((node) => node.completed).length;
+  const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+  return { total, completed, progress };
+}
+
+function normalizeFieldValue(
+  type: CustomFieldType,
+  value: TaskCustomFieldValueMap[string]
+): TaskCustomFieldValueMap[string] {
+  if (type === 'multi_select' || type === 'people') {
+    if (Array.isArray(value)) return value;
+    return [];
+  }
+
+  if (type === 'number') {
+    if (value === '' || value === null || value === undefined) return null;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  return value ?? '';
+}
+
+type TaskCustomFieldValueMap = Record<string, CustomFieldStoredValue | undefined>;
+
+function Section({
+  kicker,
+  title,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section style={{ marginTop: 24 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          color: BRAND.muted,
+        }}
+      >
+        {kicker}
+      </div>
+      <h3
+        style={{
+          margin: '6px 0 14px',
+          fontSize: 18,
+          fontWeight: 800,
+          color: BRAND.ink,
+        }}
+      >
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Avatar({
+  user,
+  size = 32,
+}: {
+  user: TaskPanelMember;
+  size?: number;
+}) {
+  const bg = `hsl(${getAvatarHue(user.name)}, 70%, 42%)`;
+
+  return user.avatarUrl ? (
+    <img
+      src={user.avatarUrl}
+      alt={user.name}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        objectFit: 'cover',
+        flexShrink: 0,
+      }}
+    />
+  ) : (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        flexShrink: 0,
+        background: bg,
+        color: BRAND.white,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.42,
+        fontWeight: 800,
+      }}
+    >
+      {getInitials(user.name)}
+    </div>
+  );
+}
+
+function ProjectTag({
+  project,
+  removable = false,
+  onRemove,
+}: {
+  project: TaskPanelProject;
+  removable?: boolean;
+  onRemove?: (projectId: EntityId) => void;
+}) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 11px',
+        borderRadius: 999,
+        background: project.color || '#FBE5E8',
+        color: BRAND.crimsonDeep,
+        fontSize: 12,
+        fontWeight: 700,
+      }}
+    >
+      {project.name}
+      {removable && onRemove ? (
+        <button
+          type="button"
+          onClick={() => onRemove(project.id)}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: 'inherit',
+            cursor: 'pointer',
+            padding: 0,
+            fontSize: 13,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
+function CustomFieldControl({
+  field,
+  members,
+  value,
+  onChange,
+}: {
+  field: TaskCustomFieldDefinition;
+  members: TaskPanelMember[];
+  value: TaskCustomFieldValueMap[string];
+  onChange: (nextValue: TaskCustomFieldValueMap[string]) => void;
+}) {
+  if (field.type === 'select') {
+    return (
+      <select
+        value={typeof value === 'string' ? value : ''}
+        onChange={(event) => onChange(event.target.value)}
+        style={inputStyle}
+      >
+        <option value="">未設定</option>
+        {(field.options || []).map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (field.type === 'number') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <input
+          type="number"
+          value={value ?? ''}
+          placeholder={field.placeholder || '輸入數字'}
+          onChange={(event) => onChange(event.target.value)}
+          style={{ ...inputStyle, paddingRight: field.unit ? 54 : 12 }}
+        />
+        {field.unit ? (
+          <span
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: 12,
+              color: BRAND.muted,
+              fontWeight: 700,
+            }}
+          >
+            {field.unit}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (field.type === 'date') {
+    return (
+      <input
+        type="date"
+        value={typeof value === 'string' ? value : ''}
+        onChange={(event) => onChange(event.target.value)}
+        style={inputStyle}
+      />
+    );
+  }
+
+  if (field.type === 'multi_select') {
+    const selectedValues = Array.isArray(value) ? value.map(String) : [];
+
+    return (
+      <div style={{ display: 'grid', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(field.options || []).map((option) => {
+            const checked = selectedValues.includes(option.value);
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  onChange(
+                    checked
+                      ? selectedValues.filter((item) => item !== option.value)
+                      : [...selectedValues, option.value]
+                  )
+                }
+                style={{
+                  padding: '8px 11px',
+                  borderRadius: 999,
+                  border: `1px solid ${checked ? BRAND.crimson : BRAND.line}`,
+                  background: checked ? '#FFF3F5' : BRAND.white,
+                  color: checked ? BRAND.crimsonDeep : BRAND.carbon,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  if (field.type === 'people') {
+    const selected = Array.isArray(value) ? value.map(String) : [];
+    return (
+      <div style={{ display: 'grid', gap: 10 }}>
+        <select
+          value=""
+          onChange={(event) => {
+            const nextId = event.target.value;
+            if (!nextId) return;
+            if (selected.includes(nextId)) return;
+            onChange([...selected, nextId]);
+          }}
+          style={inputStyle}
+        >
+          <option value="">加入成員</option>
+          {members
+            .filter((member) => !selected.includes(toKey(member.id)))
+            .map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+        </select>
+
+        {selected.length > 0 ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {selected.map((memberId) => {
+              const member = members.find((item) => toKey(item.id) === memberId);
+              if (!member) return null;
+
+              return (
+                <span
+                  key={memberId}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '6px 10px',
+                    borderRadius: 999,
+                    background: '#F2EEEA',
+                    color: BRAND.carbon,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  <Avatar user={member} size={22} />
+                  {member.name}
+                  <button
+                    type="button"
+                    onClick={() => onChange(selected.filter((item) => item !== memberId))}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: 13,
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <input
+      type="text"
+      value={typeof value === 'string' || typeof value === 'number' ? value : ''}
+      placeholder={field.placeholder || '輸入內容'}
+      onChange={(event) => onChange(event.target.value)}
+      style={inputStyle}
+    />
+  );
+}
+
+function SubtaskTree({
+  items,
+  level = 0,
+  onToggle,
+}: {
+  items: TaskSubtaskNode[];
+  level?: number;
+  onToggle?: (item: TaskSubtaskNode) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            borderRadius: 16,
+            border: `1px solid ${BRAND.line}`,
+            background: BRAND.white,
+            padding: '12px 14px',
+            marginLeft: level * 18,
+            boxShadow: level === 0 ? '0 8px 18px rgba(17,17,17,.05)' : 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => onToggle?.(item)}
+              style={{
+                marginTop: 3,
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                border: `1.5px solid ${item.completed ? BRAND.success : BRAND.line}`,
+                background: item.completed ? BRAND.success : BRAND.white,
+                color: BRAND.white,
+                fontSize: 11,
+                fontWeight: 900,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: onToggle ? 'pointer' : 'default',
+                flexShrink: 0,
+              }}
+            >
+              {item.completed ? '✓' : ''}
+            </button>
+
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: 1.4,
+                  color: BRAND.ink,
+                  textDecoration: item.completed ? 'line-through' : 'none',
+                  opacity: item.completed ? 0.58 : 1,
+                }}
+              >
+                {item.title}
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: BRAND.muted,
+                    background: '#F3EEEA',
+                    padding: '4px 8px',
+                    borderRadius: 999,
+                    fontWeight: 700,
+                  }}
+                >
+                  進度 {item.progressPercent ?? (item.completed ? 100 : 0)}%
+                </span>
+
+                {item.dueDate ? (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: BRAND.muted,
+                      background: '#F7F2EE',
+                      padding: '4px 8px',
+                      borderRadius: 999,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {formatHumanDate(item.dueDate)}
+                  </span>
+                ) : null}
+
+                {item.assignee ? (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 11,
+                      color: BRAND.carbon,
+                      fontWeight: 700,
+                    }}
+                  >
+                    <Avatar user={item.assignee} size={22} />
+                    {item.assignee.name}
+                  </span>
+                ) : null}
+              </div>
+
+              {item.children && item.children.length > 0 ? (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BRAND.mist}` }}>
+                  <SubtaskTree items={item.children} level={level + 1} onToggle={onToggle} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div
+        style={{
+          border: `1px dashed ${BRAND.line}`,
+          borderRadius: 18,
+          background: '#FCFAF8',
+          color: BRAND.muted,
+          padding: '20px 18px',
+          fontSize: 13,
+        }}
+      >
+        尚無評論與操作紀錄。
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '40px 1fr',
+            gap: 12,
+            alignItems: 'start',
+          }}
+        >
+          <Avatar user={item.actor} size={34} />
+
+          <div
+            style={{
+              borderRadius: 18,
+              border: `1px solid ${BRAND.line}`,
+              background: BRAND.white,
+              padding: '14px 16px',
+              boxShadow: '0 8px 18px rgba(17,17,17,.05)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                  {item.actor.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    borderRadius: 999,
+                    padding: '4px 8px',
+                    background: item.type === 'comment' ? '#FBE5E8' : '#F3EEEA',
+                    color: item.type === 'comment' ? BRAND.crimsonDeep : BRAND.muted,
+                  }}
+                >
+                  {item.type === 'comment' ? '評論' : '歷史操作'}
+                </span>
+              </div>
+
+              <span style={{ fontSize: 11, color: BRAND.muted, fontWeight: 700 }}>
+                {formatActivityTime(item.createdAt)}
+              </span>
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: BRAND.carbon,
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {item.text}
+            </div>
+
+            {item.mentions && item.mentions.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                {item.mentions.map((mention) => (
+                  <span
+                    key={mention.id}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: 999,
+                      background: '#EFF6FF',
+                      color: '#2563EB',
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    @{mention.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {item.meta && item.meta.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                {item.meta.map((entry) => (
+                  <span
+                    key={entry}
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: 999,
+                      background: '#F7F2EE',
+                      color: BRAND.muted,
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {entry}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function TaskDetailPanel({
+  open,
+  task,
+  members,
+  availableProjects,
+  customFields,
+  lockedProjectIds = [],
+  saving = false,
+  onClose,
+  onSave,
+  onDelete,
+  onQuickAddSubtask,
+  onToggleSubtask,
+}: TaskDetailPanelProps) {
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [title, setTitle] = useState('');
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [dueDate, setDueDate] = useState('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<TaskCustomFieldValueMap>({});
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [subtaskInput, setSubtaskInput] = useState('');
+  const [subtaskPending, setSubtaskPending] = useState(false);
+
+  useEffect(() => {
+    if (!open || !task) return;
+
+    setTitle(task.title);
+    setAssigneeId(task.assignee ? toKey(task.assignee.id) : '');
+    setDueDate(formatDateInputValue(task.dueDate));
+    setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
+    setCustomFieldValues(task.customFieldValues || {});
+    setSubtaskInput('');
+    setShowProjectPicker(false);
+    setIsEditingTitle(false);
+  }, [open, task]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [isEditingTitle]);
+
+  const projectCatalog = useMemo(() => {
+    const catalog = new Map<string, TaskPanelProject>();
+    [...availableProjects, ...task.projects].forEach((project) => {
+      catalog.set(toKey(project.id), project);
+    });
+    return catalog;
+  }, [availableProjects, task.projects]);
+
+  const activeProjects = useMemo(() => {
+    return selectedProjectIds
+      .map((projectId) => projectCatalog.get(projectId))
+      .filter(Boolean) as TaskPanelProject[];
+  }, [projectCatalog, selectedProjectIds]);
+
+  const projectOptions = useMemo(
+    () => Array.from(projectCatalog.values()).filter((project) => !selectedProjectIds.includes(toKey(project.id))),
+    [projectCatalog, selectedProjectIds]
+  );
+
+  const activityFeed = useMemo(
+    () =>
+      [...(task?.activity || [])].sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      ),
+    [task]
+  );
+  const lockedProjectKeys = useMemo(
+    () => new Set(lockedProjectIds.map((projectId) => toKey(projectId))),
+    [lockedProjectIds]
+  );
+
+  if (!open || !task) return null;
+
+  const subtaskStats = getSubtaskStats(task.subtasks || []);
+  const assignee = members.find((member) => toKey(member.id) === assigneeId) || null;
+  const statusTone = STATUS_TONES[task.status || 'todo'] || STATUS_TONES.todo;
+
+  const handleSave = async () => {
+    const normalizedValues: TaskCustomFieldValueMap = {};
+
+    customFields.forEach((field) => {
+      normalizedValues[toKey(field.id)] = normalizeFieldValue(
+        field.type,
+        customFieldValues[toKey(field.id)]
+      );
+    });
+
+    await onSave({
+      title: title.trim(),
+      assigneeId: assigneeId || null,
+      dueDate: dueDate || null,
+      projectIds: selectedProjectIds,
+      customFieldValues: normalizedValues,
+    });
+  };
+
+  const handleQuickAddSubtask = async () => {
+    const nextTitle = subtaskInput.trim();
+    if (!nextTitle || !onQuickAddSubtask) return;
+
+    setSubtaskPending(true);
+    try {
+      await onQuickAddSubtask({ parentTaskId: task.id, title: nextTitle });
+      setSubtaskInput('');
+    } finally {
+      setSubtaskPending(false);
+    }
+  };
+
+  return (
+    <>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(17,17,17,.34)',
+          backdropFilter: 'blur(2px)',
+          zIndex: 1090,
+        }}
+        onClick={onClose}
+      />
+
+      <aside
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 'min(560px, 100vw)',
+          background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.paper} 100%)`,
+          borderLeft: `1px solid ${BRAND.line}`,
+          boxShadow: '-20px 0 60px rgba(17,17,17,.18)',
+          zIndex: 1100,
+          display: 'flex',
+          flexDirection: 'column',
+          animation: 'taskDetailPanelSlide .22s ease',
+        }}
+      >
+        <div
+          style={{
+            padding: '22px 24px 20px',
+            background: `linear-gradient(135deg, ${BRAND.ink} 0%, ${BRAND.crimsonDeep} 50%, ${BRAND.crimson} 100%)`,
+            color: BRAND.white,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  flexWrap: 'wrap',
+                  marginBottom: 12,
+                }}
+              >
+                <span
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,.12)',
+                    border: '1px solid rgba(255,255,255,.16)',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: '.08em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Task Detail
+                </span>
+                <span
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    background: statusTone.bg,
+                    color: statusTone.color,
+                    fontSize: 11,
+                    fontWeight: 800,
+                  }}
+                >
+                  {statusTone.label}
+                </span>
+              </div>
+
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  onBlur={() => setIsEditingTitle(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      setIsEditingTitle(false);
+                    }
+                    if (event.key === 'Escape') {
+                      setTitle(task.title);
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: 0,
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    color: BRAND.white,
+                    fontSize: 30,
+                    fontWeight: 900,
+                    lineHeight: 1.08,
+                    letterSpacing: '-0.04em',
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(true)}
+                  style={{
+                    padding: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    color: BRAND.white,
+                    fontSize: 30,
+                    fontWeight: 900,
+                    lineHeight: 1.08,
+                    letterSpacing: '-0.04em',
+                    cursor: 'text',
+                    textAlign: 'left',
+                  }}
+                >
+                  {title || '未命名任務'}
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,.2)',
+                background: 'rgba(255,255,255,.1)',
+                color: BRAND.white,
+                cursor: 'pointer',
+                fontSize: 18,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
+                負責人
+              </div>
+              {assignee ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <Avatar user={assignee} size={28} />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{assignee.name}</span>
+                </div>
+              ) : (
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.92)' }}>
+                  未指派
+                </span>
+              )}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
+                截止日期
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>
+                {formatHumanDate(dueDate || task.dueDate)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 28px' }}>
+          <Section kicker="Properties" title="任務屬性">
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                  負責人
+                </label>
+                <select
+                  value={assigneeId}
+                  onChange={(event) => setAssigneeId(event.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="">未指派</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                  日期
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                  }}
+                >
+                  <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                    專案歸屬
+                  </label>
+                  {projectOptions.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowProjectPicker((current) => !current)}
+                      style={{
+                        border: `1px solid ${BRAND.line}`,
+                        background: BRAND.white,
+                        borderRadius: 999,
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: BRAND.carbon,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + 加入專案
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {activeProjects.map((project) => (
+                    <ProjectTag
+                      key={project.id}
+                      project={project}
+                      removable={activeProjects.length > 1 && !lockedProjectKeys.has(toKey(project.id))}
+                      onRemove={(projectId) =>
+                        setSelectedProjectIds((current) =>
+                          current.filter((id) => id !== toKey(projectId))
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+
+                {showProjectPicker ? (
+                  <select
+                    value=""
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      if (!nextId) return;
+                      setSelectedProjectIds((current) => [...current, nextId]);
+                      setShowProjectPicker(false);
+                    }}
+                    style={inputStyle}
+                  >
+                    <option value="">選擇專案</option>
+                    {projectOptions.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+            </div>
+          </Section>
+
+          <Section kicker="Custom Fields" title="自定義欄位">
+            <div style={{ display: 'grid', gap: 16 }}>
+              {customFields.length === 0 ? (
+                <div
+                  style={{
+                    border: `1px dashed ${BRAND.line}`,
+                    borderRadius: 18,
+                    padding: '18px 16px',
+                    background: '#FCFAF8',
+                    fontSize: 13,
+                    color: BRAND.muted,
+                  }}
+                >
+                  這個任務目前沒有綁定自定義欄位。
+                </div>
+              ) : (
+                customFields.map((field) => (
+                  <div key={field.id} style={{ display: 'grid', gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                        {field.name}
+                      </div>
+                      {field.description ? (
+                        <div style={{ marginTop: 4, fontSize: 12, color: BRAND.muted }}>
+                          {field.description}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <CustomFieldControl
+                      field={field}
+                      members={members}
+                      value={customFieldValues[toKey(field.id)]}
+                      onChange={(nextValue) =>
+                        setCustomFieldValues((current) => ({
+                          ...current,
+                          [toKey(field.id)]: nextValue,
+                        }))
+                      }
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+          </Section>
+
+          <Section kicker="Subtasks" title="子任務">
+            <div
+              style={{
+                border: `1px solid ${BRAND.line}`,
+                borderRadius: 22,
+                background: BRAND.white,
+                padding: 18,
+                boxShadow: '0 12px 24px rgba(17,17,17,.05)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                    進度總覽
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: BRAND.muted }}>
+                    已完成 {subtaskStats.completed} / {subtaskStats.total} 項子任務
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 24, fontWeight: 900, color: BRAND.crimsonDeep }}>
+                  {subtaskStats.progress}%
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 14,
+                  height: 10,
+                  borderRadius: 999,
+                  background: '#EDE5DE',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${subtaskStats.progress}%`,
+                    height: '100%',
+                    background: `linear-gradient(90deg, ${BRAND.crimsonDeep}, ${BRAND.crimson})`,
+                    transition: 'width .2s ease',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+                <input
+                  type="text"
+                  value={subtaskInput}
+                  onChange={(event) => setSubtaskInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleQuickAddSubtask();
+                    }
+                  }}
+                  placeholder="快速新增子任務..."
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleQuickAddSubtask()}
+                  disabled={!subtaskInput.trim() || subtaskPending || !onQuickAddSubtask}
+                  style={{
+                    border: 'none',
+                    borderRadius: 14,
+                    padding: '0 16px',
+                    background:
+                      !subtaskInput.trim() || !onQuickAddSubtask ? '#E6DDD6' : BRAND.crimson,
+                    color: BRAND.white,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor:
+                      !subtaskInput.trim() || !onQuickAddSubtask ? 'not-allowed' : 'pointer',
+                    minWidth: 92,
+                  }}
+                >
+                  {subtaskPending ? '新增中' : '新增'}
+                </button>
+              </div>
+
+              <div style={{ marginTop: 18 }}>
+                {task.subtasks && task.subtasks.length > 0 ? (
+                  <SubtaskTree
+                    items={task.subtasks}
+                    onToggle={
+                      onToggleSubtask
+                        ? (item) =>
+                            void onToggleSubtask({
+                              subtaskId: item.id,
+                              completed: !item.completed,
+                            })
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <div
+                    style={{
+                      border: `1px dashed ${BRAND.line}`,
+                      borderRadius: 18,
+                      padding: '20px 16px',
+                      background: '#FCFAF8',
+                      fontSize: 13,
+                      color: BRAND.muted,
+                    }}
+                  >
+                    目前還沒有子任務，先加一個開始拆解執行步驟。
+                  </div>
+                )}
+              </div>
+            </div>
+          </Section>
+
+          <Section kicker="Activity" title="活動紀錄">
+            <ActivityTimeline items={activityFeed} />
+          </Section>
+        </div>
+
+        <div
+          style={{
+            padding: '18px 24px 24px',
+            borderTop: `1px solid ${BRAND.line}`,
+            background: 'rgba(255,255,255,.92)',
+            backdropFilter: 'blur(14px)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => onDelete?.(task.id)}
+            disabled={!onDelete}
+            style={{
+              borderRadius: 14,
+              border: `1px solid ${onDelete ? '#F0B6BF' : BRAND.line}`,
+              background: '#FFF6F7',
+              color: onDelete ? BRAND.crimsonDeep : BRAND.muted,
+              padding: '12px 14px',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: onDelete ? 'pointer' : 'not-allowed',
+            }}
+          >
+            刪除任務
+          </button>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                borderRadius: 14,
+                border: `1px solid ${BRAND.line}`,
+                background: BRAND.white,
+                color: BRAND.carbon,
+                padding: '12px 16px',
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              取消
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving || !title.trim()}
+              style={{
+                borderRadius: 14,
+                border: 'none',
+                background: saving || !title.trim() ? '#D9B5BC' : BRAND.crimson,
+                color: BRAND.white,
+                padding: '12px 18px',
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
+                minWidth: 116,
+              }}
+            >
+              {saving ? '儲存中...' : '儲存變更'}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <style>{`
+        @keyframes taskDetailPanelSlide {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
+  );
+}

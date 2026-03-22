@@ -6,70 +6,36 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force",
-    "db:studio": "prisma studio",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:outlook": "jest test/integration/outlook.test.js --verbose",
-    "test:outlook:skip-send": "SKIP_SEND=true jest test/integration/outlook.test.js --verbose",
-    "test:email": "node scripts/testEmail.js",
-    "test:ai": "node scripts/testAiAgent.js",
-    "scheduler": "node jobs/reminderJob.js",
-    "mcp": "node mcp/server.js",
-    "collab": "node services/collaboration/yjsServer.js",
-    "monitor": "node jobs/monitorAgent.js",
-    "monitor:now": "node jobs/monitorAgent.js --run-now"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/test/**/*.test.js"
-    ],
-    "testTimeout": 60000,
-    "verbose": true,
-    "forceExit": true,
-    "detectOpenHandles": false
+    "db:studio": "prisma studio"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@azure/msal-node": "^2.6.0",
-    "@hocuspocus/server": "^2.13.4",
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@prisma/client": "^5.8.1",
-    "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.6.1",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
-    "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
-    "node-cron": "^3.0.3",
-    "openai": "^4.47.1",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.11.3",
     "redis": "^4.6.13",
-    "uuid": "^9.0.1",
-    "winston": "^3.11.0",
-    "yjs": "^13.6.18"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "prisma": "^5.8.1"
   },
   "nodemonConfig": {
-    "watch": [
-      "src"
-    ],
+    "watch": ["src"],
     "ext": "js,json",
-    "ignore": [
-      "node_modules",
-      "prisma"
-    ]
+    "ignore": ["node_modules", "prisma"]
   }
 }

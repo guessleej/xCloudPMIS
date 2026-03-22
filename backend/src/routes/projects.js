@@ -16,6 +16,8 @@
 const express = require('express');
 const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const { taskController } = require('../controllers/task.controller');
+const { taskRuleEngine } = require('../services/taskRuleEngine');
 const prisma = new PrismaClient();
 
 // ── 小工具 ──────────────────────────────────────────────────
@@ -39,6 +41,13 @@ const PRIORITY_LABEL = {
   medium: '中',
   high:   '高',
   urgent: '緊急',
+};
+
+const TASK_STATUSES = new Set(['todo', 'in_progress', 'review', 'done', 'completed']);
+const normalizeTaskStatus = (status, fallback = 'todo') => {
+  if (!status) return fallback;
+  if (!TASK_STATUSES.has(status)) return fallback;
+  return status === 'completed' ? 'done' : status;
 };
 
 // ════════════════════════════════════════════════════════════
@@ -176,6 +185,7 @@ router.get('/tasks', async (req, res) => {
         assignee: { select: { id: true, name: true } },
         project:  { select: { id: true, name: true } },
         taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+        _count:   { select: { subtasks: true } },
       },
     });
 
@@ -190,6 +200,9 @@ router.get('/tasks', async (req, res) => {
       dueDate:        t.dueDate,
       startedAt:      t.startedAt,
       completedAt:    t.completedAt,
+      parentTaskId:   t.parentTaskId,
+      progressPercent: t.progressPercent || 0,
+      numSubtasks:    t._count?.subtasks || 0,
       assignee:       t.assignee,
       project:        t.project,
       tags:           t.taskTags.map(tt => tt.tag),
@@ -253,6 +266,7 @@ router.get('/:id', async (req, res) => {
           orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
           include: {
             assignee: { select: { id: true, name: true, avatarUrl: true } },
+            _count:   { select: { subtasks: true } },
             taskTags: {
               include: { tag: { select: { id: true, name: true, color: true } } },
             },
@@ -274,6 +288,9 @@ router.get('/:id', async (req, res) => {
       estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours.toString()) : null,
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
+      parentTaskId:   t.parentTaskId,
+      progressPercent: t.progressPercent || 0,
+      numSubtasks:    t._count?.subtasks || 0,
       assignee:       t.assignee,
       tags:           t.taskTags.map(tt => tt.tag),
       createdAt:      t.createdAt,
@@ -382,30 +399,7 @@ router.delete('/:id', async (req, res) => {
 // GET /api/projects/:id/tasks
 // 取得專案的任務列表
 // ════════════════════════════════════════════════════════════
-router.get('/:id/tasks', async (req, res) => {
-  const projectId = parseInt(req.params.id);
-  if (isNaN(projectId)) return err(res, '無效的專案 ID', 400);
-
-  try {
-    const tasks = await prisma.task.findMany({
-      where:   { projectId, deletedAt: null },
-      orderBy: [{ status: 'asc' }, { priority: 'desc' }],
-      include: {
-        assignee: { select: { id: true, name: true } },
-        taskTags: { include: { tag: true } },
-      },
-    });
-
-    ok(res, tasks.map(t => ({
-      ...t,
-      estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours.toString()) : null,
-      actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
-      tags:           t.taskTags.map(tt => tt.tag),
-    })));
-  } catch (e) {
-    err(res, e.message);
-  }
-});
+router.get('/:id/tasks', (req, res, next) => taskController.getProjectTasks(req, res, next));
 
 // ════════════════════════════════════════════════════════════
 // POST /api/projects/:id/tasks
@@ -418,38 +412,117 @@ router.post('/:id/tasks', async (req, res) => {
   const {
     title, description = '',
     priority = 'medium',
-    estimatedHours, dueDate, assigneeId,
+    estimatedHours, dueDate, assigneeId, parentTaskId,
   } = req.body;
 
   if (!title?.trim()) return err(res, '任務標題為必填', 400);
+  if (parentTaskId !== undefined && parentTaskId !== null && Number.isNaN(parseInt(parentTaskId))) {
+    return err(res, '無效的父任務 ID', 400);
+  }
 
   try {
+    const normalizedStatus = normalizeTaskStatus(req.body.status, 'todo');
+    const normalizedAssigneeId = assigneeId ? parseInt(assigneeId) : null;
+    const normalizedParentTaskId = parentTaskId ? parseInt(parentTaskId) : null;
+    const actorId = req.user?.id ? parseInt(req.user.id) : null;
+
     // 取得同狀態最大 position，新任務排在最後
     const maxPos = await prisma.task.aggregate({
-      where:   { projectId, status: 'todo' },
+      where:   { projectId, status: normalizedStatus },
       _max:    { position: true },
     });
 
-    const task = await prisma.task.create({
-      data: {
-        projectId,
-        title:          title.trim(),
-        description,
-        priority,
-        status:         'todo',
-        estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
-        dueDate:        dueDate ? new Date(dueDate) : null,
-        assigneeId:     assigneeId ? parseInt(assigneeId) : null,
-        position:       (maxPos._max.position || 0) + 1,
-      },
-      include: {
-        assignee: { select: { id: true, name: true } },
-      },
+    const nextPosition = (maxPos._max.position || 0) + 1;
+    const task = await prisma.$transaction(async (tx) => {
+      const createdTask = await tx.task.create({
+        data: {
+          projectId,
+          title:          title.trim(),
+          description,
+          priority,
+          status:         normalizedStatus,
+          estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
+          dueDate:        dueDate ? new Date(dueDate) : null,
+          assigneeId:     normalizedAssigneeId,
+          parentTaskId:   normalizedParentTaskId,
+          position:       nextPosition,
+          startedAt:      normalizedStatus === 'in_progress' ? new Date() : null,
+          completedAt:    normalizedStatus === 'done' ? new Date() : null,
+          progressPercent: normalizedStatus === 'done' ? 100 : 0,
+        },
+      });
+
+      await tx.taskProject.upsert({
+        where: {
+          taskId_projectId: {
+            taskId: createdTask.id,
+            projectId,
+          },
+        },
+        update: {
+          position: nextPosition,
+          isPrimary: true,
+          ...(actorId ? { addedById: actorId } : {}),
+        },
+        create: {
+          taskId: createdTask.id,
+          projectId,
+          position: nextPosition,
+          isPrimary: true,
+          ...(actorId ? { addedById: actorId } : {}),
+        },
+      });
+
+      if (normalizedAssigneeId) {
+        await tx.taskAssigneeLink.upsert({
+          where: {
+            taskId_userId: {
+              taskId: createdTask.id,
+              userId: normalizedAssigneeId,
+            },
+          },
+          update: {
+            isPrimary: true,
+            ...(actorId ? { assignedById: actorId } : {}),
+          },
+          create: {
+            taskId: createdTask.id,
+            userId: normalizedAssigneeId,
+            isPrimary: true,
+            ...(actorId ? { assignedById: actorId } : {}),
+          },
+        });
+
+        await tx.projectMember.upsert({
+          where: {
+            projectId_userId: {
+              projectId,
+              userId: normalizedAssigneeId,
+            },
+          },
+          update: {},
+          create: {
+            projectId,
+            userId: normalizedAssigneeId,
+            role: 'editor',
+          },
+        });
+      }
+
+      return tx.task.findUnique({
+        where: { id: createdTask.id },
+        include: {
+          assignee: { select: { id: true, name: true } },
+          _count:   { select: { subtasks: true } },
+        },
+      });
     });
 
     ok(res, {
       ...task,
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
+      progressPercent: task.progressPercent || 0,
+      numSubtasks: task._count?.subtasks || 0,
     });
   } catch (e) {
     console.error(e);
@@ -468,29 +541,126 @@ router.patch('/tasks/:taskId', async (req, res) => {
   const { title, status, priority, assigneeId, dueDate, description, planStart, planEnd } = req.body;
 
   try {
+    const existingTask = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        parentTaskId: true,
+        projectId: true,
+        assigneeId: true,
+      },
+    });
+
+    if (!existingTask) return err(res, `找不到任務 #${taskId}`, 404);
+
+    const actorId = req.user?.id ? parseInt(req.user.id) : null;
+    const normalizedAssigneeId = assigneeId !== undefined
+      ? (assigneeId ? parseInt(assigneeId) : null)
+      : undefined;
     const data = {};
     if (title       !== undefined) data.title       = title.trim();
     if (description !== undefined) data.description = description;
     if (status      !== undefined) {
-      data.status = status;
-      if (status === 'in_progress' && !data.startedAt) data.startedAt = new Date();
-      if (status === 'done') data.completedAt = new Date();
+      const normalizedStatus = normalizeTaskStatus(status, existingTask.status);
+      data.status = normalizedStatus;
+      if (normalizedStatus === 'in_progress' && !data.startedAt) data.startedAt = new Date();
+      if (normalizedStatus === 'done') {
+        data.completedAt = new Date();
+        data.progressPercent = 100;
+      }
+      if (existingTask.status === 'done' && normalizedStatus !== 'done') {
+        data.completedAt = null;
+        data.progressPercent = 0;
+      }
     }
     if (priority    !== undefined) data.priority    = priority;
-    if (assigneeId  !== undefined) data.assigneeId  = assigneeId ? parseInt(assigneeId) : null;
+    if (assigneeId  !== undefined) data.assigneeId  = normalizedAssigneeId;
     if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
     if (planStart   !== undefined) data.planStart   = planStart ? new Date(planStart) : null;
     if (planEnd     !== undefined) data.planEnd     = planEnd   ? new Date(planEnd)   : null;
 
-    const task = await prisma.task.update({
-      where:   { id: taskId },
-      data,
-      include: { assignee: { select: { id: true, name: true } } },
+    const task = await prisma.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where:   { id: taskId },
+        data,
+        include: {
+          assignee: { select: { id: true, name: true } },
+          _count:   { select: { subtasks: true } },
+        },
+      });
+
+      if (assigneeId !== undefined) {
+        await tx.taskAssigneeLink.updateMany({
+          where: {
+            taskId,
+            isPrimary: true,
+          },
+          data: { isPrimary: false },
+        });
+
+        if (normalizedAssigneeId) {
+          await tx.taskAssigneeLink.upsert({
+            where: {
+              taskId_userId: {
+                taskId,
+                userId: normalizedAssigneeId,
+              },
+            },
+            update: {
+              isPrimary: true,
+              ...(actorId ? { assignedById: actorId } : {}),
+            },
+            create: {
+              taskId,
+              userId: normalizedAssigneeId,
+              isPrimary: true,
+              ...(actorId ? { assignedById: actorId } : {}),
+            },
+          });
+
+          if (updatedTask.projectId) {
+            await tx.projectMember.upsert({
+              where: {
+                projectId_userId: {
+                  projectId: updatedTask.projectId,
+                  userId: normalizedAssigneeId,
+                },
+              },
+              update: {},
+              create: {
+                projectId: updatedTask.projectId,
+                userId: normalizedAssigneeId,
+                role: 'editor',
+              },
+            });
+          }
+        }
+      }
+
+      return updatedTask;
+    });
+
+    const automation = await taskRuleEngine.handleTaskUpdated({
+      beforeTask: existingTask,
+      afterTask: {
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        parentTaskId: task.parentTaskId,
+        projectId: task.projectId,
+        assigneeId: task.assigneeId,
+      },
+      actorId,
     });
 
     ok(res, {
       ...task,
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
+      progressPercent: task.progressPercent || 0,
+      numSubtasks: task._count?.subtasks || 0,
+      automation,
     });
   } catch (e) {
     console.error(e);
@@ -519,6 +689,114 @@ router.delete('/tasks/:taskId', async (req, res) => {
     });
 
     res.json({ success: true, message: `任務「${existing.title}」已刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/checklist
+// 取得任務的待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/checklist', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const items = await prisma.checklistItem.findMany({
+      where:   { taskId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+    });
+    ok(res, items, { total: items.length });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/checklist
+// 新增待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/checklist', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  const { title } = req.body;
+  if (!title?.trim()) return err(res, '項目標題為必填', 400);
+
+  try {
+    // 計算下一個 position
+    const maxPos = await prisma.checklistItem.aggregate({
+      where: { taskId },
+      _max:  { position: true },
+    });
+
+    const item = await prisma.checklistItem.create({
+      data: {
+        taskId,
+        title:    title.trim(),
+        isDone:   false,
+        position: (maxPos._max.position || 0) + 1,
+      },
+    });
+    ok(res, item);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH /api/projects/tasks/:taskId/checklist/:itemId
+// 更新待辦清單項目（勾選完成 / 修改標題）
+// ════════════════════════════════════════════════════════════
+router.patch('/tasks/:taskId/checklist/:itemId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  const itemId = parseInt(req.params.itemId);
+  if (isNaN(taskId) || isNaN(itemId)) return err(res, '無效的 ID', 400);
+
+  const { title, isDone } = req.body;
+
+  try {
+    const existing = await prisma.checklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!existing) return err(res, '找不到此項目', 404);
+
+    const data = {};
+    if (title  !== undefined) data.title  = title.trim();
+    if (isDone !== undefined) data.isDone = Boolean(isDone);
+
+    const updated = await prisma.checklistItem.update({
+      where: { id: itemId },
+      data,
+    });
+    ok(res, updated);
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/checklist/:itemId
+// 刪除待辦清單項目
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/checklist/:itemId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  const itemId = parseInt(req.params.itemId);
+  if (isNaN(taskId) || isNaN(itemId)) return err(res, '無效的 ID', 400);
+
+  try {
+    const existing = await prisma.checklistItem.findFirst({
+      where: { id: itemId, taskId },
+    });
+    if (!existing) return err(res, '找不到此項目', 404);
+
+    await prisma.checklistItem.delete({ where: { id: itemId } });
+    res.json({ success: true, message: '項目已刪除' });
   } catch (e) {
     console.error(e);
     err(res, e.message);

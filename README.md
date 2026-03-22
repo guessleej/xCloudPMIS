@@ -22,6 +22,7 @@
 - [技術堆疊](#技術堆疊)
 - [快速啟動（開發環境）](#快速啟動開發環境)
 - [生產部署](#生產部署)
+- [部署文件導覽](#部署文件導覽)
 - [服務清單](#服務清單)
 - [API 文件](#api-文件)
 - [功能模組](#功能模組)
@@ -38,20 +39,21 @@
 
 | 模組 | 頁面 | 說明 |
 |------|------|------|
-| **執行儀表板** | Dashboard | 紅黃綠燈健康狀態、人力熱力圖、可行動洞察 |
-| **專案管理** | Projects | 建立、追蹤、管理多個工程專案 |
+| **執行儀表板** | Dashboard | 紅黃綠燈健康狀態、人力熱力圖、可行動洞察；統計卡片可點擊快速導航 |
+| **專案管理** | Projects | 建立、追蹤、管理多個工程專案；支援列表 / 看板 / 甘特多視圖 |
 | **任務看板** | Tasks (Kanban) | 拖拉式看板，支援 To-Do / In-Progress / Review / Done |
-| **我的任務** | My Tasks | 個人任務彙整，依截止日期自動分組 |
+| **我的任務** | My Tasks | 個人任務彙整，依截止日期自動分組；支援刪除、編輯、截止日期與優先度修改 |
 | **甘特圖** | Gantt | 時間軸視覺化，任務相依性連線 |
 | **時間記錄** | Time Tracking | 即時計時器 + 手動工時登錄 |
 | **工作負載** | Workload | 未來 14 天人力分配熱力圖 |
-| **報表** | Reports | 多維度統計分析 |
+| **報表** | Reports | 多維度統計分析；列表列可點擊開啟詳情、支援 CSV 匯出 |
+| **專案集** | Portfolios | 多專案健康監控；狀態 Dropdown 正常切換、點擊專案名稱導航 |
 | **團隊管理** | Team | 成員管理、角色設定 |
 | **收件匣** | Inbox | 通知中心（任務指派、@提及、截止日提醒） |
 | **AI 決策中心** | AI Decision Center | ReAct 自主代理決策記錄與審核 |
 | **AI 模型設定** | AI Settings | 支援 OpenAI / Ollama / LM Studio / Azure 等 |
-| **即時協作** | Realtime Editor | Yjs 多人同步編輯 |
 | **MCP 控制台** | MCP Console | Claude Desktop 直接操作系統工具 |
+| **檔案管理** | Files API | 附件上傳下載；繁體中文檔名正確儲存（UTF-8 修復） |
 
 ---
 
@@ -714,25 +716,28 @@ curl http://localhost:3010/api/status
 | **設定** | GET | `/api/settings/ai-model` | AI 模型設定 |
 | **AI** | GET | `/api/ai-decisions` | AI 決策記錄列表 |
 | **認證** | GET | `/auth/microsoft` | Microsoft OAuth 2.0 授權 |
+| **檔案** | POST | `/api/files/upload` | 上傳附件（繁體中文檔名支援） |
+| **檔案** | GET | `/api/files/:id` | 下載附件 |
+| **檔案** | GET | `/api/files` | 取得檔案列表 |
 
 ---
 
 ## 功能模組
 
 ```
-前端頁面模組（21 個元件目錄）：
-├── dashboard/          執行儀表板（摘要卡 + 圓餅圖 + 熱力圖 + 洞察）
+前端頁面模組（22 個元件目錄）：
+├── dashboard/          執行儀表板（摘要卡 + 圓餅圖 + 熱力圖 + 洞察；統計卡片可點擊導航）
 ├── projects/           專案列表與詳情
 ├── tasks/              任務看板（Kanban 四欄拖拉）
-├── mytasks/            個人任務（依截止日自動分組）
+├── mytasks/            個人任務（依截止日自動分組；側面板支援刪除、截止日、優先度編輯）
 ├── gantt/              甘特圖（時間軸 + 相依連線）
 ├── team/               團隊成員管理
 ├── timetracking/       工時計時器 + 手動登錄
 ├── workload/           工作負載熱力圖（14 天）
-├── reports/            統計報表
+├── reports/            統計報表（列表可點擊、CSV 匯出）
 ├── inbox/              收件匣（活動/書籤/封存/@提及 + 自訂 Tab）
 ├── goals/              目標管理 OKR
-├── portfolios/         投資組合看板
+├── portfolios/         專案集監控（狀態 Dropdown 修復；點擊專案名稱可導航）
 ├── workflow/           工作流程圖
 ├── customfields/       自訂欄位管理
 ├── forms/              表單設計器
@@ -741,6 +746,7 @@ curl http://localhost:3010/api/status
 ├── ai/                 AI 決策中心 + AI 模型設定
 ├── mcp/                MCP 控制台（Claude Desktop 整合）
 ├── discovery/          內容探索頁
+├── auth/               登入頁面（帳密 / Microsoft SSO）
 └── RealtimeEditor      Yjs 即時多人協作編輯器
 ```
 
@@ -783,7 +789,7 @@ xCloudPMIS/
 │   │   ├── index.js                # Express 應用進入點（16 個路由）
 │   │   ├── middleware/
 │   │   │   └── oauthAuth.js        # Microsoft OAuth 中介層
-│   │   ├── routes/                 # 13 個 API 路由模組
+│   │   ├── routes/                 # 14 個 API 路由模組（含 files.js 附件管理）
 │   │   └── services/               # 商業邏輯（AI / Email / Cache）
 │   ├── mcp/                        # MCP Server（Claude 工具整合）
 │   ├── services/                   # 協作伺服器 + 自主代理
@@ -851,7 +857,15 @@ xCloudPMIS/
 - Azure 雲端部署腳本（Container Apps + PostgreSQL + Redis）
 - 完整部署手冊（地端 15 章 + Azure 16 章）
 
-### 🚧 Phase 7 — 計畫中
+### ✅ Phase 7 — UX 全面改善 + Bug 修復
+- **檔案上傳中文檔名修復**：multer 以 Latin-1 解碼 HTTP Header，改以 `Buffer.from(name,'latin1').toString('utf8')` 正確還原繁體中文檔名
+- **首頁統計卡片可點擊**：四張摘要卡片加上 `onClick` 導航（我的任務 / 工作負載 / 專案）及 hover 邊框效果
+- **報表列點擊開啟編輯**：`<tr>` 加上 `cursor: pointer` + `onClick` 觸發編輯彈窗；✏️🗑️ 按鈕加 `e.stopPropagation()` 防止冒泡
+- **我的任務刪除與修改**：SidePanel 新增「🗑 刪除」按鈕 + 確認對話框；截止日期改為 `<input type="date">`，優先度改為 `<select>` 可編輯
+- **專案集狀態 Dropdown 修復**：`StatusBadge` 改用 `position: fixed` + React `createPortal` 渲染至 `document.body`，解決父容器 `overflow: hidden` 裁切問題
+- **專案集名稱可點擊導航**：點擊表格中的專案名稱直接跳轉至「所有專案」頁面，hover 顯示品牌色底線
+
+### 🚧 Phase 8 — 計畫中
 - GitHub Actions CI/CD 自動化流程
 - 完整 JWT 認證前端整合
 - Kubernetes Helm Chart 支援

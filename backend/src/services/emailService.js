@@ -489,7 +489,7 @@ async function sendTaskAssignmentNotification(userEmail, userName, taskDetails) 
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td align="center" style="padding:10px 0 24px;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}"
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
              style="display:inline-block;background:#3b82f6;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
             前往系統查看 →
           </a>
@@ -594,7 +594,7 @@ async function sendTaskReminder(userEmail, userName, taskDetails) {
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td align="center" style="padding:10px 0 24px;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}"
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
              style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
             立即前往處理 →
           </a>
@@ -670,7 +670,7 @@ async function sendOverdueWarning(userEmail, userName, taskDetails) {
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td align="center" style="padding-bottom:24px;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}"
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
              style="display:inline-block;background:#dc2626;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
             立即更新任務狀態 →
           </a>
@@ -797,7 +797,7 @@ async function sendWeeklyReport(managerEmail, managerName, reportData) {
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td align="center" style="padding-top:8px;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3001'}/reports"
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}/reports"
              style="display:inline-block;background:#3b82f6;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
             查看完整報表 →
           </a>

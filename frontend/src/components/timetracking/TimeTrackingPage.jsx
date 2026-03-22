@@ -20,7 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 
 // ── 常數設定 ─────────────────────────────────────────────────
 const API_BASE   = '';
-const CURRENT_USER_ID = 4; // 目前登入使用者（模擬：陳志明，ID=4）
+// CURRENT_USER_ID is now passed as a prop from TimeTrackingPage via useAuth()
 
 // ── 工具函式 ─────────────────────────────────────────────────
 
@@ -341,7 +341,7 @@ function ActiveTimerWidget({ entry, onStop }) {
 // ════════════════════════════════════════════════════════════
 // 開始計時 Modal
 // ════════════════════════════════════════════════════════════
-function StartTimerModal({ tasks, onClose, onSubmit }) {
+function StartTimerModal({ tasks, onClose, onSubmit, userId }) {
   const [taskId,      setTaskId]      = useState('');
   const [description, setDescription] = useState('');
   const [submitting,  setSubmitting]  = useState(false);
@@ -349,7 +349,7 @@ function StartTimerModal({ tasks, onClose, onSubmit }) {
   const handleSubmit = async () => {
     if (!taskId) return;
     setSubmitting(true);
-    await onSubmit({ taskId: parseInt(taskId), userId: CURRENT_USER_ID, description });
+    await onSubmit({ taskId: parseInt(taskId), userId, description });
     setSubmitting(false);
   };
 
@@ -412,7 +412,7 @@ function StartTimerModal({ tasks, onClose, onSubmit }) {
 // ════════════════════════════════════════════════════════════
 // 手動新增 Modal
 // ════════════════════════════════════════════════════════════
-function ManualAddModal({ tasks, onClose, onSubmit }) {
+function ManualAddModal({ tasks, onClose, onSubmit, userId }) {
   const today = todayStr();
   const [form, setForm] = useState({
     taskId:      '',
@@ -445,7 +445,7 @@ function ManualAddModal({ tasks, onClose, onSubmit }) {
     setSubmitting(true);
     await onSubmit({
       taskId:      parseInt(form.taskId),
-      userId:      CURRENT_USER_ID,
+      userId,
       startedAt:   startedAt.toISOString(),
       endedAt:     endedAt.toISOString(),
       description: form.description,
@@ -1399,6 +1399,7 @@ export default function TimeTrackingPage() {
           tasks={tasks}
           onClose={() => setShowStartModal(false)}
           onSubmit={handleStartTimer}
+          userId={user?.id}
         />
       )}
       {showAddModal && (
@@ -1406,6 +1407,7 @@ export default function TimeTrackingPage() {
           tasks={tasks}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleManualAdd}
+          userId={user?.id}
         />
       )}
       {editEntry && (

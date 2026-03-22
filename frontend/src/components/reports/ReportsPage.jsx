@@ -876,9 +876,11 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                   borderBottom: '1px solid #f3f4f6',
                   background:   hoveredRow === i ? '#eff6ff' : i % 2 === 0 ? 'white' : '#fafafa',
                   transition:   'background 0.1s',
+                  cursor:       onEditRow && row.id ? 'pointer' : 'default',
                 }}
                 onMouseEnter={() => setHoveredRow(i)}
                 onMouseLeave={() => setHoveredRow(null)}
+                onClick={() => onEditRow && row.id && onEditRow(row)}
               >
                 {columns.map(col => (
                   <td key={col.key} style={{
@@ -898,7 +900,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                       }}>
                         {onEditRow && (
                           <button
-                            onClick={() => onEditRow(row)}
+                            onClick={e => { e.stopPropagation(); onEditRow(row); }}
                             title="編輯"
                             style={{
                               background: 'none', border: '1px solid #bfdbfe',
@@ -913,7 +915,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                         )}
                         {onDeleteRow && (
                           <button
-                            onClick={() => onDeleteRow(row)}
+                            onClick={e => { e.stopPropagation(); onDeleteRow(row); }}
                             title="刪除"
                             style={{
                               background: 'none', border: '1px solid #fecaca',
