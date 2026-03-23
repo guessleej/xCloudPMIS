@@ -1,0 +1,168 @@
+{
+  "project": "pmis開發案",
+  "executedAt": "2026-03-22T03:42:32.854Z",
+  "uiSmoke": [
+    {
+      "route": "home",
+      "label": "首頁",
+      "status": "passed"
+    },
+    {
+      "route": "inbox",
+      "label": "收件匣",
+      "status": "passed"
+    },
+    {
+      "route": "my-tasks",
+      "label": "我的任務",
+      "status": "passed"
+    },
+    {
+      "route": "projects",
+      "label": "專案",
+      "status": "passed"
+    },
+    {
+      "route": "tasks",
+      "label": "任務看板",
+      "status": "passed"
+    },
+    {
+      "route": "gantt",
+      "label": "時程規劃",
+      "status": "passed"
+    },
+    {
+      "route": "reports",
+      "label": "報告",
+      "status": "passed"
+    },
+    {
+      "route": "portfolios",
+      "label": "專案集",
+      "status": "passed"
+    },
+    {
+      "route": "goals",
+      "label": "目標",
+      "status": "passed"
+    },
+    {
+      "route": "workload",
+      "label": "工作負載",
+      "status": "passed"
+    },
+    {
+      "route": "rules",
+      "label": "自動化規則",
+      "status": "passed"
+    },
+    {
+      "route": "forms",
+      "label": "表單",
+      "status": "passed"
+    },
+    {
+      "route": "custom-fields",
+      "label": "自訂欄位",
+      "status": "passed"
+    },
+    {
+      "route": "workflow",
+      "label": "工作流程圖",
+      "status": "passed"
+    },
+    {
+      "route": "time",
+      "label": "工時記錄",
+      "status": "passed"
+    },
+    {
+      "route": "team",
+      "label": "團隊",
+      "status": "passed"
+    },
+    {
+      "route": "settings",
+      "label": "設定",
+      "status": "passed"
+    },
+    {
+      "route": "ai-center",
+      "label": "AI 決策中心",
+      "status": "passed"
+    },
+    {
+      "route": "mcp-console",
+      "label": "MCP 控制台",
+      "status": "passed"
+    },
+    {
+      "route": "profile",
+      "label": "個人資料",
+      "status": "passed"
+    }
+  ],
+  "deepChecks": [
+    {
+      "module": "my-tasks-reorder",
+      "status": "passed",
+      "detail": "我的任務拖曳排序可寫回資料庫，重新整理後順序維持不變",
+      "beforeDrag": {
+        "upperTitle": "QA Full Smoke 排序任務 A 1774150953201",
+        "lowerTitle": "QA Full Smoke 排序任務 B 1774150953201",
+        "upperY": 839,
+        "lowerY": 908
+      },
+      "afterDrag": {
+        "upperTitle": "QA Full Smoke 排序任務 B 1774150953201",
+        "lowerTitle": "QA Full Smoke 排序任務 A 1774150953201",
+        "upperY": 893,
+        "lowerY": 962
+      },
+      "afterReload": {
+        "upperTitle": "QA Full Smoke 排序任務 B 1774150953201",
+        "lowerTitle": "QA Full Smoke 排序任務 A 1774150953201",
+        "upperY": 839,
+        "lowerY": 908
+      }
+    },
+    {
+      "module": "team",
+      "status": "passed",
+      "detail": "團隊管理頁顯示 10 位成員"
+    },
+    {
+      "module": "projects",
+      "status": "passed",
+      "detail": "專案列表可讀取實際專案"
+    },
+    {
+      "module": "tasks",
+      "status": "passed",
+      "detail": "任務看板與詳情側邊欄可正常開啟"
+    },
+    {
+      "module": "inbox",
+      "status": "passed",
+      "detail": "收件匣讀取通知且管理面板可開啟"
+    },
+    {
+      "module": "settings",
+      "status": "passed",
+      "detail": "公司/個人/整合/系統/統計分頁皆可載入"
+    },
+    {
+      "module": "rules",
+      "status": "passed",
+      "detail": "自動化規則頁顯示系統規則 spotlight"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "Warning: Each child in a list should have a unique \"key\" prop.%s%s See https://reactjs.org/link/warning-keys for more information.%s \n\nCheck the render method of `HomePage`.  \n    at button\n    at HomePage (http://localhost:3838/src/components/dashboard/Dashboard.jsx?t=1774150534393:1733:21)\n    at main\n    at div\n    at div\n    at Dashboard (http://localhost:3838/src/components/dashboard/Dashboard.jsx?t=1774150534393:2860:41)\n    at AuthGuard (http://localhost:3838/src/App.jsx?t=1774150534393:102:29)\n    at AuthProvider (http://localhost:3838/src/context/AuthContext.jsx:22:32)\n    at App",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "screenshot": "/Users/jeff/Desktop/08.開發環境/claude/xCloudPMIS/runtime/frontend/qa/artifacts/pmis-full-system-ui-smoke.png"
+}

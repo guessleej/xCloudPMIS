@@ -1,0 +1,27 @@
+{
+  "project": "pmis開發案",
+  "executedAt": "2026-03-22T03:39:56.228Z",
+  "status": "passed",
+  "pageErrors": [],
+  "consoleErrors": [],
+  "beforeDrag": {
+    "upperTitle": "QA 排序任務 A 1774150796552",
+    "lowerTitle": "QA 排序任務 B 1774150796552",
+    "upperY": 828,
+    "lowerY": 897
+  },
+  "afterDrag": {
+    "upperTitle": "QA 排序任務 B 1774150796552",
+    "lowerTitle": "QA 排序任務 A 1774150796552",
+    "upperY": 882,
+    "lowerY": 951
+  },
+  "afterReload": {
+    "upperTitle": "QA 排序任務 B 1774150796552",
+    "lowerTitle": "QA 排序任務 A 1774150796552",
+    "upperY": 828,
+    "lowerY": 897
+  },
+  "screenshot": "/Users/jeff/Desktop/08.開發環境/claude/xCloudPMIS/runtime/frontend/qa/artifacts/pmis-my-tasks-reorder-ui-smoke.png",
+  "jsonPath": "/Users/jeff/Desktop/08.開發環境/claude/xCloudPMIS/runtime/frontend/qa/artifacts/pmis-my-tasks-reorder-ui-smoke.json"
+}
