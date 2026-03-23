@@ -17,6 +17,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { useAuth } from '../../context/AuthContext';
 
 const API = '';
 
@@ -29,13 +30,16 @@ const COLORS = {
   success:   '#22c55e',
   warning:   '#f59e0b',
   danger:    '#ef4444',
-  muted:     '#94a3b8',
-  bg:        '#f8fafc',
-  card:      '#ffffff',
-  border:    '#e2e8f0',
+  muted:     'var(--xc-text-muted)',
+  bg:        'var(--xc-bg)',
+  card:      'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border:    'var(--xc-border)',
   sidebar:   '#1e293b',
-  text:      '#1e293b',
-  textLight: '#64748b',
+  text:      'var(--xc-text)',
+  textLight: 'var(--xc-text-soft)',
 };
 
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
@@ -101,7 +105,7 @@ function Card({ children, style = {} }) {
     <div style={{
       background: COLORS.card, borderRadius: 12,
       border: `1px solid ${COLORS.border}`,
-      padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      padding: '20px', boxShadow: 'var(--xc-shadow)',
       ...style,
     }}>
       {children}
@@ -393,7 +397,7 @@ function OverviewTab({ data, chart, loading }) {
                     borderBottom: `1px solid ${COLORS.border}33`,
                   }}>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: '#e2e8f0', padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {row.tool}
                       </code>
                     </td>
@@ -634,8 +638,8 @@ function NotifyTab({ data, loading }) {
       <Card>
         <SectionTitle>🔔 通知整合概覽</SectionTitle>
         <p style={{ fontSize: 13, color: COLORS.textLight, margin: '0 0 16px', lineHeight: 1.8 }}>
-          透過 MCP 工具（<code style={{ background: '#e2e8f0', padding: '1px 6px', borderRadius: 4 }}>notify_telegram</code>、
-          <code style={{ background: '#e2e8f0', padding: '1px 6px', borderRadius: 4 }}>notify_line</code>），
+          透過 MCP 工具（<code style={{ background: COLORS.surfaceMuted, padding: '1px 6px', borderRadius: 4 }}>notify_telegram</code>、
+          <code style={{ background: COLORS.surfaceMuted, padding: '1px 6px', borderRadius: 4 }}>notify_line</code>），
           AI Agent 可在任務狀態變更、截止日提醒、專案風險警示時，自動推播通知至外部渠道。
         </p>
 
@@ -992,7 +996,7 @@ function ExternalTab({ toolsData, loadingTools }) {
                     borderBottom: `1px solid ${COLORS.border}33`,
                   }}>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: '#e2e8f0', padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {t.name}
                       </code>
                     </td>
@@ -1103,7 +1107,7 @@ function ApiKeysTab() {
       {/* 新建 Key 成功提示 */}
       {newKey && (
         <div style={{
-          background: '#ecfdf5', border: `1px solid ${COLORS.success}`,
+          background: 'var(--xc-success-soft)', border: `1px solid ${COLORS.success}`,
           borderRadius: 10, padding: '16px 20px',
         }}>
           <div style={{ fontWeight: 700, color: COLORS.success, marginBottom: 8 }}>
@@ -1111,7 +1115,7 @@ function ApiKeysTab() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <code style={{
-              flex: 1, background: '#fff', padding: '8px 12px', borderRadius: 6,
+              flex: 1, background: COLORS.surfaceStrong, padding: '8px 12px', borderRadius: 6,
               fontSize: 13, border: `1px solid ${COLORS.success}44`, fontFamily: 'monospace',
             }}>
               {newKey.apiKey}
@@ -1128,7 +1132,7 @@ function ApiKeysTab() {
             <button
               onClick={() => setNewKey(null)}
               style={{
-                padding: '8px 14px', background: '#e2e8f0', color: COLORS.text,
+                padding: '8px 14px', background: COLORS.surfaceMuted, color: COLORS.text,
                 border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13,
               }}
             >
@@ -1214,7 +1218,7 @@ function ApiKeysTab() {
               <button
                 onClick={() => setCreate(false)}
                 style={{
-                  padding: '8px 16px', background: '#e2e8f0', color: COLORS.text,
+                  padding: '8px 16px', background: COLORS.surfaceMuted, color: COLORS.text,
                   border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13,
                 }}
               >
@@ -1263,7 +1267,7 @@ function ApiKeysTab() {
                   }}>
                     <td style={{ padding: '8px 12px', fontWeight: 600 }}>{k.system_name}</td>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: '#e2e8f0', padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {k.key_prefix}
                       </code>
                     </td>
@@ -1393,7 +1397,7 @@ function LogsTab() {
                 >
                   <StatusDot status={log.success ? 'online' : 'offline'} />
                   <code style={{
-                    fontSize: 12, background: '#e2e8f0', padding: '2px 6px',
+                    fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px',
                     borderRadius: 4, minWidth: 200,
                   }}>
                     {log.toolName}
@@ -1474,6 +1478,9 @@ function LogsTab() {
 // ════════════════════════════════════════════════════════════
 
 export default function McpConsolePage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? 1;
+
   const [activeTab,   setActiveTab]   = useState('overview');
   const [status,      setStatus]      = useState(null);
   const [chart,       setChart]       = useState(null);
@@ -1486,7 +1493,7 @@ export default function McpConsolePage() {
   const loadStatus = useCallback(async () => {
     try {
       const [statusRes, chartRes] = await Promise.all([
-        fetch(`${API}/api/admin/mcp/status`),
+        fetch(`${API}/api/admin/mcp/status?companyId=${companyId}`),
         fetch(`${API}/api/admin/mcp/chart/hourly`),
       ]);
       const [statusData, chartData] = await Promise.all([statusRes.json(), chartRes.json()]);
@@ -1500,11 +1507,11 @@ export default function McpConsolePage() {
   const loadTools = useCallback(async () => {
     setLoadingTools(true);
     try {
-      const r = await fetch(`${API}/api/admin/mcp/tools`);
+      const r = await fetch(`${API}/api/admin/mcp/tools?companyId=${companyId}`);
       setToolsData(await r.json());
     } catch {}
     setLoadingTools(false);
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     loadStatus();
@@ -1512,7 +1519,7 @@ export default function McpConsolePage() {
     // 每 30 秒自動刷新
     refreshTimer.current = setInterval(loadStatus, 30_000);
     return () => clearInterval(refreshTimer.current);
-  }, [loadStatus, loadTools]);
+  }, [loadStatus, loadTools, companyId]);
 
   return (
     <div style={{ padding: '24px 28px', background: COLORS.bg, minHeight: '100vh' }}>

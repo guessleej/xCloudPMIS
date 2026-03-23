@@ -113,6 +113,10 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
       # JWT 金鑰（之後實作認證時使用）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      # MCP External Server（adminMcp.js 代理請求用）
+      MCP_EXTERNAL_URL: http://pmis-mcp:3100
+      MCP_ADMIN_KEY: ${MCP_ADMIN_KEY:-dev-admin-secret}
+      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID:-1}
     volumes:
       # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
       - ./backend:/app
@@ -133,7 +137,48 @@ services:
       - pmis-network
 
   # ──────────────────────────────────────────────────────────
-  # 5. React + Vite — 前端開發服務
+  # 5. MCP External Server — 對外開放 API（SSE 模式）
+  #    提供 HTTP SSE MCP 協定，讓外部 AI Agent / 第三方系統串接
+  # ──────────────────────────────────────────────────────────
+  mcp-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pmis-mcp
+    restart: unless-stopped
+    command: node mcp-external-server/index.js
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: development
+      MCP_PORT: 3100
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      MCP_ADMIN_KEY: ${MCP_ADMIN_KEY:-dev-admin-secret}
+      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID:-1}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3100/mcp/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 6. React + Vite — 前端開發服務
   #    提供現代化的前端開發環境，支援熱更新 (HMR)
   # ──────────────────────────────────────────────────────────
   frontend:
