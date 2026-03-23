@@ -17,6 +17,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { useAuth } from '../../context/AuthContext';
 
 const API = '';
 
@@ -1477,6 +1478,9 @@ function LogsTab() {
 // ════════════════════════════════════════════════════════════
 
 export default function McpConsolePage() {
+  const { user } = useAuth();
+  const companyId = user?.companyId ?? 1;
+
   const [activeTab,   setActiveTab]   = useState('overview');
   const [status,      setStatus]      = useState(null);
   const [chart,       setChart]       = useState(null);
@@ -1489,7 +1493,7 @@ export default function McpConsolePage() {
   const loadStatus = useCallback(async () => {
     try {
       const [statusRes, chartRes] = await Promise.all([
-        fetch(`${API}/api/admin/mcp/status`),
+        fetch(`${API}/api/admin/mcp/status?companyId=${companyId}`),
         fetch(`${API}/api/admin/mcp/chart/hourly`),
       ]);
       const [statusData, chartData] = await Promise.all([statusRes.json(), chartRes.json()]);
@@ -1503,11 +1507,11 @@ export default function McpConsolePage() {
   const loadTools = useCallback(async () => {
     setLoadingTools(true);
     try {
-      const r = await fetch(`${API}/api/admin/mcp/tools`);
+      const r = await fetch(`${API}/api/admin/mcp/tools?companyId=${companyId}`);
       setToolsData(await r.json());
     } catch {}
     setLoadingTools(false);
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     loadStatus();
@@ -1515,7 +1519,7 @@ export default function McpConsolePage() {
     // 每 30 秒自動刷新
     refreshTimer.current = setInterval(loadStatus, 30_000);
     return () => clearInterval(refreshTimer.current);
-  }, [loadStatus, loadTools]);
+  }, [loadStatus, loadTools, companyId]);
 
   return (
     <div style={{ padding: '24px 28px', background: COLORS.bg, minHeight: '100vh' }}>

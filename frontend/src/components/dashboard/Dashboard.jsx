@@ -24,6 +24,7 @@ import TimeTrackingPage      from '../timetracking/TimeTrackingPage';
 import ReportsPage           from '../reports/ReportsPage';
 import TeamPage              from '../team/TeamPage';
 import SettingsPage          from '../settings/SettingsPage';
+import UserManagementPage   from '../admin/UserManagementPage';
 import AiDecisionCenter      from '../ai/AiDecisionCenter';
 import McpConsolePage        from '../mcp/McpConsolePage';
 import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
@@ -90,7 +91,8 @@ const PAGE_TITLES = {
   workflow:        { title: '工作流程圖',  sub: '泳道圖 · 視覺化流程設計' },
   time:            { title: '工時記錄',    sub: '人員工時統計' },
   team:            { title: '團隊',        sub: '成員與角色設定' },
-  settings:        { title: '設定',        sub: '偏好與整合設定' },
+  settings:          { title: '設定',         sub: '偏好與整合設定' },
+  'user-management': { title: '使用者管理',   sub: '帳號 · 角色 · OAuth 連結' },
   'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
   'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
   profile:         { title: '個人資料',    sub: '帳戶設定' },
@@ -623,6 +625,17 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
       {/* ── 底部：設定 + 使用者 ─────────────────────────────── */}
       <div style={{ padding: isCollapsed ? '8px 4px 12px' : '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
         <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
+        {/* 使用者管理（僅 Admin 可見） */}
+        {currentUser?.role === 'admin' && (
+          <NavItem
+            id="user-management"
+            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+            label="使用者管理"
+            active={active}
+            onClick={onChange}
+            sbCollapsed={isCollapsed}
+          />
+        )}
 
         {/* 使用者資料列 */}
         <button
@@ -2378,6 +2391,7 @@ export default function Dashboard() {
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
     if (activeNav === 'ai-center')     return <AiDecisionCenter />;
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
+    if (activeNav === 'user-management') return <UserManagementPage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
     if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} />;

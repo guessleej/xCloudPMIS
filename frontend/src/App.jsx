@@ -10,10 +10,12 @@
  *     └─ 已登入       → 顯示 <Dashboard />（主系統）
  */
 
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import LoginPage  from './components/auth/LoginPage';
-import Dashboard  from './components/dashboard/Dashboard';
+import LoginPage    from './components/auth/LoginPage';
+import OAuthCallback from './components/auth/OAuthCallback';
+import Dashboard    from './components/dashboard/Dashboard';
 
 // ── 啟動載入畫面（驗證 token 時顯示）────────────────────────
 function LoadingScreen() {
@@ -61,9 +63,36 @@ function LoadingScreen() {
   );
 }
 
+// ── 偵測是否為 OAuth 回呼路由 ─────────────────────────────────
+// URL hash 格式：/#/oauth/callback?token=xxx
+function isOAuthCallbackRoute() {
+  return window.location.hash.startsWith('#/oauth/callback');
+}
+
 // ── 路由守衛 ──────────────────────────────────────────────────
 function AuthGuard() {
   const { user, loading } = useAuth();
+  const [isOAuthCallback, setIsOAuthCallback] = useState(isOAuthCallbackRoute);
+
+  // 監聽 hash 變化（OAuthCallback 處理完成後 hash 會被清除）
+  useEffect(() => {
+    const handler = () => setIsOAuthCallback(isOAuthCallbackRoute());
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
+
+  // ── OAuth 回呼頁（最高優先，不管登入狀態）─────────────────
+  if (isOAuthCallback) {
+    return (
+      <OAuthCallback
+        onBack={() => {
+          // 清除 hash，回到登入頁
+          window.history.replaceState(null, '', window.location.pathname);
+          setIsOAuthCallback(false);
+        }}
+      />
+    );
+  }
 
   // 正在驗證 token（初始化中）
   if (loading) return <LoadingScreen />;
