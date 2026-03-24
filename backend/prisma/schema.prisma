@@ -80,6 +80,7 @@ model User {
   taskAssigneeLinks TaskAssigneeLink[] @relation("TaskAssigneeLinkUser")
   taskAssigneeAssignedBy TaskAssigneeLink[] @relation("TaskAssigneeLinkAssignedBy")
   taskProjectAdded TaskProject[] @relation("TaskProjectAddedBy")
+  taskSubscriptions TaskSubscriber[]
   customFieldDefinitions CustomFieldDefinition[] @relation("CustomFieldCreator")
   customFieldUserValues CustomFieldValue[] @relation("CustomFieldUserValue")
   automationRulesCreated AutomationRule[] @relation("AutomationRuleCreator")
@@ -342,6 +343,7 @@ model Task {
   parentTask   Task?    @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
   subtasks     Task[]   @relation("TaskSubtasks")
   taskProjects TaskProject[]
+  subscribers  TaskSubscriber[]
   taskAssigneeLinks TaskAssigneeLink[]
   customFieldValues CustomFieldValue[] @relation("TaskCustomFieldValues")
 
@@ -561,6 +563,22 @@ model TaskDependency {
   @@index([taskId])
   @@index([dependsOnTaskId])
   @@map("task_dependencies")
+}
+
+// ── 表格：task_subscribers（任務追蹤者）──────────────────────
+// 使用者可「追蹤」任何任務，被追蹤的任務有更新時會收到通知
+// ─────────────────────────────────────────────────────────
+model TaskSubscriber {
+  taskId     Int      @map("task_id")
+  userId     Int      @map("user_id")
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_subscribers")
 }
 
 enum DependencyType {

@@ -93,6 +93,15 @@ export interface TaskCommentCreatePayload {
   parentId?: EntityId | null;
 }
 
+export interface TaskDependencyItem {
+  id: EntityId;
+  type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish';
+  taskId: EntityId;
+  dependsOnTaskId: EntityId;
+  dependsOnTask?: { id: EntityId; title: string } | null;
+  task?: { id: EntityId; title: string } | null;
+}
+
 export interface TaskDetailPanelProps {
   open: boolean;
   task: TaskDetailRecord | null;
@@ -115,6 +124,15 @@ export interface TaskDetailPanelProps {
     subtaskId: EntityId;
     completed: boolean;
   }) => Promise<void> | void;
+  // ── Asana-style features ──────────────────────────────────────────
+  isSubscribed?: boolean;
+  subscriberCount?: number;
+  onSubscribe?: (taskId: EntityId) => Promise<void> | void;
+  onUnsubscribe?: (taskId: EntityId) => Promise<void> | void;
+  dependencies?: TaskDependencyItem[];
+  onAddDependency?: (input: { taskId: EntityId; dependsOnTaskId: EntityId; type: string }) => Promise<void> | void;
+  onRemoveDependency?: (depId: EntityId) => Promise<void> | void;
+  allTasks?: { id: EntityId; title: string }[];
 }
 
 const BRAND = {
@@ -830,8 +848,17 @@ export default function TaskDetailPanel({
   commentSaving = false,
   commentError = null,
   onToggleSubtask,
+  isSubscribed = false,
+  subscriberCount = 0,
+  onSubscribe,
+  onUnsubscribe,
+  dependencies = [],
+  onAddDependency,
+  onRemoveDependency,
+  allTasks = [],
 }: TaskDetailPanelProps) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState('');
   const [assigneeId, setAssigneeId] = useState<string>('');
@@ -842,6 +869,13 @@ export default function TaskDetailPanel({
   const [subtaskInput, setSubtaskInput] = useState('');
   const [subtaskPending, setSubtaskPending] = useState(false);
   const [commentText, setCommentText] = useState('');
+  // ── Asana features ────────────────────────────────────────────────
+  const [subscribing, setSubscribing] = useState(false);
+  const [depInput, setDepInput] = useState('');
+  const [depType, setDepType] = useState<'finish_to_start' | 'start_to_start' | 'finish_to_finish'>('finish_to_start');
+  const [depPending, setDepPending] = useState(false);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
 
   useEffect(() => {
     if (!open || !task) return;
@@ -958,6 +992,79 @@ export default function TaskDetailPanel({
     await onAddComment({ content: nextComment });
     setCommentText('');
   };
+
+  const handleSubscribeToggle = async () => {
+    if (!task || subscribing) return;
+    setSubscribing(true);
+    try {
+      if (isSubscribed) {
+        await onUnsubscribe?.(task.id);
+      } else {
+        await onSubscribe?.(task.id);
+      }
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
+  const handleAddDep = async () => {
+    if (!task || !depInput.trim() || !onAddDependency) return;
+    const found = allTasks.find(t => String(t.id) === depInput.trim() || t.title.toLowerCase() === depInput.trim().toLowerCase());
+    if (!found) return;
+    setDepPending(true);
+    try {
+      await onAddDependency({ taskId: task.id, dependsOnTaskId: found.id, type: depType });
+      setDepInput('');
+    } finally {
+      setDepPending(false);
+    }
+  };
+
+  const handleCommentChange = (value: string) => {
+    setCommentText(value);
+    const textarea = commentTextareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? 0;
+    const before = value.slice(0, cursor);
+    const atIdx = before.lastIndexOf('@');
+    if (atIdx !== -1 && !before.slice(atIdx + 1).includes(' ')) {
+      const query = before.slice(atIdx + 1);
+      setMentionQuery(query);
+      setShowMentionPicker(true);
+    } else {
+      setShowMentionPicker(false);
+    }
+  };
+
+  const insertMention = (member: TaskPanelMember) => {
+    const textarea = commentTextareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? 0;
+    const before = commentText.slice(0, cursor);
+    const atIdx = before.lastIndexOf('@');
+    const after = commentText.slice(cursor);
+    const newText = commentText.slice(0, atIdx) + `@${member.name} ` + after;
+    setCommentText(newText);
+    setShowMentionPicker(false);
+    setTimeout(() => {
+      const newCursor = atIdx + member.name.length + 2;
+      textarea.setSelectionRange(newCursor, newCursor);
+      textarea.focus();
+    }, 0);
+  };
+
+  const filteredMentionMembers = members.filter(m =>
+    m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  ).slice(0, 6);
+
+  const DEP_TYPE_LABELS: Record<string, string> = {
+    finish_to_start: '完成後才能開始',
+    start_to_start: '開始後才能開始',
+    finish_to_finish: '完成後才能完成',
+  };
+
+  const blockedBy = dependencies.filter(d => String(d.taskId) === String(task?.id));
+  const blocks = dependencies.filter(d => String(d.dependsOnTaskId) === String(task?.id));
 
   return (
     <>
@@ -1091,24 +1198,54 @@ export default function TaskDetailPanel({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                border: '1px solid rgba(255,255,255,.2)',
-                background: 'rgba(255,255,255,.1)',
-                color: BRAND.white,
-                cursor: 'pointer',
-                fontSize: 18,
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              ×
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {(onSubscribe || onUnsubscribe) && (
+                <button
+                  type="button"
+                  onClick={() => void handleSubscribeToggle()}
+                  disabled={subscribing}
+                  title={isSubscribed ? '取消追蹤通知' : '追蹤此任務'}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    border: isSubscribed ? '1.5px solid rgba(255,255,255,.6)' : '1px solid rgba(255,255,255,.2)',
+                    background: isSubscribed ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.08)',
+                    color: BRAND.white,
+                    cursor: subscribing ? 'wait' : 'pointer',
+                    fontSize: 16,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    flexShrink: 0,
+                  }}
+                >
+                  {isSubscribed ? '🔔' : '🔕'}
+                  {subscriberCount > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 800 }}>{subscriberCount}</span>
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,.2)',
+                  background: 'rgba(255,255,255,.1)',
+                  color: BRAND.white,
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 16 }}>
@@ -1408,6 +1545,72 @@ export default function TaskDetailPanel({
             </div>
           </Section>
 
+          {/* ── Dependencies ──────────────────────────────────────── */}
+          <Section kicker="Dependencies" title="任務依賴">
+            <div style={{ display: 'grid', gap: 10 }}>
+              {blockedBy.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: BRAND.muted, marginBottom: 6 }}>
+                    等待完成（前置任務）
+                  </div>
+                  {blockedBy.map(dep => (
+                    <div key={String(dep.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 12, border: `1px solid ${BRAND.line}`, background: BRAND.white, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, flex: 1, color: BRAND.ink }}>
+                        🔒 {dep.dependsOnTask?.title || `Task #${dep.dependsOnTaskId}`}
+                      </span>
+                      <span style={{ fontSize: 11, color: BRAND.muted }}>{DEP_TYPE_LABELS[dep.type] || dep.type}</span>
+                      {onRemoveDependency && (
+                        <button type="button" onClick={() => void onRemoveDependency(dep.id)} style={{ border: 'none', background: 'none', color: BRAND.muted, cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {blocks.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: BRAND.muted, marginBottom: 6 }}>
+                    完成後解鎖（後續任務）
+                  </div>
+                  {blocks.map(dep => (
+                    <div key={String(dep.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 12, border: `1px solid ${BRAND.line}`, background: BRAND.white, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, flex: 1, color: BRAND.ink }}>
+                        🔓 {dep.task?.title || `Task #${dep.taskId}`}
+                      </span>
+                      <span style={{ fontSize: 11, color: BRAND.muted }}>{DEP_TYPE_LABELS[dep.type] || dep.type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {blockedBy.length === 0 && blocks.length === 0 && (
+                <div style={{ fontSize: 13, color: BRAND.muted, padding: '8px 0' }}>尚無任務依賴關係。</div>
+              )}
+              {onAddDependency && allTasks.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <input
+                    list="dep-task-list"
+                    value={depInput}
+                    onChange={e => setDepInput(e.target.value)}
+                    placeholder="輸入前置任務名稱..."
+                    style={{ flex: 1, borderRadius: 10, border: `1px solid ${BRAND.line}`, background: BRAND.white, color: BRAND.ink, padding: '7px 10px', fontSize: 13 }}
+                  />
+                  <datalist id="dep-task-list">
+                    {allTasks.filter(t => String(t.id) !== String(task?.id)).map(t => (
+                      <option key={String(t.id)} value={t.title} />
+                    ))}
+                  </datalist>
+                  <select value={depType} onChange={e => setDepType(e.target.value as typeof depType)} style={{ borderRadius: 10, border: `1px solid ${BRAND.line}`, background: BRAND.white, color: BRAND.ink, padding: '7px 8px', fontSize: 12 }}>
+                    <option value="finish_to_start">完成才能開始</option>
+                    <option value="start_to_start">開始才能開始</option>
+                    <option value="finish_to_finish">完成才能完成</option>
+                  </select>
+                  <button type="button" onClick={() => void handleAddDep()} disabled={!depInput.trim() || depPending} style={{ borderRadius: 10, border: 'none', background: BRAND.crimson, color: BRAND.white, padding: '7px 12px', fontSize: 12, fontWeight: 800, cursor: depInput.trim() && !depPending ? 'pointer' : 'not-allowed' }}>
+                    {depPending ? '...' : '新增'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </Section>
+
           <Section kicker="Activity" title="活動紀錄">
             <div
               style={{
@@ -1426,20 +1629,70 @@ export default function TaskDetailPanel({
                 可直接輸入工作更新，使用 @姓名 提及團隊成員。
               </div>
 
-              <textarea
-                value={commentText}
-                onChange={(event) => setCommentText(event.target.value)}
-                placeholder="輸入留言內容..."
-                rows={4}
-                style={{
-                  ...inputStyle,
-                  marginTop: 14,
-                  minHeight: 116,
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  lineHeight: 1.7,
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  ref={commentTextareaRef}
+                  value={commentText}
+                  onChange={(event) => handleCommentChange(event.target.value)}
+                  onKeyDown={e => {
+                    if (showMentionPicker && e.key === 'Escape') {
+                      setShowMentionPicker(false);
+                      e.stopPropagation();
+                    }
+                  }}
+                  placeholder="輸入留言內容... （輸入 @ 可提及成員）"
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    marginTop: 14,
+                    minHeight: 116,
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.7,
+                  }}
+                />
+                {showMentionPicker && filteredMentionMembers.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: 0,
+                    zIndex: 9999,
+                    background: BRAND.white,
+                    border: `1px solid ${BRAND.line}`,
+                    borderRadius: 12,
+                    boxShadow: 'var(--xc-shadow-strong)',
+                    minWidth: 200,
+                    overflow: 'hidden',
+                  }}>
+                    {filteredMentionMembers.map(m => (
+                      <button
+                        key={String(m.id)}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); insertMention(m); }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          width: '100%',
+                          padding: '8px 14px',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                          color: BRAND.ink,
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = BRAND.surfaceSoft; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                      >
+                        <Avatar user={m} size={24} />
+                        <span style={{ fontWeight: 700 }}>{m.name}</span>
+                        {m.email && <span style={{ fontSize: 11, color: BRAND.muted }}>{m.email}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {commentError ? (
                 <div

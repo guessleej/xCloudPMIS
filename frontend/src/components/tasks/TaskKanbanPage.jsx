@@ -1175,6 +1175,9 @@ function TaskSidePanel({
   const [comments, setComments] = useState([]);
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+  const [dependencies, setDependencies] = useState([]);
   const subtasks = buildSubtaskTree(allTasks, task.id);
   const activity = buildTaskActivity(task, linkedProjects, comments, currentUser, users);
 
@@ -1195,12 +1198,27 @@ function TaskSidePanel({
       }
     };
 
+    const loadDetail = async () => {
+      try {
+        const res = await authFetch(`${API}/tasks/${task.id}/detail`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success) {
+          const sub = data.data?.subscribers || [];
+          setSubscriberCount(sub.length);
+          setIsSubscribed(sub.some(s => String(s.userId) === String(currentUser?.id)));
+          setDependencies(data.data?.dependencies || []);
+        }
+      } catch (_) { /* ignore */ }
+    };
+
     loadComments();
+    loadDetail();
 
     return () => {
       cancelled = true;
     };
-  }, [authFetch, task.id]);
+  }, [authFetch, task.id, currentUser?.id]);
 
   const handleSave = async (payload) => {
     try {
@@ -1228,10 +1246,68 @@ function TaskSidePanel({
 
       lsSet(`xcloud-multihome-${task.id}`, persistedExtraProjects);
       lsSet(`xcloud-task-fields-${task.id}`, payload.customFieldValues || {});
+
+      // ── 同步多專案到 DB ──────────────────────────────────────────
+      try {
+        await authFetch(`${API}/tasks/${task.id}/multi-projects`, {
+          method: 'PATCH',
+          body: JSON.stringify({ projectIds: payload.projectIds.map(Number).filter(Boolean) }),
+        });
+      } catch (_) { /* non-fatal */ }
+
       onSaved();
     } catch (error) {
       alert(`更新失敗：${error.message}`);
     }
+  };
+
+  const handleSubscribe = async (taskId) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${taskId}/subscribe`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setIsSubscribed(true);
+        setSubscriberCount(c => c + 1);
+      }
+    } catch (_) {}
+  };
+
+  const handleUnsubscribe = async (taskId) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${taskId}/subscribe`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setIsSubscribed(false);
+        setSubscriberCount(c => Math.max(0, c - 1));
+      }
+    } catch (_) {}
+  };
+
+  const handleAddDependency = async ({ taskId, dependsOnTaskId, type }) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${taskId}/dependencies`, {
+        method: 'POST',
+        body: JSON.stringify({ dependsOnTaskId: Number(dependsOnTaskId), type }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDependencies(prev => [...prev, data.data]);
+      } else {
+        alert(data.error || '新增依賴失敗');
+      }
+    } catch (error) {
+      alert(`新增依賴失敗：${error.message}`);
+    }
+  };
+
+  const handleRemoveDependency = async (depId) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${task.id}/dependencies/${depId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setDependencies(prev => prev.filter(d => String(d.id) !== String(depId)));
+      }
+    } catch (_) {}
   };
 
   const handleQuickAddSubtask = async ({ title }) => {
@@ -1324,6 +1400,14 @@ function TaskSidePanel({
       commentSaving={commentSaving}
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
+      isSubscribed={isSubscribed}
+      subscriberCount={subscriberCount}
+      onSubscribe={handleSubscribe}
+      onUnsubscribe={handleUnsubscribe}
+      dependencies={dependencies}
+      onAddDependency={handleAddDependency}
+      onRemoveDependency={handleRemoveDependency}
+      allTasks={allTasks}
     />
   );
 }
