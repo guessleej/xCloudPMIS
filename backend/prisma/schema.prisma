@@ -66,6 +66,7 @@ model User {
   phone       String?   @db.VarChar(50)            // 電話
   jobTitle    String?   @map("job_title") @db.VarChar(100) // 職稱
   joinedAt    DateTime? @map("joined_at") @db.Date // 加入日期
+  settings    Json?     @map("settings_json")      // 個人偏好（通知、介面設定）
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   ownedProjects Project[]
@@ -94,6 +95,10 @@ model User {
 
   // ── OAuth 整合 ────────────────────────────────────────
   oauthToken    OAuthToken?    // Microsoft 365 Delegated 授權 Token（每人最多一個）
+
+  // ── 個人任務清單 ─────────────────────────────────────
+  myTaskLists     MyTaskList[]
+  myTaskListTasks MyTaskListTask[] @relation("MyTaskListTaskUser")
 
   @@index([companyId])
   @@index([email])
@@ -357,6 +362,7 @@ model Task {
   aiDecisions     AiDecision[]  // ← AI 自主代理決策記錄
   checklistItems  ChecklistItem[] // 任務待辦清單項目
   automationRuleRuns AutomationRuleRun[]
+  myTaskListTasks MyTaskListTask[] @relation("MyTaskListTaskTask")
 
   @@index([projectId])
   @@index([assigneeId])
@@ -1160,4 +1166,48 @@ model AiModelConfig {
   @@index([companyId])
   @@index([isActive])
   @@map("ai_model_configs")
+}
+
+// ═══════════════════════════════════════════════════════════
+// 個人任務清單（My Tasks）
+// ═══════════════════════════════════════════════════════════
+
+model MyTaskList {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id")
+  name      String   @db.VarChar(255)
+  color     String?  @db.VarChar(20)
+  isSystem  Boolean  @default(false) @map("is_system")
+  systemKey String?  @map("system_key") @db.VarChar(50)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks MyTaskListTask[]
+
+  @@unique([userId, systemKey])
+  @@index([userId])
+  @@index([companyId])
+  @@map("my_task_lists")
+}
+
+model MyTaskListTask {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  taskId    Int      @map("task_id")
+  listId    Int      @map("list_id")
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User       @relation("MyTaskListTaskUser", fields: [userId], references: [id], onDelete: Cascade)
+  task Task       @relation("MyTaskListTaskTask", fields: [taskId], references: [id], onDelete: Cascade)
+  list MyTaskList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([listId])
+  @@index([taskId])
+  @@map("my_task_list_tasks")
 }

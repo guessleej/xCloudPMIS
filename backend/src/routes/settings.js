@@ -15,6 +15,11 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt  = require('bcryptjs');
 const OpenAI  = require('openai');
 const prisma  = new PrismaClient();
+const {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  getUserNotificationSettings,
+  updateUserNotificationSettings,
+} = require('../services/notificationCenter');
 
 // 延遲載入 aiAgent，避免循環依賴
 const getAiAgent = () => require('../services/aiAgent');
@@ -256,6 +261,59 @@ router.patch('/profile/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('❌ 更新個人資料失敗:', err);
+    res.status(500).json({ error: '伺服器錯誤', details: err.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/settings/notifications
+// 取得使用者通知設定
+// ════════════════════════════════════════════════════════════
+router.get('/notifications', async (req, res) => {
+  try {
+    const userId = parseInt(req.user?.userId || '0', 10);
+    if (!userId) {
+      return res.status(401).json({ error: '需要有效登入 Token' });
+    }
+
+    const settings = await getUserNotificationSettings(prisma, userId);
+    res.json({
+      userId,
+      settings,
+      defaults: DEFAULT_NOTIFICATION_SETTINGS,
+    });
+  } catch (err) {
+    console.error('❌ 取得通知設定失敗:', err);
+    res.status(500).json({ error: '伺服器錯誤', details: err.message });
+  }
+});
+
+router.patch('/notifications/:id', async (req, res) => {
+  try {
+    const targetUserId = parseInt(req.params.id, 10);
+    const actorUserId = parseInt(req.user?.userId || '0', 10);
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: '無效的使用者 ID' });
+    }
+
+    if (!actorUserId) {
+      return res.status(401).json({ error: '需要有效登入 Token' });
+    }
+
+    if (actorUserId !== targetUserId) {
+      return res.status(403).json({ error: '只能修改自己的通知設定' });
+    }
+
+    const settings = await updateUserNotificationSettings(prisma, targetUserId, req.body || {});
+    res.json({
+      success: true,
+      userId: targetUserId,
+      settings,
+      message: '通知設定已更新',
+    });
+  } catch (err) {
+    console.error('❌ 更新通知設定失敗:', err);
     res.status(500).json({ error: '伺服器錯誤', details: err.message });
   }
 });

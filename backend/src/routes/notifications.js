@@ -13,6 +13,10 @@ const express = require('express');
 const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const {
+  createNotification,
+  ensureDeadlineNotificationsForUser,
+} = require('../services/notificationCenter');
 
 const ok  = (res, data, meta = {}) =>
   res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
@@ -40,8 +44,8 @@ const TYPE_MAP = {
 //   offset     - 偏移（預設 0）
 router.get('/', async (req, res) => {
   try {
-    const companyId   = parseInt(req.query.companyId   || '1');
-    const recipientId = parseInt(req.query.recipientId || '0');
+    const companyId   = parseInt(req.user?.companyId || req.query.companyId || '1');
+    const recipientId = parseInt(req.user?.userId || req.query.recipientId || '0');
     const filterType  = req.query.type;
     const onlyUnread  = req.query.unread === 'true';
     const limit       = Math.min(parseInt(req.query.limit  || '50'), 200);
@@ -59,6 +63,8 @@ router.get('/', async (req, res) => {
     }
 
     if (!targetId) return ok(res, [], { total: 0 });
+
+    await ensureDeadlineNotificationsForUser(prisma, { userId: targetId, companyId });
 
     // 建構 where 條件
     const where = { recipientId: targetId };
@@ -123,8 +129,8 @@ router.get('/', async (req, res) => {
 // ── GET /api/notifications/unread-count ───────────────────────
 router.get('/unread-count', async (req, res) => {
   try {
-    const companyId   = parseInt(req.query.companyId   || '1');
-    const recipientId = parseInt(req.query.recipientId || '0');
+    const companyId   = parseInt(req.user?.companyId || req.query.companyId || '1');
+    const recipientId = parseInt(req.user?.userId || req.query.recipientId || '0');
 
     let targetId = recipientId;
     if (!targetId) {
@@ -137,6 +143,8 @@ router.get('/unread-count', async (req, res) => {
     }
 
     if (!targetId) return ok(res, { count: 0 });
+
+    await ensureDeadlineNotificationsForUser(prisma, { userId: targetId, companyId });
 
     const count = await prisma.notification.count({
       where: { recipientId: targetId, isRead: false },

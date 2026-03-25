@@ -1,0 +1,56 @@
+# ════════════════════════════════════════════════════════════
+# xCloudPMIS Backend — Production Multi-Stage Dockerfile
+# ════════════════════════════════════════════════════════════
+# Stage 1: deps   — 只安裝生產依賴（排除 devDependencies）
+# Stage 2: runner — 以最小映像運行 Node.js 服務
+# ════════════════════════════════════════════════════════════
+
+# ── Stage 1: Dependency Installer ────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+# 先複製 package.json 利用 layer cache
+COPY backend/package.json backend/package-lock.json ./
+
+# 只安裝生產依賴
+RUN npm ci --only=production
+
+# 複製 Prisma schema 並產生 client
+COPY backend/prisma ./prisma
+RUN npx prisma generate
+
+# ── Stage 2: Production Runner ────────────────────────────────
+FROM node:20-alpine AS runner
+
+RUN apk add --no-cache openssl curl tzdata && \
+    cp /usr/share/zoneinfo/Asia/Taipei /etc/localtime && \
+    echo "Asia/Taipei" > /etc/timezone
+
+# 以非 root 使用者運行（安全最佳實踐）
+RUN addgroup -g 1001 nodejs && \
+    adduser -S -u 1001 -G nodejs nodeuser
+
+WORKDIR /app
+
+# 從 deps stage 複製已安裝依賴
+COPY --from=deps --chown=nodeuser:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=nodeuser:nodejs /app/prisma ./prisma
+
+# 複製應用程式原始碼
+COPY --chown=nodeuser:nodejs backend/src ./src
+COPY --chown=nodeuser:nodejs backend/package.json ./
+
+# 切換至非 root 使用者
+USER nodeuser
+
+# 健康檢查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3010/health || exit 1
+
+EXPOSE 3010
+
+# 生產模式啟動（node 直接執行，不用 nodemon）
+CMD ["node", "src/index.js"]

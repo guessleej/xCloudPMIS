@@ -18,6 +18,10 @@ const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { taskController } = require('../controllers/task.controller');
 const { taskRuleEngine } = require('../services/taskRuleEngine');
+const {
+  createTaskAssignmentNotifications,
+  createTaskCommentNotifications,
+} = require('../services/notificationCenter');
 const prisma = new PrismaClient();
 
 // ── 小工具 ──────────────────────────────────────────────────
@@ -524,6 +528,17 @@ router.post('/:id/tasks', async (req, res) => {
       progressPercent: task.progressPercent || 0,
       numSubtasks: task._count?.subtasks || 0,
     });
+
+    if (normalizedAssigneeId) {
+      createTaskAssignmentNotifications(prisma, {
+        taskId: task.id,
+        projectId,
+        recipientId: normalizedAssigneeId,
+        actorId,
+      }).catch((error) => {
+        console.warn(`[projects] 建立指派通知失敗 task=${task.id}: ${error.message}`);
+      });
+    }
   } catch (e) {
     console.error(e);
     err(res, e.message);
@@ -662,6 +677,17 @@ router.patch('/tasks/:taskId', async (req, res) => {
       numSubtasks: task._count?.subtasks || 0,
       automation,
     });
+
+    if (normalizedAssigneeId && normalizedAssigneeId !== existingTask.assigneeId) {
+      createTaskAssignmentNotifications(prisma, {
+        taskId: task.id,
+        projectId: task.projectId,
+        recipientId: normalizedAssigneeId,
+        actorId,
+      }).catch((error) => {
+        console.warn(`[projects] 更新指派通知失敗 task=${task.id}: ${error.message}`);
+      });
+    }
   } catch (e) {
     console.error(e);
     err(res, e.message);

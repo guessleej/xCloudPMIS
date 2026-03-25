@@ -28,6 +28,7 @@ const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoft');
 const adminMcpRouter      = require('./routes/adminMcp');
 const tasksRouter         = require('./routes/tasks');
+const myTasksRouter       = require('./routes/myTasks');
 const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
 const rulesRouter         = require('./routes/rules');
@@ -185,6 +186,9 @@ if (process.env.NODE_ENV !== 'production') {
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
 // GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
 app.use('/api/tasks', tasksRouter);
+
+// ── 我的任務路由（清單/看板/檔案/附件）────────────────────
+app.use('/api/my-tasks', myTasksRouter);
 
 // ── 使用者列表路由（ProjectsPage 指派人選單用）───────────────
 // GET /api/users?companyId=2 → 回傳 {success, data, meta} 格式

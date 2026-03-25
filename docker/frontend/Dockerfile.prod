@@ -1,0 +1,66 @@
+# ════════════════════════════════════════════════════════════
+# xCloudPMIS Frontend — Production Multi-Stage Dockerfile
+# ════════════════════════════════════════════════════════════
+# Stage 1: Builder — 安裝依賴並執行 Vite 生產構建
+# Stage 2: Runner  — 以 Nginx 靜態伺服器提供構建產物
+# ════════════════════════════════════════════════════════════
+
+# ── Stage 1: Builder ──────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+LABEL stage=builder
+
+# 安裝必要系統工具
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+# 先複製 package.json（利用 Docker layer cache，依賴未變時跳過 npm ci）
+COPY frontend/package.json frontend/package-lock.json ./
+
+# 乾淨安裝生產 + 開發依賴（Vite 構建需要 devDependencies）
+RUN npm ci
+
+# 複製前端原始碼
+COPY frontend/ .
+
+# 接受 Build-time 環境變數（由 docker build --build-arg 傳入）
+ARG VITE_API_URL=http://localhost:3010
+ARG VITE_WS_URL=ws://localhost:1234
+ARG VITE_APP_VERSION=1.0.0
+
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_WS_URL=${VITE_WS_URL}
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
+
+# 執行生產構建
+RUN npm run build
+
+# ── Stage 2: Runner (Nginx) ───────────────────────────────────
+FROM nginx:1.25-alpine AS runner
+
+# 安裝 tzdata 確保時區正確
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Taipei /etc/localtime && \
+    echo "Asia/Taipei" > /etc/timezone
+
+# 移除 Nginx 預設站台設定
+RUN rm /etc/nginx/conf.d/default.conf
+
+# 複製自訂 Nginx 設定（模板，runtime 用 envsubst 替換後端 URL）
+COPY docker/frontend/nginx.conf /etc/nginx/templates/app.conf.template
+
+# 從 builder stage 複製構建產物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 預設後端地址（部署時透過環境變數覆蓋）
+ENV BACKEND_HOST=localhost:3010
+
+# 健康檢查（確認 Nginx 回應正常）
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost/health || exit 1
+
+EXPOSE 80
+
+# 使用 envsubst 在啟動時替換 nginx.conf 模板中的環境變數
+CMD ["/bin/sh", "-c", "envsubst '${BACKEND_HOST}' < /etc/nginx/templates/app.conf.template > /etc/nginx/conf.d/app.conf && nginx -g 'daemon off;'"]
