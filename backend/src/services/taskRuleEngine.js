@@ -4,6 +4,7 @@ const {
   automationRuleService,
   SYSTEM_RULE_KEY,
 } = require('./automationRuleService');
+const { createNotifications } = require('./notificationCenter');
 
 const prisma = new PrismaClient();
 
@@ -66,19 +67,20 @@ class TaskRuleEngine extends EventEmitter {
 
     const notificationContext = await this.buildNotificationContext(afterTask, actorId);
     if (notificationContext.recipientIds.length > 0) {
-      await this.prisma.notification.createMany({
-        data: notificationContext.recipientIds.map((recipientId) => ({
+      const notifications = await createNotifications(
+        this.prisma,
+        notificationContext.recipientIds.map((recipientId) => ({
           recipientId,
           type: 'task_completed',
           title: `任務已完成：${afterTask.title}`,
           message: `${notificationContext.projectNames}中的任務「${afterTask.title}」已移動到已完成欄位。`,
           resourceType: 'task',
           resourceId: afterTask.id,
-        })),
-      });
+        }))
+      );
 
-      summary.notificationsSent = notificationContext.recipientIds.length;
-      summary.notifiedRecipientIds = notificationContext.recipientIds;
+      summary.notificationsSent = notifications.length;
+      summary.notifiedRecipientIds = notifications.map((notification) => notification.recipientId);
     }
 
     await automationRuleService.recordRuleExecution({
@@ -166,7 +168,7 @@ class TaskRuleEngine extends EventEmitter {
   }
 
   async buildNotificationContext(task, actorId) {
-    const [linkedProjects, taskAssignees] = await Promise.all([
+    const [linkedProjects, taskAssignees, taskOwner] = await Promise.all([
       this.prisma.taskProject.findMany({
         where: { taskId: task.id },
         select: {
@@ -189,6 +191,10 @@ class TaskRuleEngine extends EventEmitter {
       this.prisma.taskAssigneeLink.findMany({
         where: { taskId: task.id },
         select: { userId: true },
+      }),
+      this.prisma.task.findUnique({
+        where: { id: task.id },
+        select: { createdById: true },
       }),
     ]);
 
@@ -223,6 +229,10 @@ class TaskRuleEngine extends EventEmitter {
 
     for (const assignee of taskAssignees) {
       if (assignee.userId) recipientSet.add(assignee.userId);
+    }
+
+    if (taskOwner?.createdById) {
+      recipientSet.add(taskOwner.createdById);
     }
 
     if (recipientSet.size === 0 && task.assigneeId) {

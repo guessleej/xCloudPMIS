@@ -22,6 +22,22 @@ import { useAuth } from '../../context/AuthContext';
 const API_BASE   = '';
 // CURRENT_USER_ID is now passed as a prop from TimeTrackingPage via useAuth()
 
+const T = {
+  pageBg: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  overlay: 'rgba(0,0,0,0.45)',
+};
+
 // ── 工具函式 ─────────────────────────────────────────────────
 
 /**
@@ -109,23 +125,23 @@ const labelStyle = {
   display:     'block',
   fontSize:    '13px',
   fontWeight:  '600',
-  color:       '#374151',
+  color:       T.textSoft,
   marginBottom: '6px',
 };
 const inputStyle = {
   width:        '100%',
   padding:      '9px 12px',
-  border:       '1px solid #d1d5db',
+  border:       `1px solid ${T.borderStrong}`,
   borderRadius: '8px',
   fontSize:     '14px',
-  color:        '#111827',
+  color:        T.text,
   outline:      'none',
   boxSizing:    'border-box',
+  background:   T.surfaceStrong,
 };
 const selectStyle = {
   ...inputStyle,
   cursor: 'pointer',
-  background: 'white',
 };
 const primaryBtnStyle = {
   background:   '#3b82f6',
@@ -138,9 +154,9 @@ const primaryBtnStyle = {
   cursor:       'pointer',
 };
 const cancelBtnStyle = {
-  background:   '#f3f4f6',
-  color:        '#374151',
-  border:       'none',
+  background:   T.surfaceMuted,
+  color:        T.textSoft,
+  border:       `1px solid ${T.border}`,
   borderRadius: '8px',
   padding:      '9px 20px',
   fontSize:     '14px',
@@ -168,7 +184,7 @@ function ModalOverlay({ children, onClose }) {
       style={{
         position:   'fixed',
         inset:      0,
-        background: 'rgba(0,0,0,0.4)',
+        background: T.overlay,
         display:    'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -178,10 +194,11 @@ function ModalOverlay({ children, onClose }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background:   'white',
+          background:   T.surface,
           borderRadius: '16px',
-          boxShadow:    '0 20px 60px rgba(0,0,0,0.2)',
+          boxShadow:    T.shadowStrong,
           position:     'relative',
+          border:       `1px solid ${T.border}`,
         }}
       >
         {/* 關閉按鈕 */}
@@ -195,7 +212,7 @@ function ModalOverlay({ children, onClose }) {
             border:       'none',
             fontSize:     '20px',
             cursor:       'pointer',
-            color:        '#9ca3af',
+            color:        T.textMuted,
             lineHeight:   1,
             padding:      '2px',
           }}
@@ -214,11 +231,11 @@ function ModalOverlay({ children, onClose }) {
 function SummaryCard({ icon, label, value, sub, color = '#3b82f6' }) {
   return (
     <div style={{
-      background:   'white',
-      border:       '1px solid #e5e7eb',
+      background:   T.surface,
+      border:       `1px solid ${T.border}`,
       borderRadius: '12px',
       padding:      '20px',
-      boxShadow:    '0 1px 3px rgba(0,0,0,0.04)',
+      boxShadow:    T.shadow,
       flex: 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -231,11 +248,11 @@ function SummaryCard({ icon, label, value, sub, color = '#3b82f6' }) {
           {icon}
         </div>
       </div>
-      <div style={{ fontSize: '24px', fontWeight: '700', color: '#111827', lineHeight: 1.2 }}>
+      <div style={{ fontSize: '24px', fontWeight: '700', color: T.text, lineHeight: 1.2 }}>
         {value}
       </div>
-      <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>{label}</div>
-      {sub && <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>{sub}</div>}
+      <div style={{ fontSize: '13px', color: T.textSoft, marginTop: '4px' }}>{label}</div>
+      {sub && <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '2px' }}>{sub}</div>}
     </div>
   );
 }
@@ -356,7 +373,7 @@ function StartTimerModal({ tasks, onClose, onSubmit, userId }) {
   return (
     <ModalOverlay onClose={onClose}>
       <div style={{ padding: '24px', minWidth: '400px' }}>
-        <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+        <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700', color: T.text }}>
           ⏱️ 開始計時
         </h2>
 
@@ -459,7 +476,7 @@ function ManualAddModal({ tasks, onClose, onSubmit, userId }) {
   return (
     <ModalOverlay onClose={onClose}>
       <div style={{ padding: '24px', minWidth: '460px' }}>
-        <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+        <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: '700', color: T.text }}>
           ➕ 手動新增工時
         </h2>
 
@@ -635,17 +652,17 @@ function EditEntryModal({ entry, tasks, onClose, onSaved }) {
   return (
     <ModalOverlay onClose={onClose}>
       <div style={{ padding: '24px', minWidth: '460px' }}>
-        <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+        <h2 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: '700', color: T.text }}>
           ✏️ 編輯工時記錄
         </h2>
         {isActive && (
           <div style={{
             marginBottom: '16px',
             padding: '8px 12px',
-            background: '#eff6ff',
+            background: 'var(--xc-info-soft)',
             borderRadius: '6px',
             fontSize: '12px',
-            color: '#1d4ed8',
+            color: 'var(--xc-info)',
           }}>
             ⏱️ 計時進行中 — 只能編輯任務與描述，停止後才可修改時間
           </div>
@@ -734,9 +751,9 @@ function EditEntryModal({ entry, tasks, onClose, onSaved }) {
           <div style={{
             marginBottom: '16px',
             padding: '8px 12px',
-            background: '#fef2f2',
+            background: 'var(--xc-danger-soft)',
             borderRadius: '6px',
-            color: '#dc2626',
+            color: 'var(--xc-danger)',
             fontSize: '13px',
           }}>
             ⚠️ {error}
@@ -781,27 +798,27 @@ function DeleteEntryModal({ entry, onClose, onConfirmed }) {
         {/* 圖示 + 標題 */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '44px', marginBottom: '10px' }}>🗑️</div>
-          <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: '#111827' }}>
+          <h3 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: T.text }}>
             刪除工時記錄
           </h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#6b7280' }}>確定要刪除以下工時記錄嗎？</p>
+          <p style={{ margin: 0, fontSize: '13px', color: T.textSoft }}>確定要刪除以下工時記錄嗎？</p>
         </div>
 
         {/* 記錄資訊卡 */}
         <div style={{
-          background:   '#f9fafb',
-          border:       '1px solid #e5e7eb',
+          background:   T.surfaceSoft,
+          border:       `1px solid ${T.border}`,
           borderRadius: '10px',
           padding:      '14px 16px',
           marginBottom: '18px',
         }}>
-          <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '4px' }}>
+          <div style={{ fontWeight: '700', fontSize: '14px', color: T.text, marginBottom: '4px' }}>
             {entry.taskTitle}
           </div>
-          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '6px' }}>
+          <div style={{ fontSize: '12px', color: T.textMuted, marginBottom: '6px' }}>
             {entry.projectName}
           </div>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: '#6b7280' }}>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: T.textSoft }}>
             <span>
               🕐 {fmtTime(entry.startedAt)}
               {entry.endedAt ? ` – ${fmtTime(entry.endedAt)}` : ' – 進行中'}
@@ -811,7 +828,7 @@ function DeleteEntryModal({ entry, onClose, onConfirmed }) {
             )}
           </div>
           {entry.description && (
-            <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+            <div style={{ marginTop: '6px', fontSize: '12px', color: T.textSoft, fontStyle: 'italic' }}>
               「{entry.description}」
             </div>
           )}
@@ -851,19 +868,44 @@ function DeleteEntryModal({ entry, onClose, onConfirmed }) {
 // 工時記錄列（單筆）
 // ════════════════════════════════════════════════════════════
 function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
+  const [hovered, setHovered] = useState(false);
+
+  const openEntry = () => onEditRequest(entry);
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openEntry();
+    }
+  };
+
   return (
-    <div style={{
-      display:    'flex',
-      alignItems: 'center',
-      gap:        '12px',
-      padding:    '12px 16px',
-      borderBottom: '1px solid #f3f4f6',
-    }}>
+    <div
+      role="button"
+      tabIndex={0}
+      title="點一下開啟工時記錄"
+      onClick={openEntry}
+      onKeyDown={handleKeyDown}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      style={{
+        display:    'flex',
+        alignItems: 'center',
+        gap:        '12px',
+        padding:    '12px 16px',
+      borderBottom: `1px solid ${T.border}`,
+        background: hovered ? '#f8fafc' : 'transparent',
+        cursor:     'pointer',
+        transition: 'background 0.15s ease',
+        outline:    'none',
+      }}
+    >
       {/* 時間範圍 */}
       <div style={{
         minWidth:   '100px',
         fontSize:   '13px',
-        color:      '#6b7280',
+        color:      T.textSoft,
         fontFamily: 'monospace',
       }}>
         {fmtTime(entry.startedAt)}
@@ -875,20 +917,20 @@ function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
         <div style={{
           fontSize:    '14px',
           fontWeight:  '500',
-          color:       '#111827',
+          color:       T.text,
           overflow:    'hidden',
           textOverflow: 'ellipsis',
           whiteSpace:  'nowrap',
         }}>
           {entry.taskTitle}
         </div>
-        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '1px' }}>
+        <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '1px' }}>
           {entry.projectName}
         </div>
         {entry.description && (
           <div style={{
             fontSize: '12px',
-            color:    '#6b7280',
+            color:    T.textSoft,
             marginTop: '2px',
             fontStyle: 'italic',
           }}>
@@ -903,7 +945,7 @@ function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
         textAlign:  'right',
         fontSize:   '14px',
         fontWeight: '600',
-        color:      entry.isActive ? '#3b82f6' : '#374151',
+        color:      entry.isActive ? '#3b82f6' : T.textSoft,
       }}>
         {entry.isActive
           ? <ActiveDuration startedAt={entry.startedAt} />
@@ -914,12 +956,15 @@ function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
       {/* 操作按鈕：✏️ 編輯 + 🗑 刪除 */}
       <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
         <button
-          onClick={() => onEditRequest(entry)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEditRequest(entry);
+          }}
           title="編輯此記錄"
           style={{
             background:   'none',
-            border:       '1px solid #e5e7eb',
-            color:        '#9ca3af',
+            border:       `1px solid ${T.border}`,
+            color:        T.textMuted,
             cursor:       'pointer',
             fontSize:     '13px',
             padding:      '4px 8px',
@@ -928,17 +973,20 @@ function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
             transition:   'all 0.15s',
           }}
           onMouseOver={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; e.currentTarget.style.borderColor = '#bae6fd'; }}
-          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}
         >
           ✏️
         </button>
         <button
-          onClick={() => onDeleteRequest(entry)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDeleteRequest(entry);
+          }}
           title="刪除此記錄"
           style={{
             background:   'none',
-            border:       '1px solid #e5e7eb',
-            color:        '#9ca3af',
+            border:       `1px solid ${T.border}`,
+            color:        T.textMuted,
             cursor:       'pointer',
             fontSize:     '13px',
             padding:      '4px 8px',
@@ -947,7 +995,7 @@ function EntryRow({ entry, onEditRequest, onDeleteRequest }) {
             transition:   'all 0.15s',
           }}
           onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = '#fecaca'; }}
-          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+          onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}
         >
           🗑
         </button>
@@ -979,12 +1027,12 @@ function DateGroup({ date, entries, onEditRequest, onDeleteRequest }) {
 
   return (
     <div style={{
-      background:   'white',
-      border:       '1px solid #e5e7eb',
+      background:   T.surface,
+      border:       `1px solid ${T.border}`,
       borderRadius: '12px',
       marginBottom: '12px',
       overflow:     'hidden',
-      boxShadow:    '0 1px 3px rgba(0,0,0,0.04)',
+      boxShadow:    T.shadow,
     }}>
       {/* 群組標題列 */}
       <div style={{
@@ -992,8 +1040,8 @@ function DateGroup({ date, entries, onEditRequest, onDeleteRequest }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding:    '12px 16px',
-        background: isToday ? '#eff6ff' : '#f9fafb',
-        borderBottom: '1px solid #e5e7eb',
+        background: isToday ? 'var(--xc-info-soft)' : T.surfaceSoft,
+        borderBottom: `1px solid ${T.border}`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {isToday && (
@@ -1006,14 +1054,14 @@ function DateGroup({ date, entries, onEditRequest, onDeleteRequest }) {
               borderRadius: '4px',
             }}>今天</span>
           )}
-          <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: T.textSoft }}>
             {fmtDate(date)}
           </span>
         </div>
         <span style={{
           fontSize:   '13px',
           fontWeight: '600',
-          color:      '#6b7280',
+          color:      T.textSoft,
         }}>
           合計：{fmtMinutes(totalMins)}
         </span>
@@ -1192,22 +1240,22 @@ export default function TimeTrackingPage() {
   // 渲染
   // ═══════════════════════════════════════════════════════
   return (
-    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '0' }}>
+    <div style={{ background: T.pageBg, minHeight: '100vh', padding: '0', color: T.text }}>
 
       {/* ── 頁面標題列 ─────────────────────────────────── */}
       <div style={{
-        background:     'white',
-        borderBottom:   '1px solid #e5e7eb',
+        background:     T.surface,
+        borderBottom:   `1px solid ${T.border}`,
         padding:        '16px 24px',
         display:        'flex',
         alignItems:     'center',
         justifyContent: 'space-between',
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827' }}>
+          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: T.text }}>
             ⏱️ 工時記錄
           </h1>
-          <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9ca3af' }}>
+          <p style={{ margin: '2px 0 0', fontSize: '13px', color: T.textMuted }}>
             記錄每日工作時間，追蹤任務實際投入
           </p>
         </div>
@@ -1216,9 +1264,9 @@ export default function TimeTrackingPage() {
           <button
             onClick={() => setShowAddModal(true)}
             style={{
-              background:   '#f3f4f6',
-              color:        '#374151',
-              border:       'none',
+              color:        T.textSoft,
+              border:       `1px solid ${T.border}`,
+              background:   T.surfaceMuted,
               borderRadius: '8px',
               padding:      '8px 16px',
               fontSize:     '13px',
@@ -1236,8 +1284,8 @@ export default function TimeTrackingPage() {
             disabled={!!activeEntry}
             title={activeEntry ? '已有計時進行中' : '開始計時'}
             style={{
-              background:   activeEntry ? '#e5e7eb' : '#3b82f6',
-              color:        activeEntry ? '#9ca3af' : 'white',
+              background:   activeEntry ? T.surfaceMuted : '#3b82f6',
+              color:        activeEntry ? T.textMuted : 'white',
               border:       'none',
               borderRadius: '8px',
               padding:      '8px 16px',
@@ -1304,8 +1352,8 @@ export default function TimeTrackingPage() {
         }}>
           <div style={{
             display:      'flex',
-            background:   'white',
-            border:       '1px solid #e5e7eb',
+            background:   T.surface,
+            border:       `1px solid ${T.border}`,
             borderRadius: '8px',
             padding:      '3px',
             gap:          '2px',
@@ -1316,7 +1364,7 @@ export default function TimeTrackingPage() {
                 onClick={() => setActiveRange(r.id)}
                 style={{
                   background:   activeRange === r.id ? '#3b82f6' : 'transparent',
-                  color:        activeRange === r.id ? 'white' : '#6b7280',
+                  color:        activeRange === r.id ? 'white' : T.textSoft,
                   border:       'none',
                   borderRadius: '6px',
                   padding:      '6px 16px',
@@ -1337,7 +1385,7 @@ export default function TimeTrackingPage() {
             style={{
               background:   'none',
               border:       'none',
-              color:        '#9ca3af',
+              color:        T.textMuted,
               cursor:       loading ? 'not-allowed' : 'pointer',
               fontSize:     '13px',
               display:      'flex',
@@ -1353,7 +1401,7 @@ export default function TimeTrackingPage() {
         {loading ? (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            height: '200px', color: '#9ca3af', flexDirection: 'column', gap: '12px',
+            height: '200px', color: T.textMuted, flexDirection: 'column', gap: '12px',
           }}>
             <div style={{ fontSize: '32px' }}>⏳</div>
             <div>載入中...</div>
@@ -1370,10 +1418,10 @@ export default function TimeTrackingPage() {
         ) : grouped.length === 0 ? (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            height: '200px', color: '#9ca3af', flexDirection: 'column', gap: '12px',
+            height: '200px', color: T.textMuted, flexDirection: 'column', gap: '12px',
           }}>
             <div style={{ fontSize: '40px' }}>📭</div>
-            <div style={{ fontSize: '15px', fontWeight: '500', color: '#374151' }}>
+            <div style={{ fontSize: '15px', fontWeight: '500', color: T.textSoft }}>
               {DATE_RANGES.find(r => r.id === activeRange)?.label}沒有工時記錄
             </div>
             <div style={{ fontSize: '13px' }}>

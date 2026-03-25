@@ -21,12 +21,12 @@ const LS_CUSTOM_FIELDS = 'xcloud-custom-fields';
 
 // ── Design System ─────────────────────────────────────────────
 const C = {
-  brand: '#C41230', brandDk: '#8B0020',
-  ink: '#111827', ink2: '#374151', ink3: '#6B7280', ink4: '#9CA3AF',
-  line: '#E5E7EB', lineL: '#F3F4F6', bg: '#F7F2F2', white: '#FFFFFF',
-  green: '#16A34A', greenBg: '#F0FDF4',
-  yellow: '#D97706', yellowBg: '#FFFBEB',
-  red: '#DC2626', redBg: '#FEF2F2',
+  brand: 'var(--xc-brand)', brandDk: 'var(--xc-brand-dark)',
+  ink: 'var(--xc-text)', ink2: 'var(--xc-text-soft)', ink3: 'var(--xc-text-muted)', ink4: 'var(--xc-text-muted)',
+  line: 'var(--xc-border)', lineL: 'var(--xc-surface-muted)', bg: 'var(--xc-bg)', white: 'var(--xc-surface-strong)',
+  green: 'var(--xc-success)', greenBg: 'var(--xc-success-soft)',
+  yellow: 'var(--xc-warning)', yellowBg: 'var(--xc-warning-soft)',
+  red: 'var(--xc-danger)', redBg: 'var(--xc-danger-soft)',
 };
 
 // ── 色盤（8 色）─────────────────────────────────────────────
@@ -451,9 +451,9 @@ export default function PortfoliosPage({ onNavigate }) {
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.projects || data.data || []);
-      setProjects(list.length > 0 ? list : DEMO_PROJECTS);
+      setProjects(Array.isArray(list) ? list : []);
     } catch {
-      setProjects(DEMO_PROJECTS);
+      setProjects([]);
     } finally {
       setLoading(false);
     }

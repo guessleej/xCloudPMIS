@@ -17,18 +17,18 @@ import { useAuth } from '../../context/AuthContext';
 
 // ── 設計 Token ──────────────────────────────────────────────────
 const T = {
-  accent:   '#C41230',
-  accentLt: '#F04060',
-  pageBg:   '#F7F2F2',
-  cardBg:   '#FFFFFF',
-  border:   '#E8E0E0',
-  t1:       '#1A0A0D',
-  t2:       '#6B5558',
-  t3:       '#9E8E90',
-  success:  '#22C55E',
-  warning:  '#F59E0B',
-  danger:   '#EF4444',
-  neutral:  '#94A3B8',
+  accent:   'var(--xc-brand)',
+  accentLt: 'var(--xc-brand-dark)',
+  pageBg:   'var(--xc-bg)',
+  cardBg:   'var(--xc-surface)',
+  border:   'var(--xc-border)',
+  t1:       'var(--xc-text)',
+  t2:       'var(--xc-text-soft)',
+  t3:       'var(--xc-text-muted)',
+  success:  'var(--xc-success)',
+  warning:  'var(--xc-warning)',
+  danger:   'var(--xc-danger)',
+  neutral:  'var(--xc-text-muted)',
 };
 
 // ── 狀態設定 ────────────────────────────────────────────────────
@@ -782,9 +782,9 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState(() => {
     try {
       const saved = localStorage.getItem('xcloud-goals');
-      return saved ? JSON.parse(saved) : DEMO_GOALS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return DEMO_GOALS;
+      return [];
     }
   });
 

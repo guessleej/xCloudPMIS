@@ -24,25 +24,51 @@ import { useAuth } from '../../context/AuthContext';
 // ── 常數 ─────────────────────────────────────────────────────
 const API_BASE   = '';
 
+const T = {
+  pageBg: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 10%, var(--xc-bg) 90%) 0%, var(--xc-bg) 18%, var(--xc-bg-soft) 100%)',
+  surface: 'var(--xc-surface)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  accent: 'var(--xc-brand)',
+  accentDeep: 'var(--xc-brand-dark)',
+  accentSoft: 'var(--xc-brand-soft)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  danger: 'var(--xc-danger)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  warning: 'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  panel: 'color-mix(in srgb, var(--xc-surface) 94%, transparent)',
+  panelStrong: 'color-mix(in srgb, var(--xc-surface-strong) 84%, var(--xc-surface) 16%)',
+};
+
 // ── 角色樣式對照 ──────────────────────────────────────────────
 const ROLE_STYLE = {
-  admin:  { bg: '#fef3c7', text: '#92400e', label: '系統管理員', icon: '👑' },
-  pm:     { bg: '#dbeafe', text: '#1e40af', label: '專案經理',  icon: '📋' },
-  member: { bg: '#f3f4f6', text: '#374151', label: '一般成員',  icon: '👤' },
+  admin:  { bg: 'color-mix(in srgb, var(--xc-warning) 16%, var(--xc-surface-strong))', text: '#92400e', label: '系統管理員', icon: '👑' },
+  pm:     { bg: 'color-mix(in srgb, var(--xc-info) 16%, var(--xc-surface-strong))', text: '#1e40af', label: '專案經理',  icon: '📋' },
+  member: { bg: 'var(--xc-surface-muted)', text: 'var(--xc-text-soft)', label: '一般成員',  icon: '👤' },
 };
 
 // ── 任務狀態樣式 ──────────────────────────────────────────────
 const STATUS_STYLE = {
-  todo:        { bg: '#f3f4f6', text: '#6b7280', label: '待處理' },
-  in_progress: { bg: '#dbeafe', text: '#1d4ed8', label: '進行中' },
-  review:      { bg: '#fef3c7', text: '#d97706', label: '審查中' },
-  done:        { bg: '#d1fae5', text: '#065f46', label: '已完成' },
+  todo:        { bg: 'var(--xc-surface-muted)', text: 'var(--xc-text-soft)', label: '待處理' },
+  in_progress: { bg: 'color-mix(in srgb, var(--xc-info) 16%, var(--xc-surface-strong))', text: '#1d4ed8', label: '進行中' },
+  review:      { bg: 'color-mix(in srgb, var(--xc-warning) 16%, var(--xc-surface-strong))', text: '#d97706', label: '審查中' },
+  done:        { bg: 'color-mix(in srgb, var(--xc-success) 16%, var(--xc-surface-strong))', text: '#065f46', label: '已完成' },
 };
 const PRIORITY_STYLE = {
-  urgent: { text: '#dc2626', label: '緊急' },
+  urgent: { text: 'var(--xc-danger)', label: '緊急' },
   high:   { text: '#ea580c', label: '高'   },
   medium: { text: '#ca8a04', label: '中'   },
-  low:    { text: '#6b7280', label: '低'   },
+  low:    { text: 'var(--xc-text-soft)', label: '低'   },
 };
 
 // ── 大頭貼背景色（依 ID 循環） ───────────────────────────────
@@ -94,17 +120,17 @@ function WorkloadBar({ done, total }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <div style={{
-        flex: 1, height: '4px', background: '#e5e7eb', borderRadius: '2px',
+        flex: 1, height: '4px', background: T.surfaceMuted, borderRadius: '2px',
       }}>
         <div style={{
           width:      `${pct}%`,
           height:     '100%',
-          background: pct >= 80 ? '#10b981' : pct >= 40 ? '#3b82f6' : '#f59e0b',
+          background: pct >= 80 ? T.success : pct >= 40 ? T.accent : '#f59e0b',
           borderRadius: '2px',
           transition: 'width 0.4s ease',
         }} />
       </div>
-      <span style={{ fontSize: '11px', color: '#9ca3af', minWidth: '28px' }}>
+      <span style={{ fontSize: '11px', color: T.textMuted, minWidth: '28px' }}>
         {pct}%
       </span>
     </div>
@@ -121,29 +147,29 @@ function MemberCard({ member, isSelected, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background:   'white',
-        border:       `2px solid ${isSelected ? '#3b82f6' : '#e5e7eb'}`,
+        background:   T.panelStrong,
+        border:       `2px solid ${isSelected ? T.accent : T.border}`,
         borderRadius: '14px',
         padding:      '20px',
         cursor:       'pointer',
         boxShadow:    isSelected
-          ? '0 0 0 3px rgba(59,130,246,0.15)'
-          : '0 1px 3px rgba(0,0,0,0.05)',
+          ? '0 0 0 3px color-mix(in srgb, var(--xc-brand) 18%, transparent)'
+          : T.shadow,
         transition:   'all 0.15s',
         position:     'relative',
         opacity:      member.isActive ? 1 : 0.6,
       }}
       onMouseOver={e => {
-        if (!isSelected) e.currentTarget.style.borderColor = '#93c5fd';
+        if (!isSelected) e.currentTarget.style.borderColor = T.borderStrong;
         e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+        e.currentTarget.style.boxShadow = T.shadowStrong;
       }}
       onMouseOut={e => {
-        if (!isSelected) e.currentTarget.style.borderColor = '#e5e7eb';
+        if (!isSelected) e.currentTarget.style.borderColor = T.border;
         e.currentTarget.style.transform = 'translateY(0)';
         e.currentTarget.style.boxShadow = isSelected
-          ? '0 0 0 3px rgba(59,130,246,0.15)'
-          : '0 1px 3px rgba(0,0,0,0.05)';
+          ? '0 0 0 3px color-mix(in srgb, var(--xc-brand) 18%, transparent)'
+          : T.shadow;
       }}
     >
       {/* 停用標籤 */}
@@ -152,8 +178,8 @@ function MemberCard({ member, isSelected, onClick }) {
           position:   'absolute',
           top:        '10px',
           right:      '10px',
-          background: '#fee2e2',
-          color:      '#dc2626',
+          background: T.dangerSoft,
+          color:      T.danger,
           fontSize:   '10px',
           fontWeight: '600',
           padding:    '2px 6px',
@@ -168,7 +194,7 @@ function MemberCard({ member, isSelected, onClick }) {
         <Avatar name={member.name} id={member.id} size={48} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: '15px', fontWeight: '700', color: '#111827',
+            fontSize: '15px', fontWeight: '700', color: T.text,
             marginBottom: '4px',
           }}>
             {member.name}
@@ -187,7 +213,7 @@ function MemberCard({ member, isSelected, onClick }) {
       {/* Email */}
       <div style={{
         fontSize:    '12px',
-        color:       '#9ca3af',
+        color:       T.textMuted,
         marginBottom: '12px',
         overflow:    'hidden',
         textOverflow: 'ellipsis',
@@ -201,7 +227,7 @@ function MemberCard({ member, isSelected, onClick }) {
         <div style={{ marginBottom: '10px' }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            fontSize: '11px', color: '#9ca3af', marginBottom: '4px',
+            fontSize: '11px', color: T.textMuted, marginBottom: '4px',
           }}>
             <span>任務完成率</span>
             <span>{member.completedTasks}/{member.totalTasks}</span>
@@ -223,17 +249,17 @@ function MemberCard({ member, isSelected, onClick }) {
           { icon: '⏱️', value: member.totalTimeDisplay, label: '工時' },
         ].map((stat, i) => (
           <div key={i} style={{
-            background: '#f8fafc', borderRadius: '6px', padding: '6px 4px',
+            background: T.surfaceSoft, borderRadius: '6px', padding: '6px 4px',
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '16px', marginBottom: '1px' }}>{stat.icon}</div>
             <div style={{
-              fontSize: '11px', fontWeight: '700', color: '#374151',
+              fontSize: '11px', fontWeight: '700', color: T.textSoft,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {stat.value}
             </div>
-            <div style={{ fontSize: '10px', color: '#9ca3af' }}>{stat.label}</div>
+            <div style={{ fontSize: '10px', color: T.textMuted }}>{stat.label}</div>
           </div>
         ))}
       </div>
@@ -243,7 +269,7 @@ function MemberCard({ member, isSelected, onClick }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
           {member.projects.slice(0, 2).map(p => (
             <span key={p.id} style={{
-              background: '#eff6ff', color: '#1d4ed8',
+              background: T.accentSoft, color: T.accentDeep,
               fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
               maxWidth: '120px', overflow: 'hidden',
               textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -253,7 +279,7 @@ function MemberCard({ member, isSelected, onClick }) {
           ))}
           {member.projects.length > 2 && (
             <span style={{
-              background: '#f3f4f6', color: '#9ca3af',
+              background: T.surfaceMuted, color: T.textMuted,
               fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
             }}>
               +{member.projects.length - 2}
@@ -261,7 +287,7 @@ function MemberCard({ member, isSelected, onClick }) {
           )}
         </div>
       ) : (
-        <div style={{ fontSize: '11px', color: '#d1d5db' }}>尚未參與任何專案</div>
+        <div style={{ fontSize: '11px', color: T.textMuted }}>尚未參與任何專案</div>
       )}
     </div>
   );
@@ -299,20 +325,20 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
   return (
     <PanelShell onClose={onClose} title={member.name}>
       {/* ── 成員基本資料 ──────────────────────────────────── */}
-      <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
+      <div style={{ padding: '20px', borderBottom: `1px solid ${T.border}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
           <Avatar name={member.name} id={member.id} size={64} />
           <div>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: T.text }}>
               {member.name}
               {!member.isActive && (
                 <span style={{
-                  marginLeft: '8px', background: '#fee2e2', color: '#dc2626',
+                  marginLeft: '8px', background: T.dangerSoft, color: T.danger,
                   fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '600',
                 }}>已停用</span>
               )}
             </div>
-            <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '2px' }}>{member.email}</div>
+            <div style={{ fontSize: '13px', color: T.textMuted, marginTop: '2px' }}>{member.email}</div>
             <div style={{ marginTop: '6px' }}>
               <span style={{
                 background: role.bg, color: role.text,
@@ -330,10 +356,10 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px',
         }}>
           {[
-            { label: '待處理', value: member.taskCounts.todo,        bg: '#f3f4f6', text: '#6b7280' },
-            { label: '進行中', value: member.taskCounts.in_progress,  bg: '#dbeafe', text: '#1d4ed8' },
-            { label: '審查中', value: member.taskCounts.review,       bg: '#fef3c7', text: '#d97706' },
-            { label: '已完成', value: member.taskCounts.done,         bg: '#d1fae5', text: '#065f46' },
+            { label: '待處理', value: member.taskCounts.todo,        bg: STATUS_STYLE.todo.bg, text: STATUS_STYLE.todo.text },
+            { label: '進行中', value: member.taskCounts.in_progress,  bg: STATUS_STYLE.in_progress.bg, text: STATUS_STYLE.in_progress.text },
+            { label: '審查中', value: member.taskCounts.review,       bg: STATUS_STYLE.review.bg, text: STATUS_STYLE.review.text },
+            { label: '已完成', value: member.taskCounts.done,         bg: STATUS_STYLE.done.bg, text: STATUS_STYLE.done.text },
           ].map((s, i) => (
             <div key={i} style={{
               background: s.bg, borderRadius: '8px', padding: '8px',
@@ -348,11 +374,11 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
         {/* 工時 */}
         <div style={{
           marginTop: '10px', padding: '10px 14px',
-          background: '#f8fafc', borderRadius: '8px',
+          background: T.surfaceSoft, borderRadius: '8px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>⏱️ 累計工時</span>
-          <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>
+          <span style={{ fontSize: '13px', color: T.textMuted }}>⏱️ 累計工時</span>
+          <span style={{ fontSize: '15px', fontWeight: '700', color: T.text }}>
             {member.totalTimeDisplay}
           </span>
         </div>
@@ -361,7 +387,7 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
       {/* ── 操作按鈕 ─────────────────────────────────────── */}
       <div style={{
         padding:  '12px 20px',
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: `1px solid ${T.border}`,
         display: 'flex', gap: '8px', flexWrap: 'wrap',
       }}>
         {/* 角色快速切換 */}
@@ -371,9 +397,9 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
             onClick={() => onRoleChange(member.id, r)}
             disabled={member.role === r}
             style={{
-              background:   member.role === r ? `${ROLE_STYLE[r].bg}` : 'white',
-              color:        member.role === r ? ROLE_STYLE[r].text : '#6b7280',
-              border:       `1px solid ${member.role === r ? 'transparent' : '#e5e7eb'}`,
+              background:   member.role === r ? `${ROLE_STYLE[r].bg}` : T.surfaceStrong,
+              color:        member.role === r ? ROLE_STYLE[r].text : T.textMuted,
+              border:       `1px solid ${member.role === r ? 'transparent' : T.border}`,
               borderRadius: '6px',
               padding:      '5px 12px',
               fontSize:     '12px',
@@ -389,8 +415,8 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
           onClick={() => onToggleActive(member.id, !member.isActive)}
           style={{
             marginLeft:   'auto',
-            background:   member.isActive ? '#fef2f2' : '#f0fdf4',
-            color:        member.isActive ? '#dc2626' : '#16a34a',
+            background:   member.isActive ? T.dangerSoft : T.successSoft,
+            color:        member.isActive ? T.danger : T.success,
             border:       'none',
             borderRadius: '6px',
             padding:      '5px 12px',
@@ -405,7 +431,7 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
 
       {/* ── Tab 切換 ─────────────────────────────────────── */}
       <div style={{
-        display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#f8fafc',
+        display: 'flex', borderBottom: `1px solid ${T.border}`, background: T.surfaceSoft,
       }}>
         {[
           { id: 'tasks',    label: `任務（${tasks.length}）` },
@@ -418,12 +444,12 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
             style={{
               flex:       1,
               padding:    '10px',
-              background: tab === t.id ? 'white' : 'transparent',
+              background: tab === t.id ? T.surfaceStrong : 'transparent',
               border:     'none',
-              borderBottom: tab === t.id ? '2px solid #3b82f6' : '2px solid transparent',
+              borderBottom: tab === t.id ? `2px solid ${T.accent}` : '2px solid transparent',
               fontSize:   '12px',
               fontWeight: tab === t.id ? '600' : '400',
-              color:      tab === t.id ? '#1d4ed8' : '#9ca3af',
+              color:      tab === t.id ? T.accentDeep : T.textMuted,
               cursor:     'pointer',
             }}
           >
@@ -442,7 +468,7 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
           ) : tasks.map(t => (
             <div key={t.id} style={{
               padding: '12px 20px',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: `1px solid ${T.border}`,
               display: 'flex', alignItems: 'flex-start', gap: '10px',
             }}>
               <span style={{
@@ -456,12 +482,12 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: '13px', color: '#111827', fontWeight: '500',
+                  fontSize: '13px', color: T.text, fontWeight: '500',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {t.title}
                 </div>
-                <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '2px', display: 'flex', gap: '8px' }}>
                   <span>{t.projectName}</span>
                   <span style={{ color: PRIORITY_STYLE[t.priority]?.text }}>
                     ● {t.priorityLabel}
@@ -480,25 +506,25 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
           ) : recentEntries.map(e => (
             <div key={e.id} style={{
               padding: '12px 20px',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: `1px solid ${T.border}`,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontSize: '13px', color: '#111827', fontWeight: '500', flex: 1, marginRight: '8px' }}>
+                <div style={{ fontSize: '13px', color: T.text, fontWeight: '500', flex: 1, marginRight: '8px' }}>
                   {e.taskTitle}
                 </div>
                 <div style={{
-                  fontSize: '13px', fontWeight: '700', color: '#374151',
+                  fontSize: '13px', fontWeight: '700', color: T.textSoft,
                   whiteSpace: 'nowrap',
                 }}>
                   {e.durationDisplay}
                 </div>
               </div>
-              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '3px', display: 'flex', gap: '8px' }}>
+              <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '3px', display: 'flex', gap: '8px' }}>
                 <span>{e.projectName}</span>
                 <span>{e.date}</span>
               </div>
               {e.description && (
-                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '11px', color: T.textSoft, marginTop: '3px', fontStyle: 'italic' }}>
                   {e.description}
                 </div>
               )}
@@ -513,16 +539,16 @@ function DetailPanel({ memberId, companyId, onClose, onRoleChange, onToggleActiv
           ) : ownedProjects.map(p => (
             <div key={p.id} style={{
               padding: '14px 20px',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: `1px solid ${T.border}`,
               display: 'flex', alignItems: 'center', gap: '12px',
             }}>
               <div style={{
                 width: '8px', height: '8px', borderRadius: '50%',
-                background: p.status === 'active' ? '#10b981'
-                  : p.status === 'completed' ? '#3b82f6'
-                  : '#9ca3af',
+                background: p.status === 'active' ? T.success
+                  : p.status === 'completed' ? T.accent
+                  : T.textMuted,
               }} />
-              <span style={{ fontSize: '14px', color: '#111827', fontWeight: '500' }}>
+              <span style={{ fontSize: '14px', color: T.text, fontWeight: '500' }}>
                 {p.name}
               </span>
             </div>
@@ -539,12 +565,12 @@ function PanelShell({ children, onClose, title }) {
     <div style={{
       width:        '380px',
       flexShrink:   0,
-      background:   'white',
-      borderLeft:   '1px solid #e5e7eb',
+      background:   T.panelStrong,
+      borderLeft:   `1px solid ${T.border}`,
       display:      'flex',
       flexDirection: 'column',
       overflow:     'hidden',
-      boxShadow:    '-4px 0 20px rgba(0,0,0,0.06)',
+      boxShadow:    T.shadowStrong,
     }}>
       {/* 面板標頭 */}
       <div style={{
@@ -552,15 +578,15 @@ function PanelShell({ children, onClose, title }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding:    '16px 20px',
-        borderBottom: '1px solid #e5e7eb',
-        background: '#f8fafc',
+        borderBottom: `1px solid ${T.border}`,
+        background: T.surfaceSoft,
       }}>
-        <span style={{ fontWeight: '700', fontSize: '15px', color: '#111827' }}>{title}</span>
+        <span style={{ fontWeight: '700', fontSize: '15px', color: T.text }}>{title}</span>
         <button
           onClick={onClose}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: '20px', color: '#9ca3af', lineHeight: 1, padding: '2px 4px',
+            fontSize: '20px', color: T.textMuted, lineHeight: 1, padding: '2px 4px',
           }}
         >
           ×
@@ -579,7 +605,7 @@ function EmptyState({ icon, text }) {
       justifyContent: 'center', padding: '48px 0', gap: '10px',
     }}>
       <div style={{ fontSize: '36px' }}>{icon}</div>
-      <div style={{ fontSize: '13px', color: '#9ca3af' }}>{text}</div>
+      <div style={{ fontSize: '13px', color: T.textMuted }}>{text}</div>
     </div>
   );
 }
@@ -618,8 +644,8 @@ function AddMemberModal({ onClose, onSubmit }) {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'white', borderRadius: '16px',
-          width: '440px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          background: T.panelStrong, borderRadius: '16px',
+          width: '440px', boxShadow: T.shadowStrong, border: `1px solid ${T.border}`,
         }}
       >
         {/* 標頭 */}
@@ -627,12 +653,12 @@ function AddMemberModal({ onClose, onSubmit }) {
           padding: '20px 24px 0',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: T.text }}>
             👥 新增成員
           </h2>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: '22px', color: '#9ca3af', lineHeight: 1,
+            fontSize: '22px', color: T.textMuted, lineHeight: 1,
           }}>×</button>
         </div>
 
@@ -672,10 +698,10 @@ function AddMemberModal({ onClose, onSubmit }) {
                     style={{
                       flex:       1,
                       padding:    '10px 8px',
-                      border:     `2px solid ${form.role === r ? rs.text : '#e5e7eb'}`,
+                      border:     `2px solid ${form.role === r ? rs.text : T.border}`,
                       borderRadius: '10px',
-                      background: form.role === r ? rs.bg : 'white',
-                      color:      form.role === r ? rs.text : '#9ca3af',
+                      background: form.role === r ? rs.bg : T.surfaceStrong,
+                      color:      form.role === r ? rs.text : T.textMuted,
                       cursor:     'pointer',
                       fontSize:   '12px',
                       fontWeight: form.role === r ? '700' : '400',
@@ -693,7 +719,7 @@ function AddMemberModal({ onClose, onSubmit }) {
           {/* 預設密碼提示 */}
           <div style={{
             padding: '10px 14px',
-            background: '#fffbeb',
+            background: T.warningSoft,
             borderRadius: '8px',
             fontSize: '12px', color: '#92400e',
             marginBottom: '16px',
@@ -705,7 +731,7 @@ function AddMemberModal({ onClose, onSubmit }) {
           {error && (
             <div style={{
               padding: '8px 12px',
-              background: '#fee2e2', color: '#dc2626',
+              background: T.dangerSoft, color: T.danger,
               borderRadius: '6px', fontSize: '13px',
               marginBottom: '14px',
             }}>
@@ -737,23 +763,23 @@ function AddMemberModal({ onClose, onSubmit }) {
 // ── 共用按鈕樣式 ─────────────────────────────────────────────
 const labelStyle = {
   display: 'block', fontSize: '13px', fontWeight: '600',
-  color: '#374151', marginBottom: '6px',
+  color: T.textSoft, marginBottom: '6px',
 };
 const inputStyle = {
   width: '100%', padding: '9px 12px',
-  border: '1px solid #d1d5db', borderRadius: '8px',
-  fontSize: '14px', color: '#111827',
-  outline: 'none', boxSizing: 'border-box',
+  border: `1px solid ${T.borderStrong}`, borderRadius: '8px',
+  fontSize: '14px', color: T.text,
+  outline: 'none', boxSizing: 'border-box', background: T.surfaceStrong,
 };
 const primaryBtnStyle = {
-  background: '#3b82f6', color: 'white',
+  background: T.accent, color: 'white',
   border: 'none', borderRadius: '8px',
   padding: '9px 20px', fontSize: '14px',
   fontWeight: '600', cursor: 'pointer',
 };
 const cancelBtnStyle = {
-  background: '#f3f4f6', color: '#374151',
-  border: 'none', borderRadius: '8px',
+  background: T.surfaceMuted, color: T.textSoft,
+  border: `1px solid ${T.border}`, borderRadius: '8px',
   padding: '9px 20px', fontSize: '14px',
   fontWeight: '500', cursor: 'pointer',
 };
@@ -857,12 +883,12 @@ export default function TeamPage() {
       display:       'flex',
       flexDirection: 'column',
       height:        '100vh',
-      background:    '#f8fafc',
+      background:    T.pageBg,
     }}>
       {/* ── 頁面標題列 ─────────────────────────────────── */}
       <div style={{
-        background:   'white',
-        borderBottom: '1px solid #e5e7eb',
+        background:   T.panelStrong,
+        borderBottom: `1px solid ${T.border}`,
         padding:      '14px 24px',
         flexShrink:   0,
       }}>
@@ -871,21 +897,21 @@ export default function TeamPage() {
           justifyContent: 'space-between', marginBottom: summary ? '14px' : 0,
         }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827' }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: T.text }}>
               👥 團隊管理
             </h1>
-            <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9ca3af' }}>
+            <p style={{ margin: '2px 0 0', fontSize: '13px', color: T.textMuted }}>
               管理公司成員、角色與工作量分配
             </p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
             style={{
-              background: '#3b82f6', color: 'white',
+              background: T.accent, color: 'white',
               border: 'none', borderRadius: '8px',
               padding: '8px 18px', fontSize: '13px', fontWeight: '600',
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-              boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+              boxShadow: '0 8px 20px rgba(199,0,24,0.22)',
             }}
           >
             ➕ 新增成員
@@ -903,8 +929,8 @@ export default function TeamPage() {
               { label: '已分配任務',   value: summary.totalTasksAssigned },
               { label: '累計工時',     value: summary.totalHoursLogged },
             ].map((s, i) => (
-              <div key={i} style={{ fontSize: '13px', color: '#6b7280' }}>
-                <span style={{ fontWeight: '700', color: '#111827', marginRight: '4px' }}>
+              <div key={i} style={{ fontSize: '13px', color: T.textMuted }}>
+                <span style={{ fontWeight: '700', color: T.text, marginRight: '4px' }}>
                   {s.value}
                 </span>
                 {s.label}
@@ -932,9 +958,9 @@ export default function TeamPage() {
                 key={f.id}
                 onClick={() => setFilterRole(f.id)}
                 style={{
-                  background:   filterRole === f.id ? '#3b82f6' : 'white',
-                  color:        filterRole === f.id ? 'white'   : '#6b7280',
-                  border:       '1px solid #e5e7eb',
+                  background:   filterRole === f.id ? T.accent : T.surfaceStrong,
+                  color:        filterRole === f.id ? 'white'   : T.textMuted,
+                  border:       `1px solid ${T.border}`,
                   borderRadius: '8px',
                   padding:      '6px 14px',
                   fontSize:     '13px',
@@ -955,7 +981,7 @@ export default function TeamPage() {
               flexDirection: 'column', gap: '16px',
             }}>
               <div style={{ fontSize: '40px' }}>⏳</div>
-              <div style={{ color: '#9ca3af' }}>載入中...</div>
+              <div style={{ color: T.textMuted }}>載入中...</div>
             </div>
           )}
 
@@ -966,7 +992,7 @@ export default function TeamPage() {
               height: '200px', flexDirection: 'column', gap: '12px',
             }}>
               <div style={{ fontSize: '40px' }}>😢</div>
-              <div style={{ color: '#dc2626' }}>{error}</div>
+              <div style={{ color: T.danger }}>{error}</div>
               <button onClick={loadMembers} style={primaryBtnStyle}>重試</button>
             </div>
           )}
@@ -980,7 +1006,7 @@ export default function TeamPage() {
                   height: '200px', flexDirection: 'column', gap: '12px',
                 }}>
                   <div style={{ fontSize: '40px' }}>👤</div>
-                  <div style={{ color: '#9ca3af' }}>此分類尚無成員</div>
+                  <div style={{ color: T.textMuted }}>此分類尚無成員</div>
                 </div>
               ) : (
                 <div style={{

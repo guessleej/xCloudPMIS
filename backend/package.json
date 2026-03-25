@@ -6,8 +6,6 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "mcp": "node mcp/server.js",
-    "mcp:external": "node mcp-external-server/index.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -21,7 +19,6 @@
   },
   "dependencies": {
     "@azure/msal-node": "^3.8.10",
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@prisma/client": "^5.8.1",
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",

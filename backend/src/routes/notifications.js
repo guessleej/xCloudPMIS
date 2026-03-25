@@ -161,14 +161,31 @@ router.get('/unread-count', async (req, res) => {
 // 標記單則通知 已讀/未讀（toggle）
 router.patch('/:id/read', async (req, res) => {
   try {
-    const id     = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    const actorId = parseInt(req.user?.userId || req.body.recipientId || '0', 10);
     const isRead = req.body.isRead !== undefined ? Boolean(req.body.isRead) : true;
 
-    const updated = await prisma.notification.update({
-      where: { id },
-      data:  {
+    if (!id) return err(res, '無效的通知 ID', 400);
+    if (!actorId) return err(res, '需要登入後才能更新通知狀態', 401);
+
+    const result = await prisma.notification.updateMany({
+      where: { id, recipientId: actorId },
+      data: {
         isRead,
         readAt: isRead ? new Date() : null,
+      },
+    });
+
+    if (result.count === 0) {
+      return err(res, '找不到此通知或無權限更新', 404);
+    }
+
+    const updated = await prisma.notification.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        isRead: true,
+        readAt: true,
       },
     });
 
@@ -187,7 +204,7 @@ router.patch('/:id/read', async (req, res) => {
 // 標記所有通知為已讀
 router.patch('/read-all', async (req, res) => {
   try {
-    const recipientId = parseInt(req.body.recipientId || req.query.recipientId || '0');
+    const recipientId = parseInt(req.user?.userId || req.body.recipientId || req.query.recipientId || '0', 10);
     if (!recipientId) return err(res, 'recipientId 必填', 400);
 
     const result = await prisma.notification.updateMany({
@@ -223,16 +240,23 @@ router.post('/', async (req, res) => {
       return err(res, `type 必須為：${validTypes.join(', ')}`, 400);
     }
 
-    const notif = await prisma.notification.create({
-      data: {
-        recipientId: parseInt(recipientId),
-        type,
-        title,
-        message,
-        resourceType: resourceType || null,
-        resourceId:   resourceId ? parseInt(resourceId) : null,
-      },
+    const notif = await createNotification(prisma, {
+      recipientId: parseInt(recipientId, 10),
+      type,
+      title,
+      message,
+      resourceType: resourceType || null,
+      resourceId: resourceId ? parseInt(resourceId, 10) : null,
     });
+
+    if (!notif) {
+      return res.status(202).json({
+        success: true,
+        skipped: true,
+        reason: '使用者已關閉該類型通知或收件人不存在',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -257,8 +281,17 @@ router.post('/', async (req, res) => {
 // ── DELETE /api/notifications/:id ─────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    await prisma.notification.delete({ where: { id } });
+    const id = parseInt(req.params.id, 10);
+    const actorId = parseInt(req.user?.userId || req.body.recipientId || '0', 10);
+    if (!id) return err(res, '無效的通知 ID', 400);
+    if (!actorId) return err(res, '需要登入後才能刪除通知', 401);
+
+    const result = await prisma.notification.deleteMany({
+      where: { id, recipientId: actorId },
+    });
+    if (result.count === 0) {
+      return err(res, '找不到此通知或無權限刪除', 404);
+    }
     return ok(res, { deleted: true, id });
   } catch (e) {
     console.error('[notifications DELETE]', e.message);

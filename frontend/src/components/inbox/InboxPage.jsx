@@ -16,25 +16,25 @@ import { useAuth } from '../../context/AuthContext';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
-  accent:    '#C41230',
-  pageBg:    '#F4F0F0',
-  white:     '#FFFFFF',
-  cardBg:    '#F9F6F6',
-  border:    '#E8E0E0',
-  t1:        '#1A1010',
-  t2:        '#5C4545',
-  t3:        '#9E8E8E',
-  unreadDot: '#3B82F6',
-  taskCircle:'#6B7280',
-  hoverBg:   '#F0EAEA',
-  mention:   '#3B82F6',
-  assign:    '#10B981',
-  comment:   '#F59E0B',
-  done:      '#9CA3AF',
-  due:       '#EF4444',
+  accent:    'var(--xc-brand)',
+  pageBg:    'var(--xc-bg)',
+  white:     'var(--xc-surface-strong)',
+  cardBg:    'var(--xc-surface-soft)',
+  border:    'var(--xc-border)',
+  t1:        'var(--xc-text)',
+  t2:        'var(--xc-text-soft)',
+  t3:        'var(--xc-text-muted)',
+  unreadDot: 'var(--xc-info)',
+  taskCircle:'var(--xc-text-muted)',
+  hoverBg:   'var(--xc-surface-muted)',
+  mention:   'var(--xc-info)',
+  assign:    'var(--xc-success)',
+  comment:   'var(--xc-warning)',
+  done:      'var(--xc-text-muted)',
+  due:       'var(--xc-danger)',
   welcome:   '#8B5CF6',
-  toggleOn:  '#10B981',
-  toggleOff: '#D1D5DB',
+  toggleOn:  'var(--xc-success)',
+  toggleOff: 'var(--xc-border-strong)',
 };
 
 // ── 固定 Tab 定義 ──────────────────────────────────────────────
@@ -1169,20 +1169,83 @@ function NotificationDetailPanel({ notif, isRead, isBookmarked, onRead, onBookma
 }
 
 // ── 管理通知面板 ────────────────────────────────────────────────
-function ManageNotificationsPanel({ onClose }) {
+function ManageNotificationsPanel({ onClose, userId, authFetch }) {
   const [settings, setSettings] = useState(() =>
     loadJSON('xcloud-inbox-settings', DEFAULT_SETTINGS)
   );
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await authFetch(`/api/settings/notifications?userId=${userId}`);
+        const payload = await response.json();
+        if (cancelled) return;
+
+        const nextSettings = payload.settings || DEFAULT_SETTINGS;
+        setSettings(nextSettings);
+        saveJSON('xcloud-inbox-settings', nextSettings);
+        setError('');
+      } catch (loadError) {
+        if (cancelled) return;
+        setError(`通知設定載入失敗：${loadError.message}`);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authFetch, userId]);
 
   const toggle = (key) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSave = () => {
-    saveJSON('xcloud-inbox-settings', settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    if (!userId) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      const response = await authFetch(`/api/settings/notifications/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.error || payload.details || '通知設定儲存失敗');
+      }
+
+      saveJSON('xcloud-inbox-settings', payload.settings || settings);
+      window.dispatchEvent(new Event('xcloud-notification-settings-updated'));
+
+      if ((payload.settings || settings).app_desktop && 'Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch {}
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (saveError) {
+      setError(`通知設定儲存失敗：${saveError.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const SettingRow = ({ icon, label, settingKey }) => (
@@ -1258,6 +1321,27 @@ function ManageNotificationsPanel({ onClose }) {
 
         {/* 面板內容（可捲動）*/}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' }}>
+          {loading ? (
+            <div style={{ padding: '20px 0', fontSize: 13, color: T.t3 }}>載入通知設定中...</div>
+          ) : null}
+
+          {error ? (
+            <div
+              style={{
+                marginTop: 16,
+                borderRadius: 10,
+                background: '#FFF4F5',
+                border: `1px solid ${T.border}`,
+                padding: '10px 12px',
+                fontSize: 12,
+                lineHeight: 1.6,
+                color: T.accent2,
+              }}
+            >
+              {error}
+            </div>
+          ) : null}
+
           {/* 通知類型 */}
           <div style={{
             fontSize: 12, fontWeight: 700, color: T.t3,
@@ -1291,17 +1375,19 @@ function ManageNotificationsPanel({ onClose }) {
         }}>
           <button
             onClick={handleSave}
+            disabled={loading || saving || !userId}
             style={{
               background: saved ? T.toggleOn : T.accent,
               color: '#fff', border: 'none', borderRadius: 7,
               padding: '9px 20px', fontSize: 14, fontWeight: 600,
-              cursor: 'pointer', transition: 'background 0.2s',
+              cursor: loading || saving || !userId ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
+              opacity: loading || saving || !userId ? 0.65 : 1,
               minWidth: 100, textAlign: 'center',
             }}
             onMouseEnter={e => { if (!saved) e.currentTarget.style.opacity = '0.85'; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
           >
-            {saved ? '已儲存 ✓' : '儲存設定'}
+            {saving ? '儲存中...' : saved ? '已儲存 ✓' : '儲存設定'}
           </button>
         </div>
       </div>
@@ -1502,14 +1588,12 @@ function TabItem({ tab, isActive, isFixed, unread, onClick, onRename, onDelete }
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function InboxPage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
+  const userId = user?.id;
 
-  // 通知資料（初始用示範資料，API 成功後替換）
-  const [notifications, setNotifications] = useState(() => {
-    const ls = loadLocalStorageNotifications();
-    return [...INITIAL_NOTIFICATIONS, ...ls];
-  });
+  // 通知資料（實際由後端提供）
+  const [notifications, setNotifications] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [apiError, setApiError] = useState(null);
 
@@ -1523,35 +1607,24 @@ export default function InboxPage() {
     if (!companyId) return;
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/notifications?companyId=${companyId}&limit=100`)
+    authFetch(`/api/notifications?companyId=${companyId}&limit=100`)
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
-        const ls = loadLocalStorageNotifications();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          // API 成功：使用真實資料
-          setNotifications([...json.data, ...ls]);
-          // 同步 API 已讀狀態到 readIds
-          const readFromApi = new Set(
-            json.data.filter(n => n.read).map(n => n.id)
-          );
-          setReadIds(prev => new Set([...prev, ...readFromApi]));
-        } else {
-          // API 無資料：保留示範資料
-          setNotifications([...INITIAL_NOTIFICATIONS, ...ls]);
-        }
+        const serverNotifications = json.success && Array.isArray(json.data) ? json.data : [];
+        setNotifications(serverNotifications);
+        setReadIds(new Set(serverNotifications.filter(n => n.read).map(n => n.id)));
         setApiError(null);
       })
       .catch(e => {
         if (cancelled) return;
-        console.warn('[InboxPage] API 載入失敗，使用示範資料:', e.message);
-        const ls = loadLocalStorageNotifications();
-        setNotifications([...INITIAL_NOTIFICATIONS, ...ls]);
+        console.warn('[InboxPage] API 載入失敗:', e.message);
+        setNotifications([]);
         setApiError(e.message);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authFetch, companyId]);
 
   // UI 狀態
   const [activeTab,      setActiveTab]      = useState('activity');
@@ -1582,17 +1655,23 @@ export default function InboxPage() {
       const next = new Set(prev);
       const willRead = !next.has(id);
       if (willRead) next.add(id); else next.delete(id);
+      setNotifications(current =>
+        current.map(notif => notif.id === id ? { ...notif, read: willRead } : notif)
+      );
+      setSelectedNotif(current =>
+        current?.id === id ? { ...current, read: willRead } : current
+      );
+      window.dispatchEvent(new Event('xcloud-notifications-updated'));
       // localStorage @mention 的 id 是字串 "ls-..."，不呼叫後端
       if (typeof id === 'number') {
-        fetch(`/api/notifications/${id}/read`, {
+        authFetch(`/api/notifications/${id}/read`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isRead: willRead }),
         }).catch(() => {}); // 靜默失敗，本地狀態已更新
       }
       return next;
     });
-  }, []);
+  }, [authFetch]);
 
   // 操作：書籤（切換）
   const toggleBookmark = useCallback((id) => {
@@ -1864,6 +1943,22 @@ export default function InboxPage() {
 
       {/* ── 通知主體 ─────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
+        {!loading && apiError && (
+          <div
+            style={{
+              marginBottom: 12,
+              borderRadius: 10,
+              border: `1px solid ${T.border}`,
+              background: '#FFF4F5',
+              padding: '12px 14px',
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: T.accent2,
+            }}
+          >
+            通知資料暫時無法同步：{apiError}
+          </div>
+        )}
 
         {/* 載入中骨架屏 */}
         {loading && (
@@ -1980,7 +2075,11 @@ export default function InboxPage() {
 
       {/* ── 管理通知面板 ──────────────────────────────────────── */}
       {showManagePanel && (
-        <ManageNotificationsPanel onClose={() => setShowManagePanel(false)} />
+        <ManageNotificationsPanel
+          onClose={() => setShowManagePanel(false)}
+          userId={userId}
+          authFetch={authFetch}
+        />
       )}
     </div>
   );

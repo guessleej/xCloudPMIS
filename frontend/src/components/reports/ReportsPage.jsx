@@ -62,6 +62,34 @@ const REPORT_TYPES = [
   },
 ];
 
+const THEME = {
+  accent: 'var(--xc-brand)',
+  accentDeep: 'var(--xc-brand-dark)',
+  pageBg: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 10%, var(--xc-bg) 90%) 0%, var(--xc-bg) 20%, var(--xc-bg-soft) 100%)',
+  surface: 'var(--xc-surface)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  danger: 'var(--xc-danger)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  warningSoft: 'var(--xc-warning-soft)',
+  infoSoft: 'var(--xc-info-soft)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  accentSoft: 'var(--xc-brand-soft)',
+  panel: 'color-mix(in srgb, var(--xc-surface) 94%, transparent)',
+  panelStrong: 'color-mix(in srgb, var(--xc-surface-strong) 84%, var(--xc-surface) 16%)',
+  rowHover: 'color-mix(in srgb, var(--xc-brand) 8%, var(--xc-surface-strong))',
+  rowAlt: 'color-mix(in srgb, var(--xc-surface-soft) 78%, var(--xc-surface-strong) 22%)',
+};
+
 // ── 工具函式 ─────────────────────────────────────────────────
 const todayStr = () => {
   const d = new Date();
@@ -105,35 +133,36 @@ const modalOverlay = {
   zIndex: 1000, padding: '20px',
 };
 const modalBox = {
-  background: 'white', borderRadius: '12px',
-  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  background: THEME.surfaceStrong, borderRadius: '12px',
+  border: `1px solid ${THEME.border}`,
+  boxShadow: THEME.shadowStrong,
   width: '100%', maxWidth: '520px',
   maxHeight: '85vh', overflow: 'auto',
 };
 const inputSt = {
   width: '100%', padding: '8px 10px',
-  border: '1px solid #d1d5db', borderRadius: '7px',
-  fontSize: '13px', color: '#111827',
-  boxSizing: 'border-box', background: 'white',
+  border: `1px solid ${THEME.borderStrong}`, borderRadius: '7px',
+  fontSize: '13px', color: THEME.text,
+  boxSizing: 'border-box', background: THEME.panelStrong,
 };
 const labelSt = {
   display: 'block', fontSize: '12px', fontWeight: '600',
-  color: '#374151', marginBottom: '5px',
+  color: THEME.textSoft, marginBottom: '5px',
 };
 
 // ── 彈跳視窗共用子元件 ──────────────────────────────────────
 function ModalHeader({ title, onClose }) {
   return (
     <div style={{
-      padding: '18px 20px 16px', borderBottom: '1px solid #e5e7eb',
+      padding: '18px 20px 16px', borderBottom: `1px solid ${THEME.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     }}>
-      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: THEME.text }}>
         {title}
       </h3>
       <button onClick={onClose} style={{
         background: 'none', border: 'none', fontSize: '20px',
-        cursor: 'pointer', color: '#9ca3af', lineHeight: 1,
+        cursor: 'pointer', color: THEME.textMuted, lineHeight: 1,
       }}>✕</button>
     </div>
   );
@@ -142,18 +171,18 @@ function ModalHeader({ title, onClose }) {
 function ModalFooter({ onClose, onConfirm, confirmLabel, confirmColor = '#3b82f6', saving }) {
   return (
     <div style={{
-      padding: '14px 20px', borderTop: '1px solid #e5e7eb',
+      padding: '14px 20px', borderTop: `1px solid ${THEME.border}`,
       display: 'flex', justifyContent: 'flex-end', gap: '8px',
     }}>
       <button onClick={onClose} disabled={saving} style={{
-        padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: '8px',
-        background: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer',
+        padding: '8px 18px', border: `1px solid ${THEME.borderStrong}`, borderRadius: '8px',
+        background: THEME.panelStrong, color: THEME.textSoft, fontSize: '13px', cursor: 'pointer',
       }}>
         取消
       </button>
       <button onClick={onConfirm} disabled={saving} style={{
         padding: '8px 18px', border: 'none', borderRadius: '8px',
-        background: saving ? '#9ca3af' : confirmColor, color: 'white',
+        background: saving ? THEME.textMuted : confirmColor, color: 'white',
         fontSize: '13px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer',
       }}>
         {saving ? '處理中...' : confirmLabel}
@@ -166,8 +195,8 @@ function ErrBox({ msg }) {
   if (!msg) return null;
   return (
     <div style={{
-      background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '7px',
-      padding: '10px 14px', color: '#dc2626', fontSize: '13px',
+      background: THEME.dangerSoft, border: `1px solid color-mix(in srgb, ${THEME.danger} 24%, ${THEME.border})`, borderRadius: '7px',
+      padding: '10px 14px', color: THEME.danger, fontSize: '13px',
     }}>{msg}</div>
   );
 }
@@ -239,7 +268,7 @@ function EditProjectModal({ row, users, onClose, onSaved }) {
         <ModalHeader title="✏️ 編輯專案" onClose={onClose} />
         <div style={{ padding: '16px 20px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>載入中...</div>
+            <div style={{ textAlign: 'center', padding: '24px', color: THEME.textMuted }}>載入中...</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <ErrBox msg={error} />
@@ -331,23 +360,23 @@ function DeleteProjectModal({ row, onClose, onDeleted }) {
         <ModalHeader title="🗑️ 刪除專案" onClose={onClose} />
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <ErrBox msg={error} />
-          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: THEME.textSoft }}>
             確定要刪除此專案嗎？此操作無法復原。
           </p>
           <div style={{
-            background: '#fafafa', border: '1px solid #e5e7eb',
+            background: THEME.surfaceSoft, border: `1px solid ${THEME.border}`,
             borderRadius: '8px', padding: '12px 14px',
           }}>
-            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: THEME.text, marginBottom: '6px' }}>
               {row.name}
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            <div style={{ fontSize: '12px', color: THEME.textMuted }}>
               狀態：{row.status}　任務數：{row.total} 個　完成率：{row.doneRate}%
             </div>
           </div>
           {row.total > 0 && (
             <div style={{
-              background: '#fff7ed', border: '1px solid #fed7aa',
+              background: THEME.warningSoft, border: `1px solid color-mix(in srgb, ${THEME.warningSoft} 26%, ${THEME.border})`,
               borderRadius: '7px', padding: '10px 14px', fontSize: '12px', color: '#c2410c',
             }}>
               ⚠️ 此專案含有 {row.total} 個任務，刪除後將一併移除。
@@ -409,7 +438,7 @@ function EditTaskModal({ row, users, onClose, onSaved }) {
       <div style={modalBox}>
         <ModalHeader title="✏️ 編輯任務" onClose={onClose} />
         <div style={{ padding: '16px 20px' }}>
-          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '14px' }}>
             所屬專案：{row.projectName}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -488,21 +517,21 @@ function DeleteTaskModal({ row, onClose, onDeleted }) {
         <ModalHeader title="🗑️ 刪除任務" onClose={onClose} />
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <ErrBox msg={error} />
-          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: THEME.textSoft }}>
             確定要刪除此任務嗎？此操作無法復原。
           </p>
           <div style={{
-            background: '#fafafa', border: '1px solid #e5e7eb',
+            background: THEME.surfaceSoft, border: `1px solid ${THEME.border}`,
             borderRadius: '8px', padding: '12px 14px',
           }}>
-            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: THEME.text, marginBottom: '6px' }}>
               {row.title}
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            <div style={{ fontSize: '12px', color: THEME.textMuted }}>
               專案：{row.projectName}　狀態：{row.status}　優先度：{row.priority}
             </div>
             {row.assignee && row.assignee !== '未指定' && (
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+              <div style={{ fontSize: '12px', color: THEME.textMuted, marginTop: '4px' }}>
                 負責人：{row.assignee}
               </div>
             )}
@@ -563,7 +592,7 @@ function EditMilestoneModal({ row, onClose, onSaved }) {
       <div style={modalBox}>
         <ModalHeader title="✏️ 編輯里程碑" onClose={onClose} />
         <div style={{ padding: '16px 20px' }}>
-          <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '14px' }}>
             所屬專案：{row.projectName}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -599,7 +628,7 @@ function EditMilestoneModal({ row, onClose, onSaved }) {
                   onChange={e => set('isAchieved', e.target.checked)}
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
-                <span style={{ fontWeight: '600', color: '#374151' }}>標記為已達成</span>
+                <span style={{ fontWeight: '600', color: THEME.textSoft }}>標記為已達成</span>
               </label>
             </div>
             <div>
@@ -646,17 +675,17 @@ function DeleteMilestoneModal({ row, onClose, onDeleted }) {
         <ModalHeader title="🗑️ 刪除里程碑" onClose={onClose} />
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <ErrBox msg={error} />
-          <p style={{ margin: 0, fontSize: '14px', color: '#374151' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: THEME.textSoft }}>
             確定要刪除此里程碑嗎？此操作無法復原。
           </p>
           <div style={{
-            background: '#fafafa', border: '1px solid #e5e7eb',
+            background: THEME.surfaceSoft, border: `1px solid ${THEME.border}`,
             borderRadius: '8px', padding: '12px 14px',
           }}>
-            <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', marginBottom: '6px' }}>
+            <div style={{ fontWeight: '700', fontSize: '14px', color: THEME.text, marginBottom: '6px' }}>
               {row.name}
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            <div style={{ fontSize: '12px', color: THEME.textMuted }}>
               專案：{row.projectName}　狀態：{row.statusLabel}
               {row.dueDate ? `　預計日期：${row.dueDate}` : ''}
             </div>
@@ -720,18 +749,18 @@ function SummaryCards({ type, summary }) {
     }}>
       {cards.map((c, i) => (
         <div key={i} style={{
-          background:   'white',
-          border:       '1px solid #e5e7eb',
+          background:   THEME.panelStrong,
+          border:       `1px solid ${THEME.border}`,
           borderRadius: '10px',
           padding:      '14px 18px',
           minWidth:     '110px',
           flex:         1,
-          boxShadow:    '0 1px 3px rgba(0,0,0,0.04)',
+          boxShadow:    THEME.shadow,
         }}>
-          <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px' }}>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '4px' }}>
             {c.icon} {c.label}
           </div>
-          <div style={{ fontSize: '20px', fontWeight: '700', color: '#111827' }}>
+          <div style={{ fontSize: '20px', fontWeight: '700', color: THEME.text }}>
             {c.value}
           </div>
         </div>
@@ -758,7 +787,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{
-            flex: 1, height: '6px', background: '#e5e7eb', borderRadius: '3px',
+            flex: 1, height: '6px', background: THEME.surfaceMuted, borderRadius: '3px',
             minWidth: '60px',
           }}>
             <div style={{
@@ -767,7 +796,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
               borderRadius: '3px', transition: 'width 0.3s',
             }} />
           </div>
-          <span style={{ fontSize: '12px', color: '#374151', minWidth: '32px' }}>{pct}%</span>
+          <span style={{ fontSize: '12px', color: THEME.textSoft, minWidth: '32px' }}>{pct}%</span>
         </div>
       );
     }
@@ -815,14 +844,14 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
 
     if (col.type === 'number') {
       return (
-        <span style={{ fontFamily: 'tabular-nums', color: '#374151' }}>{val ?? '—'}</span>
+        <span style={{ fontFamily: 'tabular-nums', color: THEME.textSoft }}>{val ?? '—'}</span>
       );
     }
 
     return (
       <span style={{
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        display: 'block', maxWidth: '280px', color: '#374151',
+        display: 'block', maxWidth: '280px', color: THEME.textSoft,
       }}>
         {val || '—'}
       </span>
@@ -835,13 +864,13 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
-            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+            <tr style={{ background: THEME.surfaceSoft, borderBottom: `2px solid ${THEME.border}` }}>
               {columns.map(col => (
                 <th key={col.key} style={{
                   padding:    '10px 14px',
                   textAlign:  col.type === 'number' || col.type === 'percent' ? 'center' : 'left',
                   fontWeight: '600',
-                  color:      '#6b7280',
+                  color:      THEME.textMuted,
                   fontSize:   '12px',
                   whiteSpace: 'nowrap',
                 }}>
@@ -851,7 +880,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
               {hasActions && (
                 <th style={{
                   padding: '10px 14px', textAlign: 'center',
-                  fontWeight: '600', color: '#6b7280', fontSize: '12px',
+                  fontWeight: '600', color: THEME.textMuted, fontSize: '12px',
                   whiteSpace: 'nowrap', width: '80px',
                 }}>
                   操作
@@ -864,7 +893,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
               <tr>
                 <td
                   colSpan={columns.length + (hasActions ? 1 : 0)}
-                  style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}
+                  style={{ padding: '40px', textAlign: 'center', color: THEME.textMuted }}
                 >
                   無資料
                 </td>
@@ -873,8 +902,8 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
               <tr
                 key={row.id ?? i}
                 style={{
-                  borderBottom: '1px solid #f3f4f6',
-                  background:   hoveredRow === i ? '#eff6ff' : i % 2 === 0 ? 'white' : '#fafafa',
+                  borderBottom: `1px solid ${THEME.border}`,
+                  background:   hoveredRow === i ? THEME.rowHover : i % 2 === 0 ? THEME.surfaceStrong : THEME.rowAlt,
                   transition:   'background 0.1s',
                   cursor:       onEditRow && row.id ? 'pointer' : 'default',
                 }}
@@ -903,11 +932,11 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                             onClick={e => { e.stopPropagation(); onEditRow(row); }}
                             title="編輯"
                             style={{
-                              background: 'none', border: '1px solid #bfdbfe',
+                              background: 'none', border: `1px solid color-mix(in srgb, ${THEME.accent} 24%, ${THEME.border})`,
                               borderRadius: '5px', padding: '3px 8px',
-                              cursor: 'pointer', fontSize: '13px', color: '#3b82f6',
+                              cursor: 'pointer', fontSize: '13px', color: THEME.accent,
                             }}
-                            onMouseOver={e => e.currentTarget.style.background = '#dbeafe'}
+                            onMouseOver={e => e.currentTarget.style.background = THEME.accentSoft}
                             onMouseOut={e => e.currentTarget.style.background = 'none'}
                           >
                             ✏️
@@ -918,11 +947,11 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                             onClick={e => { e.stopPropagation(); onDeleteRow(row); }}
                             title="刪除"
                             style={{
-                              background: 'none', border: '1px solid #fecaca',
+                              background: 'none', border: `1px solid color-mix(in srgb, ${THEME.danger} 24%, ${THEME.border})`,
                               borderRadius: '5px', padding: '3px 8px',
-                              cursor: 'pointer', fontSize: '13px', color: '#ef4444',
+                              cursor: 'pointer', fontSize: '13px', color: THEME.danger,
                             }}
-                            onMouseOver={e => e.currentTarget.style.background = '#fee2e2'}
+                            onMouseOver={e => e.currentTarget.style.background = THEME.dangerSoft}
                             onMouseOut={e => e.currentTarget.style.background = 'none'}
                           >
                             🗑️
@@ -945,10 +974,10 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
           alignItems:     'center',
           justifyContent: 'space-between',
           padding:        '12px 14px',
-          borderTop:      '1px solid #e5e7eb',
-          background:     '#f8fafc',
+          borderTop:      `1px solid ${THEME.border}`,
+          background:     THEME.surfaceSoft,
         }}>
-          <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+          <span style={{ fontSize: '12px', color: THEME.textMuted }}>
             共 {rows.length} 筆，第 {currentPage}/{totalPages} 頁
           </span>
           <div style={{ display: 'flex', gap: '4px' }}>
@@ -980,9 +1009,9 @@ function PaginBtn({ label, onClick, disabled, active }) {
       onClick={onClick}
       disabled={disabled}
       style={{
-        background:   active ? '#3b82f6' : disabled ? '#f9fafb' : 'white',
-        color:        active ? 'white'   : disabled ? '#d1d5db' : '#374151',
-        border:       '1px solid #e5e7eb',
+        background:   active ? THEME.accent : disabled ? THEME.surfaceSoft : THEME.panelStrong,
+        color:        active ? 'white'   : disabled ? THEME.textMuted : THEME.textSoft,
+        border:       `1px solid ${THEME.border}`,
         borderRadius: '6px',
         padding:      '4px 10px',
         fontSize:     '12px',
@@ -1009,8 +1038,8 @@ function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
       gap:          '10px',
       alignItems:   'flex-end',
       padding:      '14px 16px',
-      background:   '#f8fafc',
-      borderBottom: '1px solid #e5e7eb',
+      background:   THEME.surfaceSoft,
+      borderBottom: `1px solid ${THEME.border}`,
     }}>
       {/* 任務報表：專案篩選 + 狀態篩選 */}
       {type === 'tasks' && (
@@ -1082,7 +1111,7 @@ function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
         onClick={onGenerate}
         disabled={loading}
         style={{
-          background:   loading ? '#93c5fd' : '#3b82f6',
+          background:   loading ? THEME.textMuted : THEME.accent,
           color:        'white',
           border:       'none',
           borderRadius: '8px',
@@ -1104,7 +1133,7 @@ function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
 function FilterItem({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '4px', fontWeight: '500' }}>
+      <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '4px', fontWeight: '500' }}>
         {label}
       </div>
       {children}
@@ -1113,9 +1142,9 @@ function FilterItem({ label, children }) {
 }
 
 const filterSelectStyle = {
-  padding: '7px 10px', border: '1px solid #d1d5db',
+  padding: '7px 10px', border: `1px solid ${THEME.borderStrong}`,
   borderRadius: '7px', fontSize: '13px',
-  background: 'white', color: '#374151', cursor: 'pointer',
+  background: THEME.panelStrong, color: THEME.textSoft, cursor: 'pointer',
   minWidth: '130px',
 };
 const filterInputStyle = {
@@ -1264,12 +1293,12 @@ export default function ReportsPage() {
   // 渲染
   // ════════════════════════════════════════════════════════
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: THEME.pageBg }}>
 
       {/* ── 頁面標題列 ─────────────────────────────────── */}
       <div style={{
-        background:     'white',
-        borderBottom:   '1px solid #e5e7eb',
+        background:     THEME.panelStrong,
+        borderBottom:   `1px solid ${THEME.border}`,
         padding:        '14px 24px',
         display:        'flex',
         alignItems:     'center',
@@ -1277,10 +1306,10 @@ export default function ReportsPage() {
         flexShrink:     0,
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111827' }}>
+          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: THEME.text }}>
             📄 報表匯出
           </h1>
-          <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#9ca3af' }}>
+          <p style={{ margin: '2px 0 0', fontSize: '13px', color: THEME.textMuted }}>
             產生各類分析報表，支援 CSV 格式下載；專案、任務、里程碑支援行內編輯與刪除
           </p>
         </div>
@@ -1290,7 +1319,7 @@ export default function ReportsPage() {
             onClick={handleExportCSV}
             disabled={exporting}
             style={{
-              background:   exporting ? '#d1fae5' : '#10b981',
+              background:   exporting ? THEME.successSoft : THEME.success,
               color:        'white',
               border:       'none',
               borderRadius: '8px',
@@ -1301,7 +1330,7 @@ export default function ReportsPage() {
               display:      'flex',
               alignItems:   'center',
               gap:          '6px',
-              boxShadow:    '0 2px 8px rgba(16,185,129,0.3)',
+              boxShadow:    '0 8px 20px rgba(22,163,74,0.24)',
             }}
           >
             {exporting ? '⏳ 匯出中...' : '⬇ 匯出 CSV'}
@@ -1316,15 +1345,15 @@ export default function ReportsPage() {
         <div style={{
           width:       '220px',
           flexShrink:  0,
-          background:  'white',
-          borderRight: '1px solid #e5e7eb',
+          background:  THEME.panel,
+          borderRight: `1px solid ${THEME.border}`,
           padding:     '16px 12px',
           overflowY:   'auto',
         }}>
           <div style={{
             fontSize:      '11px',
             fontWeight:    '700',
-            color:         '#9ca3af',
+            color:         THEME.textMuted,
             letterSpacing: '0.08em',
             marginBottom:  '8px',
             paddingLeft:   '8px',
@@ -1339,7 +1368,7 @@ export default function ReportsPage() {
                 width:        '100%',
                 textAlign:    'left',
                 border:       'none',
-                background:   activeType === rt.id ? `${rt.color}12` : 'transparent',
+                background:   activeType === rt.id ? `color-mix(in srgb, ${rt.color} 16%, ${THEME.surfaceStrong})` : 'transparent',
                 borderRadius: '8px',
                 padding:      '10px 10px',
                 marginBottom: '4px',
@@ -1354,7 +1383,7 @@ export default function ReportsPage() {
                 gap:        '8px',
                 fontSize:   '14px',
                 fontWeight: activeType === rt.id ? '600' : '400',
-                color:      activeType === rt.id ? rt.color : '#374151',
+                color:      activeType === rt.id ? rt.color : THEME.textSoft,
               }}>
                 <span style={{ fontSize: '16px' }}>{rt.icon}</span>
                 <span style={{ lineHeight: 1.3 }}>{rt.label}</span>
@@ -1362,7 +1391,7 @@ export default function ReportsPage() {
               {activeType === rt.id && (
                 <div style={{
                   fontSize:    '11px',
-                  color:       '#9ca3af',
+                  color:       THEME.textMuted,
                   marginTop:   '4px',
                   paddingLeft: '24px',
                   lineHeight:  1.4,
@@ -1377,10 +1406,10 @@ export default function ReportsPage() {
           <div style={{
             marginTop:    '24px',
             padding:      '12px',
-            background:   '#f0fdf4',
+            background:   THEME.successSoft,
             borderRadius: '8px',
             fontSize:     '11px',
-            color:        '#16a34a',
+            color:        THEME.success,
             lineHeight:   1.6,
           }}>
             <div style={{ fontWeight: '700', marginBottom: '4px' }}>📥 匯出格式</div>
@@ -1415,7 +1444,7 @@ export default function ReportsPage() {
                 height: '300px', flexDirection: 'column', gap: '16px',
               }}>
                 <div style={{ fontSize: '40px' }}>⏳</div>
-                <div style={{ color: '#9ca3af', fontSize: '15px' }}>報表產生中...</div>
+                <div style={{ color: THEME.textMuted, fontSize: '15px' }}>報表產生中...</div>
               </div>
             )}
 
@@ -1426,11 +1455,11 @@ export default function ReportsPage() {
                 height: '300px', flexDirection: 'column', gap: '12px',
               }}>
                 <div style={{ fontSize: '40px' }}>😢</div>
-                <div style={{ color: '#dc2626' }}>{error}</div>
+                <div style={{ color: THEME.danger }}>{error}</div>
                 <button
                   onClick={() => generateReport(activeType)}
                   style={{
-                    background: '#3b82f6', color: 'white', border: 'none',
+                    background: THEME.accent, color: 'white', border: 'none',
                     borderRadius: '8px', padding: '8px 18px', cursor: 'pointer', fontWeight: '600',
                   }}
                 >
@@ -1451,13 +1480,13 @@ export default function ReportsPage() {
                 }}>
                   <div>
                     <h2 style={{
-                      margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827',
+                      margin: 0, fontSize: '16px', fontWeight: '700', color: THEME.text,
                       display: 'flex', alignItems: 'center', gap: '8px',
                     }}>
                       <span>{activeReportType?.icon}</span>
                       {reportData.title}
                     </h2>
-                    <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                    <div style={{ fontSize: '12px', color: THEME.textMuted, marginTop: '2px' }}>
                       產生時間：{new Date(reportData.generatedAt).toLocaleString('zh-TW')}
                       　共 {reportData.rows.length} 筆資料
                     </div>
@@ -1482,9 +1511,9 @@ export default function ReportsPage() {
                             setTimeout(() => generateReport(activeType), 50);
                           }}
                           style={{
-                            background:   filters.groupBy === val ? '#3b82f6' : 'white',
-                            color:        filters.groupBy === val ? 'white'   : '#6b7280',
-                            border:       '1px solid #e5e7eb',
+                            background:   filters.groupBy === val ? THEME.accent : THEME.panelStrong,
+                            color:        filters.groupBy === val ? 'white'   : THEME.textMuted,
+                            border:       `1px solid ${THEME.border}`,
                             borderRadius: '6px',
                             padding:      '5px 14px',
                             fontSize:     '12px',
@@ -1501,11 +1530,11 @@ export default function ReportsPage() {
 
                 {/* 資料表格 */}
                 <div style={{
-                  background:   'white',
-                  border:       '1px solid #e5e7eb',
+                  background:   THEME.panelStrong,
+                  border:       `1px solid ${THEME.border}`,
                   borderRadius: '10px',
                   overflow:     'hidden',
-                  boxShadow:    '0 1px 3px rgba(0,0,0,0.04)',
+                  boxShadow:    THEME.shadow,
                 }}>
                   <DataTable
                     columns={reportData.columns}
@@ -1526,7 +1555,7 @@ export default function ReportsPage() {
                 height: '300px', flexDirection: 'column', gap: '12px',
               }}>
                 <div style={{ fontSize: '40px' }}>📊</div>
-                <div style={{ color: '#9ca3af' }}>選擇左側報表類型開始分析</div>
+                <div style={{ color: THEME.textMuted }}>選擇左側報表類型開始分析</div>
               </div>
             )}
           </div>
@@ -1539,7 +1568,7 @@ export default function ReportsPage() {
           position:     'fixed',
           bottom:       '24px',
           right:        '24px',
-          background:   toast.type === 'error' ? '#dc2626' : '#10b981',
+          background:   toast.type === 'error' ? THEME.danger : THEME.success,
           color:        'white',
           padding:      '12px 20px',
           borderRadius: '10px',

@@ -80,6 +80,7 @@ model User {
   taskAssigneeLinks TaskAssigneeLink[] @relation("TaskAssigneeLinkUser")
   taskAssigneeAssignedBy TaskAssigneeLink[] @relation("TaskAssigneeLinkAssignedBy")
   taskProjectAdded TaskProject[] @relation("TaskProjectAddedBy")
+  taskSubscriptions TaskSubscriber[]
   customFieldDefinitions CustomFieldDefinition[] @relation("CustomFieldCreator")
   customFieldUserValues CustomFieldValue[] @relation("CustomFieldUserValue")
   automationRulesCreated AutomationRule[] @relation("AutomationRuleCreator")
@@ -94,9 +95,10 @@ model User {
   activityLogs  ActivityLog[]  // 這個人造成的所有變更記錄
 
   // ── OAuth 整合 ────────────────────────────────────────
-  oauthToken    OAuthToken?    // Microsoft 365 Delegated 授權 Token（每人最多一個）
+  oauthToken    OAuthToken?        // Microsoft 365 Delegated 授權 Token（每人最多一個）
+  oauthAccounts UserOAuthAccount[] // 社群帳號登入連結（Google / GitHub / Microsoft）
 
-  // ── 個人任務清單 ─────────────────────────────────────
+  // ── 我的任務清單 ──────────────────────────────────────
   myTaskLists     MyTaskList[]
   myTaskListTasks MyTaskListTask[] @relation("MyTaskListTaskUser")
 
@@ -345,6 +347,7 @@ model Task {
   parentTask   Task?    @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
   subtasks     Task[]   @relation("TaskSubtasks")
   taskProjects TaskProject[]
+  subscribers  TaskSubscriber[]
   taskAssigneeLinks TaskAssigneeLink[]
   customFieldValues CustomFieldValue[] @relation("TaskCustomFieldValues")
 
@@ -565,6 +568,22 @@ model TaskDependency {
   @@index([taskId])
   @@index([dependsOnTaskId])
   @@map("task_dependencies")
+}
+
+// ── 表格：task_subscribers（任務追蹤者）──────────────────────
+// 使用者可「追蹤」任何任務，被追蹤的任務有更新時會收到通知
+// ─────────────────────────────────────────────────────────
+model TaskSubscriber {
+  taskId     Int      @map("task_id")
+  userId     Int      @map("user_id")
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_subscribers")
 }
 
 enum DependencyType {
@@ -992,6 +1011,48 @@ model OAuthToken {
 }
 
 // ════════════════════════════════════════════════════════════
+// UserOAuthAccount — 社群帳號登入連結
+// ════════════════════════════════════════════════════════════
+//
+// 用途：支援 Google / GitHub / Microsoft 等 OAuth Provider 登入
+//       與 OAuthToken（M365 Delegated）為不同用途：
+//         - UserOAuthAccount → 「身分驗證登入」（誰是這個人）
+//         - OAuthToken       → 「資源存取授權」（代表用戶讀寫 M365 資料）
+//
+// 流程：
+//   1. 用戶點選 Google 登入 → 後端取得 Google Profile
+//   2. 查詢同 email 的 User → 若存在則連結，若不存在則拒絕（或依設定自動建立）
+//   3. 建立 UserOAuthAccount 記錄，簽發 JWT → 登入成功
+//   4. 下次同一 provider + providerId → 直接找到記錄，登入
+// ─────────────────────────────────────────────────────────
+
+model UserOAuthAccount {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  /// 提供者名稱：'google' | 'github' | 'microsoft'
+  provider    String   @db.VarChar(50)
+  /// 提供者的唯一用戶 ID（Google sub / GitHub id / Microsoft oid）
+  providerId  String   @map("provider_id") @db.VarChar(255)
+  /// 提供者回傳的 Email（可能與系統 Email 不同）
+  providerEmail String? @map("provider_email") @db.VarChar(255)
+  /// 提供者回傳的顯示名稱
+  displayName String?  @map("display_name") @db.VarChar(255)
+  /// 提供者回傳的大頭貼 URL
+  avatarUrl   String?  @map("avatar_url") @db.Text
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 同一個提供者下，providerId 唯一
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@index([provider])
+  @@map("user_oauth_accounts")
+}
+
+// ════════════════════════════════════════════════════════════
 // Phase AI：自主代理決策記錄
 // ════════════════════════════════════════════════════════════
 
@@ -1169,7 +1230,7 @@ model AiModelConfig {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 個人任務清單（My Tasks）
+// 我的任務清單（MyTasks）
 // ═══════════════════════════════════════════════════════════
 
 model MyTaskList {

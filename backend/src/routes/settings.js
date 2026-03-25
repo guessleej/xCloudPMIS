@@ -266,8 +266,8 @@ router.patch('/profile/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// GET /api/settings/notifications
-// 取得使用者通知設定
+// GET /api/settings/system?companyId=2
+// 系統健康狀態 + 完整資料統計
 // ════════════════════════════════════════════════════════════
 router.get('/notifications', async (req, res) => {
   try {

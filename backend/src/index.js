@@ -33,6 +33,10 @@ const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
 const rulesRouter         = require('./routes/rules');
 const authRouter          = require('./routes/auth/login');
+const googleAuthRouter    = require('./routes/auth/google');
+const githubAuthRouter    = require('./routes/auth/github');
+const msLoginRouter       = require('./routes/auth/microsoft-login');
+const adminUsersRouter    = require('./routes/admin/users');
 const optionalAuth        = require('./middleware/optionalAuth');
 
 const app = express();
@@ -187,7 +191,7 @@ if (process.env.NODE_ENV !== 'production') {
 // GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
 app.use('/api/tasks', tasksRouter);
 
-// ── 我的任務路由（清單/看板/檔案/附件）────────────────────
+// ── 我的任務路由（清單/看板/檔案/附件）──────────────────────
 app.use('/api/my-tasks', myTasksRouter);
 
 // ── 使用者列表路由（ProjectsPage 指派人選單用）───────────────
@@ -211,10 +215,30 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/rules', rulesRouter);
 
 // ── 身分驗證路由 ─────────────────────────────────────────────
-// POST /api/auth/login  → Email/密碼登入，回傳 JWT
-// GET  /api/auth/me     → 驗證 token 並回傳當前使用者資訊
-// POST /api/auth/logout → 登出（前端清除 token）
+// POST /api/auth/login                   → Email/密碼登入，回傳 JWT
+// GET  /api/auth/me                      → 驗證 token 並回傳當前使用者資訊
+// POST /api/auth/logout                  → 登出（前端清除 token）
+// GET  /api/auth/google                  → Google OAuth 登入
+// GET  /api/auth/google/callback         → Google OAuth 回呼
+// GET  /api/auth/github                  → GitHub OAuth 登入
+// GET  /api/auth/github/callback         → GitHub OAuth 回呼
+// GET  /api/auth/microsoft-login         → Microsoft 帳號登入
+// GET  /api/auth/microsoft-login/callback→ Microsoft 登入回呼
 app.use('/api/auth', authRouter);
+app.use('/api/auth/google', googleAuthRouter);
+app.use('/api/auth/github', githubAuthRouter);
+app.use('/api/auth/microsoft-login', msLoginRouter);
+
+// ── Admin 使用者管理 ─────────────────────────────────────────
+// GET    /api/admin/users              → 使用者列表
+// POST   /api/admin/users              → 建立使用者
+// GET    /api/admin/users/:id          → 使用者詳情
+// PUT    /api/admin/users/:id          → 更新使用者
+// PATCH  /api/admin/users/:id/toggle   → 停用/啟用
+// POST   /api/admin/users/:id/reset-password → 重設密碼
+// DELETE /api/admin/users/:id/oauth/:p → 取消 OAuth 連結
+// GET    /api/admin/users/stats        → 統計數字
+app.use('/api/admin/users', adminUsersRouter);
 
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {
@@ -279,9 +303,19 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/notifications/unread-count`);
   console.log('');
   console.log('🔑 身分驗證端點：');
-  console.log(`  POST http://localhost:${PORT}/api/auth/login   (Email/密碼登入)`);
-  console.log(`  GET  http://localhost:${PORT}/api/auth/me      (驗證 Token)`);
-  console.log(`  POST http://localhost:${PORT}/api/auth/logout  (登出)`);
+  console.log(`  POST http://localhost:${PORT}/api/auth/login              (Email/密碼登入)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/me                 (驗證 Token)`);
+  console.log(`  POST http://localhost:${PORT}/api/auth/logout             (登出)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/google             (Google OAuth)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/github             (GitHub OAuth)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/microsoft-login    (Microsoft 登入)`);
+  console.log('');
+  console.log('👥 使用者管理端點（Admin）：');
+  console.log(`  GET    http://localhost:${PORT}/api/admin/users           (列表)`);
+  console.log(`  POST   http://localhost:${PORT}/api/admin/users           (建立)`);
+  console.log(`  PUT    http://localhost:${PORT}/api/admin/users/:id       (更新)`);
+  console.log(`  PATCH  http://localhost:${PORT}/api/admin/users/:id/toggle (停用/啟用)`);
+  console.log(`  POST   http://localhost:${PORT}/api/admin/users/:id/reset-password`);
   console.log('');
   console.log('🔐 Microsoft OAuth 端點：');
   console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);

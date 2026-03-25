@@ -23,22 +23,49 @@ import { useAiDecisions } from '../../hooks/useAiDecisions';
 import AiModelSettingsModal from './AiModelSettingsModal';
 
 // ── 常數 ───────────────────────────────────────────────────────
+const T = {
+  pageBg: 'linear-gradient(180deg, color-mix(in srgb, var(--xc-brand) 10%, var(--xc-bg) 90%) 0%, var(--xc-bg) 20%, var(--xc-bg-soft) 100%)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  surfaceStrong: 'var(--xc-surface-strong)',
+  border: 'var(--xc-border)',
+  borderStrong: 'var(--xc-border-strong)',
+  text: 'var(--xc-text)',
+  textSoft: 'var(--xc-text-soft)',
+  textMuted: 'var(--xc-text-muted)',
+  shadow: 'var(--xc-shadow)',
+  shadowStrong: 'var(--xc-shadow-strong)',
+  accent: 'var(--xc-brand)',
+  accentDeep: 'var(--xc-brand-dark)',
+  accentSoft: 'var(--xc-brand-soft)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  warning: 'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  danger: 'var(--xc-danger)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  info: 'var(--xc-info)',
+  infoSoft: 'var(--xc-info-soft)',
+  panel: 'color-mix(in srgb, var(--xc-surface) 94%, transparent)',
+  panelStrong: 'color-mix(in srgb, var(--xc-surface-strong) 84%, var(--xc-surface) 16%)',
+};
 const STATUS_CONFIG = {
-  pending:     { color: '#6b7280', bg: '#f3f4f6', label: '待執行' },
-  staging:     { color: '#d97706', bg: '#fffbeb', label: '待批准' },
-  approved:    { color: '#2563eb', bg: '#eff6ff', label: '已批准' },
-  executing:   { color: '#7c3aed', bg: '#f5f3ff', label: '執行中' },
-  completed:   { color: '#059669', bg: '#ecfdf5', label: '已完成' },
-  rejected:    { color: '#dc2626', bg: '#fef2f2', label: '已拒絕' },
-  rolled_back: { color: '#92400e', bg: '#fffbeb', label: '已回滾' },
-  failed:      { color: '#dc2626', bg: '#fee2e2', label: '失敗'   },
+  pending:     { color: 'var(--xc-text-soft)', bg: 'var(--xc-surface-muted)', label: '待執行' },
+  staging:     { color: 'var(--xc-warning)', bg: 'color-mix(in srgb, var(--xc-warning) 16%, var(--xc-surface-strong))', label: '待批准' },
+  approved:    { color: 'var(--xc-info)', bg: 'color-mix(in srgb, var(--xc-info) 16%, var(--xc-surface-strong))', label: '已批准' },
+  executing:   { color: '#7c3aed', bg: 'color-mix(in srgb, #7c3aed 16%, var(--xc-surface-strong))', label: '執行中' },
+  completed:   { color: 'var(--xc-success)', bg: 'color-mix(in srgb, var(--xc-success) 14%, var(--xc-surface-strong))', label: '已完成' },
+  rejected:    { color: 'var(--xc-danger)', bg: 'color-mix(in srgb, var(--xc-danger) 14%, var(--xc-surface-strong))', label: '已拒絕' },
+  rolled_back: { color: '#92400e', bg: 'color-mix(in srgb, var(--xc-warning) 16%, var(--xc-surface-strong))', label: '已回滾' },
+  failed:      { color: 'var(--xc-danger)', bg: 'color-mix(in srgb, var(--xc-danger) 16%, var(--xc-surface-strong))', label: '失敗'   },
 };
 
 const RISK_CONFIG = {
-  1: { color: '#059669', bg: '#d1fae5', label: 'L1 自動' },
-  2: { color: '#d97706', bg: '#fef3c7', label: 'L2 需批准' },
-  3: { color: '#ea580c', bg: '#ffedd5', label: 'L3 人工審查' },
-  4: { color: '#dc2626', bg: '#fee2e2', label: 'L4 禁止' },
+  1: { color: 'var(--xc-success)', bg: 'color-mix(in srgb, var(--xc-success) 16%, var(--xc-surface-strong))', label: 'L1 自動' },
+  2: { color: 'var(--xc-warning)', bg: 'color-mix(in srgb, var(--xc-warning) 16%, var(--xc-surface-strong))', label: 'L2 需批准' },
+  3: { color: '#ea580c', bg: 'color-mix(in srgb, #ea580c 16%, var(--xc-surface-strong))', label: 'L3 人工審查' },
+  4: { color: 'var(--xc-danger)', bg: 'color-mix(in srgb, var(--xc-danger) 16%, var(--xc-surface-strong))', label: 'L4 禁止' },
 };
 
 const AGENT_CONFIG = {
@@ -52,7 +79,7 @@ const AGENT_CONFIG = {
 // ════════════════════════════════════════════════════════════
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] || { color: '#6b7280', bg: '#f3f4f6', label: status };
+  const cfg = STATUS_CONFIG[status] || { color: T.textSoft, bg: T.surfaceMuted, label: status };
   return (
     <span style={{
       display:      'inline-block',
@@ -99,8 +126,8 @@ function StatsCards({ stats }) {
       label: '待批准決策',
       value: stats.stagingCount,
       icon:  '⏳',
-      color: stats.stagingCount > 0 ? '#d97706' : '#6b7280',
-      bg:    stats.stagingCount > 0 ? '#fffbeb' : '#f9fafb',
+      color: stats.stagingCount > 0 ? T.warning : T.textSoft,
+      bg:    stats.stagingCount > 0 ? 'color-mix(in srgb, var(--xc-warning) 14%, var(--xc-surface-strong))' : T.panelStrong,
       desc:  '需要您審核批准',
       urgent: stats.stagingCount > 0,
     },
@@ -108,8 +135,8 @@ function StatsCards({ stats }) {
       label: '今日自動完成',
       value: stats.completedToday,
       icon:  '✅',
-      color: '#059669',
-      bg:    '#ecfdf5',
+      color: T.success,
+      bg:    'color-mix(in srgb, var(--xc-success) 14%, var(--xc-surface-strong))',
       desc:  'L1 自動執行成功',
     },
     {
@@ -117,15 +144,15 @@ function StatsCards({ stats }) {
       value: stats.rolledBackTotal,
       icon:  '↩️',
       color: '#92400e',
-      bg:    '#fffbeb',
+      bg:    'color-mix(in srgb, var(--xc-warning) 12%, var(--xc-surface-strong))',
       desc:  '已還原的操作',
     },
     {
       label: '執行失敗',
       value: stats.failedTotal,
       icon:  '❌',
-      color: stats.failedTotal > 0 ? '#dc2626' : '#6b7280',
-      bg:    stats.failedTotal > 0 ? '#fef2f2' : '#f9fafb',
+      color: stats.failedTotal > 0 ? T.danger : T.textSoft,
+      bg:    stats.failedTotal > 0 ? 'color-mix(in srgb, var(--xc-danger) 14%, var(--xc-surface-strong))' : T.panelStrong,
       desc:  '需要檢查日誌',
     },
   ];
@@ -137,7 +164,7 @@ function StatsCards({ stats }) {
           key={card.label}
           style={{
             background:   card.bg,
-            border:       `1px solid ${card.urgent ? card.color : '#e5e7eb'}`,
+            border:       `1px solid ${card.urgent ? card.color : T.border}`,
             borderRadius: 10,
             padding:      '16px 18px',
             position:     'relative',
@@ -157,10 +184,10 @@ function StatsCards({ stats }) {
           <div style={{ fontSize: 28, fontWeight: 800, color: card.color, lineHeight: 1 }}>
             {card.value ?? '—'}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginTop: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.textSoft, marginTop: 4 }}>
             {card.label}
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>
             {card.desc}
           </div>
         </div>
@@ -180,7 +207,7 @@ function StagingQueue({ decisions, onApprove, onReject, actionLoading }) {
     return (
       <div style={s.card}>
         <SectionTitle icon="⏳" title="待批准決策佇列" count={0} />
-        <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: '32px 0', color: T.textMuted, fontSize: 14 }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>🎉</div>
           目前沒有待批准的 AI 決策，一切正常！
         </div>
@@ -189,7 +216,7 @@ function StagingQueue({ decisions, onApprove, onReject, actionLoading }) {
   }
 
   return (
-    <div style={{ ...s.card, borderColor: '#f59e0b', boxShadow: '0 0 0 2px #fef3c733' }}>
+    <div style={{ ...s.card, borderColor: T.warning, boxShadow: '0 0 0 2px color-mix(in srgb, var(--xc-warning) 18%, transparent)' }}>
       <SectionTitle icon="⏳" title="待批准決策佇列" count={staging.length} urgent />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {staging.map(d => (
@@ -222,17 +249,17 @@ function StagingCard({ decision: d, onApprove, onReject, disabled }) {
 
   return (
     <div style={{
-      border: '1px solid #fcd34d',
+      border: `1px solid color-mix(in srgb, var(--xc-warning) 24%, var(--xc-border))`,
       borderRadius: 8,
-      background: '#fffbeb',
+      background: 'color-mix(in srgb, var(--xc-warning) 10%, var(--xc-surface-strong))',
       overflow: 'hidden',
     }}>
       {/* 頂部：類型 + 風險等級 + 時間 */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 14px',
-        background: 'rgba(253,230,138,0.3)',
-        borderBottom: '1px solid #fcd34d',
+        background: 'color-mix(in srgb, var(--xc-warning) 18%, var(--xc-surface-strong))',
+        borderBottom: `1px solid color-mix(in srgb, var(--xc-warning) 24%, var(--xc-border))`,
       }}>
         <span style={{ fontSize: 16 }}>{agent.emoji}</span>
         <span style={{ fontWeight: 700, fontSize: 13, color: '#92400e' }}>
@@ -240,11 +267,11 @@ function StagingCard({ decision: d, onApprove, onReject, disabled }) {
         </span>
         <RiskBadge level={d.riskLevel} />
         {d.project && (
-          <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 'auto' }}>
+        <span style={{ fontSize: 11, color: T.textSoft, marginLeft: 'auto' }}>
             📁 {d.project.name}
           </span>
         )}
-        <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: 'nowrap' }}>
           {formatRelTime(d.createdAt)}
         </span>
       </div>
@@ -252,8 +279,8 @@ function StagingCard({ decision: d, onApprove, onReject, disabled }) {
       {/* 中間：影響任務 + 推理摘要 */}
       <div style={{ padding: '10px 14px' }}>
         {d.task && (
-          <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
-            <span style={{ color: '#6b7280' }}>影響任務：</span>
+          <div style={{ fontSize: 12, color: T.textSoft, marginBottom: 6 }}>
+            <span style={{ color: T.textSoft }}>影響任務：</span>
             <span style={{ fontWeight: 600 }}>#{d.task.id} {d.task.title}</span>
           </div>
         )}
@@ -271,8 +298,9 @@ function StagingCard({ decision: d, onApprove, onReject, disabled }) {
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '8px', borderRadius: 6,
-              border: '1px solid #fca5a5', fontSize: 12,
+              border: `1px solid color-mix(in srgb, var(--xc-danger) 24%, var(--xc-border))`, fontSize: 12,
               fontFamily: 'inherit', resize: 'none', outline: 'none',
+              background: T.surfaceStrong, color: T.text,
             }}
           />
         </div>
@@ -281,8 +309,8 @@ function StagingCard({ decision: d, onApprove, onReject, disabled }) {
       {/* 操作按鈕 */}
       <div style={{
         display: 'flex', gap: 8, padding: '8px 14px',
-        background: 'rgba(255,255,255,0.6)',
-        borderTop: '1px solid #fef3c7',
+        background: T.panelStrong,
+        borderTop: `1px solid color-mix(in srgb, var(--xc-warning) 24%, var(--xc-border))`,
       }}>
         {!rejectMode ? (
           <>
@@ -338,7 +366,7 @@ function DecisionTypeHint({ type }) {
   };
   const hint = hints[type];
   return hint ? (
-    <div style={{ fontSize: 12, color: '#78350f', background: '#fef9c3', borderRadius: 4, padding: '4px 8px' }}>
+    <div style={{ fontSize: 12, color: '#78350f', background: 'color-mix(in srgb, var(--xc-warning) 18%, var(--xc-surface-strong))', borderRadius: 4, padding: '4px 8px' }}>
       {hint}
     </div>
   ) : null;
@@ -386,7 +414,7 @@ function DecisionTable({
         </select>
 
         {loading && (
-          <span style={{ fontSize: 12, color: '#9ca3af', alignSelf: 'center' }}>
+          <span style={{ fontSize: 12, color: T.textMuted, alignSelf: 'center' }}>
             ⏳ 載入中⋯
           </span>
         )}
@@ -396,7 +424,7 @@ function DecisionTable({
       <div style={{ overflowX: 'auto' }}>
         <table style={s.table}>
           <thead>
-            <tr style={{ background: '#f9fafb' }}>
+            <tr style={{ background: T.surfaceSoft }}>
               {['#', '代理', '決策類型', '關聯', '風險', '狀態', '時間', '操作'].map(h => (
                 <th key={h} style={s.th}>{h}</th>
               ))}
@@ -405,7 +433,7 @@ function DecisionTable({
           <tbody>
             {decisions.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', fontSize: 13 }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: T.textMuted, fontSize: 13 }}>
                   {loading ? '載入中⋯' : '目前沒有符合條件的決策記錄'}
                 </td>
               </tr>
@@ -415,7 +443,7 @@ function DecisionTable({
               return (
                 <tr key={d.id} style={s.tr}>
                   <td style={s.td}>
-                    <span style={{ color: '#6b7280', fontSize: 12 }}>#{d.id}</span>
+                    <span style={{ color: T.textSoft, fontSize: 12 }}>#{d.id}</span>
                   </td>
                   <td style={s.td}>
                     <span title={agent.label}>{agent.emoji} {agent.label}</span>
@@ -425,11 +453,11 @@ function DecisionTable({
                   </td>
                   <td style={s.td}>
                     {d.project
-                      ? <span style={{ fontSize: 12, color: '#374151' }}>📁 {d.project.name}</span>
-                      : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                      ? <span style={{ fontSize: 12, color: T.textSoft }}>📁 {d.project.name}</span>
+                      : <span style={{ color: T.textMuted, fontSize: 12 }}>—</span>
                     }
                     {d.task && (
-                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: T.textSoft, marginTop: 2 }}>
                         ✅ {d.task.title?.slice(0, 20)}{d.task.title?.length > 20 ? '…' : ''}
                       </div>
                     )}
@@ -441,7 +469,7 @@ function DecisionTable({
                     <StatusBadge status={d.status} />
                   </td>
                   <td style={s.td}>
-                    <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, color: T.textSoft, whiteSpace: 'nowrap' }}>
                       {formatRelTime(d.createdAt)}
                     </span>
                   </td>
@@ -488,7 +516,7 @@ function DecisionTable({
           >
             ‹ 上一頁
           </button>
-          <span style={{ fontSize: 13, color: '#6b7280', alignSelf: 'center', padding: '0 8px' }}>
+          <span style={{ fontSize: 13, color: T.textSoft, alignSelf: 'center', padding: '0 8px' }}>
             第 {page} / {pages} 頁
           </span>
           <button
@@ -523,28 +551,29 @@ function DecisionDetailModal({ detail, onClose }) {
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: 'white',
+        background: T.surface,
         borderRadius: 12,
         width: '100%', maxWidth: 760,
         maxHeight: '85vh',
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        boxShadow: T.shadowStrong,
+        border: `1px solid ${T.border}`,
       }}>
         {/* Header */}
         <div style={{
           padding: '16px 20px',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: `1px solid ${T.border}`,
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
           <span style={{ fontSize: 18 }}>
             {AGENT_CONFIG[detail.agentType]?.emoji || '🤖'}
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>
               決策 #{detail.id}：{detail.decisionType}
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: T.textSoft, marginTop: 2 }}>
               {detail.agentLabel} · {new Date(detail.createdAt).toLocaleString('zh-TW')}
               {detail.project && ` · 📁 ${detail.project.name}`}
             </div>
@@ -553,7 +582,7 @@ function DecisionDetailModal({ detail, onClose }) {
           <RiskBadge level={detail.riskLevel} />
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#6b7280', padding: 4 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: T.textSoft, padding: 4 }}
           >
             ✕
           </button>
@@ -583,7 +612,7 @@ function DecisionDetailModal({ detail, onClose }) {
           {/* 反思 */}
           {detail.reflection && (
             <Section title="💭 反思">
-              <pre style={{ ...s.pre, background: '#f0fdf4', color: '#166534' }}>
+              <pre style={{ ...s.pre, background: 'var(--xc-success-soft)', color: '#166534' }}>
                 {detail.reflection}
               </pre>
             </Section>
@@ -599,8 +628,8 @@ function DecisionDetailModal({ detail, onClose }) {
                     style={{
                       padding: '8px 10px',
                       borderRadius: 6,
-                      background: log.success ? '#f0fdf4' : '#fef2f2',
-                      border: `1px solid ${log.success ? '#bbf7d0' : '#fecaca'}`,
+                      background: log.success ? 'color-mix(in srgb, var(--xc-success) 12%, var(--xc-surface-strong))' : 'color-mix(in srgb, var(--xc-danger) 12%, var(--xc-surface-strong))',
+                      border: `1px solid ${log.success ? 'color-mix(in srgb, var(--xc-success) 22%, var(--xc-border))' : 'color-mix(in srgb, var(--xc-danger) 22%, var(--xc-border))'}`,
                       fontSize: 12,
                     }}
                   >
@@ -608,7 +637,7 @@ function DecisionDetailModal({ detail, onClose }) {
                       <span style={{ fontWeight: 700, color: log.success ? '#166534' : '#991b1b' }}>
                         {log.success ? '✅' : '❌'} {log.toolName}
                       </span>
-                      <span style={{ color: '#9ca3af', fontSize: 11 }}>
+                      <span style={{ color: T.textMuted, fontSize: 11 }}>
                         {log.durationMs != null ? `${log.durationMs}ms` : ''}
                         {' '}· {new Date(log.executedAt).toLocaleTimeString('zh-TW')}
                       </span>
@@ -668,149 +697,161 @@ export default function AiDecisionCenter() {
   }, [runAgentNow]);
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ minHeight: '100%', background: T.pageBg, padding: '24px clamp(18px, 3vw, 32px) 32px', color: T.text }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
 
-      {/* ── 頁面標題列 ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>
-            🤖 AI 決策中心
-          </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-            Human-in-the-Loop 控制台 · 每 30 秒自動刷新
-            {stats?.stagingCount > 0 && (
-              <span style={{ color: '#d97706', fontWeight: 700, marginLeft: 8 }}>
-                ⚠️ {stats.stagingCount} 個決策等待您的審核
-              </span>
-            )}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => handleRunNow(true)}
-            disabled={actionLoading}
-            title="分析模式：只分析不執行，安全測試用"
-            style={{ ...s.btn.secondary, fontSize: 12 }}
-          >
-            🔍 分析模式
-          </button>
-          <button
-            onClick={() => handleRunNow(false)}
-            disabled={actionLoading}
-            title="立即觸發 AI Agent Loop 執行一次"
-            style={{ ...s.btn.primary }}
-          >
-            {actionLoading ? '⏳ 執行中⋯' : '▶️ 立即執行 Agent'}
-          </button>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            style={{ ...s.btn.secondary }}
-            title="手動刷新"
-          >
-            🔄
-          </button>
-          <button
-            onClick={() => setSettingsOpen(v => !v)}
-            style={{
-              ...s.btn.secondary,
-              ...(settingsOpen ? { border: '1px solid #4F8EF7', color: '#4F8EF7' } : {}),
-            }}
-            title={settingsOpen ? '收起設定' : 'AI 模型設定'}
-          >
-            ⚙️
-          </button>
-        </div>
-      </div>
-
-      {/* ── AI 模型設定 Modal ──────────────────────────────────── */}
-      <AiModelSettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        companyId={2}
-      />
-
-      {/* ── 操作結果提示 ──────────────────────────────────────── */}
-      {runMessage && (
+        {/* ── 頁面標題列 ──────────────────────────────────────── */}
         <div style={{
-          marginBottom: 16, padding: '10px 14px',
-          background: '#eff6ff', border: '1px solid #93c5fd',
-          borderRadius: 8, fontSize: 13, color: '#1d4ed8',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 20,
+          padding: '20px 22px',
+          borderRadius: 24,
+          background: T.panel,
+          border: `1px solid ${T.border}`,
+          boxShadow: T.shadow,
         }}>
-          ℹ️ {runMessage}
+          <div style={{ flex: 1 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.text }}>
+              🤖 AI 決策中心
+            </h1>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: T.textSoft }}>
+              Human-in-the-Loop 控制台 · 每 30 秒自動刷新
+              {stats?.stagingCount > 0 && (
+                <span style={{ color: T.warning, fontWeight: 700, marginLeft: 8 }}>
+                  ⚠️ {stats.stagingCount} 個決策等待您的審核
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => handleRunNow(true)}
+              disabled={actionLoading}
+              title="分析模式：只分析不執行，安全測試用"
+              style={{ ...s.btn.secondary, fontSize: 12 }}
+            >
+              🔍 分析模式
+            </button>
+            <button
+              onClick={() => handleRunNow(false)}
+              disabled={actionLoading}
+              title="立即觸發 AI Agent Loop 執行一次"
+              style={{ ...s.btn.primary }}
+            >
+              {actionLoading ? '⏳ 執行中⋯' : '▶️ 立即執行 Agent'}
+            </button>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              style={{ ...s.btn.secondary }}
+              title="手動刷新"
+            >
+              🔄
+            </button>
+            <button
+              onClick={() => setSettingsOpen(v => !v)}
+              style={{
+                ...s.btn.secondary,
+                ...(settingsOpen ? { border: `1px solid ${T.accent}`, color: T.accent } : {}),
+              }}
+              title={settingsOpen ? '收起設定' : 'AI 模型設定'}
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
-      )}
 
-      {(actionError || error) && (
-        <div style={{
-          marginBottom: 16, padding: '10px 14px',
-          background: '#fef2f2', border: '1px solid #fca5a5',
-          borderRadius: 8, fontSize: 13, color: '#dc2626',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <span>❌ {actionError || error}</span>
-          <button
-            onClick={clearActionError}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* ── 統計卡片 ──────────────────────────────────────────── */}
-      {loading && !stats ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
-          ⏳ 載入中⋯
-        </div>
-      ) : (
-        <StatsCards stats={stats} />
-      )}
-
-      {/* ── 待批准佇列 ─────────────────────────────────────────── */}
-      <StagingQueue
-        decisions={decisions}
-        onApprove={approveDecision}
-        onReject={rejectDecision}
-        actionLoading={actionLoading}
-      />
-
-      {/* 間距 */}
-      <div style={{ height: 16 }} />
-
-      {/* ── 決策歷史表格 ───────────────────────────────────────── */}
-      <DecisionTable
-        decisions={decisions}
-        total={total}
-        pages={pages}
-        page={page}
-        loading={loading}
-        status={status}
-        agentType={agentType}
-        setPage={setPage}
-        setStatus={setStatus}
-        setAgentType={setAgentType}
-        onRollback={rollbackDecision}
-        onViewDetail={handleViewDetail}
-        actionLoading={actionLoading || detailLoading}
-      />
-
-      {/* ── 詳情彈窗 ───────────────────────────────────────────── */}
-      {detailModal && (
-        <DecisionDetailModal
-          detail={detailModal}
-          onClose={() => setDetailModal(null)}
+        {/* ── AI 模型設定 Modal ──────────────────────────────────── */}
+        <AiModelSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          companyId={2}
         />
-      )}
 
-      {/* 注入動畫 CSS */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%  { opacity: 0.5; transform: scale(1.2); }
-        }
-      `}</style>
+        {/* ── 操作結果提示 ──────────────────────────────────────── */}
+        {runMessage && (
+          <div style={{
+            marginBottom: 16, padding: '10px 14px',
+            background: T.infoSoft, border: `1px solid ${T.borderStrong}`,
+            borderRadius: 8, fontSize: 13, color: T.info,
+          }}>
+            ℹ️ {runMessage}
+          </div>
+        )}
+
+        {(actionError || error) && (
+          <div style={{
+            marginBottom: 16, padding: '10px 14px',
+            background: T.dangerSoft, border: `1px solid color-mix(in srgb, var(--xc-danger) 22%, var(--xc-border))`,
+            borderRadius: 8, fontSize: 13, color: T.danger,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <span>❌ {actionError || error}</span>
+            <button
+              onClick={clearActionError}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textMuted }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* ── 統計卡片 ──────────────────────────────────────────── */}
+        {loading && !stats ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: T.textMuted }}>
+            ⏳ 載入中⋯
+          </div>
+        ) : (
+          <StatsCards stats={stats} />
+        )}
+
+        {/* ── 待批准佇列 ─────────────────────────────────────────── */}
+        <StagingQueue
+          decisions={decisions}
+          onApprove={approveDecision}
+          onReject={rejectDecision}
+          actionLoading={actionLoading}
+        />
+
+        {/* 間距 */}
+        <div style={{ height: 16 }} />
+
+        {/* ── 決策歷史表格 ───────────────────────────────────────── */}
+        <DecisionTable
+          decisions={decisions}
+          total={total}
+          pages={pages}
+          page={page}
+          loading={loading}
+          status={status}
+          agentType={agentType}
+          setPage={setPage}
+          setStatus={setStatus}
+          setAgentType={setAgentType}
+          onRollback={rollbackDecision}
+          onViewDetail={handleViewDetail}
+          actionLoading={actionLoading || detailLoading}
+        />
+
+        {/* ── 詳情彈窗 ───────────────────────────────────────────── */}
+        {detailModal && (
+          <DecisionDetailModal
+            detail={detailModal}
+            onClose={() => setDetailModal(null)}
+          />
+        )}
+
+        {/* 注入動畫 CSS */}
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%  { opacity: 0.5; transform: scale(1.2); }
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
@@ -823,13 +864,13 @@ function SectionTitle({ icon, title, count, urgent }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
       <span style={{ fontSize: 16 }}>{icon}</span>
-      <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{title}</span>
+      <span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{title}</span>
       {count != null && (
         <span style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 700,
-          background: urgent ? '#fef3c7' : '#f3f4f6',
-          color:      urgent ? '#92400e' : '#6b7280',
+          background: urgent ? T.warningSoft : T.surfaceMuted,
+          color:      urgent ? '#92400e' : T.textSoft,
         }}>
           {count}
         </span>
@@ -841,7 +882,7 @@ function SectionTitle({ icon, title, count, urgent }) {
 function Section({ title, children }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 6 }}>{title}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: T.textSoft, marginBottom: 6 }}>{title}</div>
       {children}
     </div>
   );
@@ -868,11 +909,11 @@ function formatRelTime(iso) {
 
 const s = {
   card: {
-    background:   'white',
-    border:       '1px solid #e5e7eb',
+    background:   T.surface,
+    border:       `1px solid ${T.border}`,
     borderRadius: 10,
     padding:      '18px 20px',
-    boxShadow:    '0 1px 3px rgba(0,0,0,0.04)',
+    boxShadow:    T.shadow,
   },
   table: {
     width:           '100%',
@@ -884,13 +925,13 @@ const s = {
     textAlign:  'left',
     fontWeight: 600,
     fontSize:   12,
-    color:      '#374151',
+    color:      T.textSoft,
     whiteSpace: 'nowrap',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: `1px solid ${T.border}`,
   },
   td: {
     padding:     '9px 10px',
-    borderBottom: '1px solid #f3f4f6',
+    borderBottom: `1px solid ${T.border}`,
     verticalAlign: 'middle',
   },
   tr: {
@@ -898,19 +939,19 @@ const s = {
   },
   select: {
     padding:      '6px 10px',
-    border:       '1px solid #d1d5db',
+    border:       `1px solid ${T.borderStrong}`,
     borderRadius: 6,
     fontSize:     13,
-    color:        '#374151',
-    background:   'white',
+    color:        T.textSoft,
+    background:   T.surfaceStrong,
     cursor:       'pointer',
     outline:      'none',
   },
   pre: {
     fontSize:    12,
-    color:       '#374151',
-    background:  '#f8fafc',
-    border:      '1px solid #e2e8f0',
+    color:       T.textSoft,
+    background:  T.surfaceSoft,
+    border:      `1px solid ${T.border}`,
     borderRadius: 6,
     padding:     10,
     margin:      0,
@@ -922,7 +963,7 @@ const s = {
   },
   btn: {
     primary: {
-      background:   '#3b82f6',
+      background:   T.accent,
       color:        'white',
       border:       'none',
       borderRadius: 8,
@@ -932,16 +973,16 @@ const s = {
       cursor:       'pointer',
     },
     secondary: {
-      background:   'white',
-      color:        '#374151',
-      border:       '1px solid #d1d5db',
+      background:   T.surfaceStrong,
+      color:        T.textSoft,
+      border:       `1px solid ${T.borderStrong}`,
       borderRadius: 8,
       padding:      '8px 14px',
       fontSize:     13,
       cursor:       'pointer',
     },
     approve: {
-      background:   '#059669',
+      background:   T.success,
       color:        'white',
       border:       'none',
       borderRadius: 6,
@@ -951,9 +992,9 @@ const s = {
       cursor:       'pointer',
     },
     reject: {
-      background:   'white',
-      color:        '#dc2626',
-      border:       '1px solid #fca5a5',
+      background:   T.surfaceStrong,
+      color:        T.danger,
+      border:       `1px solid color-mix(in srgb, var(--xc-danger) 22%, var(--xc-border))`,
       borderRadius: 6,
       padding:      '7px 14px',
       fontSize:     12,
@@ -961,9 +1002,9 @@ const s = {
       cursor:       'pointer',
     },
     cancel: {
-      background:   '#f3f4f6',
-      color:        '#6b7280',
-      border:       'none',
+      background:   T.surfaceMuted,
+      color:        T.textSoft,
+      border:       `1px solid ${T.border}`,
       borderRadius: 6,
       padding:      '7px 12px',
       fontSize:     12,
@@ -971,16 +1012,16 @@ const s = {
     },
     icon: {
       background:   'none',
-      border:       '1px solid #e5e7eb',
+      border:       `1px solid ${T.border}`,
       borderRadius: 5,
       padding:      '3px 6px',
       fontSize:     13,
       cursor:       'pointer',
     },
     page: {
-      background:   'white',
-      color:        '#374151',
-      border:       '1px solid #d1d5db',
+      background:   T.surfaceStrong,
+      color:        T.textSoft,
+      border:       `1px solid ${T.borderStrong}`,
       borderRadius: 6,
       padding:      '6px 14px',
       fontSize:     13,

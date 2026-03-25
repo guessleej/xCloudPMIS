@@ -10,20 +10,24 @@
  *     └─ 已登入       → 顯示 <Dashboard />（主系統）
  */
 
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage  from './components/auth/LoginPage';
-import Dashboard  from './components/dashboard/Dashboard';
+import { ThemeProvider } from './context/ThemeContext';
+import LoginPage    from './components/auth/LoginPage';
+import OAuthCallback from './components/auth/OAuthCallback';
+import Dashboard    from './components/dashboard/Dashboard';
 
 // ── 啟動載入畫面（驗證 token 時顯示）────────────────────────
 function LoadingScreen() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#F4F0F0',
+      background: 'linear-gradient(180deg, var(--xc-bg) 0%, var(--xc-bg-soft) 100%)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+      fontFamily: 'var(--xc-font-sans)',
       gap: 20,
+      color: 'var(--xc-text)',
     }}>
       <style>{`
         @keyframes pulse {
@@ -35,10 +39,10 @@ function LoadingScreen() {
       {/* Logo */}
       <div style={{
         width: 64, height: 64, borderRadius: 18,
-        background: '#C41230',
+        background: 'var(--xc-brand)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'pulse 1.4s ease-in-out infinite',
-        boxShadow: '0 4px 20px rgba(196,18,48,0.30)',
+        boxShadow: 'var(--xc-shadow-strong)',
       }}>
         <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
           <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
@@ -48,20 +52,47 @@ function LoadingScreen() {
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1010', marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 4 }}>
           xCloudPMIS
         </div>
-        <div style={{ fontSize: 13, color: '#9E8E8E' }}>
-          系統載入中...
+        <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
+          正在準備工作台...
         </div>
       </div>
     </div>
   );
 }
 
+// ── 偵測是否為 OAuth 回呼路由 ─────────────────────────────────
+// URL hash 格式：/#/oauth/callback?token=xxx
+function isOAuthCallbackRoute() {
+  return window.location.hash.startsWith('#/oauth/callback');
+}
+
 // ── 路由守衛 ──────────────────────────────────────────────────
 function AuthGuard() {
   const { user, loading } = useAuth();
+  const [isOAuthCallback, setIsOAuthCallback] = useState(isOAuthCallbackRoute);
+
+  // 監聽 hash 變化（OAuthCallback 處理完成後 hash 會被清除）
+  useEffect(() => {
+    const handler = () => setIsOAuthCallback(isOAuthCallbackRoute());
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
+
+  // ── OAuth 回呼頁（最高優先，不管登入狀態）─────────────────
+  if (isOAuthCallback) {
+    return (
+      <OAuthCallback
+        onBack={() => {
+          // 清除 hash，回到登入頁
+          window.history.replaceState(null, '', window.location.pathname);
+          setIsOAuthCallback(false);
+        }}
+      />
+    );
+  }
 
   // 正在驗證 token（初始化中）
   if (loading) return <LoadingScreen />;
@@ -76,8 +107,10 @@ function AuthGuard() {
 // ── 根元件 ────────────────────────────────────────────────────
 export default function App() {
   return (
-    <AuthProvider>
-      <AuthGuard />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AuthGuard />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

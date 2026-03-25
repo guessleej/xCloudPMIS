@@ -88,6 +88,20 @@ export interface TaskDetailSavePayload {
   customFieldValues: Record<string, CustomFieldStoredValue | undefined>;
 }
 
+export interface TaskCommentCreatePayload {
+  content: string;
+  parentId?: EntityId | null;
+}
+
+export interface TaskDependencyItem {
+  id: EntityId;
+  type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish';
+  taskId: EntityId;
+  dependsOnTaskId: EntityId;
+  dependsOnTask?: { id: EntityId; title: string } | null;
+  task?: { id: EntityId; title: string } | null;
+}
+
 export interface TaskDetailPanelProps {
   open: boolean;
   task: TaskDetailRecord | null;
@@ -103,24 +117,43 @@ export interface TaskDetailPanelProps {
     parentTaskId: EntityId;
     title: string;
   }) => Promise<void> | void;
+  onAddComment?: (input: TaskCommentCreatePayload) => Promise<void> | void;
+  commentSaving?: boolean;
+  commentError?: string | null;
   onToggleSubtask?: (input: {
     subtaskId: EntityId;
     completed: boolean;
   }) => Promise<void> | void;
+  // ── Asana-style features ──────────────────────────────────────────
+  isSubscribed?: boolean;
+  subscriberCount?: number;
+  onSubscribe?: (taskId: EntityId) => Promise<void> | void;
+  onUnsubscribe?: (taskId: EntityId) => Promise<void> | void;
+  dependencies?: TaskDependencyItem[];
+  onAddDependency?: (input: { taskId: EntityId; dependsOnTaskId: EntityId; type: string }) => Promise<void> | void;
+  onRemoveDependency?: (depId: EntityId) => Promise<void> | void;
+  allTasks?: { id: EntityId; title: string }[];
 }
 
 const BRAND = {
-  crimson: '#C70018',
-  crimsonDeep: '#8F0013',
-  ink: '#111111',
-  carbon: '#2B2B2B',
-  paper: '#F7F2EE',
-  mist: '#E8DFD8',
-  line: '#D9CDC4',
-  white: '#FFFFFF',
-  success: '#16824B',
-  warning: '#C97415',
-  muted: '#7C726C',
+  crimson: 'var(--xc-brand)',
+  crimsonDeep: 'var(--xc-brand-dark)',
+  ink: 'var(--xc-text)',
+  carbon: 'var(--xc-text-soft)',
+  paper: 'var(--xc-bg)',
+  surface: 'var(--xc-surface)',
+  surfaceSoft: 'var(--xc-surface-soft)',
+  surfaceMuted: 'var(--xc-surface-muted)',
+  mist: 'var(--xc-border)',
+  line: 'var(--xc-border-strong)',
+  white: 'var(--xc-surface-strong)',
+  success: 'var(--xc-success)',
+  successSoft: 'var(--xc-success-soft)',
+  warning: 'var(--xc-warning)',
+  warningSoft: 'var(--xc-warning-soft)',
+  dangerSoft: 'var(--xc-danger-soft)',
+  infoSoft: 'var(--xc-info-soft)',
+  muted: 'var(--xc-text-muted)',
 };
 
 const STATUS_TONES: Record<string, { label: string; bg: string; color: string }> = {
@@ -451,7 +484,7 @@ function CustomFieldControl({
                   padding: '8px 11px',
                   borderRadius: 999,
                   border: `1px solid ${checked ? BRAND.crimson : BRAND.line}`,
-                  background: checked ? '#FFF3F5' : BRAND.white,
+                  background: checked ? 'var(--xc-brand-soft)' : BRAND.white,
                   color: checked ? BRAND.crimsonDeep : BRAND.carbon,
                   cursor: 'pointer',
                   fontSize: 12,
@@ -506,7 +539,7 @@ function CustomFieldControl({
                     gap: 8,
                     padding: '6px 10px',
                     borderRadius: 999,
-                    background: '#F2EEEA',
+                    background: BRAND.surfaceMuted,
                     color: BRAND.carbon,
                     fontSize: 12,
                     fontWeight: 700,
@@ -568,7 +601,7 @@ function SubtaskTree({
             background: BRAND.white,
             padding: '12px 14px',
             marginLeft: level * 18,
-            boxShadow: level === 0 ? '0 8px 18px rgba(17,17,17,.05)' : 'none',
+            boxShadow: level === 0 ? 'var(--xc-shadow)' : 'none',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -614,7 +647,7 @@ function SubtaskTree({
                   style={{
                     fontSize: 11,
                     color: BRAND.muted,
-                    background: '#F3EEEA',
+                    background: BRAND.surfaceMuted,
                     padding: '4px 8px',
                     borderRadius: 999,
                     fontWeight: 700,
@@ -628,7 +661,7 @@ function SubtaskTree({
                     style={{
                       fontSize: 11,
                       color: BRAND.muted,
-                      background: '#F7F2EE',
+                      background: BRAND.surfaceSoft,
                       padding: '4px 8px',
                       borderRadius: 999,
                       fontWeight: 700,
@@ -675,7 +708,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
         style={{
           border: `1px dashed ${BRAND.line}`,
           borderRadius: 18,
-          background: '#FCFAF8',
+          background: BRAND.surfaceSoft,
           color: BRAND.muted,
           padding: '20px 18px',
           fontSize: 13,
@@ -706,7 +739,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
               border: `1px solid ${BRAND.line}`,
               background: BRAND.white,
               padding: '14px 16px',
-              boxShadow: '0 8px 18px rgba(17,17,17,.05)',
+              boxShadow: 'var(--xc-shadow)',
             }}
           >
             <div
@@ -728,7 +761,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     fontWeight: 700,
                     borderRadius: 999,
                     padding: '4px 8px',
-                    background: item.type === 'comment' ? '#FBE5E8' : '#F3EEEA',
+                    background: item.type === 'comment' ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
                     color: item.type === 'comment' ? BRAND.crimsonDeep : BRAND.muted,
                   }}
                 >
@@ -761,7 +794,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     style={{
                       padding: '5px 8px',
                       borderRadius: 999,
-                      background: '#EFF6FF',
+                      background: BRAND.infoSoft,
                       color: '#2563EB',
                       fontSize: 11,
                       fontWeight: 700,
@@ -781,7 +814,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                     style={{
                       padding: '5px 8px',
                       borderRadius: 999,
-                      background: '#F7F2EE',
+                      background: BRAND.surfaceSoft,
                       color: BRAND.muted,
                       fontSize: 11,
                       fontWeight: 700,
@@ -811,9 +844,21 @@ export default function TaskDetailPanel({
   onSave,
   onDelete,
   onQuickAddSubtask,
+  onAddComment,
+  commentSaving = false,
+  commentError = null,
   onToggleSubtask,
+  isSubscribed = false,
+  subscriberCount = 0,
+  onSubscribe,
+  onUnsubscribe,
+  dependencies = [],
+  onAddDependency,
+  onRemoveDependency,
+  allTasks = [],
 }: TaskDetailPanelProps) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState('');
   const [assigneeId, setAssigneeId] = useState<string>('');
@@ -823,6 +868,14 @@ export default function TaskDetailPanel({
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [subtaskInput, setSubtaskInput] = useState('');
   const [subtaskPending, setSubtaskPending] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  // ── Asana features ────────────────────────────────────────────────
+  const [subscribing, setSubscribing] = useState(false);
+  const [depInput, setDepInput] = useState('');
+  const [depType, setDepType] = useState<'finish_to_start' | 'start_to_start' | 'finish_to_finish'>('finish_to_start');
+  const [depPending, setDepPending] = useState(false);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
 
   useEffect(() => {
     if (!open || !task) return;
@@ -833,6 +886,7 @@ export default function TaskDetailPanel({
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
     setSubtaskInput('');
+    setCommentText('');
     setShowProjectPicker(false);
     setIsEditingTitle(false);
   }, [open, task]);
@@ -931,6 +985,87 @@ export default function TaskDetailPanel({
     }
   };
 
+  const handleAddComment = async () => {
+    const nextComment = commentText.trim();
+    if (!nextComment || !onAddComment) return;
+
+    await onAddComment({ content: nextComment });
+    setCommentText('');
+  };
+
+  const handleSubscribeToggle = async () => {
+    if (!task || subscribing) return;
+    setSubscribing(true);
+    try {
+      if (isSubscribed) {
+        await onUnsubscribe?.(task.id);
+      } else {
+        await onSubscribe?.(task.id);
+      }
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
+  const handleAddDep = async () => {
+    if (!task || !depInput.trim() || !onAddDependency) return;
+    const found = allTasks.find(t => String(t.id) === depInput.trim() || t.title.toLowerCase() === depInput.trim().toLowerCase());
+    if (!found) return;
+    setDepPending(true);
+    try {
+      await onAddDependency({ taskId: task.id, dependsOnTaskId: found.id, type: depType });
+      setDepInput('');
+    } finally {
+      setDepPending(false);
+    }
+  };
+
+  const handleCommentChange = (value: string) => {
+    setCommentText(value);
+    const textarea = commentTextareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? 0;
+    const before = value.slice(0, cursor);
+    const atIdx = before.lastIndexOf('@');
+    if (atIdx !== -1 && !before.slice(atIdx + 1).includes(' ')) {
+      const query = before.slice(atIdx + 1);
+      setMentionQuery(query);
+      setShowMentionPicker(true);
+    } else {
+      setShowMentionPicker(false);
+    }
+  };
+
+  const insertMention = (member: TaskPanelMember) => {
+    const textarea = commentTextareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? 0;
+    const before = commentText.slice(0, cursor);
+    const atIdx = before.lastIndexOf('@');
+    const after = commentText.slice(cursor);
+    const newText = commentText.slice(0, atIdx) + `@${member.name} ` + after;
+    setCommentText(newText);
+    setShowMentionPicker(false);
+    setTimeout(() => {
+      const newCursor = atIdx + member.name.length + 2;
+      textarea.setSelectionRange(newCursor, newCursor);
+      textarea.focus();
+    }, 0);
+  };
+
+  const filteredMentionMembers = members.filter(m =>
+    m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  ).slice(0, 6);
+
+  const DEP_TYPE_LABELS: Record<string, string> = {
+    finish_to_start: '完成後才能開始',
+    start_to_start: '開始後才能開始',
+    finish_to_finish: '完成後才能完成',
+  };
+
+  const blockedBy = dependencies.filter(d => String(d.taskId) === String(task?.id));
+  const blocks = dependencies.filter(d => String(d.dependsOnTaskId) === String(task?.id));
+
   return (
     <>
       <div
@@ -951,9 +1086,9 @@ export default function TaskDetailPanel({
           right: 0,
           bottom: 0,
           width: 'min(560px, 100vw)',
-          background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.paper} 100%)`,
+          background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.surface} 100%)`,
           borderLeft: `1px solid ${BRAND.line}`,
-          boxShadow: '-20px 0 60px rgba(17,17,17,.18)',
+          boxShadow: 'var(--xc-shadow-strong)',
           zIndex: 1100,
           display: 'flex',
           flexDirection: 'column',
@@ -1063,24 +1198,54 @@ export default function TaskDetailPanel({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                border: '1px solid rgba(255,255,255,.2)',
-                background: 'rgba(255,255,255,.1)',
-                color: BRAND.white,
-                cursor: 'pointer',
-                fontSize: 18,
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              ×
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {(onSubscribe || onUnsubscribe) && (
+                <button
+                  type="button"
+                  onClick={() => void handleSubscribeToggle()}
+                  disabled={subscribing}
+                  title={isSubscribed ? '取消追蹤通知' : '追蹤此任務'}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    border: isSubscribed ? '1.5px solid rgba(255,255,255,.6)' : '1px solid rgba(255,255,255,.2)',
+                    background: isSubscribed ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.08)',
+                    color: BRAND.white,
+                    cursor: subscribing ? 'wait' : 'pointer',
+                    fontSize: 16,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    flexShrink: 0,
+                  }}
+                >
+                  {isSubscribed ? '🔔' : '🔕'}
+                  {subscriberCount > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 800 }}>{subscriberCount}</span>
+                  )}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,.2)',
+                  background: 'rgba(255,255,255,.1)',
+                  color: BRAND.white,
+                  cursor: 'pointer',
+                  fontSize: 18,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 16 }}>
@@ -1160,7 +1325,7 @@ export default function TaskDetailPanel({
                     <button
                       type="button"
                       onClick={() => setShowProjectPicker((current) => !current)}
-                      style={{
+                    style={{
                         border: `1px solid ${BRAND.line}`,
                         background: BRAND.white,
                         borderRadius: 999,
@@ -1222,7 +1387,7 @@ export default function TaskDetailPanel({
                     border: `1px dashed ${BRAND.line}`,
                     borderRadius: 18,
                     padding: '18px 16px',
-                    background: '#FCFAF8',
+                    background: BRAND.surfaceSoft,
                     fontSize: 13,
                     color: BRAND.muted,
                   }}
@@ -1267,7 +1432,7 @@ export default function TaskDetailPanel({
                 borderRadius: 22,
                 background: BRAND.white,
                 padding: 18,
-                boxShadow: '0 12px 24px rgba(17,17,17,.05)',
+                boxShadow: 'var(--xc-shadow)',
               }}
             >
               <div
@@ -1298,7 +1463,7 @@ export default function TaskDetailPanel({
                   marginTop: 14,
                   height: 10,
                   borderRadius: 999,
-                  background: '#EDE5DE',
+                  background: BRAND.surfaceMuted,
                   overflow: 'hidden',
                 }}
               >
@@ -1335,7 +1500,7 @@ export default function TaskDetailPanel({
                     borderRadius: 14,
                     padding: '0 16px',
                     background:
-                      !subtaskInput.trim() || !onQuickAddSubtask ? '#E6DDD6' : BRAND.crimson,
+                      !subtaskInput.trim() || !onQuickAddSubtask ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
                     fontSize: 13,
                     fontWeight: 800,
@@ -1368,7 +1533,7 @@ export default function TaskDetailPanel({
                       border: `1px dashed ${BRAND.line}`,
                       borderRadius: 18,
                       padding: '20px 16px',
-                      background: '#FCFAF8',
+                      background: BRAND.surfaceSoft,
                       fontSize: 13,
                       color: BRAND.muted,
                     }}
@@ -1380,7 +1545,195 @@ export default function TaskDetailPanel({
             </div>
           </Section>
 
+          {/* ── Dependencies ──────────────────────────────────────── */}
+          <Section kicker="Dependencies" title="任務依賴">
+            <div style={{ display: 'grid', gap: 10 }}>
+              {blockedBy.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: BRAND.muted, marginBottom: 6 }}>
+                    等待完成（前置任務）
+                  </div>
+                  {blockedBy.map(dep => (
+                    <div key={String(dep.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 12, border: `1px solid ${BRAND.line}`, background: BRAND.white, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, flex: 1, color: BRAND.ink }}>
+                        🔒 {dep.dependsOnTask?.title || `Task #${dep.dependsOnTaskId}`}
+                      </span>
+                      <span style={{ fontSize: 11, color: BRAND.muted }}>{DEP_TYPE_LABELS[dep.type] || dep.type}</span>
+                      {onRemoveDependency && (
+                        <button type="button" onClick={() => void onRemoveDependency(dep.id)} style={{ border: 'none', background: 'none', color: BRAND.muted, cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {blocks.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: BRAND.muted, marginBottom: 6 }}>
+                    完成後解鎖（後續任務）
+                  </div>
+                  {blocks.map(dep => (
+                    <div key={String(dep.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 12, border: `1px solid ${BRAND.line}`, background: BRAND.white, marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, flex: 1, color: BRAND.ink }}>
+                        🔓 {dep.task?.title || `Task #${dep.taskId}`}
+                      </span>
+                      <span style={{ fontSize: 11, color: BRAND.muted }}>{DEP_TYPE_LABELS[dep.type] || dep.type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {blockedBy.length === 0 && blocks.length === 0 && (
+                <div style={{ fontSize: 13, color: BRAND.muted, padding: '8px 0' }}>尚無任務依賴關係。</div>
+              )}
+              {onAddDependency && allTasks.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <input
+                    list="dep-task-list"
+                    value={depInput}
+                    onChange={e => setDepInput(e.target.value)}
+                    placeholder="輸入前置任務名稱..."
+                    style={{ flex: 1, borderRadius: 10, border: `1px solid ${BRAND.line}`, background: BRAND.white, color: BRAND.ink, padding: '7px 10px', fontSize: 13 }}
+                  />
+                  <datalist id="dep-task-list">
+                    {allTasks.filter(t => String(t.id) !== String(task?.id)).map(t => (
+                      <option key={String(t.id)} value={t.title} />
+                    ))}
+                  </datalist>
+                  <select value={depType} onChange={e => setDepType(e.target.value as typeof depType)} style={{ borderRadius: 10, border: `1px solid ${BRAND.line}`, background: BRAND.white, color: BRAND.ink, padding: '7px 8px', fontSize: 12 }}>
+                    <option value="finish_to_start">完成才能開始</option>
+                    <option value="start_to_start">開始才能開始</option>
+                    <option value="finish_to_finish">完成才能完成</option>
+                  </select>
+                  <button type="button" onClick={() => void handleAddDep()} disabled={!depInput.trim() || depPending} style={{ borderRadius: 10, border: 'none', background: BRAND.crimson, color: BRAND.white, padding: '7px 12px', fontSize: 12, fontWeight: 800, cursor: depInput.trim() && !depPending ? 'pointer' : 'not-allowed' }}>
+                    {depPending ? '...' : '新增'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </Section>
+
           <Section kicker="Activity" title="活動紀錄">
+            <div
+              style={{
+                marginBottom: 18,
+                border: `1px solid ${BRAND.line}`,
+                borderRadius: 20,
+                background: BRAND.white,
+                padding: 18,
+                boxShadow: 'var(--xc-shadow)',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                新增留言
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: BRAND.muted, lineHeight: 1.6 }}>
+                可直接輸入工作更新，使用 @姓名 提及團隊成員。
+              </div>
+
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  ref={commentTextareaRef}
+                  value={commentText}
+                  onChange={(event) => handleCommentChange(event.target.value)}
+                  onKeyDown={e => {
+                    if (showMentionPicker && e.key === 'Escape') {
+                      setShowMentionPicker(false);
+                      e.stopPropagation();
+                    }
+                  }}
+                  placeholder="輸入留言內容... （輸入 @ 可提及成員）"
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    marginTop: 14,
+                    minHeight: 116,
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.7,
+                  }}
+                />
+                {showMentionPicker && filteredMentionMembers.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: 0,
+                    zIndex: 9999,
+                    background: BRAND.white,
+                    border: `1px solid ${BRAND.line}`,
+                    borderRadius: 12,
+                    boxShadow: 'var(--xc-shadow-strong)',
+                    minWidth: 200,
+                    overflow: 'hidden',
+                  }}>
+                    {filteredMentionMembers.map(m => (
+                      <button
+                        key={String(m.id)}
+                        type="button"
+                        onMouseDown={e => { e.preventDefault(); insertMention(m); }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          width: '100%',
+                          padding: '8px 14px',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                          color: BRAND.ink,
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = BRAND.surfaceSoft; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                      >
+                        <Avatar user={m} size={24} />
+                        <span style={{ fontWeight: 700 }}>{m.name}</span>
+                        {m.email && <span style={{ fontSize: 11, color: BRAND.muted }}>{m.email}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {commentError ? (
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 14,
+                    background: BRAND.dangerSoft,
+                    color: BRAND.crimsonDeep,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {commentError}
+                </div>
+              ) : null}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => void handleAddComment()}
+                  disabled={!commentText.trim() || commentSaving || !onAddComment}
+                  style={{
+                    borderRadius: 14,
+                    border: 'none',
+                    background:
+                      !commentText.trim() || !onAddComment || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
+                    color: BRAND.white,
+                    padding: '11px 16px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor:
+                      !commentText.trim() || !onAddComment || commentSaving ? 'not-allowed' : 'pointer',
+                    minWidth: 118,
+                  }}
+                >
+                  {commentSaving ? '送出中...' : '送出留言'}
+                </button>
+              </div>
+            </div>
+
             <ActivityTimeline items={activityFeed} />
           </Section>
         </div>
@@ -1389,8 +1742,7 @@ export default function TaskDetailPanel({
           style={{
             padding: '18px 24px 24px',
             borderTop: `1px solid ${BRAND.line}`,
-            background: 'rgba(255,255,255,.92)',
-            backdropFilter: 'blur(14px)',
+            background: BRAND.surface,
             display: 'flex',
             justifyContent: 'space-between',
             gap: 12,
@@ -1402,8 +1754,8 @@ export default function TaskDetailPanel({
             disabled={!onDelete}
             style={{
               borderRadius: 14,
-              border: `1px solid ${onDelete ? '#F0B6BF' : BRAND.line}`,
-              background: '#FFF6F7',
+              border: `1px solid ${onDelete ? 'color-mix(in srgb, var(--xc-danger) 32%, var(--xc-border))' : BRAND.line}`,
+              background: BRAND.dangerSoft,
               color: onDelete ? BRAND.crimsonDeep : BRAND.muted,
               padding: '12px 14px',
               fontSize: 13,
@@ -1439,7 +1791,7 @@ export default function TaskDetailPanel({
               style={{
                 borderRadius: 14,
                 border: 'none',
-                background: saving || !title.trim() ? '#D9B5BC' : BRAND.crimson,
+                background: saving || !title.trim() ? 'var(--xc-brand-soft)' : BRAND.crimson,
                 color: BRAND.white,
                 padding: '12px 18px',
                 fontSize: 13,

@@ -428,7 +428,7 @@ router.post('/:id/tasks', async (req, res) => {
     const normalizedStatus = normalizeTaskStatus(req.body.status, 'todo');
     const normalizedAssigneeId = assigneeId ? parseInt(assigneeId) : null;
     const normalizedParentTaskId = parentTaskId ? parseInt(parentTaskId) : null;
-    const actorId = req.user?.id ? parseInt(req.user.id) : null;
+    const actorId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
 
     // 取得同狀態最大 position，新任務排在最後
     const maxPos = await prisma.task.aggregate({
@@ -441,6 +441,7 @@ router.post('/:id/tasks', async (req, res) => {
       const createdTask = await tx.task.create({
         data: {
           projectId,
+          createdById: actorId,
           title:          title.trim(),
           description,
           priority,
@@ -536,7 +537,7 @@ router.post('/:id/tasks', async (req, res) => {
         recipientId: normalizedAssigneeId,
         actorId,
       }).catch((error) => {
-        console.warn(`[projects] 建立指派通知失敗 task=${task.id}: ${error.message}`);
+        console.warn(`[projects] 建立任務指派通知失敗 task=${task.id}: ${error.message}`);
       });
     }
   } catch (e) {
@@ -570,7 +571,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
 
     if (!existingTask) return err(res, `找不到任務 #${taskId}`, 404);
 
-    const actorId = req.user?.id ? parseInt(req.user.id) : null;
+    const actorId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
     const normalizedAssigneeId = assigneeId !== undefined
       ? (assigneeId ? parseInt(assigneeId) : null)
       : undefined;
@@ -685,7 +686,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
         recipientId: normalizedAssigneeId,
         actorId,
       }).catch((error) => {
-        console.warn(`[projects] 更新指派通知失敗 task=${task.id}: ${error.message}`);
+        console.warn(`[projects] 更新任務指派通知失敗 task=${task.id}: ${error.message}`);
       });
     }
   } catch (e) {
@@ -715,6 +716,138 @@ router.delete('/tasks/:taskId', async (req, res) => {
     });
 
     res.json({ success: true, message: `任務「${existing.title}」已刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/comments
+// 取得任務評論清單
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/comments', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const comments = await prisma.comment.findMany({
+      where: {
+        taskId,
+        deletedAt: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const mentionIds = [...new Set(
+      comments.flatMap((comment) => Array.isArray(comment.mentions) ? comment.mentions : [])
+        .map((id) => parseInt(id, 10))
+        .filter(Boolean)
+    )];
+    const mentionedUsers = mentionIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: mentionIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const mentionMap = new Map(mentionedUsers.map((user) => [user.id, user]));
+
+    ok(res, comments.map((comment) => ({
+      id: comment.id,
+      text: comment.content,
+      author: comment.user?.name || '未知成員',
+      authorId: comment.userId,
+      ts: comment.createdAt.toISOString(),
+      parentId: comment.parentId,
+      mentions: (Array.isArray(comment.mentions) ? comment.mentions : [])
+        .map((id) => mentionMap.get(parseInt(id, 10)))
+        .filter(Boolean),
+    })));
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/comments
+// 新增任務評論，並建立留言 / @提及 通知
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/comments', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
+  const content = String(req.body.content || '').trim();
+  const authorId = req.user?.userId ? parseInt(req.user.userId, 10) : parseInt(req.body.userId || '0', 10);
+
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+  if (!content) return err(res, '留言內容為必填', 400);
+  if (!authorId) return err(res, '需要登入後才能留言', 401);
+
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      include: {
+        project: {
+          select: { id: true, companyId: true },
+        },
+      },
+    });
+    if (!task) return err(res, `找不到任務 #${taskId}`, 404);
+
+    const companyUsers = await prisma.user.findMany({
+      where: {
+        companyId: task.project.companyId,
+        isActive: true,
+      },
+      select: { id: true, name: true },
+    });
+    const mentionIds = companyUsers
+      .filter((user) => content.includes(`@${user.name}`))
+      .map((user) => user.id);
+
+    const comment = await prisma.comment.create({
+      data: {
+        taskId,
+        userId: authorId,
+        parentId,
+        content,
+        mentions: mentionIds,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+      },
+    });
+
+    createTaskCommentNotifications(prisma, {
+      taskId,
+      authorId,
+      content,
+      commentId: comment.id,
+      parentId,
+    }).catch((error) => {
+      console.warn(`[projects] 建立評論通知失敗 comment=${comment.id}: ${error.message}`);
+    });
+
+    ok(res, {
+      id: comment.id,
+      text: comment.content,
+      author: comment.user?.name || '未知成員',
+      authorId: comment.userId,
+      ts: comment.createdAt.toISOString(),
+      parentId: comment.parentId,
+      mentions: companyUsers.filter((user) => mentionIds.includes(user.id)),
+    });
   } catch (e) {
     console.error(e);
     err(res, e.message);
@@ -881,6 +1014,337 @@ router.delete('/milestones/:milestoneId', async (req, res) => {
 
     await prisma.milestone.delete({ where: { id: milestoneId } });
     res.json({ success: true, message: `里程碑「${existing.name}」已刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/detail
+// 取得單一任務完整詳情（含多專案、訂閱者、依賴關係）
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/detail', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+  const currentUserId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      include: {
+        project: { select: { id: true, name: true, color: true } },
+        assignee: { select: { id: true, name: true, avatarUrl: true } },
+        taskProjects: {
+          include: {
+            project: { select: { id: true, name: true, color: true } },
+          },
+        },
+        subscribers: {
+          select: { userId: true, user: { select: { id: true, name: true } } },
+        },
+        dependencies: {
+          include: {
+            dependsOnTask: { select: { id: true, title: true, status: true } },
+          },
+        },
+        dependents: {
+          include: {
+            task: { select: { id: true, title: true, status: true } },
+          },
+        },
+        subtasks: {
+          where: { deletedAt: null },
+          select: { id: true, title: true, status: true, dueDate: true, assigneeId: true,
+            assignee: { select: { id: true, name: true } } },
+          orderBy: { position: 'asc' },
+        },
+        _count: { select: { subtasks: true, comments: true } },
+      },
+    });
+    if (!task) return err(res, `找不到任務 #${taskId}`, 404);
+
+    const linkedProjects = task.taskProjects.map(tp => ({
+      id: tp.project.id,
+      name: tp.project.name,
+      color: tp.project.color,
+      isPrimary: tp.isPrimary,
+    }));
+    // 確保主專案在清單中
+    if (task.project && !linkedProjects.some(p => p.id === task.project.id)) {
+      linkedProjects.unshift({ ...task.project, isPrimary: true });
+    }
+
+    ok(res, {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      progressPercent: task.progressPercent,
+      assignee: task.assignee,
+      projects: linkedProjects,
+      isSubscribed: currentUserId ? task.subscribers.some(s => s.userId === currentUserId) : false,
+      subscriberCount: task.subscribers.length,
+      subscribers: task.subscribers.map(s => s.user),
+      dependencies: task.dependencies.map(d => ({
+        id: d.id,
+        type: d.dependencyType,
+        blockedBy: { id: d.dependsOnTask.id, title: d.dependsOnTask.title, status: d.dependsOnTask.status },
+      })),
+      dependents: task.dependents.map(d => ({
+        id: d.id,
+        type: d.dependencyType,
+        blocks: { id: d.task.id, title: d.task.title, status: d.task.status },
+      })),
+      subtasks: task.subtasks.map(s => ({
+        id: s.id,
+        title: s.title,
+        completed: s.status === 'done' || s.status === 'completed',
+        status: s.status,
+        dueDate: s.dueDate,
+        assignee: s.assignee,
+      })),
+      commentCount: task._count.comments,
+    });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/projects
+// 將任務加入另一個專案（多專案關聯）
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/projects', async (req, res) => {
+  const taskId   = parseInt(req.params.taskId, 10);
+  const projectId = parseInt(req.body.projectId, 10);
+  if (isNaN(taskId) || isNaN(projectId)) return err(res, '無效的 ID', 400);
+  const addedById = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+
+  try {
+    await prisma.taskProject.upsert({
+      where: { taskId_projectId: { taskId, projectId } },
+      update: {},
+      create: { taskId, projectId, isPrimary: false, addedById },
+    });
+    ok(res, { taskId, projectId, message: '已加入專案' });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/projects/:projectId
+// 將任務從某個專案移除（不能移除主專案）
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/projects/:projectId', async (req, res) => {
+  const taskId    = parseInt(req.params.taskId, 10);
+  const projectId = parseInt(req.params.projectId, 10);
+  if (isNaN(taskId) || isNaN(projectId)) return err(res, '無效的 ID', 400);
+
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      select: { projectId: true },
+    });
+    if (!task) return err(res, '找不到任務', 404);
+    if (task.projectId === projectId) return err(res, '無法移除主專案', 400);
+
+    await prisma.taskProject.deleteMany({ where: { taskId, projectId } });
+    ok(res, { message: '已從專案移除' });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/subscribe
+// 訂閱任務（關注更新通知）
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/subscribe', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+  const userId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+  if (!userId) return err(res, '請先登入', 401);
+
+  try {
+    await prisma.taskSubscriber.upsert({
+      where: { taskId_userId: { taskId, userId } },
+      update: {},
+      create: { taskId, userId },
+    });
+    ok(res, { subscribed: true, message: '已訂閱此任務' });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/subscribe
+// 取消訂閱任務
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/subscribe', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+  const userId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+  if (!userId) return err(res, '請先登入', 401);
+
+  try {
+    await prisma.taskSubscriber.deleteMany({ where: { taskId, userId } });
+    ok(res, { subscribed: false, message: '已取消訂閱' });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/dependencies
+// 取得任務的依賴關係清單
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/dependencies', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const [dependencies, dependents] = await Promise.all([
+      prisma.taskDependency.findMany({
+        where: { taskId },
+        include: { dependsOnTask: { select: { id: true, title: true, status: true } } },
+      }),
+      prisma.taskDependency.findMany({
+        where: { dependsOnTaskId: taskId },
+        include: { task: { select: { id: true, title: true, status: true } } },
+      }),
+    ]);
+
+    ok(res, {
+      blockedBy: dependencies.map(d => ({
+        id: d.id,
+        type: d.dependencyType,
+        task: d.dependsOnTask,
+      })),
+      blocks: dependents.map(d => ({
+        id: d.id,
+        type: d.dependencyType,
+        task: d.task,
+      })),
+    });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/tasks/:taskId/dependencies
+// 新增任務依賴關係
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/dependencies', async (req, res) => {
+  const taskId          = parseInt(req.params.taskId, 10);
+  const dependsOnTaskId = parseInt(req.body.dependsOnTaskId, 10);
+  const dependencyType  = req.body.dependencyType || 'finish_to_start';
+
+  if (isNaN(taskId) || isNaN(dependsOnTaskId)) return err(res, '無效的任務 ID', 400);
+  if (taskId === dependsOnTaskId) return err(res, '任務不能依賴自己', 400);
+
+  const VALID_TYPES = ['finish_to_start', 'start_to_start', 'finish_to_finish'];
+  if (!VALID_TYPES.includes(dependencyType)) return err(res, '無效的依賴類型', 400);
+
+  try {
+    // 簡單循環依賴防護：檢查對方是否已依賴我
+    const reverseExists = await prisma.taskDependency.findFirst({
+      where: { taskId: dependsOnTaskId, dependsOnTaskId: taskId },
+    });
+    if (reverseExists) return err(res, '無法建立循環依賴', 400);
+
+    const dep = await prisma.taskDependency.create({
+      data: { taskId, dependsOnTaskId, dependencyType },
+      include: {
+        dependsOnTask: { select: { id: true, title: true, status: true } },
+      },
+    });
+
+    ok(res, {
+      id: dep.id,
+      type: dep.dependencyType,
+      blockedBy: dep.dependsOnTask,
+    });
+  } catch (e) {
+    if (e.code === 'P2002') return err(res, '此依賴關係已存在', 409);
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/dependencies/:depId
+// 刪除任務依賴關係
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/dependencies/:depId', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  const depId  = parseInt(req.params.depId, 10);
+  if (isNaN(taskId) || isNaN(depId)) return err(res, '無效的 ID', 400);
+
+  try {
+    await prisma.taskDependency.delete({ where: { id: depId } });
+    ok(res, { message: '依賴關係已移除' });
+  } catch (e) {
+    if (e.code === 'P2025') return err(res, '找不到此依賴關係', 404);
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH /api/projects/tasks/:taskId/multi-projects
+// 同步任務的多專案清單（把 projectIds 寫入 TaskProject table）
+// ════════════════════════════════════════════════════════════
+router.patch('/tasks/:taskId/multi-projects', async (req, res) => {
+  const taskId     = parseInt(req.params.taskId, 10);
+  const projectIds = req.body.projectIds;
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+  if (!Array.isArray(projectIds)) return err(res, 'projectIds 必須是陣列', 400);
+  const addedById = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      select: { projectId: true },
+    });
+    if (!task) return err(res, '找不到任務', 404);
+
+    const parsedIds = [...new Set(projectIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id)))];
+
+    await prisma.$transaction(async (tx) => {
+      // 刪除所有非主專案的關聯
+      await tx.taskProject.deleteMany({
+        where: { taskId, isPrimary: false },
+      });
+      // 確保主專案 upsert
+      await tx.taskProject.upsert({
+        where: { taskId_projectId: { taskId, projectId: task.projectId } },
+        update: { isPrimary: true },
+        create: { taskId, projectId: task.projectId, isPrimary: true, addedById },
+      });
+      // 新增其他專案
+      for (const projectId of parsedIds) {
+        if (projectId === task.projectId) continue;
+        await tx.taskProject.upsert({
+          where: { taskId_projectId: { taskId, projectId } },
+          update: {},
+          create: { taskId, projectId, isPrimary: false, addedById },
+        });
+      }
+    });
+
+    ok(res, { message: '多專案設定已同步', taskId, projectIds: parsedIds });
   } catch (e) {
     console.error(e);
     err(res, e.message);

@@ -13,25 +13,27 @@
 
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import './LoginPage.css';
 
 // 使用相對路徑，由 Vite proxy 轉發到後端
 const API_BASE = '';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const C = {
-  accent:    '#C41230',
-  accentDk:  '#A00E26',
-  accentLt:  '#FDF1F3',
-  pageBg:    '#F4F0F0',
-  white:     '#FFFFFF',
-  border:    '#E5E7EB',
-  borderFocus:'#C41230',
-  t1:        '#111827',
-  t2:        '#374151',
-  t3:        '#9CA3AF',
-  error:     '#EF4444',
-  success:   '#10B981',
-  shadow:    '0 4px 24px rgba(196,18,48,0.10)',
+  accent:    'var(--xc-brand)',
+  accentDk:  'var(--xc-brand-dark)',
+  accentLt:  'var(--xc-brand-soft-strong)',
+  pageBg:    'var(--xc-bg)',
+  white:     'var(--xc-surface-strong)',
+  border:    'var(--xc-border)',
+  borderFocus:'var(--xc-brand)',
+  t1:        'var(--xc-text)',
+  t2:        'var(--xc-text-soft)',
+  t3:        'var(--xc-text-muted)',
+  error:     'var(--xc-danger)',
+  success:   'var(--xc-success)',
+  shadow:    'var(--xc-shadow)',
 };
 
 // ── SVG 圖示 ──────────────────────────────────────────────────
@@ -86,6 +88,62 @@ function IconSpinner({ size = 20 }) {
   );
 }
 
+function IconSun({ size = 16, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77" />
+    </svg>
+  );
+}
+
+function IconMoon({ size = 16, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3c0 5 4 9 9 9 .27 0 .53-.01.79-.03A6.78 6.78 0 0021 12.79z" />
+    </svg>
+  );
+}
+
+// ── OAuth 社群登入按鈕 ────────────────────────────────────────
+function OAuthButton({ href, icon, label }) {
+  return (
+    <a
+      href={href}
+      style={{
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        gap:            10,
+        padding:        '10px 16px',
+        border:         `1.5px solid ${C.border}`,
+        borderRadius:   10,
+        background:     C.white,
+        color:          C.t1,
+        fontSize:       13,
+        fontWeight:     500,
+        textDecoration: 'none',
+        cursor:         'pointer',
+        transition:     'border-color 0.15s, background 0.15s',
+        userSelect:     'none',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = C.borderFocus;
+        e.currentTarget.style.background  = 'var(--xc-bg-soft)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = C.border;
+        e.currentTarget.style.background  = C.white;
+      }}
+    >
+      <span style={{ flexShrink: 0, display: 'flex' }}>{icon}</span>
+      <span>{label}</span>
+    </a>
+  );
+}
+
 // ── 輸入框元件 ────────────────────────────────────────────────
 function InputField({ id, label, type, value, onChange, placeholder, icon, rightSlot, error, disabled, onKeyDown }) {
   const [focused, setFocused] = useState(false);
@@ -124,11 +182,11 @@ function InputField({ id, label, type, value, onChange, placeholder, icon, right
             border: `1.5px solid ${error ? C.error : focused ? C.borderFocus : C.border}`,
             borderRadius: 10,
             fontSize: 14, color: C.t1,
-            background: disabled ? '#F9FAFB' : C.white,
+            background: disabled ? 'var(--xc-surface-soft)' : C.white,
             outline: 'none',
             transition: 'border-color 0.15s, box-shadow 0.15s',
             boxShadow: focused
-              ? `0 0 0 3px ${error ? '#EF444420' : '#C4123018'}`
+              ? `0 0 0 3px ${error ? 'rgba(220, 38, 38, 0.14)' : 'rgba(196, 18, 48, 0.14)'}`
               : 'none',
           }}
         />
@@ -153,6 +211,7 @@ function InputField({ id, label, type, value, onChange, placeholder, icon, right
 // ── 主元件 ────────────────────────────────────────────────────
 export default function LoginPage() {
   const { login } = useAuth();
+  const { mode, toggleMode } = useTheme();
 
   const [email,       setEmail]       = useState('');
   const [password,    setPassword]    = useState('');
@@ -221,89 +280,83 @@ export default function LoginPage() {
         }
       `}</style>
 
-      {/* 頁面背景 */}
-      <div style={{
-        minHeight: '100vh',
-        background: `linear-gradient(135deg, ${C.pageBg} 0%, #EDE5E5 50%, #F4F0F0 100%)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
-        padding: '20px',
-      }}>
+      <div className="login-page">
+        <div className="login-page__shell">
+          <section className="login-page__brand" style={{ animation: 'fadeIn 0.4s ease' }}>
+            <div>
+              <div className="login-page__mode-bar">
+                <div className="login-page__brand-badge">
+                  <span className="login-page__brand-dot" />
+                  xCloudPMIS Workspace
+                </div>
 
-        {/* 背景裝飾圓圈 */}
-        <div style={{
-          position: 'fixed', top: -100, right: -100,
-          width: 400, height: 400, borderRadius: '50%',
-          background: `${C.accent}08`, pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'fixed', bottom: -80, left: -80,
-          width: 300, height: 300, borderRadius: '50%',
-          background: `${C.accent}06`, pointerEvents: 'none',
-        }} />
+                <button
+                  type="button"
+                  className="login-page__mode-toggle"
+                  onClick={toggleMode}
+                >
+                  {mode === 'dark' ? <IconSun size={15} /> : <IconMoon size={15} />}
+                  {mode === 'dark' ? '開燈模式' : '關燈模式'}
+                </button>
+              </div>
 
-        {/* 登入卡片 */}
-        <div style={{
-          width: '100%', maxWidth: 420,
-          background: C.white,
-          borderRadius: 20,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)',
-          padding: '44px 40px 36px 40px',
-          animation: 'fadeIn 0.4s ease',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
+              <h1 className="login-page__brand-title">
+                專案管理，少一點表演，多一點進度。
+              </h1>
 
-          {/* 頂部品牌色條 */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            height: 4,
-            background: `linear-gradient(90deg, ${C.accent}, #E84060)`,
-          }} />
+              <p className="login-page__brand-copy">
+                給正在處理真實工作的人用的 PMIS。任務、專案、流程、工時與報告放在同一個系統裡，資訊一致，決策才會穩。
+              </p>
 
-          {/* Logo + 品牌 */}
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
-            {/* Logo 圖示 */}
-            <div style={{
-              width: 60, height: 60, borderRadius: 16,
-              background: C.accent,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 16,
-              boxShadow: `0 4px 16px ${C.accent}40`,
-            }}>
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
-                <path d="M16 8L24 22" stroke="white" strokeWidth="1.5" strokeOpacity="0.5" />
-                <circle cx="24" cy="10" r="3" fill="white" fillOpacity="0.6" />
-              </svg>
+              <div className="login-page__feature-list">
+                {[
+                  ['01', '任務與專案在同一條資料線上', '不用在不同工具之間手動比對狀態，進度與責任歸屬自然能接起來。'],
+                  ['02', '管理者與執行者看到的是同一套事實', '首頁、報告、工作台與收件匣共享資料來源，減少認知落差。'],
+                  ['03', '系統的節奏是幫助工作，而不是干擾工作', '把常用入口、搜尋與個人工作台放在第一層，維持日常操作的流暢度。'],
+                ].map(([index, title, copy]) => (
+                  <div key={index} className="login-page__feature">
+                    <div className="login-page__feature-index">{index}</div>
+                    <div>
+                      <div className="login-page__feature-title">{title}</div>
+                      <div className="login-page__feature-copy">{copy}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <h1 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 800, color: C.t1 }}>
-              xCloudPMIS
-            </h1>
-            <p style={{ margin: 0, fontSize: 13, color: C.t3 }}>
-              專案管理資訊系統
-            </p>
-          </div>
+            <div className="login-page__brand-footer">
+              <div className="login-page__brand-pill">任務、專案、流程、工時</div>
+              <div className="login-page__brand-pill">繁體中文企業協作介面</div>
+              <div className="login-page__brand-pill">xCloud 科技內部工作台</div>
+            </div>
+          </section>
 
-          {/* 歡迎文字 */}
-          <div style={{ marginBottom: 28 }}>
-            <h2 style={{ margin: '0 0 4px 0', fontSize: 18, fontWeight: 700, color: C.t1 }}>
-              歡迎回來
-            </h2>
-            <p style={{ margin: 0, fontSize: 13, color: C.t3 }}>
-              請輸入您的帳號和密碼以繼續
-            </p>
-          </div>
+          <section className="login-page__card" style={{ animation: 'fadeIn 0.4s ease' }}>
+            <div className="login-page__logo-wrap">
+              <div className="login-page__logo-row">
+                <div className="login-page__logo-box">
+                  <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                    <path d="M8 22L16 8l8 14H8z" fill="white" fillOpacity="0.9" />
+                    <path d="M16 8L24 22" stroke="white" strokeWidth="1.5" strokeOpacity="0.5" />
+                    <circle cx="24" cy="10" r="3" fill="white" fillOpacity="0.6" />
+                  </svg>
+                </div>
+
+                <div>
+                  <p className="login-page__eyebrow">{mode === 'dark' ? 'Night Workspace' : 'Secure Sign In'}</p>
+                  <h1 className="login-page__heading">登入 xCloudPMIS</h1>
+                </div>
+              </div>
+
+              <p className="login-page__subheading">
+                使用你的系統帳號進入工作台。登入後會直接回到個人首頁與工作區。
+              </p>
+            </div>
 
           {/* 全域錯誤提示 */}
           {errorMsg && (
-            <div style={{
-              background: '#FEF2F2', border: `1px solid #FCA5A5`,
-              borderRadius: 10, padding: '11px 14px',
-              marginBottom: 20, fontSize: 13, color: '#DC2626',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
+            <div className="login-page__error">
               <span style={{ fontSize: 16 }}>⛔</span>
               {errorMsg}
             </div>
@@ -316,7 +369,7 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={e => { setEmail(e.target.value); setFieldErrors(p => ({...p, email: ''})); setErrorMsg(''); }}
-            placeholder="admin@dev.local"
+            placeholder="name@company.com"
             icon={<IconMail size={16} color={fieldErrors.email ? C.error : C.t3} />}
             error={fieldErrors.email}
             disabled={loading}
@@ -357,26 +410,7 @@ export default function LoginPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '13px 0',
-              background: loading
-                ? '#E5A0AA'
-                : `linear-gradient(135deg, ${C.accent} 0%, #E84060 100%)`,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 15, fontWeight: 700,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transition: 'opacity 0.15s, transform 0.1s',
-              boxShadow: loading ? 'none' : `0 4px 16px ${C.accent}40`,
-              marginBottom: 20,
-            }}
-            onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.90'; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-            onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)'; }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+            className="login-page__submit"
           >
             {loading ? (
               <>
@@ -386,25 +420,73 @@ export default function LoginPage() {
             ) : '登入系統'}
           </button>
 
+          {/* OAuth 社群帳號登入 */}
+          <div style={{ margin: '4px 0 16px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+            }}>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
+              <span style={{ fontSize: 12, color: C.t3, whiteSpace: 'nowrap', fontWeight: 500 }}>
+                或使用社群帳號登入
+              </span>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Google 登入 */}
+              <OAuthButton
+                href="/api/auth/google"
+                label="使用 Google 帳號登入"
+                icon={
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                }
+              />
+
+              {/* GitHub 登入 */}
+              <OAuthButton
+                href="/api/auth/github"
+                label="使用 GitHub 帳號登入"
+                icon={
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                  </svg>
+                }
+              />
+
+              {/* Microsoft 登入 */}
+              <OAuthButton
+                href="/api/auth/microsoft-login"
+                label="使用 Microsoft 帳號登入"
+                icon={
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path fill="#F25022" d="M1 1h10v10H1z"/>
+                    <path fill="#00A4EF" d="M13 1h10v10H13z"/>
+                    <path fill="#7FBA00" d="M1 13h10v10H1z"/>
+                    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                  </svg>
+                }
+              />
+            </div>
+          </div>
+
           {/* 底部提示 */}
-          <div style={{
-            borderTop: `1px solid ${C.border}`,
-            paddingTop: 18, textAlign: 'center',
-          }}>
-            <p style={{ margin: 0, fontSize: 12, color: C.t3, lineHeight: 1.6 }}>
-              預設管理員帳號：<strong style={{ color: C.t2 }}>admin@dev.local</strong>
+          <div className="login-page__credentials">
+            <p style={{ margin: 0 }}>
+              請使用系統管理員建立的正式帳號登入。
               <br />
-              密碼：<strong style={{ color: C.t2 }}>dev@2026</strong>
+              若尚未取得帳號，請聯絡貴單位系統管理員。
             </p>
           </div>
-        </div>
 
-        {/* 版權 */}
-        <div style={{
-          position: 'fixed', bottom: 20, left: 0, right: 0,
-          textAlign: 'center', fontSize: 12, color: C.t3,
-        }}>
-          © 2026 xCloud 科技 · xCloudPMIS v2.0
+          <div className="login-page__footer">
+            © 2026 xCloud 科技 · xCloudPMIS v2.0
+          </div>
+        </section>
         </div>
       </div>
     </>

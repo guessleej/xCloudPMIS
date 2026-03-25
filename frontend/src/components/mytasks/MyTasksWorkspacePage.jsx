@@ -1100,6 +1100,7 @@ function TaskPanel({
   task,
   lists,
   projects,
+  allTasks,
   attachments,
   loadingAttachments,
   onUploadAttachments,
@@ -1108,10 +1109,21 @@ function TaskPanel({
   onClose,
   onSave,
   onDelete,
+  isSubscribed,
+  subscriberCount,
+  onSubscribe,
+  onUnsubscribe,
+  dependencies,
+  onAddDependency,
+  onRemoveDependency,
 }) {
   const [draft, setDraft] = useState(task);
   const [saving, setSaving] = useState(false);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
+  const [depInput, setDepInput] = useState('');
+  const [depType, setDepType] = useState('finish_to_start');
+  const [depPending, setDepPending] = useState(false);
   const attachmentInputRef = useRef(null);
 
   useEffect(() => {
@@ -1143,9 +1155,29 @@ function TaskPanel({
             <div className="mytasks-workspace__drawer-eyebrow">任務詳情</div>
             <div className="mytasks-workspace__drawer-title">{task.title}</div>
           </div>
-          <button type="button" onClick={onClose} className="mytasks-workspace__chip-button">
-            關閉
-          </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {(onSubscribe || onUnsubscribe) && (
+              <button
+                type="button"
+                disabled={subscribing}
+                onClick={async () => {
+                  setSubscribing(true);
+                  try {
+                    if (isSubscribed) await onUnsubscribe?.(task.id);
+                    else await onSubscribe?.(task.id);
+                  } finally { setSubscribing(false); }
+                }}
+                className="mytasks-workspace__chip-button"
+                title={isSubscribed ? '取消追蹤' : '追蹤此任務'}
+                style={{ fontSize: 15 }}
+              >
+                {isSubscribed ? '🔔' : '🔕'}{subscriberCount > 0 ? ` ${subscriberCount}` : ''}
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="mytasks-workspace__chip-button">
+              關閉
+            </button>
+          </div>
         </div>
 
         <div className="mytasks-workspace__drawer-tags">
@@ -1323,6 +1355,62 @@ function TaskPanel({
               </div>
             )}
           </section>
+
+          {/* ── 任務依賴 ──────────────────────────────────────── */}
+          {(dependencies?.length > 0 || onAddDependency) && (
+            <section className="mytasks-workspace__panel-section">
+              <div className="mytasks-workspace__section-label">任務依賴</div>
+              {(dependencies || []).map(dep => {
+                const isBlocked = String(dep.taskId) === String(task.id);
+                const linkedTask = isBlocked ? dep.dependsOnTask : dep.task;
+                return (
+                  <div key={String(dep.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 0', borderBottom: `1px solid ${C.gray100}` }}>
+                    <span style={{ fontSize: 13 }}>{isBlocked ? '🔒' : '🔓'}</span>
+                    <span style={{ fontSize: 13, flex: 1, color: C.gray700 }}>{linkedTask?.title || `#${isBlocked ? dep.dependsOnTaskId : dep.taskId}`}</span>
+                    {isBlocked && onRemoveDependency && (
+                      <button type="button" onClick={() => onRemoveDependency(dep.id)} style={{ border: 'none', background: 'none', color: C.gray400, cursor: 'pointer', fontSize: 15 }}>×</button>
+                    )}
+                  </div>
+                );
+              })}
+              {onAddDependency && allTasks && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <input
+                    list="mytasks-dep-list"
+                    value={depInput}
+                    onChange={e => setDepInput(e.target.value)}
+                    placeholder="前置任務名稱..."
+                    className="mytasks-workspace__input"
+                    style={{ flex: 1, fontSize: 13 }}
+                  />
+                  <datalist id="mytasks-dep-list">
+                    {allTasks.filter(t => String(t.id) !== String(task.id)).map(t => (
+                      <option key={String(t.id)} value={t.title} />
+                    ))}
+                  </datalist>
+                  <select value={depType} onChange={e => setDepType(e.target.value)} className="mytasks-workspace__input" style={{ fontSize: 12 }}>
+                    <option value="finish_to_start">完成才能開始</option>
+                    <option value="start_to_start">開始才能開始</option>
+                    <option value="finish_to_finish">完成才能完成</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!depInput.trim() || depPending}
+                    className="mytasks-workspace__button"
+                    onClick={async () => {
+                      const found = allTasks.find(t => t.title.toLowerCase() === depInput.trim().toLowerCase() || String(t.id) === depInput.trim());
+                      if (!found) return;
+                      setDepPending(true);
+                      try { await onAddDependency({ taskId: task.id, dependsOnTaskId: found.id, type: depType }); setDepInput(''); }
+                      finally { setDepPending(false); }
+                    }}
+                  >
+                    {depPending ? '...' : '新增'}
+                  </button>
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         <div className="mytasks-workspace__drawer-footer">
@@ -1361,6 +1449,9 @@ export default function MyTasksWorkspacePage() {
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [taskAttachments, setTaskAttachments] = useState([]);
+  const [panelIsSubscribed, setPanelIsSubscribed] = useState(false);
+  const [panelSubscriberCount, setPanelSubscriberCount] = useState(0);
+  const [panelDependencies, setPanelDependencies] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [quickFilter, setQuickFilter] = useState('all');
 
@@ -1516,6 +1607,88 @@ export default function MyTasksWorkspacePage() {
       alive = false;
     };
   }, [selectedTaskId, token, user]);
+
+  // ── Load task detail (subscribe + dependencies) ───────────────────
+  useEffect(() => {
+    if (!selectedTaskId || !token || !user) {
+      setPanelIsSubscribed(false);
+      setPanelSubscriberCount(0);
+      setPanelDependencies([]);
+      return;
+    }
+    let alive = true;
+    async function loadDetail() {
+      try {
+        const res = await fetch(`/api/projects/tasks/${selectedTaskId}/detail`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!alive) return;
+        if (data.success) {
+          const subs = data.data?.subscribers || [];
+          setPanelSubscriberCount(subs.length);
+          setPanelIsSubscribed(subs.some(s => String(s.userId) === String(user?.id)));
+          setPanelDependencies(data.data?.dependencies || []);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    loadDetail();
+    return () => { alive = false; };
+  }, [selectedTaskId, token, user]);
+
+  async function handlePanelSubscribe(taskId) {
+    try {
+      const res = await fetch(`/api/projects/tasks/${taskId}/subscribe`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPanelIsSubscribed(true);
+        setPanelSubscriberCount(c => c + 1);
+      }
+    } catch (_) {}
+  }
+
+  async function handlePanelUnsubscribe(taskId) {
+    try {
+      const res = await fetch(`/api/projects/tasks/${taskId}/subscribe`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPanelIsSubscribed(false);
+        setPanelSubscriberCount(c => Math.max(0, c - 1));
+      }
+    } catch (_) {}
+  }
+
+  async function handlePanelAddDependency({ taskId, dependsOnTaskId, type }) {
+    try {
+      const res = await fetch(`/api/projects/tasks/${taskId}/dependencies`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dependsOnTaskId: Number(dependsOnTaskId), type }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPanelDependencies(prev => [...prev, data.data]);
+      } else {
+        setFlash('error', data.error || '新增依賴失敗');
+      }
+    } catch (e) { setFlash('error', e.message); }
+  }
+
+  async function handlePanelRemoveDependency(depId) {
+    try {
+      await fetch(`/api/projects/tasks/${selectedTaskId}/dependencies/${depId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPanelDependencies(prev => prev.filter(d => String(d.id) !== String(depId)));
+    } catch (_) {}
+  }
 
   async function createList(name) {
     try {
@@ -2113,6 +2286,7 @@ export default function MyTasksWorkspacePage() {
           task={selectedTask}
           lists={lists}
           projects={projects}
+          allTasks={tasks}
           attachments={taskAttachments}
           loadingAttachments={loadingTaskAttachments}
           onUploadAttachments={uploadTaskAttachments}
@@ -2121,6 +2295,13 @@ export default function MyTasksWorkspacePage() {
           onClose={() => setSelectedTaskId(null)}
           onSave={body => saveTask(selectedTask, body)}
           onDelete={deleteTask}
+          isSubscribed={panelIsSubscribed}
+          subscriberCount={panelSubscriberCount}
+          onSubscribe={handlePanelSubscribe}
+          onUnsubscribe={handlePanelUnsubscribe}
+          dependencies={panelDependencies}
+          onAddDependency={handlePanelAddDependency}
+          onRemoveDependency={handlePanelRemoveDependency}
         />
       )}
     </div>
