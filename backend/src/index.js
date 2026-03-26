@@ -10,8 +10,10 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') }); // worktree 根目錄
 require('dotenv').config({ path: path.join(__dirname, '../.env') });    // backend/ 目錄（備用）
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const { Server: SocketIOServer } = require('socket.io');
 const { Pool } = require('pg');
 const redis = require('redis');
 
@@ -33,14 +35,40 @@ const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
 const rulesRouter         = require('./routes/rules');
 const authRouter          = require('./routes/auth/login');
-const googleAuthRouter    = require('./routes/auth/google');
-const githubAuthRouter    = require('./routes/auth/github');
-const msLoginRouter       = require('./routes/auth/microsoft-login');
-const adminUsersRouter    = require('./routes/admin/users');
 const optionalAuth        = require('./middleware/optionalAuth');
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// ── Socket.io WebSocket 伺服器 ───────────────────────────────
+// 取代前端 polling，提供即時推播（通知、儀表板更新）
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: ['http://localhost:3838', 'http://127.0.0.1:3838',
+             'http://host.docker.internal:3838'],
+    credentials: true,
+  },
+  path: '/ws',
+});
+
+io.on('connection', (socket) => {
+  const { companyId, userId } = socket.handshake.query;
+
+  // 每個公司一個房間，同公司用戶共享即時事件
+  if (companyId) {
+    socket.join(`company:${companyId}`);
+  }
+  // 個人房間，用於個人通知推播
+  if (userId) {
+    socket.join(`user:${userId}`);
+  }
+
+  socket.on('disconnect', () => {});
+});
+
+// 掛載到 app，供其他模組使用
+app.set('io', io);
 
 // ── 中介軟體設定 ─────────────────────────────────────────────
 // 跨來源資源共用（CORS）：允許前端（埠 3838）呼叫後端 API
@@ -63,9 +91,9 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'pmis_db',
   user:     process.env.DB_USER     || 'pmis_user',
   password: process.env.DB_PASSWORD || 'pmis_password',
-  max: 10,              // 最多同時 10 個連線
+  max: 25,              // 最多同時 25 個連線（支援 50+ 併發用戶）
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
 });
 
 // ── Redis 客戶端設定 ────────────────────────────────────────
@@ -181,12 +209,6 @@ app.use('/api/admin/mcp', adminMcpRouter);
 // DELETE /auth/microsoft/revoke     → 撤銷授權
 app.use('/auth/microsoft', microsoftAuthRouter);
 
-// ── 開發用 JWT 產生端點（production 完全不掛載）──────────────
-if (process.env.NODE_ENV !== 'production') {
-  const devTokenRouter = require('./routes/auth/devToken');
-  app.use('/api/auth/dev-token', devTokenRouter);
-}
-
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
 // GET /api/tasks?companyId=2 → 回傳任務純陣列（含 section 分區欄位）
 app.use('/api/tasks', tasksRouter);
@@ -215,30 +237,10 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/rules', rulesRouter);
 
 // ── 身分驗證路由 ─────────────────────────────────────────────
-// POST /api/auth/login                   → Email/密碼登入，回傳 JWT
-// GET  /api/auth/me                      → 驗證 token 並回傳當前使用者資訊
-// POST /api/auth/logout                  → 登出（前端清除 token）
-// GET  /api/auth/google                  → Google OAuth 登入
-// GET  /api/auth/google/callback         → Google OAuth 回呼
-// GET  /api/auth/github                  → GitHub OAuth 登入
-// GET  /api/auth/github/callback         → GitHub OAuth 回呼
-// GET  /api/auth/microsoft-login         → Microsoft 帳號登入
-// GET  /api/auth/microsoft-login/callback→ Microsoft 登入回呼
+// POST /api/auth/login  → Email/密碼登入，回傳 JWT
+// GET  /api/auth/me     → 驗證 token 並回傳當前使用者資訊
+// POST /api/auth/logout → 登出（前端清除 token）
 app.use('/api/auth', authRouter);
-app.use('/api/auth/google', googleAuthRouter);
-app.use('/api/auth/github', githubAuthRouter);
-app.use('/api/auth/microsoft-login', msLoginRouter);
-
-// ── Admin 使用者管理 ─────────────────────────────────────────
-// GET    /api/admin/users              → 使用者列表
-// POST   /api/admin/users              → 建立使用者
-// GET    /api/admin/users/:id          → 使用者詳情
-// PUT    /api/admin/users/:id          → 更新使用者
-// PATCH  /api/admin/users/:id/toggle   → 停用/啟用
-// POST   /api/admin/users/:id/reset-password → 重設密碼
-// DELETE /api/admin/users/:id/oauth/:p → 取消 OAuth 連結
-// GET    /api/admin/users/stats        → 統計數字
-app.use('/api/admin/users', adminUsersRouter);
 
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {
@@ -256,7 +258,7 @@ app.use((err, req, res, next) => {
 });
 
 // ── 啟動伺服器 ──────────────────────────────────────────────
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   // 服務啟動後，恢復被中斷的 AI 決策執行（防止 nodemon/崩潰導致卡在 approved/executing 狀態）
   try {
     const SafetyGuard = require('./services/autonomous-agent/decisionEngine/safetyGuard');
@@ -303,19 +305,9 @@ app.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/notifications/unread-count`);
   console.log('');
   console.log('🔑 身分驗證端點：');
-  console.log(`  POST http://localhost:${PORT}/api/auth/login              (Email/密碼登入)`);
-  console.log(`  GET  http://localhost:${PORT}/api/auth/me                 (驗證 Token)`);
-  console.log(`  POST http://localhost:${PORT}/api/auth/logout             (登出)`);
-  console.log(`  GET  http://localhost:${PORT}/api/auth/google             (Google OAuth)`);
-  console.log(`  GET  http://localhost:${PORT}/api/auth/github             (GitHub OAuth)`);
-  console.log(`  GET  http://localhost:${PORT}/api/auth/microsoft-login    (Microsoft 登入)`);
-  console.log('');
-  console.log('👥 使用者管理端點（Admin）：');
-  console.log(`  GET    http://localhost:${PORT}/api/admin/users           (列表)`);
-  console.log(`  POST   http://localhost:${PORT}/api/admin/users           (建立)`);
-  console.log(`  PUT    http://localhost:${PORT}/api/admin/users/:id       (更新)`);
-  console.log(`  PATCH  http://localhost:${PORT}/api/admin/users/:id/toggle (停用/啟用)`);
-  console.log(`  POST   http://localhost:${PORT}/api/admin/users/:id/reset-password`);
+  console.log(`  POST http://localhost:${PORT}/api/auth/login   (Email/密碼登入)`);
+  console.log(`  GET  http://localhost:${PORT}/api/auth/me      (驗證 Token)`);
+  console.log(`  POST http://localhost:${PORT}/api/auth/logout  (登出)`);
   console.log('');
   console.log('🔐 Microsoft OAuth 端點：');
   console.log(`  GET    http://localhost:${PORT}/auth/microsoft         (發起授權)`);

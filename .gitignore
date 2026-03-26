@@ -32,7 +32,3 @@ Thumbs.db
 
 # Prisma
 backend/prisma/migrations/
-
-# Claude Code 工作樹與設定
-.claude/
-.claire/

@@ -1,25 +1,15 @@
 {
   "_comment": [
-    "xCloudPMIS — Claude Desktop MCP 整合設定（v3.0）",
+    "xCloudPMIS — Claude Desktop MCP 整合設定",
     "",
     "使用方式：",
     "  macOS  → 複製此設定到 ~/Library/Application Support/Claude/claude_desktop_config.json",
     "  Windows → 複製此設定到 %APPDATA%\\Claude\\claude_desktop_config.json",
     "",
-    "⚠️  請將 absolutePath 替換為您實際的 NewCode/ 路徑。",
     "⚠️  請選擇一種執行模式（本機開發 或 Docker），複製對應的設定。",
+    "⚠️  absolutePath 必須替換為您實際的專案路徑。",
     "",
-    "設定完成後，重新啟動 Claude Desktop，在設定頁 > MCP 確認 xcloudpmis 出現。",
-    "",
-    "v3.0 新增工具（共 20 個）：",
-    "  get_system_status, get_dashboard_summary",
-    "  list_projects, get_project_details, create_project, update_project",
-    "  list_tasks, get_task_details, create_task, update_task, complete_task,",
-    "  add_task_comment, get_overdue_tasks",
-    "  list_team_members, get_user_workload, assign_task",
-    "  log_time, get_project_report",
-    "  send_notification, send_reminder_email",
-    "  analyze_project_health"
+    "設定完成後，重新啟動 Claude Desktop，在設定頁 > MCP 確認 xcloudpmis 出現。"
   ],
 
   "mcpServers": {
@@ -27,27 +17,30 @@
     "xcloudpmis": {
       "_mode": "本機開發模式（直接執行 Node.js）",
       "_description": [
-        "適用於：本機開發環境，不需要 Docker 執行中",
+        "適用於：本機開發環境，Docker 未必在執行中",
         "前提條件：已在 backend/ 目錄執行 npm install",
         "注意：absolutePath 請替換為實際路徑"
       ],
+
       "command": "node",
       "args": [
-        "/Users/jeff/Desktop/08.開發環境/claude/xCloudPMIS/NewCode/backend/mcp/server.js"
+        "/Users/jeff/Desktop/08.開發環境/claude/xCloudPMIS/code/backend/mcp/server.js"
       ],
       "env": {
+        "_comment": "環境變數會覆蓋 .env 檔案中的設定（選填，建議直接設定 .env）",
         "NODE_ENV": "production",
-        "TZ": "Asia/Taipei",
-        "DEFAULT_COMPANY_ID": "1"
+        "TZ": "Asia/Taipei"
       }
     },
 
     "xcloudpmis-docker": {
-      "_mode": "Docker 模式（在執行中的 pmis-backend 容器內執行）",
+      "_mode": "Docker 模式（在執行中的容器內執行）",
       "_description": [
-        "適用於：正式環境，docker-compose up -d 已在執行中",
-        "前提條件：pmis-backend 容器必須已在執行"
+        "適用於：正式環境，Docker Compose 已在執行中（docker-compose up -d）",
+        "前提條件：pmis-backend 容器必須已在執行",
+        "容器名稱與 docker-compose.yml 中的 container_name 保持一致"
       ],
+
       "command": "docker",
       "args": [
         "exec",

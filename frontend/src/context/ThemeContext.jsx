@@ -1,39 +1,63 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+/**
+ * ThemeContext — 深色 / 淺色主題管理
+ *
+ * 提供：
+ *   mode        'light' | 'dark'
+ *   isDark      boolean
+ *   toggleMode  () => void
+ *   setMode     (mode: 'light' | 'dark') => void
+ *
+ * 效果：同步設定 html[data-theme] 屬性，讓 system-theme.css 的 CSS 變數切換生效
+ */
 
-const THEME_STORAGE_KEY = 'xcloud-theme-mode';
+import { createContext, useContext, useEffect, useState } from 'react';
+
 const ThemeContext = createContext(null);
 
-function readStoredTheme() {
-  if (typeof window === 'undefined') return 'light';
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {}
-
-  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-  return 'light';
-}
+const STORAGE_KEY = 'xcloud-theme-mode';
 
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState(readStoredTheme);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.dataset.theme = mode;
-    root.style.colorScheme = mode;
+  const [mode, setModeState] = useState(() => {
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, mode);
-    } catch {}
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch (_) {}
+    // 尊重系統偏好設定
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  // 每次 mode 改變時同步到 html[data-theme] 與 localStorage
+  useEffect(() => {
+    const html = document.documentElement;
+    if (mode === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    } else {
+      html.removeAttribute('data-theme');
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, mode);
+    } catch (_) {}
   }, [mode]);
 
-  const value = useMemo(() => ({
+  const setMode = (newMode) => {
+    if (newMode === 'light' || newMode === 'dark') {
+      setModeState(newMode);
+    }
+  };
+
+  const toggleMode = () => {
+    setModeState(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const value = {
     mode,
     isDark: mode === 'dark',
+    toggleMode,
     setMode,
-    toggleMode: () => setMode((current) => current === 'dark' ? 'light' : 'dark'),
-  }), [mode]);
+  };
 
   return (
     <ThemeContext.Provider value={value}>
@@ -43,10 +67,7 @@ export function ThemeProvider({ children }) {
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme 必須在 <ThemeProvider> 內使用');
-  }
-  return context;
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
 }
-

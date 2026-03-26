@@ -113,15 +113,32 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
       # JWT 金鑰（之後實作認證時使用）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      # MCP External Server（adminMcp.js 代理請求用）
-      MCP_EXTERNAL_URL: http://pmis-mcp:3100
-      MCP_ADMIN_KEY: ${MCP_ADMIN_KEY:-dev-admin-secret}
-      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID:-1}
+      # ── OAuth 2.0 登入整合 ──────────────────────────────────
+      # OAuth callback 基礎 URL（前端對外網址，透過 Vite proxy 轉送到後端）
+      OAUTH_CALLBACK_BASE: ${OAUTH_CALLBACK_BASE:-http://localhost:3838}
+      # OAuth 成功後重定向的前端根 URL
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3838}
+      # Microsoft Azure AD（Entra ID）OAuth 設定
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      # Google OAuth 2.0 設定（至 console.cloud.google.com 申請）
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # GitHub OAuth App 設定（至 github.com/settings/developers 申請）
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # 微服務通訊（服務間 HTTP 呼叫）
+      INTERNAL_AI_SERVICE_URL: http://ai-service:3002
+      INTERNAL_FILE_SERVICE_URL: http://file-service:3001
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-pmis-internal-secret-dev}
     volumes:
       # 掛載原始碼，讓 nodemon 偵測檔案變更自動重啟
       - ./backend:/app
       # 排除 node_modules（使用容器內的版本，避免 OS 差異問題）
       - /app/node_modules
+      # 上傳檔案持久化（容器重建後不遺失）
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -137,40 +154,31 @@ services:
       - pmis-network
 
   # ──────────────────────────────────────────────────────────
+  # 5. AI 決策服務（獨立微服務）
+  #    處理所有 OpenAI API 呼叫，不阻塞主 backend event loop
   # ──────────────────────────────────────────────────────────
-  # 5. MCP External Server — 對外開放 API（SSE 模式）
-  #    提供 HTTP SSE MCP 協定，讓外部 AI Agent / 第三方系統串接
-  # ──────────────────────────────────────────────────────────
-  mcp-server:
+  ai-service:
     build:
-      context: ./backend
+      context: ./ai-service
       dockerfile: Dockerfile
-    container_name: pmis-mcp
+    container_name: pmis-ai-service
     restart: unless-stopped
-    command: node mcp-external-server/index.js
-    ports:
-      - "3100:3100"
+    # 僅限內部網路，不對外暴露 port（安全隔離）
+    expose:
+      - "3002"
     environment:
       NODE_ENV: development
-      MCP_PORT: 3100
+      PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-pmis_user}:${POSTGRES_PASSWORD:-pmis_password}@postgres:5432/${POSTGRES_DB:-pmis_db}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      MCP_ADMIN_KEY: ${MCP_ADMIN_KEY:-dev-admin-secret}
-      DEFAULT_COMPANY_ID: ${DEFAULT_COMPANY_ID:-1}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_LANGUAGE: ${AI_LANGUAGE:-zh-TW（繁體中文）}
+      AI_COMPANY_NAME: ${AI_COMPANY_NAME:-公司}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-pmis-internal-secret-dev}
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3100/mcp/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -179,7 +187,37 @@ services:
       - pmis-network
 
   # ──────────────────────────────────────────────────────────
-  # 6. React + Vite — 前端開發服務
+  # 6. 檔案處理服務（獨立微服務）
+  #    處理大檔案上傳/下載，不阻塞主 backend event loop
+  # ──────────────────────────────────────────────────────────
+  file-service:
+    build:
+      context: ./file-service
+      dockerfile: Dockerfile
+    container_name: pmis-file-service
+    restart: unless-stopped
+    # 僅限內部網路
+    expose:
+      - "3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      UPLOAD_DIR: /uploads
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-pmis-internal-secret-dev}
+    volumes:
+      # 與主後端共享同一個 uploads volume
+      - uploads_data:/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - pmis-network
+
+  # ──────────────────────────────────────────────────────────
+  # 7. React + Vite — 前端開發服務
   #    提供現代化的前端開發環境，支援熱更新 (HMR)
   # ──────────────────────────────────────────────────────────
   frontend:
@@ -226,3 +264,5 @@ volumes:
     name: pmis-pgadmin-data
   redis_data:
     name: pmis-redis-data
+  uploads_data:
+    name: pmis-uploads-data

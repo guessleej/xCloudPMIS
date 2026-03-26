@@ -1,41 +1,22 @@
 /**
- * Optional JWT 身分驗證中介層
- *
- * 與 requireAuth 的差異：
- *   - Token 不存在或無效 → 繼續執行（不返回 401）
- *   - Token 有效 → 注入 req.user（同 requireAuth）
- *
- * 使用場景：
- *   - API 路由需要在「已登入時」使用 req.user.companyId
- *   - 路由對外也支援 query param 作為備援（向後相容）
+ * optionalAuth — 選用 JWT 驗證中介層
+ * 有 Token 時解析並注入 req.user，無 Token 時直接繼續
  */
-
 const jwt = require('jsonwebtoken');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'pmis-dev-secret-2024';
+
 module.exports = function optionalAuth(req, res, next) {
-  const authHeader  = req.headers['authorization'] || '';
-  const bearerToken = authHeader.startsWith('Bearer ')
-    ? authHeader.slice(7).trim()
-    : null;
-  const token = bearerToken || req.query.token || null;
-
-  if (!token) return next();   // 沒有 Token → 跳過，繼續執行
-
-  const secret = process.env.APP_JWT_SECRET || 'xcloud-dev-secret-change-in-production';
-
-  try {
-    const decoded = jwt.verify(token, secret);
-    req.user = {
-      userId:    decoded.userId    || decoded.sub,
-      companyId: decoded.companyId,
-      email:     decoded.email,
-      role:      decoded.role,
-      name:      decoded.name,
-      sub:       decoded.sub,
-    };
-  } catch (_) {
-    // Token 無效或過期 → 忽略，不設定 req.user
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
   }
-
+  const token = authHeader.slice(7);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+  } catch (_) {
+    // token 無效或過期 → 忽略，繼續執行
+  }
   next();
 };
