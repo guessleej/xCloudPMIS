@@ -19,6 +19,7 @@ const redis = require('redis');
 
 // ── 路由模組 ─────────────────────────────────────────────────
 const dashboardRouter     = require('./routes/dashboard');
+const workloadRouter      = require('./routes/workload');
 const projectsRouter      = require('./routes/projects');
 const ganttRouter         = require('./routes/gantt');
 const timeTrackingRouter  = require('./routes/time-tracking');
@@ -173,6 +174,10 @@ app.get('/api/status', async (req, res) => {
 
 // ── 儀表板路由 ──────────────────────────────────────────────
 app.use('/api/dashboard', dashboardRouter);
+
+// ── 資源分配矩陣路由 ─────────────────────────────────────────
+// GET /api/workload/matrix?companyId=N  → 指派對象 × 任務狀態矩陣
+app.use('/api/workload', workloadRouter);
 
 // ── 專案路由（含任務） ──────────────────────────────────────
 app.use('/api/projects', projectsRouter);
