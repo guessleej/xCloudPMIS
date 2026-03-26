@@ -17,6 +17,9 @@ import HealthPieChart        from './HealthPieChart';
 import ProjectHealthList     from './ProjectHealthList';
 import WorkloadHeatmap       from './WorkloadHeatmap';
 import ActionableInsights    from './ActionableInsights';
+import OverdueTasksChart     from './OverdueTasksChart';
+import UpcomingDeadlines     from './UpcomingDeadlines';
+import { useUrgency }        from './useUrgency';
 import ProjectsPage          from '../projects/ProjectsPage';
 import TaskKanbanPage        from '../tasks/TaskKanbanPage';
 import GanttPage             from '../gantt/GanttPage';
@@ -1264,6 +1267,9 @@ function AnalyticsPage({ dashData }) {
   const { summary, projects, workload, insights, loading, error, refresh } = dashData;
   const monthlyTrend = dashData.monthlyTrend || [];
 
+  // 逾期 & 即將截止（獨立資料源，不依賴 summary hook）
+  const urgency = useUrgency(14);
+
   const cardStyle = {
     background:   'var(--xc-surface)',
     border:       '1px solid var(--xc-border)',
@@ -1365,6 +1371,82 @@ function AnalyticsPage({ dashData }) {
             monthlyTrend={monthlyTrend}
             loading={loading}
           />
+        </div>
+      </div>
+
+      {/* ── 管理痛點區：逾期 + 即將截止 ── */}
+      <div style={{
+        borderTop:  '2px solid var(--xc-border)',
+        paddingTop: '4px',
+      }}>
+        <div style={{
+          display:      'flex', alignItems: 'center', gap: '8px',
+          marginBottom: '16px',
+        }}>
+          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>
+            ⚡ 管理焦點
+          </span>
+          <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
+            — 最需要立即關注的任務
+          </span>
+          {urgency.loading && (
+            <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
+              載入中…
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {/* #26 逾期任務圖 */}
+          <div style={{
+            ...cardStyle,
+            borderColor: urgency.overdue.length > 0
+              ? 'color-mix(in srgb, #ef4444 30%, var(--xc-border))'
+              : 'var(--xc-border)',
+          }}>
+            <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+              <span>⏰ 逾期任務</span>
+              {urgency.overdue.length > 0 && (
+                <span style={{
+                  fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
+                  background: 'rgba(239,68,68,.12)', color: '#ef4444',
+                  fontWeight: 700,
+                }}>
+                  {urgency.overdue.length} 個
+                </span>
+              )}
+            </div>
+            <OverdueTasksChart
+              overdue={urgency.overdue}
+              overdueByPriority={urgency.overdueByPriority}
+              loading={urgency.loading}
+            />
+          </div>
+
+          {/* #27 即將截止 */}
+          <div style={{
+            ...cardStyle,
+            borderColor: urgency.upcoming.some(t => t.urgencyGroup === 'today')
+              ? 'color-mix(in srgb, #f97316 30%, var(--xc-border))'
+              : 'var(--xc-border)',
+          }}>
+            <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+              <span>📅 即將截止</span>
+              {urgency.upcoming.length > 0 && (
+                <span style={{
+                  fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
+                  background: 'rgba(234,179,8,.12)', color: '#ca8a04',
+                  fontWeight: 700,
+                }}>
+                  14 天內 {urgency.upcoming.length} 個
+                </span>
+              )}
+            </div>
+            <UpcomingDeadlines
+              upcoming={urgency.upcoming}
+              loading={urgency.loading}
+            />
+          </div>
         </div>
       </div>
     </div>

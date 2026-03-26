@@ -258,6 +258,123 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+// GET /api/dashboard/urgency?companyId=N&days=14
+// 逾期任務（#26）+ 即將截止（#27）
+// ════════════════════════════════════════════════════════════
+router.get('/urgency', async (req, res) => {
+  const companyId = parseInt(req.query.companyId, 10);
+  const days      = Math.min(parseInt(req.query.days  || '14', 10), 60);
+  if (!companyId) return err(res, 'companyId 為必填', 400);
+
+  try {
+    const now      = new Date();
+    const nowDate  = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // 今天 00:00
+    const cutoff   = new Date(nowDate.getTime() + days * 86_400_000);            // N 天後
+
+    // 同時撈逾期 & 即將截止的任務（含專案與指派人）
+    const [overdueRaw, upcomingRaw] = await Promise.all([
+      // 逾期：due_date < 今天 && status != done
+      prisma.task.findMany({
+        where: {
+          deletedAt: null,
+          status:    { notIn: ['done'] },
+          dueDate:   { lt: nowDate },
+          project:   { companyId, deletedAt: null },
+        },
+        select: {
+          id: true, title: true, status: true, priority: true, dueDate: true,
+          project:  { select: { id: true, name: true } },
+          assignee: { select: { id: true, name: true, avatarUrl: true } },
+        },
+        orderBy: { dueDate: 'asc' },   // 最舊的排前面
+        take: 50,
+      }),
+      // 即將截止：today <= due_date <= cutoff && status != done
+      prisma.task.findMany({
+        where: {
+          deletedAt: null,
+          status:    { notIn: ['done'] },
+          dueDate:   { gte: nowDate, lte: cutoff },
+          project:   { companyId, deletedAt: null },
+        },
+        select: {
+          id: true, title: true, status: true, priority: true, dueDate: true,
+          project:  { select: { id: true, name: true } },
+          assignee: { select: { id: true, name: true, avatarUrl: true } },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 50,
+      }),
+    ]);
+
+    // ── 格式化：加上 daysOverdue / daysLeft ──────────────
+    const dayDiff = (a, b) =>
+      Math.round((new Date(b) - new Date(a)) / 86_400_000);
+
+    const overdue = overdueRaw.map(t => ({
+      id:          t.id,
+      title:       t.title,
+      status:      t.status,
+      priority:    t.priority,
+      dueDate:     t.dueDate,
+      daysOverdue: dayDiff(t.dueDate, nowDate),   // 正整數
+      projectId:   t.project?.id,
+      projectName: t.project?.name || '未知專案',
+      assignee:    t.assignee
+        ? { id: t.assignee.id, name: t.assignee.name, avatarUrl: t.assignee.avatarUrl }
+        : null,
+    }));
+
+    const upcoming = upcomingRaw.map(t => {
+      const left = dayDiff(nowDate, t.dueDate);
+      let urgencyGroup;
+      if (left === 0)      urgencyGroup = 'today';
+      else if (left <= 3)  urgencyGroup = 'three_days';
+      else if (left <= 7)  urgencyGroup = 'this_week';
+      else                 urgencyGroup = 'later';
+
+      return {
+        id:           t.id,
+        title:        t.title,
+        status:       t.status,
+        priority:     t.priority,
+        dueDate:      t.dueDate,
+        daysLeft:     left,
+        urgencyGroup,
+        projectId:    t.project?.id,
+        projectName:  t.project?.name || '未知專案',
+        assignee:     t.assignee
+          ? { id: t.assignee.id, name: t.assignee.name, avatarUrl: t.assignee.avatarUrl }
+          : null,
+      };
+    });
+
+    // ── 逾期任務依優先度分組（圖表用）────────────────────
+    const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'];
+    const overdueByPriority = PRIORITY_ORDER.map(p => ({
+      priority: p,
+      count:    overdue.filter(t => t.priority === p).length,
+    }));
+
+    // ── 逾期任務依專案分組（前 8 個）────────────────────
+    const projMap = {};
+    for (const t of overdue) {
+      const key = t.projectId || 0;
+      if (!projMap[key]) projMap[key] = { projectId: key, projectName: t.projectName, count: 0 };
+      projMap[key].count++;
+    }
+    const overdueByProject = Object.values(projMap)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    return ok(res, { overdue, upcoming, overdueByPriority, overdueByProject });
+  } catch (e) {
+    console.error('[dashboard/urgency]', e);
+    return err(res, e.message);
+  }
+});
+
 // 保留其他 stub 路由（相容既有程式碼）
 router.get('/',      (req, res) => res.json({ success: true, data: [], meta: {} }));
 router.post('/',     (req, res) => res.json({ success: true }));
