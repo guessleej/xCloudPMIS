@@ -9,7 +9,13 @@
 
 - [系統概述](#系統概述)
 - [技術棧](#技術棧)
-- [系統架構](#系統架構)
+- [系統架構圖](#系統架構圖)
+  - [整體服務架構](#整體服務架構)
+  - [資料庫 ER 圖](#資料庫-er-圖)
+  - [API 請求資料流程](#api-請求資料流程)
+  - [身份認證流程](#身份認證流程)
+  - [AI 決策流程](#ai-決策流程-human-in-the-loop)
+  - [即時推播架構](#即時推播架構)
 - [服務清單](#服務清單)
 - [快速啟動](#快速啟動)
 - [環境變數](#環境變數)
@@ -91,103 +97,515 @@ xCloudPMIS 是一套為企業內部設計的全端專案管理平台，核心功
 
 ---
 
-## 系統架構
+## 系統架構圖
 
-### 服務拓撲
+### 整體服務架構
 
-```
-                    ┌─────────────────────────────────────┐
-                    │           pmis-network               │
-                    │                                       │
-  瀏覽器            │  ┌───────────────────────────────┐   │
-  ──────────────────┼─▶│   Frontend  (Vite Dev)        │   │
-  http://localhost  │  │   Port: 3838                  │   │
-      :3838         │  │   /api/* → proxy → backend    │   │
-                    │  └───────────────┬───────────────┘   │
-                    │                  │ Vite Proxy         │
-                    │  ┌───────────────▼───────────────┐   │
-                    │  │   Backend  (Express.js)        │   │
-                    │  │   Port host:3010 → ctnr:3000  │   │
-                    │  │   ├─ REST API (20+ 路由)       │   │
-                    │  │   ├─ Socket.IO  (/ws)          │   │
-                    │  │   ├─ JWT + OAuth 認證          │   │
-                    │  │   ├─ Prisma ORM                │   │
-                    │  │   └─ Redis 快取                │   │
-                    │  └──────┬────────────────┬────────┘   │
-                    │         │                │            │
-                    │  ┌──────▼──────┐  ┌──────▼──────┐   │
-                    │  │ AI Service  │  │File Service │   │
-                    │  │ Port: 3002  │  │ Port: 3001  │   │
-                    │  │ OpenAI API  │  │ Multer 上傳  │   │
-                    │  └─────────────┘  └─────────────┘   │
-                    │                                       │
-                    │  ┌──────────────┐  ┌─────────────┐  │
-                    │  │  PostgreSQL  │  │    Redis    │  │
-                    │  │  Port: 5432  │  │ Port: 6379  │  │
-                    │  └──────────────┘  └─────────────┘  │
-                    │                                       │
-                    │  ┌──────────────┐                    │
-                    │  │   pgAdmin    │                    │
-                    │  │  Port: 8080  │                    │
-                    │  └──────────────┘                    │
-                    └─────────────────────────────────────┘
-```
+```mermaid
+graph TB
+    Browser(["🌐 瀏覽器\nhttp://localhost:3838"])
 
-### 多租戶隔離設計
+    subgraph Host["主機 (Host Machine)"]
+        direction TB
 
-```
-Company A ─┐
-Company B ─┼─ 同一個 PostgreSQL 實例
-Company C ─┘
-            每個 API 請求透過 companyId 過濾，資料完全隔離
-            Socket.IO 以 company:{id} 房間隔離推播事件
-```
+        subgraph Network["Docker Network: pmis-network"]
+            direction TB
 
-### OAuth 2.0 登入流程
+            subgraph Frontend["前端層"]
+                FE["⚛️ Frontend\nReact + Vite\nPort 3838"]
+            end
 
-```
-使用者點擊 [以 Microsoft 登入]
-    ↓
-GET /api/auth/microsoft  →  Vite Proxy  →  Backend
-    ↓
-302 重定向 → https://login.microsoftonline.com/...
-    ↓（使用者完成授權）
-GET /api/auth/microsoft/callback
-    ↓
-後端換取 Access Token → 呼叫 Graph API 取得 Email
-    ↓
-findOrCreateUser(email)  →  PostgreSQL
-    ↓
-簽發 JWT  →  302 重定向 → http://localhost:3838/?oauthToken=JWT
-    ↓
-AuthContext 偵測 ?oauthToken=，呼叫 /api/auth/me 驗證
-    ↓
-登入成功，導向 Dashboard
+            subgraph BackendLayer["後端層"]
+                BE["🖥️ Backend\nExpress.js + Socket.IO\nPort 3010 → 3000"]
+            end
+
+            subgraph MicroServices["微服務層"]
+                AI["🤖 AI Service\nOpenAI 整合\nPort 3002"]
+                FS["📁 File Service\nMulter 上傳\nPort 3001"]
+            end
+
+            subgraph DataLayer["資料層"]
+                PG[("🐘 PostgreSQL 15\nPort 5432")]
+                RD[("⚡ Redis 7\nPort 6379")]
+            end
+
+            subgraph Tools["工具"]
+                PGA["🔧 pgAdmin 4\nPort 8080"]
+            end
+        end
+    end
+
+    subgraph External["外部服務"]
+        MSFT["☁️ Microsoft\nGraph API / Azure AD"]
+        GOOG["☁️ Google\nOAuth 2.0"]
+        GH["☁️ GitHub\nOAuth App"]
+        OAI["☁️ OpenAI\nGPT-4o API"]
+    end
+
+    Browser -->|"HTTP / WebSocket"| FE
+    FE -->|"Vite Proxy /api/*"| BE
+    BE -->|"x-internal-secret"| AI
+    BE -->|"x-internal-secret"| FS
+    BE -->|"Prisma ORM"| PG
+    BE -->|"ioredis"| RD
+    PGA -->|"SQL"| PG
+
+    BE <-->|"OAuth 2.0\nGraph API"| MSFT
+    BE <-->|"OAuth 2.0"| GOOG
+    BE <-->|"OAuth 2.0"| GH
+    AI -->|"API 呼叫"| OAI
 ```
 
-### 即時推播架構（Socket.IO）
+---
 
-```
-後端 Socket.IO 房間：
-  company:{companyId}  → 同公司用戶（儀表板更新、廣播通知）
-  user:{userId}        → 個人推播（指派通知、個人訊息）
+### 資料庫 ER 圖
 
-前端連線：
-  const socket = io('/ws', { query: { companyId, userId } });
+> 核心業務模型關聯（共 33 個 Prisma 模型，以下展示主要關係）
+
+```mermaid
+erDiagram
+    Company {
+        int     id          PK
+        string  name
+        string  slug
+        string  logo_url
+        bool    is_active
+    }
+
+    User {
+        int     id          PK
+        int     company_id  FK
+        string  name
+        string  email       UK
+        string  password_hash
+        enum    role
+        string  department
+        string  job_title
+        bool    is_active
+        datetime last_login_at
+    }
+
+    OAuthToken {
+        int     id          PK
+        int     user_id     FK  UK
+        string  provider
+        text    access_token
+        text    refresh_token
+        datetime expires_at
+        string  microsoft_user_id
+    }
+
+    Project {
+        int     id          PK
+        int     company_id  FK
+        int     owner_id    FK
+        int     workspace_id FK
+        string  name
+        enum    status
+        date    start_date
+        date    end_date
+        decimal budget
+    }
+
+    Task {
+        int     id          PK
+        int     project_id  FK
+        int     assignee_id FK
+        int     parent_task_id FK
+        string  title
+        enum    status
+        enum    priority
+        float   estimated_hours
+        float   actual_hours
+        int     progress_percent
+        date    due_date
+    }
+
+    Milestone {
+        int     id          PK
+        int     project_id  FK
+        string  name
+        date    due_date
+        bool    is_achieved
+    }
+
+    TimeEntry {
+        int     id          PK
+        int     task_id     FK
+        int     user_id     FK
+        datetime started_at
+        datetime ended_at
+        int     duration_minutes
+        text    description
+    }
+
+    Attachment {
+        int     id          PK
+        int     task_id     FK
+        int     uploaded_by FK
+        string  original_name
+        string  stored_name
+        string  mime_type
+        int     file_size_bytes
+    }
+
+    Comment {
+        int     id          PK
+        int     task_id     FK
+        int     user_id     FK
+        int     parent_id   FK
+        text    content
+        json    mentions
+    }
+
+    ChecklistItem {
+        int     id          PK
+        int     task_id     FK
+        string  title
+        bool    is_done
+        int     position
+    }
+
+    TaskDependency {
+        int     id              PK
+        int     task_id         FK
+        int     depends_on_id   FK
+        enum    dependency_type
+    }
+
+    Workspace {
+        int     id          PK
+        int     company_id  FK
+        string  name
+        enum    visibility
+    }
+
+    Team {
+        int     id          PK
+        int     workspace_id FK
+        string  name
+        string  color
+    }
+
+    TeamMember {
+        int     id          PK
+        int     team_id     FK
+        int     user_id     FK
+        enum    role
+    }
+
+    AutomationRule {
+        int     id              PK
+        int     company_id      FK
+        string  name
+        string  trigger_type
+        json    conditions
+        json    actions
+        bool    is_active
+    }
+
+    AutomationRuleRun {
+        int     id          PK
+        int     rule_id     FK
+        enum    status
+        json    context
+        datetime triggered_at
+    }
+
+    AiDecision {
+        int     id          PK
+        int     company_id  FK
+        int     project_id  FK
+        string  decision_type
+        json    context
+        json    result
+        enum    status
+    }
+
+    Notification {
+        int     id          PK
+        int     user_id     FK
+        string  type
+        string  title
+        text    body
+        bool    is_read
+    }
+
+    Company         ||--o{ User            : "擁有"
+    Company         ||--o{ Project         : "擁有"
+    Company         ||--o{ Workspace       : "擁有"
+    Company         ||--o{ AutomationRule  : "設定"
+    Company         ||--o{ AiDecision      : "發起"
+    User            ||--o| OAuthToken      : "連結"
+    User            ||--o{ TimeEntry       : "記錄"
+    User            ||--o{ Notification    : "接收"
+    User            ||--o{ Comment         : "撰寫"
+    User            ||--o{ TeamMember      : "加入"
+    Project         ||--o{ Task            : "包含"
+    Project         ||--o{ Milestone       : "設定"
+    Task            ||--o{ Task            : "子任務"
+    Task            ||--o{ TimeEntry       : "記錄工時"
+    Task            ||--o{ Attachment      : "附件"
+    Task            ||--o{ Comment         : "評論"
+    Task            ||--o{ ChecklistItem   : "待辦清單"
+    Task            ||--o{ TaskDependency  : "依賴"
+    Workspace       ||--o{ Team            : "包含"
+    Team            ||--o{ TeamMember      : "成員"
+    AutomationRule  ||--o{ AutomationRuleRun : "執行記錄"
 ```
+
+---
+
+### API 請求資料流程
+
+```mermaid
+flowchart LR
+    subgraph Client["用戶端"]
+        B(["🌐 瀏覽器"])
+    end
+
+    subgraph FE["Frontend :3838"]
+        VP["Vite Dev Server\n+ Proxy /api/*"]
+    end
+
+    subgraph BE["Backend :3000"]
+        MW["Middleware\nCORS → JSON → optionalAuth"]
+        RT["Router\n選擇對應路由"]
+        AUTH_MW{"JWT\n驗證"}
+        CTRL["Controller\n業務邏輯"]
+        CACHE{"Redis\n快取命中?"}
+    end
+
+    subgraph Data["資料服務"]
+        ORM["Prisma ORM"]
+        RD[("Redis")]
+        PG[("PostgreSQL")]
+    end
+
+    subgraph Micro["微服務"]
+        AI["AI Service\n:3002"]
+        FILE["File Service\n:3001"]
+    end
+
+    B -->|"HTTP Request"| VP
+    VP -->|"Proxy"| MW
+    MW --> RT
+    RT --> AUTH_MW
+    AUTH_MW -->|"401 Unauthorized"| B
+    AUTH_MW -->|"通過"| CTRL
+    CTRL --> CACHE
+    CACHE -->|"命中 → 直接回傳"| B
+    CACHE -->|"未命中"| ORM
+    ORM -->|"SQL Query"| PG
+    PG -->|"資料"| ORM
+    ORM -->|"結果"| CTRL
+    CTRL -->|"寫入快取"| RD
+    CTRL -->|"需要 AI"| AI
+    CTRL -->|"需要上傳"| FILE
+    AI -->|"分析結果"| CTRL
+    FILE -->|"檔案路徑"| CTRL
+    CTRL -->|"JSON Response"| B
+
+    style CACHE fill:#fff9c4
+    style AUTH_MW fill:#fce4ec
+```
+
+---
+
+### 身份認證流程
+
+```mermaid
+sequenceDiagram
+    actor User as 使用者
+    participant FE as Frontend<br/>:3838
+    participant BE as Backend<br/>:3000
+    participant DB as PostgreSQL
+    participant OAuth as 第三方<br/>OAuth 服務
+
+    Note over User,OAuth: ── Email / 密碼登入 ──
+
+    User->>FE: 輸入帳號密碼，點擊登入
+    FE->>BE: POST /api/auth/login<br/>{ email, password }
+    BE->>DB: SELECT * FROM users WHERE email = ?
+    DB-->>BE: User 記錄（含 passwordHash）
+    BE->>BE: bcrypt.compare(password, hash)
+    alt 驗證失敗
+        BE-->>FE: 401 { error: 'Email 或密碼錯誤' }
+        FE-->>User: 顯示錯誤訊息
+    else 驗證成功
+        BE->>DB: UPDATE users SET last_login_at = NOW()
+        BE->>BE: jwt.sign(payload, JWT_SECRET)
+        BE-->>FE: 200 { token, user }
+        FE->>FE: localStorage 儲存 token + user
+        FE-->>User: 跳轉至 Dashboard
+    end
+
+    Note over User,OAuth: ── OAuth 登入（以 Google 為例）──
+
+    User->>FE: 點擊「以 Google 帳號登入」
+    FE->>BE: GET /api/auth/google
+    BE-->>FE: 302 重定向至 Google 授權頁
+    FE->>OAuth: 瀏覽器跳轉至 Google OAuth
+    User->>OAuth: 選擇帳號並授權
+    OAuth-->>FE: 302 回呼 /api/auth/google/callback?code=xxx
+    FE->>BE: GET /api/auth/google/callback?code=xxx
+    BE->>OAuth: POST /token（exchange code）
+    OAuth-->>BE: { access_token }
+    BE->>OAuth: GET /userinfo（取得 Email、名稱）
+    OAuth-->>BE: { email, name, picture }
+    BE->>DB: SELECT * FROM users WHERE email = ?
+    alt 使用者已存在
+        DB-->>BE: 現有 User 記錄
+    else 首次登入
+        BE->>DB: INSERT INTO users（建立新帳號）
+        DB-->>BE: 新 User 記錄
+    end
+    BE->>BE: jwt.sign(payload, JWT_SECRET)
+    BE-->>FE: 302 重定向至 /?oauthToken=JWT
+    FE->>FE: AuthContext 偵測 ?oauthToken=
+    FE->>BE: GET /api/auth/me（驗證 Token）
+    BE-->>FE: 200 { user }
+    FE->>FE: 儲存 token + user，清除 URL 參數
+    FE-->>User: 跳轉至 Dashboard
+
+    Note over User,OAuth: ── 後續 API 請求 ──
+
+    User->>FE: 操作系統功能
+    FE->>BE: GET /api/projects<br/>Authorization: Bearer JWT
+    BE->>BE: optionalAuth 解析 JWT
+    BE->>DB: SELECT * FROM projects WHERE company_id = ?
+    DB-->>BE: Projects 列表
+    BE-->>FE: 200 { data: [...] }
+```
+
+---
 
 ### AI 決策流程（Human-in-the-Loop）
 
+```mermaid
+flowchart TD
+    START(["👤 使用者觸發 AI 功能"])
+
+    subgraph FE["Frontend"]
+        UI_REQ["發送分析請求"]
+        UI_WAIT["顯示 AI 決策中心\n（待審核清單）"]
+        UI_RESULT["顯示執行結果"]
+    end
+
+    subgraph BE["Backend"]
+        API_REQ["POST /api/ai/analyze"]
+        SAVE_PENDING["建立 AiDecision\nstatus: pending"]
+        PUSH_NOTIFY["Socket.IO 推播\n通知 PM 審查"]
+        API_APPROVE["PATCH /api/ai/:id/approve"]
+        API_REJECT["PATCH /api/ai/:id/reject"]
+        SAFETY["SafetyGuard\n安全防護檢查"]
+        LOOP["AgentLoop\n執行自主動作"]
+        LOG["寫入 AiAgentLog\n記錄每個步驟"]
+        SAVE_DONE["更新 AiDecision\nstatus: completed"]
+    end
+
+    subgraph AI_SVC["AI Service :3002"]
+        ANALYZE["呼叫 OpenAI API\n任務拆解 / 風險分析\n週報生成 / 排程優化"]
+    end
+
+    subgraph DB["PostgreSQL"]
+        DB_DECISION[("AiDecision\nTable")]
+        DB_LOG[("AiAgentLog\nTable")]
+    end
+
+    START --> UI_REQ
+    UI_REQ --> API_REQ
+    API_REQ --> ANALYZE
+    ANALYZE -->|"AI 分析結果"| SAVE_PENDING
+    SAVE_PENDING --> DB_DECISION
+    SAVE_PENDING --> PUSH_NOTIFY
+    PUSH_NOTIFY -->|"即時推播"| UI_WAIT
+
+    UI_WAIT -->|"PM 點擊核准"| API_APPROVE
+    UI_WAIT -->|"PM 點擊拒絕"| API_REJECT
+
+    API_REJECT -->|"status: rejected"| DB_DECISION
+    API_REJECT -->|"結束"| UI_RESULT
+
+    API_APPROVE -->|"status: approved"| DB_DECISION
+    API_APPROVE --> SAFETY
+    SAFETY -->|"安全通過"| LOOP
+    SAFETY -->|"⚠️ 觸發安全規則"| API_REJECT
+
+    LOOP -->|"執行每個動作"| LOG
+    LOG --> DB_LOG
+    LOOP -->|"全部完成"| SAVE_DONE
+    SAVE_DONE -->|"status: completed"| DB_DECISION
+    SAVE_DONE -->|"Socket.IO 推播"| UI_RESULT
+
+    style SAFETY fill:#fce4ec
+    style LOOP fill:#e8f5e9
+    style ANALYZE fill:#e3f2fd
 ```
-AI 建議 → AiDecision (status: pending)
-    ↓
-PM 在 AI 決策中心審查 → [核准 / 拒絕]
-    ↓（核准）
-status: approved → SafetyGuard 觸發執行
-    ↓
-status: executing → 自主代理 AgentLoop 執行動作
-    ↓
-status: completed → 結果寫入 AiAgentLog
+
+---
+
+### 即時推播架構
+
+```mermaid
+graph TB
+    subgraph Clients["用戶端（多人同時在線）"]
+        C1(["👤 User A\ncompany:1, user:1"])
+        C2(["👤 User B\ncompany:1, user:2"])
+        C3(["👤 User C\ncompany:2, user:3"])
+    end
+
+    subgraph BE["Backend Socket.IO Server"]
+        subgraph Rooms["房間隔離（Room Isolation）"]
+            subgraph R_C1["company:1 房間"]
+                E1["📊 dashboard:update\n儀表板數據更新"]
+                E2["🔔 notification:new\n廣播通知"]
+                E3["📋 task:updated\n任務狀態變更"]
+            end
+            subgraph R_C2["company:2 房間"]
+                E4["📊 dashboard:update"]
+                E5["🔔 notification:new"]
+            end
+            subgraph R_U1["user:1 個人房間"]
+                E6["📌 task:assigned\n指派給我的任務"]
+                E7["💬 mention:new\n被提及通知"]
+            end
+            subgraph R_U2["user:2 個人房間"]
+                E8["📌 task:assigned"]
+            end
+        end
+
+        TRIGGER["事件觸發器\nio.to(room).emit(event)"]
+    end
+
+    subgraph Sources["觸發來源"]
+        S1["任務建立/更新/刪除"]
+        S2["AI 決策完成"]
+        S3["自動化規則執行"]
+        S4["新通知建立"]
+    end
+
+    C1 <-->|"WebSocket /ws\n?companyId=1&userId=1"| R_C1
+    C1 <-->|"WebSocket"| R_U1
+    C2 <-->|"WebSocket /ws\n?companyId=1&userId=2"| R_C1
+    C2 <-->|"WebSocket"| R_U2
+    C3 <-->|"WebSocket /ws\n?companyId=2&userId=3"| R_C2
+
+    S1 --> TRIGGER
+    S2 --> TRIGGER
+    S3 --> TRIGGER
+    S4 --> TRIGGER
+    TRIGGER --> R_C1
+    TRIGGER --> R_C2
+    TRIGGER --> R_U1
+    TRIGGER --> R_U2
+
+    note1["✅ company:1 的事件不會推播給 company:2\n多租戶資料完全隔離"]
+
+    style R_C1 fill:#e3f2fd
+    style R_C2 fill:#e8f5e9
+    style R_U1 fill:#fff3e0
+    style R_U2 fill:#fff3e0
 ```
 
 ---
@@ -256,24 +674,19 @@ docker exec -it pmis-backend sh
 
 ## 環境變數
 
-完整說明請參閱 `.env.example`。以下為最重要的設定：
+完整說明請參閱 `.env.example`。
 
 ### 基礎設定（必填）
 
 ```env
-# 資料庫
 POSTGRES_DB=pmis_db
 POSTGRES_USER=pmis_user
 POSTGRES_PASSWORD=your-strong-password
-
-# Redis
 REDIS_PASSWORD=your-redis-password
 
-# JWT（務必換成隨機長字串）
 # 產生方式：node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 JWT_SECRET=your-super-secret-jwt-key
 
-# 前端對外網址（OAuth callback 基礎 URL）
 FRONTEND_URL=http://localhost:3838
 OAUTH_CALLBACK_BASE=http://localhost:3838
 ```
@@ -286,7 +699,7 @@ AI_LANGUAGE=zh-TW
 AI_MAX_TOKENS=2000
 ```
 
-### OAuth 登入（選填，見 OAuth 整合設定章節）
+### OAuth 登入（選填）
 
 ```env
 MICROSOFT_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -322,7 +735,7 @@ GITHUB_CLIENT_SECRET=your-secret
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| GET | `/api/dashboard/summary` | 儀表板摘要（KPI、專案健康、工作負載、洞察） |
+| GET | `/api/dashboard/summary` | 儀表板摘要（KPI、健康度、負載、洞察） |
 | GET / POST | `/api/projects` | 專案列表 / 建立專案 |
 | GET / PATCH / DELETE | `/api/projects/:id` | 專案詳情 / 更新 / 刪除 |
 | GET / POST | `/api/tasks` | 任務列表 / 建立任務 |
@@ -348,17 +761,17 @@ GITHUB_CLIENT_SECRET=your-secret
 | GET / PATCH | `/api/ai` | AI 決策中心（審查 / 核准 / 拒絕） |
 | GET | `/api/settings/company` | 公司設定 |
 | GET / PATCH | `/api/settings/profile` | 個人設定 |
-| GET | `/api/health` | 外部服務連線狀態（Email / Graph API） |
+| GET | `/api/health` | 外部服務連線狀態 |
 
 ### AI 微服務（內部，需 `x-internal-secret` 標頭）
 
 | 方法 | 端點 | 說明 |
 |------|------|------|
-| POST | `/breakdown` | 任務拆解 → 輸出子任務清單 |
-| POST | `/risk` | 風險分析 → 輸出風險評分 0–100 |
-| POST | `/weekly-report` | 週報生成 → 輸出 Markdown 報告 |
-| POST | `/schedule` | 排程優化 → 輸出關鍵路徑建議 |
-| POST | `/health-score` | 專案健康評分（純計算，不呼叫 AI） |
+| POST | `/breakdown` | 任務拆解 → 子任務清單 |
+| POST | `/risk` | 風險分析 → 評分 0–100 + 建議 |
+| POST | `/weekly-report` | 週報生成 → Markdown 報告 |
+| POST | `/schedule` | 排程優化 → 關鍵路徑建議 |
+| POST | `/health-score` | 專案健康評分（純計算） |
 
 ### 檔案服務（內部，需 `x-internal-secret` 標頭）
 
@@ -374,7 +787,7 @@ GITHUB_CLIENT_SECRET=your-secret
 
 Prisma Schema 共定義 **33 個模型**，分為以下群組：
 
-### 核心關聯
+### 核心模型
 
 ```
 Company
@@ -396,26 +809,18 @@ Company
 
 ```
 AutomationRule
-  ├── triggerType  (task.created / task.updated / date.reached / ...)
-  ├── conditions   (JSON — 條件運算式)
-  ├── actions      (JSON — 動作列表)
-  └── AutomationRuleRun  ← 每次執行的記錄
+  ├── trigger_type (task.created / task.updated / date.reached / ...)
+  ├── conditions   (JSON 條件運算式)
+  ├── actions      (JSON 動作列表)
+  └── AutomationRuleRun  ← 執行記錄
 
 AiDecision
   ├── status  (pending → approved/rejected → executing → completed)
-  ├── context (JSON — AI 分析輸入)
-  ├── result  (JSON — AI 建議輸出)
+  ├── context (JSON AI 分析輸入)
+  ├── result  (JSON AI 建議輸出)
   └── AiAgentLog  ← 代理執行步驟日誌
 
 AiModelConfig  ← 公司級 AI 模型設定（model, baseUrl, temperature）
-```
-
-### 自訂欄位
-
-```
-CustomFieldDefinition  (type: text / number / date / select / user / checkbox)
-  └── CustomFieldOption  ← 下拉選項
-  └── CustomFieldValue   ← 各 Task / Project 的欄位值
 ```
 
 ### 重要枚舉
@@ -445,15 +850,14 @@ CustomFieldDefinition  (type: text / number / date / select / user / checkbox)
 
 1. 前往 [console.cloud.google.com](https://console.cloud.google.com) → API 和服務 → 憑證
 2. 建立 OAuth 2.0 用戶端 ID（類型：網頁應用程式）
-3. **已授權的重新導向 URI**：`http://localhost:3838/api/auth/google/callback`
-4. 啟用 **OAuth2 API**
-5. 將 **用戶端 ID** 和 **用戶端密碼** 填入 `.env`
+3. **重新導向 URI**：`http://localhost:3838/api/auth/google/callback`
+4. 將 **用戶端 ID** 和 **用戶端密碼** 填入 `.env`
 
 ### GitHub OAuth App
 
 1. 前往 [github.com/settings/developers](https://github.com/settings/developers) → New OAuth App
 2. **Homepage URL**：`http://localhost:3838`
-3. **Authorization callback URL**：`http://localhost:3838/api/auth/github/callback`
+3. **Callback URL**：`http://localhost:3838/api/auth/github/callback`
 4. 將 **Client ID** 和 **Client Secret** 填入 `.env`
 
 > **說明**：OAuth 憑證未設定時，對應登入按鈕點擊後會重定向回登入頁並顯示友善錯誤提示，系統其他功能不受影響。
@@ -493,22 +897,21 @@ sudo bash deploy/onprem/setup.sh
 
 # 或手動：
 cp .env.production.example .env.production
-# 編輯設定值（資料庫密碼、JWT_SECRET、網域名稱等）
 docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Azure Container Apps
 
 ```bash
-# 1. 建立 Azure 資源（Resource Group、ACR、PostgreSQL、Redis、Container Apps）
+# 1. 建立 Azure 資源
 export RESOURCE_GROUP=pmis-rg
 export LOCATION=eastasia
 bash deploy/azure/azure-setup.sh
 
-# 2. 建置並推送映像至 ACR
+# 2. 建置並推送映像
 bash deploy/azure/acr-build-push.sh
 
-# 3. 後續 CI/CD 由 .github/workflows/deploy-azure.yml 自動執行
+# CI/CD 由 .github/workflows/deploy-azure.yml 自動執行
 git push origin main
 ```
 
@@ -518,7 +921,7 @@ git push origin main
 # 手動執行 PostgreSQL + Volume 備份
 bash deploy/onprem/backup.sh
 
-# 建議加入 cron（每日凌晨 2:00）
+# 建議 cron（每日凌晨 2:00）
 0 2 * * * /opt/pmis/deploy/onprem/backup.sh
 ```
 
@@ -547,81 +950,41 @@ runtime/
 │       │   │   ├── microsoftOAuth.js  # Microsoft OAuth 登入流程
 │       │   │   ├── google.js          # Google OAuth 登入流程
 │       │   │   ├── github.js          # GitHub OAuth 登入流程
-│       │   │   └── microsoft.js       # Microsoft 365 委派設定（設定頁用）
-│       │   ├── dashboard.js
-│       │   ├── projects.js
-│       │   ├── tasks.js / myTasks.js
-│       │   ├── gantt.js
-│       │   ├── time-tracking.js
-│       │   ├── reports.js
-│       │   ├── team.js / users.js
-│       │   ├── notifications.js
-│       │   ├── rules.js
-│       │   ├── settings.js
-│       │   ├── aiDecisions.js
-│       │   └── adminMcp.js
+│       │   │   └── microsoft.js       # Microsoft 365 委派設定
+│       │   └── [其他路由模組…]
 │       └── services/
-│           ├── cache.js                     # Redis 操作封裝
-│           ├── notificationCenter.js        # 通知廣播
-│           ├── automationRuleService.js     # 自動化規則執行
-│           ├── taskRuleEngine.js            # 任務規則觸發
-│           ├── emailService.js              # 郵件發送（Microsoft Graph）
-│           ├── graphAuth.js                 # Microsoft Graph API 授權
-│           ├── tokenManager.js              # OAuth Token 管理
+│           ├── cache.js               # Redis 操作封裝
+│           ├── notificationCenter.js  # 通知廣播
+│           ├── automationRuleService.js
+│           ├── emailService.js        # Microsoft Graph 郵件
 │           └── autonomous-agent/
-│               ├── core/agentLoop.js        # AI 決策執行循環
-│               └── decisionEngine/
-│                   └── safetyGuard.js       # 中斷恢復 & 安全防護
+│               ├── core/agentLoop.js  # AI 決策執行循環
+│               └── decisionEngine/safetyGuard.js
 │
 ├── frontend/
 │   └── src/
-│       ├── App.jsx                          # 根元件（ErrorBoundary、AuthGuard）
-│       ├── system-theme.css                 # CSS 設計令牌（--xc-* 變數）
+│       ├── App.jsx                    # 根元件（ErrorBoundary、AuthGuard）
+│       ├── system-theme.css           # CSS 設計令牌（--xc-* 變數）
 │       ├── context/
-│       │   ├── AuthContext.jsx              # 認證狀態（JWT + OAuth callback）
-│       │   └── ThemeContext.jsx             # 深色 / 淺色主題
-│       └── components/
-│           ├── auth/LoginPage.jsx           # 登入頁（Email + OAuth 按鈕）
-│           ├── dashboard/                   # 儀表板（KPI、健康度、負載、洞察）
-│           ├── projects/ProjectsPage.jsx
-│           ├── tasks/TaskKanbanPage.jsx
-│           ├── gantt/GanttPage.jsx
-│           ├── mytasks/MyTasksPage.jsx
-│           ├── timetracking/TimeTrackingPage.jsx
-│           ├── reports/ReportsPage.jsx
-│           ├── team/TeamPage.jsx
-│           ├── settings/SettingsPage.jsx
-│           ├── admin/UserManagementPage.jsx
-│           ├── ai/AiDecisionCenter.jsx
-│           ├── rules/RulesPage.jsx
-│           ├── notifications/
-│           ├── inbox/InboxPage.jsx
-│           └── mcp/McpConsolePage.jsx
+│       │   ├── AuthContext.jsx        # 認證狀態（JWT + OAuth callback）
+│       │   └── ThemeContext.jsx       # 深色 / 淺色主題
+│       └── components/               # 22 個頁面元件
 │
-├── ai-service/server.js                     # OpenAI 分析 API（5 個端點）
-├── file-service/server.js                   # 檔案上傳 / 下載 API（3 個端點）
-├── database/init/                           # Docker 初始化 SQL
-├── deploy/azure/                            # Azure 部署腳本
-├── deploy/onprem/                           # 地端部署腳本
-├── docker-compose.yml                       # 開發環境（7 個服務）
-├── docker-compose.prod.yml                  # 生產環境
-└── .env.example                             # 環境變數範本（含 OAuth 說明）
+├── ai-service/server.js               # OpenAI 分析 API（5 個端點）
+├── file-service/server.js             # 檔案上傳 / 下載 API（3 個端點）
+├── docker-compose.yml                 # 開發環境（7 個服務）
+├── docker-compose.prod.yml            # 生產環境
+└── .env.example                       # 環境變數範本（含 OAuth 說明）
 ```
 
 ### Prisma 常用指令
 
 ```bash
-# 進入 backend 容器
 docker exec -it pmis-backend sh
 
-# 套用 migration（開發）
-npx prisma migrate dev --name your-migration-name
-
-# 套用 migration（生產）
-npx prisma migrate deploy
-
-# 開啟 Prisma Studio（視覺化資料瀏覽器）
-npx prisma studio
+npx prisma migrate dev --name your-migration-name  # 開發
+npx prisma migrate deploy                           # 生產
+npx prisma studio                                   # 視覺化瀏覽器
 ```
 
 ### 前端獨立開發（容器外）
@@ -631,15 +994,6 @@ cd frontend
 npm install
 VITE_PROXY_TARGET=http://localhost:3010 npm run dev
 ```
-
-### 新增 API 路由
-
-1. 在 `backend/src/routes/` 建立路由檔案
-2. 在 `backend/src/index.js` 掛載：
-   ```js
-   app.use('/api/your-route', require('./routes/your-route'));
-   ```
-3. 視需求套用 `requireAuth` 或 `optionalAuth` 中介軟體
 
 ---
 
