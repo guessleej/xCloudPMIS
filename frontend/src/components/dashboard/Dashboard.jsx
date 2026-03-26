@@ -80,6 +80,7 @@ const PAGE_TITLES = {
   projects:        { title: '專案',        sub: '管理所有進行中的專案' },
   tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤' },
   gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
+  analytics:       { title: '分析總覽',    sub: 'KPI 圖表 · 趨勢 · 健康狀態' },
   reports:         { title: '報告',        sub: '資料分析與匯出' },
   portfolios:      { title: '專案集',      sub: '多專案健康監控 · 進度一覽' },
   goals:           { title: '目標',        sub: 'OKR 目標與關鍵結果追蹤' },
@@ -111,7 +112,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 // ── 全部有效路由 ──────────────────────────────────────────────
 const ALL_NAV_IDS = [
   'home','inbox','my-tasks','projects','tasks','gantt',
-  'reports','portfolios','goals','workload',
+  'analytics','reports','portfolios','goals','workload',
   'rules','forms','custom-fields','workflow',
   'time','team','settings','ai-center','mcp-console','profile',
 ];
@@ -257,6 +258,7 @@ const Ic = {
   refresh: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   sidebarOpen:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
   sidebarClose: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="13 8 17 12 13 16"/></svg>,
+  analytics:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
 };
 
 // ── xCloud Logo ───────────────────────────────────────────────
@@ -504,6 +506,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
         )}
         {(!isCollapsed && !collapsed.insights || isCollapsed) && (
           <div style={{ marginBottom: '4px' }}>
+            <NavItem id="analytics"  icon={Ic.analytics}  label="分析總覽" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
             <NavItem id="reports"    icon={Ic.reports}    label="報告"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
             <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
             <NavItem id="goals"      icon={Ic.goals}      label="目標"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
@@ -1251,6 +1254,120 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
         </div>
       </aside>
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// 分析總覽頁面 — P0 核心可視化 (#12 #13 #14 #15)
+// ════════════════════════════════════════════════════════════
+function AnalyticsPage({ dashData }) {
+  const { summary, projects, workload, insights, loading, error, refresh } = dashData;
+  const monthlyTrend = dashData.monthlyTrend || [];
+
+  const cardStyle = {
+    background:   'var(--xc-surface)',
+    border:       '1px solid var(--xc-border)',
+    borderRadius: '12px',
+    padding:      '20px 24px',
+  };
+
+  const sectionTitle = {
+    fontSize:      '13px',
+    fontWeight:    600,
+    color:         'var(--xc-text-soft)',
+    marginBottom:  '16px',
+    display:       'flex',
+    alignItems:    'center',
+    gap:           '6px',
+  };
+
+  if (error) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--xc-danger)' }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚠️</div>
+        <div>資料載入失敗：{error}</div>
+        <button onClick={refresh} style={{ marginTop: '12px', padding: '8px 16px',
+          borderRadius: '6px', border: '1px solid var(--xc-border)',
+          background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text)' }}>
+          重試
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      padding:   '28px 32px',
+      maxWidth:  '1280px',
+      margin:    '0 auto',
+      display:   'flex',
+      flexDirection: 'column',
+      gap:       '24px',
+    }}>
+      {/* 頁頭 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
+            分析總覽
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--xc-text-muted)', margin: '4px 0 0' }}>
+            即時 KPI · 專案健康 · 工作負載 · 月度趨勢
+          </p>
+        </div>
+        <button
+          onClick={refresh}
+          disabled={loading}
+          style={{
+            display:      'flex', alignItems: 'center', gap: '6px',
+            padding:      '7px 14px', borderRadius: '8px',
+            border:       '1px solid var(--xc-border)',
+            background:   'var(--xc-surface)', cursor: 'pointer',
+            fontSize:     '12px', color: 'var(--xc-text-soft)',
+            opacity:      loading ? 0.5 : 1,
+          }}
+        >
+          <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
+          重新整理
+        </button>
+      </div>
+
+      {/* KPI 數字卡 */}
+      <SummaryCards summary={summary} loading={loading} />
+
+      {/* 中間行：環形圖 + 專案長條圖 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '20px' }}>
+        {/* 環形圖：健康狀態分布 */}
+        <div style={cardStyle}>
+          <div style={sectionTitle}>🟢 專案健康狀態分布</div>
+          <HealthPieChart projects={projects} loading={loading} />
+        </div>
+
+        {/* 水平長條圖：各專案任務進度 */}
+        <div style={cardStyle}>
+          <div style={sectionTitle}>📊 專案任務進度</div>
+          <ProjectHealthList projects={projects} loading={loading} />
+        </div>
+      </div>
+
+      {/* 底部行：工作負載 + 趨勢 + 洞察 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
+        {/* 垂直長條圖：成員工作負載 */}
+        <div style={cardStyle}>
+          <div style={sectionTitle}>👥 成員工作負載</div>
+          <WorkloadHeatmap workload={workload} loading={loading} />
+        </div>
+
+        {/* 折線圖 + 洞察卡片 */}
+        <div style={cardStyle}>
+          <div style={sectionTitle}>📈 月度趨勢與洞察</div>
+          <ActionableInsights
+            insights={insights}
+            monthlyTrend={monthlyTrend}
+            loading={loading}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2362,6 +2479,7 @@ export default function Dashboard() {
   // ── 頁面路由 ──────────────────────────────────────────────
   const renderPage = () => {
     if (activeNav === 'home')          return <HomePage currentUser={currentUser} onNavigate={navigate} dashData={dashData} />;
+    if (activeNav === 'analytics')     return <AnalyticsPage dashData={dashData} />;
     if (activeNav === 'inbox')         return <InboxPage />;
     if (activeNav === 'my-tasks')      return <MyTasksWorkspacePage />;
     if (activeNav === 'projects')      return <ProjectsPage />;

@@ -5,12 +5,13 @@ export function useDashboard() {
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
-  const [summary,  setSummary]  = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [insights, setInsights] = useState([]);
-  const [workload, setWorkload] = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
+  const [summary,      setSummary]      = useState(null);
+  const [projects,     setProjects]     = useState([]);
+  const [insights,     setInsights]     = useState([]);
+  const [workload,     setWorkload]     = useState(null);
+  const [monthlyTrend, setMonthlyTrend] = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState(null);
 
   const refresh = useCallback(async () => {
     if (!companyId || !authFetch) {
@@ -28,6 +29,7 @@ export function useDashboard() {
         setProjects(Array.isArray(d.projects) ? d.projects : []);
         setInsights(Array.isArray(d.insights) ? d.insights : []);
         setWorkload(d.workload || null);
+        setMonthlyTrend(Array.isArray(d.monthlyTrend) ? d.monthlyTrend : []);
       }
     } catch (e) {
       setError(e.message);
@@ -38,5 +40,5 @@ export function useDashboard() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  return { summary, projects, insights, workload, loading, error, refresh };
+  return { summary, projects, insights, workload, monthlyTrend, loading, error, refresh };
 }
