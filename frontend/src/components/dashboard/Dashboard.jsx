@@ -19,6 +19,8 @@ import WorkloadHeatmap       from './WorkloadHeatmap';
 import ActionableInsights    from './ActionableInsights';
 import OverdueTasksChart     from './OverdueTasksChart';
 import UpcomingDeadlines     from './UpcomingDeadlines';
+import MonthlyTrendWidget    from './MonthlyTrendWidget';
+import MyImpactWidget        from './MyImpactWidget';
 import { useUrgency }        from './useUrgency';
 import ProjectsPage          from '../projects/ProjectsPage';
 import TaskKanbanPage        from '../tasks/TaskKanbanPage';
@@ -1261,14 +1263,49 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
 }
 
 // ════════════════════════════════════════════════════════════
-// 分析總覽頁面 — P0 核心可視化 (#12 #13 #14 #15)
+// P1#7-9  Widget 定義表
+// ════════════════════════════════════════════════════════════
+const WIDGET_DEFS = [
+  { id: 'summary',        icon: '📊', title: 'KPI 數字卡',          desc: '完成率、活躍專案、逾期、成員',    defaultOn: true  },
+  { id: 'healthPie',      icon: '🟢', title: '專案健康分布',         desc: '健康狀態環形圖',                  defaultOn: true  },
+  { id: 'projectHealth',  icon: '📈', title: '專案任務進度',         desc: '各專案完成率橫條圖',              defaultOn: true  },
+  { id: 'workload',       icon: '👥', title: '成員工作負載',         desc: '任務負載熱力直條圖',              defaultOn: true  },
+  { id: 'insights',       icon: '💡', title: '月度趨勢與洞察',       desc: '趨勢折線 + AI 洞察卡片',          defaultOn: true  },
+  { id: 'monthlyTrend',   icon: '📉', title: '月完成趨勢線',         desc: '12 個月完成 vs 新建 + 完成率',    defaultOn: true  },
+  { id: 'overdue',        icon: '⏰', title: '逾期任務',             desc: '按優先度分析逾期任務',            defaultOn: true  },
+  { id: 'upcoming',       icon: '📅', title: '即將截止',             desc: '14 天內截止任務分群',             defaultOn: true  },
+  { id: 'myImpact',       icon: '🎯', title: 'My Impact',           desc: '個人完成統計與趨勢',              defaultOn: false },
+];
+
+const DEFAULT_WIDGETS = Object.fromEntries(WIDGET_DEFS.map(w => [w.id, w.defaultOn]));
+const LS_KEY = 'xcloud-analytics-widgets';
+
+function loadWidgetPrefs() {
+  try { return { ...DEFAULT_WIDGETS, ...JSON.parse(localStorage.getItem(LS_KEY) || '{}') }; }
+  catch { return DEFAULT_WIDGETS; }
+}
+
+// ════════════════════════════════════════════════════════════
+// 分析總覽頁面 — P0 核心可視化 + P1#7-9 Widget 系統
 // ════════════════════════════════════════════════════════════
 function AnalyticsPage({ dashData }) {
   const { summary, projects, workload, insights, loading, error, refresh } = dashData;
   const monthlyTrend = dashData.monthlyTrend || [];
+  const urgency      = useUrgency(14);
 
-  // 逾期 & 即將截止（獨立資料源，不依賴 summary hook）
-  const urgency = useUrgency(14);
+  // P1#7-9: Widget 開關狀態
+  const [widgets,       setWidgets]       = useState(loadWidgetPrefs);
+  const [showPalette,   setShowPalette]   = useState(false);
+
+  const toggleWidget = (id) => {
+    setWidgets(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(LS_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const on = (id) => widgets[id] !== false;
 
   const cardStyle = {
     background:   'var(--xc-surface)',
@@ -1311,7 +1348,7 @@ function AnalyticsPage({ dashData }) {
       gap:       '24px',
     }}>
       {/* 頁頭 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
             分析總覽
@@ -1320,135 +1357,202 @@ function AnalyticsPage({ dashData }) {
             即時 KPI · 專案健康 · 工作負載 · 月度趨勢
           </p>
         </div>
-        <button
-          onClick={refresh}
-          disabled={loading}
-          style={{
-            display:      'flex', alignItems: 'center', gap: '6px',
-            padding:      '7px 14px', borderRadius: '8px',
-            border:       '1px solid var(--xc-border)',
-            background:   'var(--xc-surface)', cursor: 'pointer',
-            fontSize:     '12px', color: 'var(--xc-text-soft)',
-            opacity:      loading ? 0.5 : 1,
-          }}
-        >
-          <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
-          重新整理
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* P1#7-9: 小工具面板按鈕 */}
+          <button
+            onClick={() => setShowPalette(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 14px', borderRadius: '8px',
+              border: showPalette ? '1px solid var(--xc-brand)' : '1px solid var(--xc-border)',
+              background: showPalette ? 'color-mix(in srgb, var(--xc-brand) 10%, var(--xc-surface))' : 'var(--xc-surface)',
+              cursor: 'pointer', fontSize: '12px',
+              color: showPalette ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
+              fontWeight: showPalette ? 700 : 400,
+            }}
+          >
+            ⊞ 自訂小工具
+          </button>
+          <button
+            onClick={refresh}
+            disabled={loading}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 14px', borderRadius: '8px',
+              border: '1px solid var(--xc-border)',
+              background: 'var(--xc-surface)', cursor: 'pointer',
+              fontSize: '12px', color: 'var(--xc-text-soft)',
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
+            重新整理
+          </button>
+        </div>
       </div>
+
+      {/* P1#7-9: Widget 選擇面板 */}
+      {showPalette && (
+        <div style={{
+          background:   'var(--xc-surface)',
+          border:       '1px solid var(--xc-brand)',
+          borderRadius: '12px',
+          padding:      '20px 24px',
+          boxShadow:    '0 4px 20px rgba(0,0,0,.1)',
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '14px' }}>
+            📐 選擇要顯示的小工具
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '10px',
+          }}>
+            {WIDGET_DEFS.map(w => (
+              <button
+                key={w.id}
+                onClick={() => toggleWidget(w.id)}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  padding: '12px 14px', borderRadius: '10px',
+                  border: on(w.id) ? '1.5px solid var(--xc-brand)' : '1px solid var(--xc-border)',
+                  background: on(w.id) ? 'color-mix(in srgb, var(--xc-brand) 6%, var(--xc-surface))' : 'var(--xc-surface-soft)',
+                  cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
+                }}
+              >
+                <span style={{ fontSize: '18px', lineHeight: 1.2 }}>{w.icon}</span>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: on(w.id) ? 'var(--xc-brand)' : 'var(--xc-text)' }}>
+                    {w.title}
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
+                    {w.desc}
+                  </div>
+                </div>
+                <span style={{
+                  marginLeft: 'auto', width: '16px', height: '16px',
+                  borderRadius: '50%',
+                  background: on(w.id) ? 'var(--xc-brand)' : 'var(--xc-border)',
+                  flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {on(w.id) && <span style={{ color: '#fff', fontSize: '9px', fontWeight: 900 }}>✓</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+            偏好設定會自動儲存至本機，下次登入仍會保留。
+          </div>
+        </div>
+      )}
 
       {/* KPI 數字卡 */}
-      <SummaryCards summary={summary} loading={loading} />
+      {on('summary') && <SummaryCards summary={summary} loading={loading} />}
 
       {/* 中間行：環形圖 + 專案長條圖 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '20px' }}>
-        {/* 環形圖：健康狀態分布 */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>🟢 專案健康狀態分布</div>
-          <HealthPieChart projects={projects} loading={loading} />
-        </div>
-
-        {/* 水平長條圖：各專案任務進度 */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>📊 專案任務進度</div>
-          <ProjectHealthList projects={projects} loading={loading} />
-        </div>
-      </div>
-
-      {/* 底部行：工作負載 + 趨勢 + 洞察 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
-        {/* 垂直長條圖：成員工作負載 */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>👥 成員工作負載</div>
-          <WorkloadHeatmap workload={workload} loading={loading} />
-        </div>
-
-        {/* 折線圖 + 洞察卡片 */}
-        <div style={cardStyle}>
-          <div style={sectionTitle}>📈 月度趨勢與洞察</div>
-          <ActionableInsights
-            insights={insights}
-            monthlyTrend={monthlyTrend}
-            loading={loading}
-          />
-        </div>
-      </div>
-
-      {/* ── 管理痛點區：逾期 + 即將截止 ── */}
-      <div style={{
-        borderTop:  '2px solid var(--xc-border)',
-        paddingTop: '4px',
-      }}>
-        <div style={{
-          display:      'flex', alignItems: 'center', gap: '8px',
-          marginBottom: '16px',
-        }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>
-            ⚡ 管理焦點
-          </span>
-          <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
-            — 最需要立即關注的任務
-          </span>
-          {urgency.loading && (
-            <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
-              載入中…
-            </span>
+      {(on('healthPie') || on('projectHealth')) && (
+        <div style={{ display: 'grid', gridTemplateColumns: on('healthPie') && on('projectHealth') ? '1fr 1.4fr' : '1fr', gap: '20px' }}>
+          {on('healthPie') && (
+            <div style={cardStyle}>
+              <div style={sectionTitle}>🟢 專案健康狀態分布</div>
+              <HealthPieChart projects={projects} loading={loading} />
+            </div>
+          )}
+          {on('projectHealth') && (
+            <div style={cardStyle}>
+              <div style={sectionTitle}>📊 專案任務進度</div>
+              <ProjectHealthList projects={projects} loading={loading} />
+            </div>
           )}
         </div>
+      )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* #26 逾期任務圖 */}
-          <div style={{
-            ...cardStyle,
-            borderColor: urgency.overdue.length > 0
-              ? 'color-mix(in srgb, #ef4444 30%, var(--xc-border))'
-              : 'var(--xc-border)',
-          }}>
-            <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
-              <span>⏰ 逾期任務</span>
-              {urgency.overdue.length > 0 && (
-                <span style={{
-                  fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
-                  background: 'rgba(239,68,68,.12)', color: '#ef4444',
-                  fontWeight: 700,
-                }}>
-                  {urgency.overdue.length} 個
-                </span>
-              )}
+      {/* 工作負載 + 洞察 */}
+      {(on('workload') || on('insights')) && (
+        <div style={{ display: 'grid', gridTemplateColumns: on('workload') && on('insights') ? '1.2fr 1fr' : '1fr', gap: '20px' }}>
+          {on('workload') && (
+            <div style={cardStyle}>
+              <div style={sectionTitle}>👥 成員工作負載</div>
+              <WorkloadHeatmap workload={workload} loading={loading} />
             </div>
-            <OverdueTasksChart
-              overdue={urgency.overdue}
-              overdueByPriority={urgency.overdueByPriority}
-              loading={urgency.loading}
-            />
+          )}
+          {on('insights') && (
+            <div style={cardStyle}>
+              <div style={sectionTitle}>📈 月度趨勢與洞察</div>
+              <ActionableInsights insights={insights} monthlyTrend={monthlyTrend} loading={loading} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* P1#33: 月完成趨勢線（獨立大 widget）*/}
+      {on('monthlyTrend') && (
+        <div style={cardStyle}>
+          <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+            <span>📉 按月完成趨勢（12 個月）</span>
+            <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', fontWeight: 400 }}>
+              管理層關鍵指標
+            </span>
+          </div>
+          <MonthlyTrendWidget monthlyTrend={monthlyTrend} loading={loading} />
+        </div>
+      )}
+
+      {/* P2#35: My Impact */}
+      {on('myImpact') && (
+        <div style={cardStyle}>
+          <div style={sectionTitle}>🎯 My Impact — 個人貢獻</div>
+          <MyImpactWidget />
+        </div>
+      )}
+
+      {/* 管理痛點區：逾期 + 即將截止 */}
+      {(on('overdue') || on('upcoming')) && (
+        <div style={{ borderTop: '2px solid var(--xc-border)', paddingTop: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>⚡ 管理焦點</span>
+            <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>— 最需要立即關注的任務</span>
+            {urgency.loading && (
+              <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>載入中…</span>
+            )}
           </div>
 
-          {/* #27 即將截止 */}
-          <div style={{
-            ...cardStyle,
-            borderColor: urgency.upcoming.some(t => t.urgencyGroup === 'today')
-              ? 'color-mix(in srgb, #f97316 30%, var(--xc-border))'
-              : 'var(--xc-border)',
-          }}>
-            <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
-              <span>📅 即將截止</span>
-              {urgency.upcoming.length > 0 && (
-                <span style={{
-                  fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
-                  background: 'rgba(234,179,8,.12)', color: '#ca8a04',
-                  fontWeight: 700,
-                }}>
-                  14 天內 {urgency.upcoming.length} 個
-                </span>
-              )}
-            </div>
-            <UpcomingDeadlines
-              upcoming={urgency.upcoming}
-              loading={urgency.loading}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: on('overdue') && on('upcoming') ? '1fr 1fr' : '1fr', gap: '20px' }}>
+            {on('overdue') && (
+              <div style={{
+                ...cardStyle,
+                borderColor: urgency.overdue.length > 0 ? 'color-mix(in srgb, #ef4444 30%, var(--xc-border))' : 'var(--xc-border)',
+              }}>
+                <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+                  <span>⏰ 逾期任務</span>
+                  {urgency.overdue.length > 0 && (
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(239,68,68,.12)', color: '#ef4444', fontWeight: 700 }}>
+                      {urgency.overdue.length} 個
+                    </span>
+                  )}
+                </div>
+                <OverdueTasksChart overdue={urgency.overdue} overdueByPriority={urgency.overdueByPriority} loading={urgency.loading} />
+              </div>
+            )}
+            {on('upcoming') && (
+              <div style={{
+                ...cardStyle,
+                borderColor: urgency.upcoming.some(t => t.urgencyGroup === 'today') ? 'color-mix(in srgb, #f97316 30%, var(--xc-border))' : 'var(--xc-border)',
+              }}>
+                <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+                  <span>📅 即將截止</span>
+                  {urgency.upcoming.length > 0 && (
+                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(234,179,8,.12)', color: '#ca8a04', fontWeight: 700 }}>
+                      14 天內 {urgency.upcoming.length} 個
+                    </span>
+                  )}
+                </div>
+                <UpcomingDeadlines upcoming={urgency.upcoming} loading={urgency.loading} />
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

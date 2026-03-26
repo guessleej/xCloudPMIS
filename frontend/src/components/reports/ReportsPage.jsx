@@ -25,6 +25,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, Legend,
+} from 'recharts';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const API_BASE   = '';
@@ -59,6 +63,13 @@ const REPORT_TYPES = [
     label:       '里程碑報表',
     description: '各專案里程碑達成情況與延誤風險',
     color:       '#f59e0b',
+  },
+  {
+    id:          'executive',
+    icon:        '👔',
+    label:       '高層 Review 摘要',
+    description: '一頁式 Executive Summary，提供管理層快速決策依據',
+    color:       '#c41230',
   },
 ];
 
@@ -1153,10 +1164,244 @@ const filterInputStyle = {
 };
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// P1#34-36 高層 Executive Report 元件
+// ════════════════════════════════════════════════════════════
+function ExecutiveReport({ companyId, authFetch }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  const load = useCallback(async () => {
+    if (!companyId || !authFetch) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      // 同時拉 summary + portfolio
+      const [sumRes, portRes] = await Promise.all([
+        authFetch(`/api/dashboard/summary?companyId=${companyId}`),
+        authFetch(`/api/portfolios?companyId=${companyId}`),
+      ]);
+      const sumJson  = await sumRes.json();
+      const portJson = await portRes.json();
+      const sum  = sumJson.data  || sumJson;
+      const port = portJson.data || portJson;
+      setData({ sum, port });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, authFetch]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return (
+    <div style={{ padding: '60px', textAlign: 'center', color: THEME.textMuted, fontSize: '14px' }}>
+      正在生成 Executive Summary…
+    </div>
+  );
+  if (error) return (
+    <div style={{ padding: '40px', textAlign: 'center', color: THEME.danger }}>⚠️ {error}</div>
+  );
+  if (!data) return null;
+
+  const { sum, port } = data;
+  const summary  = sum.summary  || {};
+  const projects = sum.projects || [];
+  const trend    = sum.monthlyTrend || [];
+  const insights = sum.insights || [];
+  const portProjects = port.projects || [];
+  const portSummary  = port.summary  || {};
+
+  // 健康分布資料
+  const healthData = [
+    { name: '健康',   value: projects.filter(p => p.health === 'healthy').length,   color: '#10b981' },
+    { name: '落後',   value: projects.filter(p => p.health === 'off_track').length,  color: '#f59e0b' },
+    { name: '有風險', value: projects.filter(p => p.health === 'at_risk').length,    color: '#ef4444' },
+  ].filter(d => d.value > 0);
+
+  // 前 5 個逾期最多的專案
+  const top5Risk = [...portProjects].sort((a, b) => b.overdue - a.overdue).slice(0, 5);
+
+  // 月趨勢最後 6 月
+  const trendLast6 = trend.slice(-6);
+
+  const printDate = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  return (
+    <div style={{ padding: '8px 20px', fontFamily: 'inherit' }}>
+      {/* 封面區 */}
+      <div style={{
+        background:   'linear-gradient(135deg, #c41230 0%, #8b0c22 100%)',
+        borderRadius: '16px',
+        padding:      '28px 32px',
+        color:        '#fff',
+        marginBottom: '24px',
+        display:      'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+      }}>
+        <div>
+          <div style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', letterSpacing: '0.1em' }}>EXECUTIVE SUMMARY</div>
+          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>專案組合管理報告</h2>
+          <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.8 }}>報告日期：{printDate}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '36px', fontWeight: 900 }}>{summary.completionRate ?? 0}%</div>
+          <div style={{ fontSize: '11px', opacity: 0.7 }}>整體完成率</div>
+        </div>
+      </div>
+
+      {/* KPI 總覽 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        {[
+          { label: '活躍專案', value: summary.activeProjects  ?? 0, icon: '📁', color: '#3b82f6' },
+          { label: '完成率',   value: `${summary.completionRate ?? 0}%`, icon: '✅', color: '#10b981' },
+          { label: '逾期任務', value: summary.overdueTasks    ?? 0, icon: '⏰', color: '#ef4444' },
+          { label: '協作成員', value: summary.totalMembers    ?? 0, icon: '👥', color: '#8b5cf6' },
+          { label: '平均進度', value: `${portSummary.avgProgress ?? 0}%`, icon: '📈', color: '#f59e0b' },
+        ].map(k => (
+          <div key={k.label} style={{
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            borderRadius: '12px', padding: '14px 16px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '20px', marginBottom: '4px' }}>{k.icon}</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: '11px', color: THEME.textMuted }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 圖表雙欄 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '16px', marginBottom: '24px' }}>
+        {/* 健康分布 */}
+        <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>🟢 專案健康分布</div>
+          {healthData.length > 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <ResponsiveContainer width={100} height={100}>
+                <PieChart>
+                  <Pie data={healthData} cx={45} cy={45} innerRadius={28} outerRadius={45} dataKey="value" strokeWidth={0}>
+                    {healthData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {healthData.map(d => (
+                  <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: d.color, flexShrink: 0 }} />
+                    <span style={{ color: THEME.textSoft }}>{d.name}</span>
+                    <span style={{ fontWeight: 700, color: d.color, marginLeft: 'auto' }}>{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: THEME.textMuted, fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>尚無資料</div>
+          )}
+        </div>
+
+        {/* 月度趨勢 */}
+        <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>📈 近 6 月完成趨勢</div>
+          {trendLast6.length > 0 ? (
+            <ResponsiveContainer width="100%" height={130}>
+              <AreaChart data={trendLast6} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="execGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#c41230" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#c41230" stopOpacity={0.03} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: THEME.textMuted }} axisLine={false} tickLine={false}
+                  tickFormatter={m => { const [,mo] = (m||'').split('-'); return `${parseInt(mo,10)}月`; }} />
+                <YAxis tick={{ fontSize: 10, fill: THEME.textMuted }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  formatter={(v, n) => [v, n === 'completed' ? '已完成' : '新建立']}
+                  contentStyle={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '8px', fontSize: '11px' }}
+                />
+                <Area type="monotone" dataKey="completed" stroke="#c41230" strokeWidth={2.5} fill="url(#execGrad)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ color: THEME.textMuted, fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>尚無趨勢資料</div>
+          )}
+        </div>
+      </div>
+
+      {/* 風險專案 Top 5 */}
+      {top5Risk.length > 0 && (
+        <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>⚠️ 高風險專案（逾期任務最多）</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {top5Risk.map((p, i) => {
+              const pctColor = p.progress >= 80 ? '#10b981' : p.progress >= 50 ? '#f59e0b' : '#ef4444';
+              return (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '10px 14px', borderRadius: '8px',
+                  background: p.overdue > 0 ? 'rgba(239,68,68,.04)' : THEME.surfaceSoft,
+                  border: p.overdue > 0 ? '1px solid rgba(239,68,68,.2)' : `1px solid ${THEME.border}`,
+                }}>
+                  <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: THEME.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, flexShrink: 0, color: THEME.textMuted }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: THEME.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontSize: '10px', color: THEME.textMuted, marginTop: '2px' }}>
+                      {p.done}/{p.total} 完成 · {p.memberCount} 人
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: pctColor }}>{p.progress}%</div>
+                      <div style={{ fontSize: '9px', color: THEME.textMuted }}>進度</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: p.overdue > 0 ? '#ef4444' : THEME.textMuted }}>{p.overdue}</div>
+                      <div style={{ fontSize: '9px', color: THEME.textMuted }}>逾期</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* AI 洞察 */}
+      {insights.length > 0 && (
+        <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px', marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>💡 系統洞察與建議</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {insights.slice(0, 4).map((ins, i) => {
+              const colors = { danger: '#ef4444', warning: '#f59e0b', success: '#10b981', info: '#3b82f6' };
+              const icons  = { danger: '🚨', warning: '⚠️', success: '✅', info: 'ℹ️' };
+              const c = colors[ins.type] || '#6b7280';
+              return (
+                <div key={i} style={{
+                  padding: '10px 14px', borderRadius: '8px',
+                  background: `${c}08`, border: `1px solid ${c}30`,
+                  fontSize: '12px',
+                }}>
+                  <span style={{ fontWeight: 700, color: c }}>{icons[ins.type]} {ins.title}</span>
+                  <span style={{ color: THEME.textSoft, marginLeft: '8px' }}>{ins.body}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ textAlign: 'center', fontSize: '11px', color: THEME.textMuted, paddingTop: '8px' }}>
+        由 xCloudPMIS 自動生成 · {printDate}
+      </div>
+    </div>
+  );
+}
+
 // 主元件：ReportsPage
 // ════════════════════════════════════════════════════════════
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const COMPANY_ID = user?.companyId;
 
   const [activeType,  setActiveType]  = useState('projects');
@@ -1422,8 +1667,15 @@ export default function ReportsPage() {
         {/* 右側：報表內容 */}
         <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
 
+          {/* P1#34-36: Executive Report 特殊渲染 */}
+          {activeType === 'executive' && (
+            <div style={{ flex: 1, padding: '16px 20px', overflow: 'auto' }}>
+              <ExecutiveReport companyId={COMPANY_ID} authFetch={authFetch} />
+            </div>
+          )}
+
           {/* 篩選列 */}
-          {showFilters && (
+          {activeType !== 'executive' && showFilters && (
             <FilterBar
               type={activeType}
               filters={filters}
@@ -1434,8 +1686,8 @@ export default function ReportsPage() {
             />
           )}
 
-          {/* 報表內容區 */}
-          <div style={{ flex: 1, padding: '16px 20px', overflow: 'auto' }}>
+          {/* 報表內容區（非 executive 模式才顯示） */}
+          {activeType !== 'executive' && <div style={{ flex: 1, padding: '16px 20px', overflow: 'auto' }}>
 
             {/* 載入中 */}
             {loading && (
@@ -1558,7 +1810,7 @@ export default function ReportsPage() {
                 <div style={{ color: THEME.textMuted }}>選擇左側報表類型開始分析</div>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
 

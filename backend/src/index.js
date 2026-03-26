@@ -35,6 +35,8 @@ const myTasksRouter       = require('./routes/myTasks');
 const usersRouter         = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
 const rulesRouter         = require('./routes/rules');
+const goalsRouter         = require('./routes/goals');
+const portfoliosRouter    = require('./routes/portfolios');
 const authRouter          = require('./routes/auth/login');
 const optionalAuth        = require('./middleware/optionalAuth');
 
@@ -240,6 +242,20 @@ app.use('/api/notifications', notificationsRouter);
 // PATCH  /api/rules/:id          → 更新規則
 // DELETE /api/rules/:id          → 刪除規則
 app.use('/api/rules', rulesRouter);
+
+// ── OKR 目標路由 ──────────────────────────────────────────────
+// GET    /api/goals?companyId=N  → OKR 列表
+// POST   /api/goals              → 建立 Objective
+// PATCH  /api/goals/:id          → 更新 Objective
+// DELETE /api/goals/:id          → 刪除 Objective
+// POST   /api/goals/:id/key-results            → 新增 KR
+// PATCH  /api/goals/:id/key-results/:krId      → 更新 KR
+// DELETE /api/goals/:id/key-results/:krId      → 刪除 KR
+app.use('/api/goals', goalsRouter);
+
+// ── 專案集路由 ────────────────────────────────────────────────
+// GET /api/portfolios?companyId=N → 多專案健康監控
+app.use('/api/portfolios', portfoliosRouter);
 
 // ── 身分驗證路由 ─────────────────────────────────────────────
 // POST /api/auth/login  → Email/密碼登入，回傳 JWT
