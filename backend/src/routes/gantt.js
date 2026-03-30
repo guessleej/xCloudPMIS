@@ -33,7 +33,10 @@ const toDateStr = (d) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) {
+      return res.status(400).json({ error: 'companyId 為必填參數' });
+    }
 
     // ── Redis 快取層（TTL 30 秒，避免高頻重複計算） ───────────
     const cacheKey = `gantt:company:${companyId}`;
@@ -118,14 +121,14 @@ router.get('/', async (req, res) => {
         status:      t.status,
         priority:    t.priority,
         assignee:    t.assignee,
-        // 計劃開始：優先用 startedAt，次之用專案開始日
-        planStart:   t.startedAt ? toDateStr(t.startedAt)
-                   : (p.startDate ? toDateStr(p.startDate) : null),
-        // 計劃結束：以 dueDate 為準
-        planEnd:     toDateStr(t.dueDate),
+        // 計劃開始 / 結束（來自任務的 plan_start / plan_end 欄位）
+        planStart:   toDateStr(t.planStart),
+        planEnd:     toDateStr(t.planEnd),
         // 實際開始 / 結束
         actualStart: toDateStr(t.startedAt),
         actualEnd:   toDateStr(t.completedAt),
+        // 截止日期
+        dueDate:     toDateStr(t.dueDate),
       }));
 
       return {

@@ -28,6 +28,20 @@ const prisma = new PrismaClient();
 const ok  = (res, data, meta = {}) =>
   res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
 
+// ── 健康度計算 ────────────────────────────────────────────────
+// manualOverride: 有值 = 手動覆寫；null/undefined = 自動計算
+function calcHealth(dueDate, status, manualOverride) {
+  if (status === 'done' || status === 'cancelled') return null;
+  if (manualOverride) return manualOverride;          // 手動覆寫優先
+  if (!dueDate) return 'on_track';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(dueDate); due.setHours(0,0,0,0);
+  const diff  = Math.round((due - today) / 86400000);
+  if (diff < 0)  return 'off_track';
+  if (diff <= 3) return 'at_risk';
+  return 'on_track';
+}
+
 const err = (res, message, status = 500) =>
   res.status(status).json({ success: false, error: message });
 
@@ -91,6 +105,7 @@ router.get('/', async (req, res) => {
         description:  p.description,
         status:       p.status,
         statusLabel:  STATUS_LABEL[p.status] || p.status,
+        access:       p.access,              // ← 隱私設定
         budget:       p.budget ? parseFloat(p.budget.toString()) : null,
         startDate:    p.startDate,
         endDate:      p.endDate,
@@ -174,8 +189,9 @@ router.get('/tasks', async (req, res) => {
 
     const tasks = await prisma.task.findMany({
       where: {
-        projectId:  { in: projectIds },
-        deletedAt:  null,
+        projectId:    { in: projectIds },
+        deletedAt:    null,
+        parentTaskId: null,          // 排除子任務，只取頂層任務
         ...(assigneeId ? { assigneeId } : {}),
         ...(priority   ? { priority }   : {}),
         ...(status     ? { status }     : {}),
@@ -186,10 +202,11 @@ router.get('/tasks', async (req, res) => {
         { createdAt:'asc'  },
       ],
       include: {
-        assignee: { select: { id: true, name: true } },
-        project:  { select: { id: true, name: true } },
-        taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
-        _count:   { select: { subtasks: true } },
+        assignee:     { select: { id: true, name: true } },
+        project:      { select: { id: true, name: true } },
+        taskTags:     { include: { tag: { select: { id: true, name: true, color: true } } } },
+        taskProjects: { include: { project: { select: { id: true, name: true } } } },
+        _count:       { select: { subtasks: true, comments: true, dependencies: true } },
       },
     });
 
@@ -199,6 +216,7 @@ router.get('/tasks', async (req, res) => {
       description:    t.description,
       status:         t.status,
       priority:       t.priority,
+      healthStatus:   calcHealth(t.dueDate, t.status, t.healthStatus),
       estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours.toString()) : null,
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
@@ -207,9 +225,16 @@ router.get('/tasks', async (req, res) => {
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
+      commentCount:   t._count?.comments || 0,
+      depCount:       t._count?.dependencies || 0,
       assignee:       t.assignee,
       project:        t.project,
       tags:           t.taskTags.map(tt => tt.tag),
+      extraProjects:  t.taskProjects.map(tp => ({
+        id: tp.project.id,
+        name: tp.project.name,
+        color: 'var(--xc-surface-muted)',
+      })),
     }));
 
     const kanban = {
@@ -300,12 +325,13 @@ router.get('/:id', async (req, res) => {
       createdAt:      t.createdAt,
     }));
 
-    // 依狀態分組（看板視圖用）
+    // 依狀態分組（看板視圖用）— 只取頂層任務，子任務不顯示為獨立卡片
+    const topLevelTasks = tasks.filter(t => !t.parentTaskId);
     const kanban = {
-      todo:        tasks.filter(t => t.status === 'todo'),
-      in_progress: tasks.filter(t => t.status === 'in_progress'),
-      review:      tasks.filter(t => t.status === 'review'),
-      done:        tasks.filter(t => t.status === 'done'),
+      todo:        topLevelTasks.filter(t => t.status === 'todo'),
+      in_progress: topLevelTasks.filter(t => t.status === 'in_progress'),
+      review:      topLevelTasks.filter(t => t.status === 'review'),
+      done:        topLevelTasks.filter(t => t.status === 'done'),
     };
 
     ok(res, {
@@ -345,13 +371,14 @@ router.patch('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
-  const { name, description, status, budget, startDate, endDate, ownerId } = req.body;
+  const { name, description, status, access, budget, startDate, endDate, ownerId } = req.body;
 
   try {
     const data = {};
     if (name        !== undefined) data.name        = name.trim();
     if (description !== undefined) data.description = description;
     if (status      !== undefined) data.status      = status;
+    if (access      !== undefined) data.access      = access;   // ← 隱私設定
     if (budget      !== undefined) data.budget      = budget ? parseFloat(budget) : null;
     if (startDate   !== undefined) data.startDate   = startDate ? new Date(startDate) : null;
     if (endDate     !== undefined) data.endDate     = endDate   ? new Date(endDate)   : null;
@@ -403,7 +430,48 @@ router.delete('/:id', async (req, res) => {
 // GET /api/projects/:id/tasks
 // 取得專案的任務列表
 // ════════════════════════════════════════════════════════════
-router.get('/:id/tasks', (req, res, next) => taskController.getProjectTasks(req, res, next));
+router.get('/:id/tasks', async (req, res) => {
+  const projectId = parseInt(req.params.id);
+  if (isNaN(projectId)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    const tasks = await prisma.task.findMany({
+      where: { projectId, deletedAt: null },
+      orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
+      include: {
+        assignee: { select: { id: true, name: true, avatarUrl: true } },
+        _count:   { select: { subtasks: true, comments: true } },
+        taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
+      },
+    });
+
+    const formatted = tasks.map(t => ({
+      id:             t.id,
+      title:          t.title,
+      description:    t.description,
+      status:         t.status,
+      priority:       t.priority,
+      estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours.toString()) : null,
+      actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
+      dueDate:        t.dueDate,
+      planStart:      t.planStart,
+      planEnd:        t.planEnd,
+      startedAt:      t.startedAt,
+      completedAt:    t.completedAt,
+      parentTaskId:   t.parentTaskId,
+      progressPercent: t.progressPercent || 0,
+      numSubtasks:    t._count?.subtasks || 0,
+      commentCount:   t._count?.comments || 0,
+      assignee:       t.assignee,
+      tags:           t.taskTags.map(tt => tt.tag),
+    }));
+
+    ok(res, formatted, { total: formatted.length, projectId });
+  } catch (e) {
+    console.error('[GET /:id/tasks]', e);
+    err(res, e.message);
+  }
+});
 
 // ════════════════════════════════════════════════════════════
 // POST /api/projects/:id/tasks
@@ -428,7 +496,7 @@ router.post('/:id/tasks', async (req, res) => {
     const normalizedStatus = normalizeTaskStatus(req.body.status, 'todo');
     const normalizedAssigneeId = assigneeId ? parseInt(assigneeId) : null;
     const normalizedParentTaskId = parentTaskId ? parseInt(parentTaskId) : null;
-    const actorId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+    const actorId = req.user?.id ? parseInt(req.user.id, 10) : (req.user?.userId ? parseInt(req.user.userId, 10) : null);
 
     // 取得同狀態最大 position，新任務排在最後
     const maxPos = await prisma.task.aggregate({
@@ -554,7 +622,8 @@ router.patch('/tasks/:taskId', async (req, res) => {
   const taskId = parseInt(req.params.taskId);
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
 
-  const { title, status, priority, assigneeId, dueDate, description, planStart, planEnd } = req.body;
+  const { title, status, priority, assigneeId, dueDate, description, planStart, planEnd,
+          customFieldValues, projectIds } = req.body;
 
   try {
     const existingTask = await prisma.task.findFirst({
@@ -571,7 +640,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
 
     if (!existingTask) return err(res, `找不到任務 #${taskId}`, 404);
 
-    const actorId = req.user?.userId ? parseInt(req.user.userId, 10) : null;
+    const actorId = req.user?.id ? parseInt(req.user.id, 10) : (req.user?.userId ? parseInt(req.user.userId, 10) : null);
     const normalizedAssigneeId = assigneeId !== undefined
       ? (assigneeId ? parseInt(assigneeId) : null)
       : undefined;
@@ -652,6 +721,39 @@ router.patch('/tasks/:taskId', async (req, res) => {
               },
             });
           }
+        }
+      }
+
+      // ── 自訂欄位值 upsert ───────────────────────────────
+      if (customFieldValues && typeof customFieldValues === 'object' && !Array.isArray(customFieldValues)) {
+        for (const [defId, value] of Object.entries(customFieldValues)) {
+          const definitionId = parseInt(defId);
+          if (isNaN(definitionId)) continue;
+          const serialized = (value === null || value === undefined)
+            ? null
+            : JSON.stringify(value);
+          await tx.customFieldValue.upsert({
+            where: { definitionId_taskId: { definitionId, taskId } },
+            update: { textValue: serialized },
+            create: { definitionId, taskId, textValue: serialized },
+          });
+        }
+      }
+
+      // ── 多專案歸屬 sync ─────────────────────────────────
+      if (Array.isArray(projectIds)) {
+        const primaryProjectId = updatedTask.projectId;
+        const extraIds = projectIds
+          .map(pid => parseInt(pid))
+          .filter(pid => !isNaN(pid) && pid !== primaryProjectId);
+
+        // 清除現有的多專案連結，再重建
+        await tx.taskProject.deleteMany({ where: { taskId } });
+        if (extraIds.length > 0) {
+          await tx.taskProject.createMany({
+            data: extraIds.map(projectId => ({ taskId, projectId })),
+            skipDuplicates: true,
+          });
         }
       }
 
@@ -786,7 +888,7 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
   const taskId = parseInt(req.params.taskId, 10);
   const parentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
   const content = String(req.body.content || '').trim();
-  const authorId = req.user?.userId ? parseInt(req.user.userId, 10) : parseInt(req.body.userId || '0', 10);
+  const authorId = req.user?.id ? parseInt(req.user.id, 10) : (req.user?.userId ? parseInt(req.user.userId, 10) : parseInt(req.body.userId || '0', 10));
 
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
   if (!content) return err(res, '留言內容為必填', 400);
@@ -848,6 +950,35 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
       parentId: comment.parentId,
       mentions: companyUsers.filter((user) => mentionIds.includes(user.id)),
     });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/custom-field-values
+// 取得任務的自訂欄位值（回傳 { [definitionId]: value } 物件）
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/custom-field-values', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const values = await prisma.customFieldValue.findMany({
+      where: { taskId },
+    });
+    const map = {};
+    for (const v of values) {
+      try {
+        map[v.definitionId] = v.textValue !== null && v.textValue !== undefined
+          ? JSON.parse(v.textValue)
+          : null;
+      } catch {
+        map[v.definitionId] = v.textValue;
+      }
+    }
+    ok(res, map);
   } catch (e) {
     console.error(e);
     err(res, e.message);
@@ -958,6 +1089,60 @@ router.delete('/tasks/:taskId/checklist/:itemId', async (req, res) => {
     res.json({ success: true, message: '項目已刪除' });
   } catch (e) {
     console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/:projectId/milestones
+// 取得專案里程碑列表
+// ════════════════════════════════════════════════════════════
+router.get('/:projectId/milestones', async (req, res) => {
+  const projectId = parseInt(req.params.projectId);
+  if (isNaN(projectId)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    const milestones = await prisma.milestone.findMany({
+      where: { projectId },
+      orderBy: { dueDate: 'asc' },
+    });
+    return ok(res, milestones);
+  } catch (e) {
+    console.error('[milestones GET]', e);
+    return err(res, '伺服器錯誤');
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/projects/:projectId/milestones
+// 新增里程碑
+// ════════════════════════════════════════════════════════════
+router.post('/:projectId/milestones', async (req, res) => {
+  const projectId = parseInt(req.params.projectId);
+  if (isNaN(projectId)) return err(res, '無效的專案 ID', 400);
+
+  const { name, dueDate, description, color } = req.body;
+  if (!name?.trim()) return err(res, '里程碑名稱為必填', 400);
+
+  const VALID_COLORS = ['green', 'yellow', 'red'];
+
+  try {
+    const project = await prisma.project.findFirst({ where: { id: projectId, deletedAt: null } });
+    if (!project) return err(res, '找不到此專案', 404);
+
+    const milestone = await prisma.milestone.create({
+      data: {
+        projectId,
+        name:        name.trim(),
+        dueDate:     dueDate     ? new Date(dueDate) : null,
+        description: description || '',
+        color:       VALID_COLORS.includes(color) ? color : 'green',
+        isAchieved:  false,
+      },
+    });
+    ok(res, milestone);
+  } catch (e) {
+    console.error('[milestones POST]', e);
     err(res, e.message);
   }
 });

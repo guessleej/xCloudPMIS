@@ -137,6 +137,8 @@ export function AuthProvider({ children }) {
   // ── 帶 Authorization header 的 fetch ──────────────────────
   const authFetch = useCallback(async (url, options = {}) => {
     const headers = {
+      // body 為字串（JSON.stringify）時自動補上 Content-Type，避免 express.json() 無法解析
+      ...(typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
       ...(options.headers || {}),
     };
     if (token) {

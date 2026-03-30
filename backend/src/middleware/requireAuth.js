@@ -33,12 +33,14 @@ module.exports = function requireAuth(req, res, next) {
   }
 
   // ── 驗證 Token ─────────────────────────────────────────────
-  const secret = process.env.APP_JWT_SECRET || 'xcloud-dev-secret-change-in-production';
+  // 與 login.js 使用相同的 JWT_SECRET（優先讀取 JWT_SECRET 再 APP_JWT_SECRET）
+  const secret = process.env.JWT_SECRET || process.env.APP_JWT_SECRET || 'pmis-dev-secret-2024';
 
   try {
     const decoded = jwt.verify(token, secret);
     req.user = {
-      userId:    decoded.userId    || decoded.sub,
+      id:        decoded.id        || decoded.userId || decoded.sub,  // 與 login.js payload 對齊
+      userId:    decoded.userId    || decoded.id     || decoded.sub,  // 相容舊版
       companyId: decoded.companyId,
       email:     decoded.email,
       role:      decoded.role,

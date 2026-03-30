@@ -38,37 +38,32 @@ const PAGE_SIZE  = 15; // 每頁顯示筆數
 const REPORT_TYPES = [
   {
     id:          'projects',
-    icon:        '🏗️',
     label:       '專案進度報表',
     description: '各專案的任務完成率、工時、里程碑達成狀況',
     color:       '#3b82f6',
   },
   {
     id:          'tasks',
-    icon:        '✅',
     label:       '任務統計報表',
     description: '依狀態、優先度分析所有任務',
     color:       '#8b5cf6',
   },
   {
     id:          'timelog',
-    icon:        '⏱️',
     label:       '工時統計報表',
     description: '工時記錄依專案、成員或任務彙總統計',
     color:       '#10b981',
   },
   {
     id:          'milestones',
-    icon:        '🎯',
     label:       '里程碑報表',
     description: '各專案里程碑達成情況與延誤風險',
     color:       '#f59e0b',
   },
   {
     id:          'executive',
-    icon:        '👔',
     label:       '高層 Review 摘要',
-    description: '一頁式 Executive Summary，提供管理層快速決策依據',
+    description: '專案組合 Executive Summary，供管理層決策參考',
     color:       '#c41230',
   },
 ];
@@ -216,7 +211,7 @@ function ErrBox({ msg }) {
 // EditProjectModal — 編輯專案
 // 需先拉 /api/projects/:id 取得 ownerId 與 description
 // ════════════════════════════════════════════════════════════
-function EditProjectModal({ row, users, onClose, onSaved }) {
+function EditProjectModal({ row, users, onClose, onSaved, authFetch }) {
   const [form, setForm] = useState({
     name: '', status: 'active', ownerId: '',
     startDate: '', endDate: '', budget: '', description: '',
@@ -226,7 +221,7 @@ function EditProjectModal({ row, users, onClose, onSaved }) {
   const [error,   setError]   = useState('');
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/projects/${row.id}`)
+    (authFetch ? authFetch(`${API_BASE}/api/projects/${row.id}`) : fetch(`${API_BASE}/api/projects/${row.id}`))
       .then(r => r.json())
       .then(d => {
         const p = d.data || d;
@@ -250,7 +245,8 @@ function EditProjectModal({ row, users, onClose, onSaved }) {
     if (!form.name.trim()) { setError('請輸入專案名稱'); return; }
     setSaving(true); setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/projects/${row.id}`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/api/projects/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -347,14 +343,15 @@ function EditProjectModal({ row, users, onClose, onSaved }) {
 // ════════════════════════════════════════════════════════════
 // DeleteProjectModal — 刪除專案
 // ════════════════════════════════════════════════════════════
-function DeleteProjectModal({ row, onClose, onDeleted }) {
+function DeleteProjectModal({ row, onClose, onDeleted, authFetch }) {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
   const handleDelete = async () => {
     setSaving(true); setError('');
     try {
-      const res  = await fetch(`${API_BASE}/api/projects/${row.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res  = await fetcher(`${API_BASE}/api/projects/${row.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
       onDeleted();
@@ -406,7 +403,7 @@ function DeleteProjectModal({ row, onClose, onDeleted }) {
 // ════════════════════════════════════════════════════════════
 // EditTaskModal — 編輯任務
 // ════════════════════════════════════════════════════════════
-function EditTaskModal({ row, users, onClose, onSaved }) {
+function EditTaskModal({ row, users, onClose, onSaved, authFetch }) {
   const [form, setForm] = useState({
     title:      row.title       || '',
     status:     row.statusRaw   || 'todo',
@@ -423,7 +420,8 @@ function EditTaskModal({ row, users, onClose, onSaved }) {
     if (!form.title.trim()) { setError('請輸入任務名稱'); return; }
     setSaving(true); setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/projects/tasks/${row.id}`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/api/projects/tasks/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -504,14 +502,15 @@ function EditTaskModal({ row, users, onClose, onSaved }) {
 // ════════════════════════════════════════════════════════════
 // DeleteTaskModal — 刪除任務
 // ════════════════════════════════════════════════════════════
-function DeleteTaskModal({ row, onClose, onDeleted }) {
+function DeleteTaskModal({ row, onClose, onDeleted, authFetch }) {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
   const handleDelete = async () => {
     setSaving(true); setError('');
     try {
-      const res  = await fetch(`${API_BASE}/api/projects/tasks/${row.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res  = await fetcher(`${API_BASE}/api/projects/tasks/${row.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
       onDeleted();
@@ -560,7 +559,7 @@ function DeleteTaskModal({ row, onClose, onDeleted }) {
 // ════════════════════════════════════════════════════════════
 // EditMilestoneModal — 編輯里程碑
 // ════════════════════════════════════════════════════════════
-function EditMilestoneModal({ row, onClose, onSaved }) {
+function EditMilestoneModal({ row, onClose, onSaved, authFetch }) {
   const [form, setForm] = useState({
     name:        row.name        || '',
     dueDate:     row.dueDate     || '',
@@ -577,7 +576,8 @@ function EditMilestoneModal({ row, onClose, onSaved }) {
     if (!form.name.trim()) { setError('請輸入里程碑名稱'); return; }
     setSaving(true); setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/projects/milestones/${row.id}`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/api/projects/milestones/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -662,14 +662,15 @@ function EditMilestoneModal({ row, onClose, onSaved }) {
 // ════════════════════════════════════════════════════════════
 // DeleteMilestoneModal — 刪除里程碑（硬刪除）
 // ════════════════════════════════════════════════════════════
-function DeleteMilestoneModal({ row, onClose, onDeleted }) {
+function DeleteMilestoneModal({ row, onClose, onDeleted, authFetch }) {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
   const handleDelete = async () => {
     setSaving(true); setError('');
     try {
-      const res  = await fetch(`${API_BASE}/api/projects/milestones/${row.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res  = await fetcher(`${API_BASE}/api/projects/milestones/${row.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || '刪除失敗');
       onDeleted();
@@ -721,33 +722,33 @@ function SummaryCards({ type, summary }) {
 
   if (type === 'projects') {
     cards = [
-      { icon: '📁', label: '專案總數',   value: summary.totalProjects },
-      { icon: '🟢', label: '進行中專案', value: summary.activeProjects },
-      { icon: '📋', label: '任務總數',   value: summary.totalTasks },
-      { icon: '✅', label: '已完成任務', value: summary.doneTasks },
-      { icon: '📊', label: '整體完成率', value: `${summary.overallRate}%` },
+      { label: '專案總數',   value: summary.totalProjects },
+      { label: '進行中專案', value: summary.activeProjects },
+      { label: '任務總數',   value: summary.totalTasks },
+      { label: '已完成任務', value: summary.doneTasks },
+      { label: '整體完成率', value: `${summary.overallRate}%` },
     ];
   } else if (type === 'tasks') {
     cards = [
-      { icon: '📋', label: '任務總數', value: summary.total },
-      { icon: '⬜', label: '待處理', value: summary.byStatus.todo },
-      { icon: '🔵', label: '進行中', value: summary.byStatus.in_progress },
-      { icon: '🟡', label: '審查中', value: summary.byStatus.review },
-      { icon: '🟢', label: '已完成', value: summary.byStatus.done },
-      { icon: '🔴', label: '緊急任務', value: summary.byPriority.urgent },
+      { label: '任務總數', value: summary.total },
+      { label: '待處理',   value: summary.byStatus.todo },
+      { label: '進行中',   value: summary.byStatus.in_progress },
+      { label: '審查中',   value: summary.byStatus.review },
+      { label: '已完成',   value: summary.byStatus.done },
+      { label: '緊急任務', value: summary.byPriority.urgent },
     ];
   } else if (type === 'timelog') {
     cards = [
-      { icon: '📝', label: '記錄筆數', value: summary.totalEntries },
-      { icon: '⏱️', label: '總工時',   value: summary.totalDisplay },
-      { icon: '📅', label: '統計區間', value: `${summary.rangeStart} ~ ${summary.rangeEnd}` },
+      { label: '記錄筆數', value: summary.totalEntries },
+      { label: '總工時',   value: summary.totalDisplay },
+      { label: '統計區間', value: `${summary.rangeStart} ~ ${summary.rangeEnd}` },
     ];
   } else if (type === 'milestones') {
     cards = [
-      { icon: '🎯', label: '里程碑總數', value: summary.total },
-      { icon: '✅', label: '已達成',     value: summary.achieved },
-      { icon: '🔴', label: '已延誤',     value: summary.late },
-      { icon: '⏳', label: '即將到期（30天內）', value: summary.upcoming },
+      { label: '里程碑總數',         value: summary.total },
+      { label: '已達成',             value: summary.achieved },
+      { label: '已延誤',             value: summary.late },
+      { label: '即將到期（30天內）', value: summary.upcoming },
     ];
   }
 
@@ -769,7 +770,7 @@ function SummaryCards({ type, summary }) {
           boxShadow:    THEME.shadow,
         }}>
           <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '4px' }}>
-            {c.icon} {c.label}
+            {c.label}
           </div>
           <div style={{ fontSize: '20px', fontWeight: '700', color: THEME.text }}>
             {c.value}
@@ -1135,7 +1136,7 @@ function FilterBar({ type, filters, projects, onChange, onGenerate, loading }) {
           gap:          '6px',
         }}
       >
-        {loading ? '⏳ 載入中...' : '🔍 產生報表'}
+        {loading ? '載入中...' : '產生報表'}
       </button>
     </div>
   );
@@ -1198,7 +1199,7 @@ function ExecutiveReport({ companyId, authFetch }) {
 
   if (loading) return (
     <div style={{ padding: '60px', textAlign: 'center', color: THEME.textMuted, fontSize: '14px' }}>
-      正在生成 Executive Summary…
+      載入中…
     </div>
   );
   if (error) return (
@@ -1210,15 +1211,14 @@ function ExecutiveReport({ companyId, authFetch }) {
   const summary  = sum.summary  || {};
   const projects = sum.projects || [];
   const trend    = sum.monthlyTrend || [];
-  const insights = sum.insights || [];
   const portProjects = port.projects || [];
   const portSummary  = port.summary  || {};
 
-  // 健康分布資料
+  // 健康分布資料（summary 路由回傳 health_status: 'green'/'yellow'/'red'）
   const healthData = [
-    { name: '健康',   value: projects.filter(p => p.health === 'healthy').length,   color: '#10b981' },
-    { name: '落後',   value: projects.filter(p => p.health === 'off_track').length,  color: '#f59e0b' },
-    { name: '有風險', value: projects.filter(p => p.health === 'at_risk').length,    color: '#ef4444' },
+    { name: '健康',   value: projects.filter(p => p.health_status === 'green').length,  color: '#10b981' },
+    { name: '落後',   value: projects.filter(p => p.health_status === 'yellow').length, color: '#f59e0b' },
+    { name: '有風險', value: projects.filter(p => p.health_status === 'red').length,    color: '#ef4444' },
   ].filter(d => d.value > 0);
 
   // 前 5 個逾期最多的專案
@@ -1254,17 +1254,16 @@ function ExecutiveReport({ companyId, authFetch }) {
       {/* KPI 總覽 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
         {[
-          { label: '活躍專案', value: summary.activeProjects  ?? 0, icon: '📁', color: '#3b82f6' },
-          { label: '完成率',   value: `${summary.completionRate ?? 0}%`, icon: '✅', color: '#10b981' },
-          { label: '逾期任務', value: summary.overdueTasks    ?? 0, icon: '⏰', color: '#ef4444' },
-          { label: '協作成員', value: summary.totalMembers    ?? 0, icon: '👥', color: '#8b5cf6' },
-          { label: '平均進度', value: `${portSummary.avgProgress ?? 0}%`, icon: '📈', color: '#f59e0b' },
+          { label: '活躍專案', value: summary.activeProjects  ?? 0, color: '#3b82f6' },
+          { label: '完成率',   value: `${summary.completionRate ?? 0}%`, color: '#10b981' },
+          { label: '逾期任務', value: summary.overdueTasks    ?? 0, color: '#ef4444' },
+          { label: '協作成員', value: summary.totalMembers    ?? 0, color: '#8b5cf6' },
+          { label: '平均進度', value: `${portSummary.avgProgress ?? 0}%`, color: '#f59e0b' },
         ].map(k => (
           <div key={k.label} style={{
             background: THEME.surface, border: `1px solid ${THEME.border}`,
             borderRadius: '12px', padding: '14px 16px', textAlign: 'center',
           }}>
-            <div style={{ fontSize: '20px', marginBottom: '4px' }}>{k.icon}</div>
             <div style={{ fontSize: '20px', fontWeight: 800, color: k.color }}>{k.value}</div>
             <div style={{ fontSize: '11px', color: THEME.textMuted }}>{k.label}</div>
           </div>
@@ -1275,7 +1274,7 @@ function ExecutiveReport({ companyId, authFetch }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '16px', marginBottom: '24px' }}>
         {/* 健康分布 */}
         <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>🟢 專案健康分布</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>專案健康分布</div>
           {healthData.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <ResponsiveContainer width={100} height={100}>
@@ -1302,7 +1301,7 @@ function ExecutiveReport({ companyId, authFetch }) {
 
         {/* 月度趨勢 */}
         <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>📈 近 6 月完成趨勢</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>近 6 月完成趨勢</div>
           {trendLast6.length > 0 ? (
             <ResponsiveContainer width="100%" height={130}>
               <AreaChart data={trendLast6} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
@@ -1332,7 +1331,7 @@ function ExecutiveReport({ companyId, authFetch }) {
       {/* 風險專案 Top 5 */}
       {top5Risk.length > 0 && (
         <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>⚠️ 高風險專案（逾期任務最多）</div>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>高風險專案（逾期任務最多）</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {top5Risk.map((p, i) => {
               const pctColor = p.progress >= 80 ? '#10b981' : p.progress >= 50 ? '#f59e0b' : '#ef4444';
@@ -1367,32 +1366,8 @@ function ExecutiveReport({ companyId, authFetch }) {
         </div>
       )}
 
-      {/* AI 洞察 */}
-      {insights.length > 0 && (
-        <div style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, borderRadius: '12px', padding: '16px 20px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: THEME.text, marginBottom: '12px' }}>💡 系統洞察與建議</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {insights.slice(0, 4).map((ins, i) => {
-              const colors = { danger: '#ef4444', warning: '#f59e0b', success: '#10b981', info: '#3b82f6' };
-              const icons  = { danger: '🚨', warning: '⚠️', success: '✅', info: 'ℹ️' };
-              const c = colors[ins.type] || '#6b7280';
-              return (
-                <div key={i} style={{
-                  padding: '10px 14px', borderRadius: '8px',
-                  background: `${c}08`, border: `1px solid ${c}30`,
-                  fontSize: '12px',
-                }}>
-                  <span style={{ fontWeight: 700, color: c }}>{icons[ins.type]} {ins.title}</span>
-                  <span style={{ color: THEME.textSoft, marginLeft: '8px' }}>{ins.body}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       <div style={{ textAlign: 'center', fontSize: '11px', color: THEME.textMuted, paddingTop: '8px' }}>
-        由 xCloudPMIS 自動生成 · {printDate}
+        報告日期：{printDate}
       </div>
     </div>
   );
@@ -1425,20 +1400,30 @@ export default function ReportsPage() {
 
   // 載入篩選選項（專案清單 + 成員清單）
   useEffect(() => {
-    fetch(`${API_BASE}/api/reports/filter-options?companyId=${COMPANY_ID}`)
+    if (!COMPANY_ID) return;
+    const fetcher = authFetch || fetch;
+    fetcher(`${API_BASE}/api/reports/filter-options?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(d => {
         setProjects(d.projects || []);
         setUsers(d.users || []);
       })
       .catch(() => {});
-  }, []);
+  }, [COMPANY_ID, authFetch]);
 
   // 切換報表類型時自動產生報表
+  // executive 型別有獨立的 ExecutiveReport 元件，不走 generateReport
   useEffect(() => {
+    if (activeType === 'executive') {
+      setReportData(null); // 清除舊報表資料，避免匯出按鈕殘留
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    if (!COMPANY_ID) return; // 等待 auth 載入
     generateReport(activeType);
     setPage(1);
-  }, [activeType]);
+  }, [activeType, COMPANY_ID]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 更新篩選條件
   const updateFilter = (key, val) => {
@@ -1446,21 +1431,26 @@ export default function ReportsPage() {
   };
 
   // 產生報表
-  const generateReport = useCallback(async (type = activeType) => {
+  // filterOverride：timelog 群組切換時直接傳入新的 filters，避免 stale closure
+  const generateReport = useCallback(async (type = activeType, filterOverride = null) => {
+    if (!COMPANY_ID) return; // 未登入時不發請求
     setLoading(true);
     setError(null);
+    setReportData(null); // 清除舊資料，避免匯出按鈕在載入中殘留
     setPage(1);
+    const f = filterOverride || filters; // 使用 override 或目前 filters
     try {
       let url = `${API_BASE}/api/reports/${type}?companyId=${COMPANY_ID}`;
       if (type === 'tasks') {
-        if (filters.projectId) url += `&projectId=${filters.projectId}`;
-        if (filters.status)    url += `&status=${filters.status}`;
+        if (f.projectId) url += `&projectId=${f.projectId}`;
+        if (f.status)    url += `&status=${f.status}`;
       }
       if (type === 'timelog') {
-        url += `&startDate=${filters.startDate}&endDate=${filters.endDate}&groupBy=${filters.groupBy}`;
+        url += `&startDate=${f.startDate}&endDate=${f.endDate}&groupBy=${f.groupBy}`;
       }
 
-      const res  = await fetch(url);
+      const fetcher = authFetch || fetch;
+      const res  = await fetcher(url);
       if (!res.ok) throw new Error('報表產生失敗');
       const data = await res.json();
       setReportData(data);
@@ -1469,7 +1459,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, filters]);
+  }, [activeType, filters, COMPANY_ID, authFetch]);
 
   // 顯示 Toast 提示
   const showToast = (msg, type = 'success') => {
@@ -1493,6 +1483,8 @@ export default function ReportsPage() {
 
   // 匯出 CSV
   const handleExportCSV = async () => {
+    if (activeType === 'executive') return; // executive 無獨立 CSV 端點
+    if (!COMPANY_ID) return;
     setExporting(true);
     try {
       let url = `${API_BASE}/api/reports/${activeType}?companyId=${COMPANY_ID}&format=csv`;
@@ -1504,7 +1496,8 @@ export default function ReportsPage() {
         url += `&startDate=${filters.startDate}&endDate=${filters.endDate}&groupBy=${filters.groupBy}`;
       }
 
-      const res = await fetch(url);
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(url);
       if (!res.ok) throw new Error('匯出失敗');
 
       const blob     = await res.blob();
@@ -1552,20 +1545,20 @@ export default function ReportsPage() {
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: THEME.text }}>
-            📄 報表匯出
+            報表匯出
           </h1>
           <p style={{ margin: '2px 0 0', fontSize: '13px', color: THEME.textMuted }}>
             產生各類分析報表，支援 CSV 格式下載；專案、任務、里程碑支援行內編輯與刪除
           </p>
         </div>
-        {/* 匯出按鈕 */}
-        {reportData && (
+        {/* 匯出按鈕：executive 模式無獨立 CSV，不顯示 */}
+        {reportData && activeType !== 'executive' && (
           <button
             onClick={handleExportCSV}
             disabled={exporting}
             style={{
               background:   exporting ? THEME.successSoft : THEME.success,
-              color:        'white',
+              color:        'var(--xc-bg)',
               border:       'none',
               borderRadius: '8px',
               padding:      '8px 18px',
@@ -1578,7 +1571,7 @@ export default function ReportsPage() {
               boxShadow:    '0 8px 20px rgba(22,163,74,0.24)',
             }}
           >
-            {exporting ? '⏳ 匯出中...' : '⬇ 匯出 CSV'}
+            {exporting ? '匯出中...' : '匯出 CSV'}
           </button>
         )}
       </div>
@@ -1630,7 +1623,6 @@ export default function ReportsPage() {
                 fontWeight: activeType === rt.id ? '600' : '400',
                 color:      activeType === rt.id ? rt.color : THEME.textSoft,
               }}>
-                <span style={{ fontSize: '16px' }}>{rt.icon}</span>
                 <span style={{ lineHeight: 1.3 }}>{rt.label}</span>
               </div>
               {activeType === rt.id && (
@@ -1657,7 +1649,7 @@ export default function ReportsPage() {
             color:        THEME.success,
             lineHeight:   1.6,
           }}>
-            <div style={{ fontWeight: '700', marginBottom: '4px' }}>📥 匯出格式</div>
+            <div style={{ fontWeight: '700', marginBottom: '4px' }}>匯出格式</div>
             <div>• CSV（Excel 可直接開啟）</div>
             <div>• UTF-8 + BOM 編碼</div>
             <div>• 支援中文欄位名稱</div>
@@ -1695,7 +1687,6 @@ export default function ReportsPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 height: '300px', flexDirection: 'column', gap: '16px',
               }}>
-                <div style={{ fontSize: '40px' }}>⏳</div>
                 <div style={{ color: THEME.textMuted, fontSize: '15px' }}>報表產生中...</div>
               </div>
             )}
@@ -1706,7 +1697,6 @@ export default function ReportsPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 height: '300px', flexDirection: 'column', gap: '12px',
               }}>
-                <div style={{ fontSize: '40px' }}>😢</div>
                 <div style={{ color: THEME.danger }}>{error}</div>
                 <button
                   onClick={() => generateReport(activeType)}
@@ -1733,9 +1723,7 @@ export default function ReportsPage() {
                   <div>
                     <h2 style={{
                       margin: 0, fontSize: '16px', fontWeight: '700', color: THEME.text,
-                      display: 'flex', alignItems: 'center', gap: '8px',
                     }}>
-                      <span>{activeReportType?.icon}</span>
                       {reportData.title}
                     </h2>
                     <div style={{ fontSize: '12px', color: THEME.textMuted, marginTop: '2px' }}>
@@ -1759,8 +1747,10 @@ export default function ReportsPage() {
                         <button
                           key={val}
                           onClick={() => {
+                            // 直接傳入 filterOverride，避免 stale closure 讀到舊 groupBy
+                            const newFilters = { ...filters, groupBy: val };
                             updateFilter('groupBy', val);
-                            setTimeout(() => generateReport(activeType), 50);
+                            generateReport(activeType, newFilters);
                           }}
                           style={{
                             background:   filters.groupBy === val ? THEME.accent : THEME.panelStrong,
@@ -1804,9 +1794,8 @@ export default function ReportsPage() {
             {!loading && !error && !reportData && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: '300px', flexDirection: 'column', gap: '12px',
+                height: '300px',
               }}>
-                <div style={{ fontSize: '40px' }}>📊</div>
                 <div style={{ color: THEME.textMuted }}>選擇左側報表類型開始分析</div>
               </div>
             )}
@@ -1842,6 +1831,7 @@ export default function ReportsPage() {
           row={editItem} users={users}
           onClose={() => setEditItem(null)}
           onSaved={handleSaved}
+          authFetch={authFetch}
         />
       )}
       {deleteItem && reportData?.type === 'projects' && (
@@ -1849,6 +1839,7 @@ export default function ReportsPage() {
           row={deleteItem}
           onClose={() => setDeleteItem(null)}
           onDeleted={handleDeleted}
+          authFetch={authFetch}
         />
       )}
 
@@ -1858,6 +1849,7 @@ export default function ReportsPage() {
           row={editItem} users={users}
           onClose={() => setEditItem(null)}
           onSaved={handleSaved}
+          authFetch={authFetch}
         />
       )}
       {deleteItem && reportData?.type === 'tasks' && (
@@ -1865,6 +1857,7 @@ export default function ReportsPage() {
           row={deleteItem}
           onClose={() => setDeleteItem(null)}
           onDeleted={handleDeleted}
+          authFetch={authFetch}
         />
       )}
 
@@ -1874,6 +1867,7 @@ export default function ReportsPage() {
           row={editItem}
           onClose={() => setEditItem(null)}
           onSaved={handleSaved}
+          authFetch={authFetch}
         />
       )}
       {deleteItem && reportData?.type === 'milestones' && (
@@ -1881,6 +1875,7 @@ export default function ReportsPage() {
           row={deleteItem}
           onClose={() => setDeleteItem(null)}
           onDeleted={handleDeleted}
+          authFetch={authFetch}
         />
       )}
 

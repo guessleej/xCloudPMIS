@@ -354,77 +354,64 @@ router.get('/timelog', async (req, res) => {
       ? new Date(req.query.endDate + 'T23:59:59.999')
       : new Date(now.setHours(23, 59, 59, 999));
 
-    // 取得已完成的工時記錄（進行中的不計入）
-    const entries = await prisma.timeEntry.findMany({
+    // 取得手動工時記錄（WorkTimeLog，依日期字串篩選）
+    const startStr = rangeStart.toISOString().slice(0, 10);
+    const endStr   = rangeEnd.toISOString().slice(0, 10);
+
+    const rawEntries = await prisma.workTimeLog.findMany({
       where: {
-        endedAt: { not: null },
-        date: { gte: rangeStart, lte: rangeEnd },
-        task: {
-          project: { companyId, deletedAt: null },
-        },
+        companyId,
+        date: { gte: startStr, lte: endStr },
       },
       include: {
-        task: {
-          select: {
-            id:    true,
-            title: true,
-            project: { select: { id: true, name: true } },
-          },
-        },
         user: { select: { id: true, name: true } },
       },
       orderBy: { date: 'asc' },
     });
 
+    // 轉換：hours → minutes（與原報表欄位保持相容）
+    const entries = rawEntries.map(e => ({
+      ...e,
+      durationMinutes: Math.round((e.hours || 0) * 60),
+    }));
+
     // ── 依 groupBy 聚合 ───────────────────────────────────────
     let rows = [];
 
     if (groupBy === 'project') {
-      const map = new Map(); // projectId → { name, minutes, count, users: Set }
+      const map = new Map();
       for (const e of entries) {
-        const key = e.task.project.id;
+        const key = e.project;
         if (!map.has(key)) {
-          map.set(key, {
-            id:      key,
-            name:    e.task.project.name,
-            minutes: 0,
-            count:   0,
-            users:   new Set(),
-          });
+          map.set(key, { name: e.project, minutes: 0, count: 0, users: new Set() });
         }
         const g = map.get(key);
-        g.minutes += e.durationMinutes || 0;
+        g.minutes += e.durationMinutes;
         g.count   += 1;
         g.users.add(e.user.name);
       }
       rows = Array.from(map.values())
         .sort((a, b) => b.minutes - a.minutes)
         .map(g => ({
-          name:        g.name,
-          minutes:     g.minutes,
-          display:     fmtMinutes(g.minutes),
-          count:       g.count,
-          userCount:   g.users.size,
-          users:       Array.from(g.users).join('、'),
+          name:      g.name,
+          minutes:   g.minutes,
+          display:   fmtMinutes(g.minutes),
+          count:     g.count,
+          userCount: g.users.size,
+          users:     Array.from(g.users).join('、'),
         }));
 
     } else if (groupBy === 'user') {
-      const map = new Map(); // userId → { name, minutes, count, projects: Set }
+      const map = new Map();
       for (const e of entries) {
         const key = e.user.id;
         if (!map.has(key)) {
-          map.set(key, {
-            id:       key,
-            name:     e.user.name,
-            minutes:  0,
-            count:    0,
-            projects: new Set(),
-          });
+          map.set(key, { name: e.user.name, minutes: 0, count: 0, projects: new Set() });
         }
         const g = map.get(key);
-        g.minutes  += e.durationMinutes || 0;
-        g.count    += 1;
-        g.projects.add(e.task.project.name);
+        g.minutes += e.durationMinutes;
+        g.count   += 1;
+        g.projects.add(e.project);
       }
       rows = Array.from(map.values())
         .sort((a, b) => b.minutes - a.minutes)
@@ -438,33 +425,26 @@ router.get('/timelog', async (req, res) => {
         }));
 
     } else if (groupBy === 'task') {
-      // 依任務分組（明細）
       const map = new Map();
       for (const e of entries) {
-        const key = e.task.id;
+        const key = `${e.project}__${e.task}`;
         if (!map.has(key)) {
-          map.set(key, {
-            taskTitle:   e.task.title,
-            projectName: e.task.project.name,
-            minutes:     0,
-            count:       0,
-            users:       new Set(),
-          });
+          map.set(key, { taskTitle: e.task, projectName: e.project, minutes: 0, count: 0, users: new Set() });
         }
         const g = map.get(key);
-        g.minutes += e.durationMinutes || 0;
+        g.minutes += e.durationMinutes;
         g.count   += 1;
         g.users.add(e.user.name);
       }
       rows = Array.from(map.values())
         .sort((a, b) => b.minutes - a.minutes)
         .map(g => ({
-          name:        g.taskTitle,
-          subName:     g.projectName,
-          minutes:     g.minutes,
-          display:     fmtMinutes(g.minutes),
-          count:       g.count,
-          users:       Array.from(g.users).join('、'),
+          name:    g.taskTitle,
+          subName: g.projectName,
+          minutes: g.minutes,
+          display: fmtMinutes(g.minutes),
+          count:   g.count,
+          users:   Array.from(g.users).join('、'),
         }));
     }
 

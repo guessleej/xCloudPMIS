@@ -225,7 +225,7 @@ function StatusBadge({ status }) {
 // Tab 1：公司資訊
 // ════════════════════════════════════════════════════════════
 function CompanyTab() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
   const [company,  setCompany]  = useState(null);
@@ -242,7 +242,7 @@ function CompanyTab() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/company?companyId=${companyId}`);
+      const res  = await authFetch(`${API_BASE}/api/settings/company?companyId=${companyId}`);
       const data = await res.json();
       setCompany(data.company);
       setNewName(data.company.name);
@@ -273,7 +273,7 @@ function CompanyTab() {
     if (!validateSlug(newSlug)) return;
     setSaving(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/company/${company.id}`, {
+      const res  = await authFetch(`${API_BASE}/api/settings/company/${company.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ name: newName.trim(), slug: newSlug.trim() }),
@@ -448,7 +448,7 @@ function CompanyTab() {
 // Tab 2：個人資料
 // ════════════════════════════════════════════════════════════
 function ProfileTab({ onGoToCompany }) {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser, logout, authFetch } = useAuth();
   const userId = user?.id;
 
   const [profile,  setProfile]  = useState(null);
@@ -481,7 +481,7 @@ function ProfileTab({ onGoToCompany }) {
     if (!userId) return;
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile?userId=${userId}`);
+      const res  = await authFetch(`${API_BASE}/api/settings/profile?userId=${userId}`);
       const data = await res.json();
       setProfile(data.profile);
       setInfoForm({
@@ -510,7 +510,7 @@ function ProfileTab({ onGoToCompany }) {
     setInfoErrors({});
     setInfoSaving(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile/${userId}`, {
+      const res  = await authFetch(`${API_BASE}/api/settings/profile/${userId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -553,7 +553,7 @@ function ProfileTab({ onGoToCompany }) {
     setPwdErrors({});
     setPwdSaving(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/profile/${userId}`, {
+      const res  = await authFetch(`${API_BASE}/api/settings/profile/${userId}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -955,7 +955,7 @@ function StatCard({ icon, label, value, sub, color = 'var(--xc-info)' }) {
 }
 
 function SystemStatsTab({ activeTab }) {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
   const [data,    setData]    = useState(null);
@@ -968,7 +968,7 @@ function SystemStatsTab({ activeTab }) {
     setLoading(true);
     setError('');
     try {
-      const res  = await fetch(`${API_BASE}/api/settings/system?companyId=${companyId}`);
+      const res  = await authFetch(`${API_BASE}/api/settings/system?companyId=${companyId}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || '查詢失敗');
       setData(json);

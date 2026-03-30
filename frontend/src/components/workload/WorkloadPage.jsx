@@ -622,15 +622,7 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
                     count={unassigned.counts[s.key] || 0}
                     max={maxPS[s.key] || 1}
                     statusKey={s.key}
-                    onClick={() => {
-                      const tasks = s.key === 'overdue'
-                        ? unassigned.tasks.filter(t => t.isOverdue)
-                        : unassigned.tasks.filter(t => t.status === s.key);
-                      if (tasks.length > 0) {
-                        const sl = STATUSES.find(st => st.key === s.key)?.label;
-                        // 直接 trigger drawer via parent — handled inline
-                      }
-                    }}
+                    onClick={() => onCellClick('未指派', s.key, unassigned.tasks)}
                   />
                 ))}
                 <td style={{ textAlign: 'center', padding: '0 6px' }}>

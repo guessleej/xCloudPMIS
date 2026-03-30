@@ -34,10 +34,11 @@ import McpConsolePage        from '../mcp/McpConsolePage';
 import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
 import FormsPage             from '../forms/FormsPage';
 import CustomFieldsPage      from '../customfields/CustomFieldsPage';
-import MyTasksWorkspacePage  from '../mytasks/MyTasksWorkspacePage';
+import MyTasksPage           from '../mytasks/MyTasksPage';
 import GoalsPage             from '../goals/GoalsPage';
 import InboxPage             from '../inbox/InboxPage';
 import PortfoliosPage        from '../portfolios/PortfoliosPage';
+import HelpPanel             from './HelpPanel';
 import WorkloadPage          from '../workload/WorkloadPage';
 import RulesPage             from '../rules/RulesPage';
 
@@ -472,14 +473,14 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
             justifyContent: 'center',
             gap: isCollapsed ? '0' : '7px',
             padding: isCollapsed ? '9px 0' : '8px 0',
-            background: T.accent, color: 'white',
+            background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff',
             border: 'none', borderRadius: '8px',
             fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
             fontFamily: 'inherit', transition: 'background 0.15s',
             boxShadow: T.accentShadow,
           }}
-          onMouseEnter={e => e.currentTarget.style.background = '#9E1830'}
-          onMouseLeave={e => e.currentTarget.style.background = T.accent}
+          onMouseEnter={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--xc-brand) 65%, #000000 35%)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)'}
         >
           {Ic.plus}
           {!isCollapsed && '新增項目'}
@@ -680,7 +681,7 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
 // ════════════════════════════════════════════════════════════
 // 頂部搜尋列（Asana 風格）
 // ════════════════════════════════════════════════════════════
-function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOpen = false, panelMode = 'dark' }) {
+function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOpen = false, panelMode = 'dark', onHelp }) {
   const [searchVal, setSearchVal] = useState('');
   const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
@@ -839,6 +840,7 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOp
 
         <button
           title="說明"
+          onClick={onHelp}
           style={{
             height: '36px', borderRadius: '10px', border: `1px solid ${T.border}`,
             background: T.cardBg, cursor: 'pointer', display: 'flex',
@@ -1292,10 +1294,32 @@ function AnalyticsPage({ dashData }) {
   const { summary, projects, workload, insights, loading, error, refresh } = dashData;
   const monthlyTrend = dashData.monthlyTrend || [];
   const urgency      = useUrgency(14);
+  const { authFetch } = useAuth();
 
   // P1#7-9: Widget 開關狀態
   const [widgets,       setWidgets]       = useState(loadWidgetPrefs);
   const [showPalette,   setShowPalette]   = useState(false);
+
+  // 全頁重整：同時刷新 summary + urgency 兩個資料源
+  const refreshAll = useCallback(() => {
+    refresh();
+    urgency.refresh();
+  }, [refresh, urgency.refresh]);
+
+  // 快速將逾期任務標記為完成
+  const handleMarkDone = useCallback(async (taskId) => {
+    if (!authFetch) return;
+    try {
+      await authFetch(`/api/my-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done' }),
+      });
+      urgency.refresh(); // 刷新逾期清單
+    } catch (e) {
+      console.error('[AnalyticsPage] markDone 失敗:', e.message);
+    }
+  }, [authFetch, urgency.refresh]);
 
   const toggleWidget = (id) => {
     setWidgets(prev => {
@@ -1374,18 +1398,18 @@ function AnalyticsPage({ dashData }) {
             ⊞ 自訂小工具
           </button>
           <button
-            onClick={refresh}
-            disabled={loading}
+            onClick={refreshAll}
+            disabled={loading || urgency.loading}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '7px 14px', borderRadius: '8px',
               border: '1px solid var(--xc-border)',
               background: 'var(--xc-surface)', cursor: 'pointer',
               fontSize: '12px', color: 'var(--xc-text-soft)',
-              opacity: loading ? 0.5 : 1,
+              opacity: (loading || urgency.loading) ? 0.5 : 1,
             }}
           >
-            <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
+            <span style={{ display: 'inline-block', animation: (loading || urgency.loading) ? 'spin 1s linear infinite' : 'none' }}>⟳</span>
             重新整理
           </button>
         </div>
@@ -1531,7 +1555,7 @@ function AnalyticsPage({ dashData }) {
                     </span>
                   )}
                 </div>
-                <OverdueTasksChart overdue={urgency.overdue} overdueByPriority={urgency.overdueByPriority} loading={urgency.loading} />
+                <OverdueTasksChart overdue={urgency.overdue} overdueByPriority={urgency.overdueByPriority} loading={urgency.loading} onMarkDone={handleMarkDone} />
               </div>
             )}
             {on('upcoming') && (
@@ -1562,6 +1586,7 @@ function AnalyticsPage({ dashData }) {
 // ════════════════════════════════════════════════════════════
 function HomePage({ currentUser, onNavigate, dashData }) {
   const { isDark } = useTheme();
+  const { authFetch } = useAuth();
   const { projects, workload, loading, error, refresh } = dashData;
   const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
   const [myTasks,       setMyTasks]       = useState([]);
@@ -1579,22 +1604,23 @@ function HomePage({ currentUser, onNavigate, dashData }) {
     month: 'long', day: 'numeric', weekday: 'long',
   });
 
-  // 載入我的任務
+  // 載入我的任務（使用 authFetch 帶 JWT，並以 assigneeId 過濾個人任務）
   useEffect(() => {
-    if (!currentUser?.companyId) return;
+    if (!currentUser?.companyId || !currentUser?.id) return;
     setTasksLoading(true);
-    fetch(`${API_BASE}/api/projects/tasks?companyId=${currentUser.companyId}`)
+    const fetcher = authFetch || fetch;
+    fetcher(`${API_BASE}/api/my-tasks?companyId=${currentUser.companyId}`)
       .then(r => r.json())
       .then(d => {
-        // API 回傳 { success, data: { tasks: [...] } }
-        const list = Array.isArray(d) ? d
-          : Array.isArray(d.data) ? d.data
-          : (d.data?.tasks || d.tasks || []);
+        // /api/my-tasks 回傳 { success, data: [...] }
+        const list = Array.isArray(d.data) ? d.data
+          : Array.isArray(d) ? d
+          : [];
         setMyTasks(list);
       })
       .catch(() => setMyTasks([]))
       .finally(() => setTasksLoading(false));
-  }, [currentUser?.companyId]);
+  }, [currentUser?.companyId, currentUser?.id, authFetch]);
 
   const now = new Date();
   const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
@@ -1608,7 +1634,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
   const completedCount = myTasks.filter(t => {
     if (t.status !== 'done') return false;
-    const d = t.updatedAt || t.dueDate;
+    const d = t.completedAt || t.updatedAt;
     if (!d) return false;
     const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
     return new Date(d) >= weekAgo;
@@ -1788,8 +1814,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   padding: '10px 14px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: T.accent,
-                  color: '#fff',
+                  background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)',
+                  color: '#ffffff',
                   fontSize: '13px',
                   fontWeight: '700',
                   cursor: 'pointer',
@@ -2011,8 +2037,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   style={{
                     width: '100%',
                     marginTop: '14px',
-                    background: T.accent,
-                    color: 'white',
+                    background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)',
+                    color: '#ffffff',
                     border: 'none',
                     borderRadius: '10px',
                     padding: '10px 0',
@@ -2277,9 +2303,9 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   const colors = ['#B4233C', '#2C6ECB', '#2F855A', '#A5662B', '#5B57D9', '#18776B'];
                   const color = colors[i % colors.length];
                   const overdue = p.overdue_tasks ?? p.taskOverdue ?? 0;
-                  const total   = p.total_tasks ?? p.taskTotal ?? 0;
-                  const done    = p.done_tasks ?? p.taskDone ?? 0;
-                  const pct = Math.round(parseFloat(p.completion_pct ?? p.completion ?? 0));
+                  const total   = p.total_tasks   ?? p.totalTasks  ?? p.taskTotal ?? 0;
+                  const done    = p.done_tasks    ?? p.taskCounts?.done ?? p.taskDone ?? 0;
+                  const pct = Math.round(parseFloat(p.completion_pct ?? p.completionRate ?? p.completion ?? 0));
                   const statusText = overdue > 0
                     ? `${overdue} 項逾期`
                     : total > 0
@@ -2496,6 +2522,7 @@ export default function Dashboard() {
   const [settingsState,   setSettingsState]   = useState(null);
   const [inboxCount,      setInboxCount]      = useState(0);
   const [showDarkPanel,   setShowDarkPanel]   = useState(false);
+  const [showHelp,        setShowHelp]        = useState(false);
   const [sbCollapsed,     setSbCollapsed]     = useState(() => {
     try { return localStorage.getItem('xcloud-sb-collapsed') === '1'; } catch { return false; }
   });
@@ -2666,8 +2693,8 @@ export default function Dashboard() {
   const renderPage = () => {
     if (activeNav === 'home')          return <HomePage currentUser={currentUser} onNavigate={navigate} dashData={dashData} />;
     if (activeNav === 'analytics')     return <AnalyticsPage dashData={dashData} />;
-    if (activeNav === 'inbox')         return <InboxPage />;
-    if (activeNav === 'my-tasks')      return <MyTasksWorkspacePage />;
+    if (activeNav === 'inbox')         return <InboxPage onNavigate={navigate} />;
+    if (activeNav === 'my-tasks')      return <MyTasksPage />;
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
@@ -2715,6 +2742,7 @@ export default function Dashboard() {
           onTogglePanel={() => setShowDarkPanel((current) => !current)}
           panelOpen={showDarkPanel}
           panelMode={themeMode}
+          onHelp={() => setShowHelp(true)}
         />
 
         <DarkPanel
@@ -2726,6 +2754,12 @@ export default function Dashboard() {
           dashData={dashData}
           mode={themeMode}
           onModeChange={changePanelMode}
+        />
+
+        <HelpPanel
+          open={showHelp}
+          onClose={() => setShowHelp(false)}
+          currentPage={activeNav}
         />
 
         <main style={{ flex: 1, minWidth: 0 }}>

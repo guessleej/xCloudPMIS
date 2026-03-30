@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -218,7 +219,18 @@ function OverviewTab({ data, chart, loading }) {
   if (loading) return <Spinner />;
   if (!data) return <EmptyState icon="❌" text="無法載入狀態資料，請確認服務是否正常運行" />;
 
-  const { services, stats, recentActivity } = data;
+  const { services = {}, stats: rawStats = {}, recentActivity = [] } = data;
+  // 防禦性預設值：API 可能未回傳所有欄位
+  const stats = {
+    totalCallsToday: rawStats.totalCallsToday ?? 0,
+    successRate:     rawStats.successRate     ?? null,
+    avgLatency:      rawStats.avgLatency      ?? null,
+    activeSessions:  rawStats.activeSessions  ?? 0,
+    ...rawStats,
+  };
+  const mcpExt  = services.mcpExternalServer || { status: 'unknown', sessions: 0, uptime: 0, version: '?' };
+  const msSvc   = services.microsoft         || { status: 'unknown', tokenStatus: '未連線', tokenExpiry: null, services: {} };
+  const aiAgent = services.aiAgent           || { status: 'unknown', pendingDecisions: 0, model: '—', mode: '—' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -243,8 +255,8 @@ function OverviewTab({ data, chart, loading }) {
         />
         <StatCard icon="🔌" label="活躍連線"        value={stats.activeSessions}
           sub="個 SSE Session" color={COLORS.primary} />
-        <StatCard icon="🤖" label="待審核 AI 決策"  value={services.aiAgent.pendingDecisions}
-          sub="個決策待審" color={services.aiAgent.pendingDecisions > 0 ? COLORS.warning : COLORS.success} />
+        <StatCard icon="🤖" label="待審核 AI 決策"  value={aiAgent.pendingDecisions}
+          sub="個決策待審" color={aiAgent.pendingDecisions > 0 ? COLORS.warning : COLORS.success} />
       </div>
 
       {/* ── 服務狀態卡片 ────────────────────────────────────────── */}
@@ -255,22 +267,22 @@ function OverviewTab({ data, chart, loading }) {
           {/* MCP External Server */}
           <ServiceCard
             icon="🔌" name="MCP External Server"
-            status={services.mcpExternalServer.status}
+            status={mcpExt.status}
             meta={[
-              `Sessions: ${services.mcpExternalServer.sessions}`,
-              `Uptime: ${Math.floor(services.mcpExternalServer.uptime / 60)} 分鐘`,
-              `版本: v${services.mcpExternalServer.version}`,
+              `Sessions: ${mcpExt.sessions}`,
+              `Uptime: ${Math.floor((mcpExt.uptime || 0) / 60)} 分鐘`,
+              `版本: v${mcpExt.version}`,
             ]}
           />
 
           {/* Microsoft Graph */}
           <ServiceCard
             icon="🏢" name="Microsoft Graph API"
-            status={services.microsoft.status}
+            status={msSvc.status}
             meta={[
-              `Token 狀態: ${services.microsoft.tokenStatus}`,
-              services.microsoft.tokenExpiry
-                ? `到期：${new Date(services.microsoft.tokenExpiry).toLocaleString('zh-TW')}`
+              `Token 狀態: ${msSvc.tokenStatus}`,
+              msSvc.tokenExpiry
+                ? `到期：${new Date(msSvc.tokenExpiry).toLocaleString('zh-TW')}`
                 : '尚未連線',
             ]}
           />
@@ -278,11 +290,11 @@ function OverviewTab({ data, chart, loading }) {
           {/* AI Agent */}
           <ServiceCard
             icon="🤖" name="AI Agent（ReAct）"
-            status={services.aiAgent.status}
+            status={aiAgent.status}
             meta={[
-              `今日決策: ${services.aiAgent.todayDecisions} 件`,
-              `完成率: ${services.aiAgent.successRate !== null ? services.aiAgent.successRate + '%' : '—'}`,
-              `待審: ${services.aiAgent.pendingDecisions} 件`,
+              `今日決策: ${aiAgent.todayDecisions ?? 0} 件`,
+              `完成率: ${aiAgent.successRate != null ? aiAgent.successRate + '%' : '—'}`,
+              `待審: ${aiAgent.pendingDecisions ?? 0} 件`,
             ]}
           />
         </div>
@@ -600,7 +612,7 @@ function MicrosoftToolHints({ service, status }) {
 // Tab 3 — 通知整合（Telegram / LINE）
 // ════════════════════════════════════════════════════════════
 
-function NotifyTab({ data, loading }) {
+function NotifyTab({ data, loading, authFetch }) {
   const [testInput, setTestInput]   = useState({ telegram: { chatId: '' }, line: { userId: '' } });
   const [testResult, setTestResult] = useState({});
   const [testing, setTesting]       = useState({});
@@ -617,7 +629,8 @@ function NotifyTab({ data, loading }) {
         ? { chatId:  testInput.telegram.chatId  || undefined }
         : { userId:  testInput.line.userId       || undefined };
 
-      const r = await fetch(`${API}/api/admin/mcp/notify/test`, {
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API}/api/admin/mcp/notify/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service: svc, ...extra }),
@@ -1037,7 +1050,7 @@ function ExternalTab({ toolsData, loadingTools }) {
 // Tab 4 — API 金鑰管理
 // ════════════════════════════════════════════════════════════
 
-function ApiKeysTab() {
+function ApiKeysTab({ authFetch }) {
   const [keys, setKeys]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showCreate, setCreate] = useState(false);
@@ -1057,12 +1070,13 @@ function ApiKeysTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/api/admin/mcp/api-keys`);
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API}/api/admin/mcp/api-keys`);
       const d = await r.json();
       setKeys(d.data || []);
     } catch { setKeys([]); }
     setLoading(false);
-  }, []);
+  }, [authFetch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -1070,7 +1084,8 @@ function ApiKeysTab() {
     if (!form.systemName) return;
     setCreating(true);
     try {
-      const r = await fetch(`${API}/api/admin/mcp/api-keys`, {
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API}/api/admin/mcp/api-keys`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, companyId: parseInt(form.companyId) }),
       });
@@ -1087,7 +1102,8 @@ function ApiKeysTab() {
 
   const handleRevoke = async (id) => {
     if (!confirm('確定要撤銷此 API Key？操作無法復原。')) return;
-    await fetch(`${API}/api/admin/mcp/api-keys/${id}`, { method: 'DELETE' });
+    const fetcher = authFetch || fetch;
+    await fetcher(`${API}/api/admin/mcp/api-keys/${id}`, { method: 'DELETE' });
     load();
   };
 
@@ -1320,7 +1336,7 @@ function ApiKeysTab() {
 // Tab 5 — 工具日誌
 // ════════════════════════════════════════════════════════════
 
-function LogsTab() {
+function LogsTab({ authFetch }) {
   const [logs, setLogs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -1334,7 +1350,8 @@ function LogsTab() {
       const params = new URLSearchParams({ page, limit: 20 });
       if (filter.success !== '') params.set('success', filter.success);
       if (filter.tool)           params.set('tool', filter.tool);
-      const r = await fetch(`${API}/api/admin/mcp/logs?${params}`);
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API}/api/admin/mcp/logs?${params}`);
       const d = await r.json();
       setLogs(d.data || []);
       setTotal(d.pagination?.total || 0);
@@ -1477,6 +1494,7 @@ function LogsTab() {
 // ════════════════════════════════════════════════════════════
 
 export default function McpConsolePage() {
+  const { authFetch } = useAuth();
   const [activeTab,   setActiveTab]   = useState('overview');
   const [status,      setStatus]      = useState(null);
   const [chart,       setChart]       = useState(null);
@@ -1488,9 +1506,10 @@ export default function McpConsolePage() {
 
   const loadStatus = useCallback(async () => {
     try {
+      const fetcher = authFetch || fetch;
       const [statusRes, chartRes] = await Promise.all([
-        fetch(`${API}/api/admin/mcp/status`),
-        fetch(`${API}/api/admin/mcp/chart/hourly`),
+        fetcher(`${API}/api/admin/mcp/status`),
+        fetcher(`${API}/api/admin/mcp/chart/hourly`),
       ]);
       const [statusData, chartData] = await Promise.all([statusRes.json(), chartRes.json()]);
       setStatus(statusData);
@@ -1503,7 +1522,8 @@ export default function McpConsolePage() {
   const loadTools = useCallback(async () => {
     setLoadingTools(true);
     try {
-      const r = await fetch(`${API}/api/admin/mcp/tools`);
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API}/api/admin/mcp/tools`);
       setToolsData(await r.json());
     } catch {}
     setLoadingTools(false);
@@ -1557,16 +1577,16 @@ export default function McpConsolePage() {
           borderRadius: 10, border: `1px solid ${COLORS.border}`,
         }}>
           {[
-            { label: 'MCP Server',   s: status.services.mcpExternalServer.status },
-            { label: 'Microsoft',    s: status.services.microsoft.status },
-            { label: 'AI Agent',     s: status.services.aiAgent.status },
-            { label: 'Outlook',      s: status.services.microsoft.services?.outlook?.status },
-            { label: 'Teams',        s: status.services.microsoft.services?.teams?.status },
-            { label: 'SharePoint',   s: status.services.microsoft.services?.sharepoint?.status },
-            { label: 'OneDrive',     s: status.services.microsoft.services?.onedrive?.status },
-            { label: 'Loop',      s: status.services.microsoft.services?.loop?.status },
-            { label: 'Telegram',  s: status.services.notify?.telegram?.status },
-            { label: 'LINE',      s: status.services.notify?.line?.status },
+            { label: 'MCP Server',   s: status.services?.mcpExternalServer?.status },
+            { label: 'Microsoft',    s: status.services?.microsoft?.status },
+            { label: 'AI Agent',     s: status.services?.aiAgent?.status },
+            { label: 'Outlook',      s: status.services?.microsoft?.services?.outlook?.status },
+            { label: 'Teams',        s: status.services?.microsoft?.services?.teams?.status },
+            { label: 'SharePoint',   s: status.services?.microsoft?.services?.sharepoint?.status },
+            { label: 'OneDrive',     s: status.services?.microsoft?.services?.onedrive?.status },
+            { label: 'Loop',         s: status.services?.microsoft?.services?.loop?.status },
+            { label: 'Telegram',  s: status.services?.notify?.telegram?.status },
+            { label: 'LINE',      s: status.services?.notify?.line?.status },
           ].map(({ label, s }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}>
               <StatusDot status={s || 'offline'} />
@@ -1602,10 +1622,10 @@ export default function McpConsolePage() {
       {/* ── Tab 內容 ────────────────────────────────────────── */}
       {activeTab === 'overview'  && <OverviewTab   data={status} chart={chart} loading={loading} />}
       {activeTab === 'microsoft' && <MicrosoftTab  data={status} loading={loading} />}
-      {activeTab === 'notify'    && <NotifyTab     data={status} loading={loading} />}
+      {activeTab === 'notify'    && <NotifyTab     data={status} loading={loading} authFetch={authFetch} />}
       {activeTab === 'external'  && <ExternalTab   toolsData={toolsData} loadingTools={loadingTools} />}
-      {activeTab === 'apikeys'   && <ApiKeysTab />}
-      {activeTab === 'logs'      && <LogsTab />}
+      {activeTab === 'apikeys'   && <ApiKeysTab authFetch={authFetch} />}
+      {activeTab === 'logs'      && <LogsTab authFetch={authFetch} />}
     </div>
   );
 }

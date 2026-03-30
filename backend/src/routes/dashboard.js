@@ -153,17 +153,18 @@ router.get('/summary', async (req, res) => {
       };
     }).sort((a, b) => b.totalTasks - a.totalTasks).slice(0, 10);
 
-    // ── 5. 月度趨勢（過去 6 個月）────────────────────────
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0, 0, 0, 0);
+    // ── 5. 月度趨勢（過去 12 個月）────────────────────────
+    const TREND_MONTHS = 12;
+    const trendStart = new Date();
+    trendStart.setMonth(trendStart.getMonth() - (TREND_MONTHS - 1));
+    trendStart.setDate(1);
+    trendStart.setHours(0, 0, 0, 0);
 
     const completedRecent = allTasks.filter(
-      t => t.completedAt && new Date(t.completedAt) >= sixMonthsAgo
+      t => t.completedAt && new Date(t.completedAt) >= trendStart
     );
     const createdRecent = allTasks.filter(
-      t => new Date(t.createdAt) >= sixMonthsAgo
+      t => new Date(t.createdAt) >= trendStart
     );
 
     // 按月份分組
@@ -182,8 +183,8 @@ router.get('/summary', async (req, res) => {
       if (!monthlyMap[key]) monthlyMap[key] = { month: key, completed: 0, created: 0 };
       monthlyMap[key].created++;
     }
-    // 補齊最近 6 個月（即使沒資料也要顯示）
-    for (let i = 5; i >= 0; i--) {
+    // 補齊最近 12 個月（即使沒資料也要顯示）
+    for (let i = TREND_MONTHS - 1; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -254,6 +255,91 @@ router.get('/summary', async (req, res) => {
     });
   } catch (e) {
     console.error('[dashboard/summary]', e);
+    return err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/dashboard/my-impact?companyId=N&userId=N
+// 個人貢獻統計（P2#35 My Impact）
+// ════════════════════════════════════════════════════════════
+router.get('/my-impact', async (req, res) => {
+  const companyId = parseInt(req.query.companyId, 10);
+  const userId    = parseInt(req.query.userId,    10);
+  if (!companyId || !userId) return err(res, 'companyId & userId 為必填', 400);
+
+  try {
+    const now      = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const weekAgo  = new Date(now.getTime() - 7 * 86_400_000);
+
+    const [myTasks, user] = await Promise.all([
+      prisma.task.findMany({
+        where: { assigneeId: userId, deletedAt: null, project: { companyId } },
+        select: {
+          id: true, title: true, status: true, priority: true, dueDate: true,
+          completedAt: true, createdAt: true, projectId: true,
+          project: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, avatarUrl: true, department: true, jobTitle: true, createdAt: true },
+      }),
+    ]);
+
+    const completedThisMonth = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= monthStart).length;
+    const completedLastMonth = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= prevMonthStart && new Date(t.completedAt) <= prevMonthEnd).length;
+    const completedThisWeek  = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= weekAgo).length;
+    const overdueCount       = myTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now).length;
+    const activeCount        = myTasks.filter(t => ['todo','in_progress','review'].includes(t.status)).length;
+
+    // 參與專案數（去重）
+    const projectIds = [...new Set(myTasks.map(t => t.projectId))];
+
+    // 月度貢獻趨勢（過去 6 個月）
+    const trendMap = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      trendMap[key] = { month: key, completed: 0 };
+    }
+    for (const t of myTasks) {
+      if (!t.completedAt) continue;
+      const key = `${new Date(t.completedAt).getFullYear()}-${String(new Date(t.completedAt).getMonth() + 1).padStart(2, '0')}`;
+      if (trendMap[key]) trendMap[key].completed++;
+    }
+    const contributionTrend = Object.values(trendMap).sort((a, b) => a.month.localeCompare(b.month));
+
+    // 月環比
+    const mom = completedLastMonth > 0
+      ? Math.round(((completedThisMonth - completedLastMonth) / completedLastMonth) * 100)
+      : completedThisMonth > 0 ? 100 : 0;
+
+    return ok(res, {
+      user,
+      stats: {
+        completedThisMonth,
+        completedLastMonth,
+        completedThisWeek,
+        overdueCount,
+        activeCount,
+        projectCount: projectIds.length,
+        totalCompleted: myTasks.filter(t => t.status === 'done').length,
+        monthOverMonth: mom,
+      },
+      contributionTrend,
+      recentCompleted: myTasks
+        .filter(t => t.completedAt && new Date(t.completedAt) >= weekAgo)
+        .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+        .slice(0, 10)
+        .map(t => ({ id: t.id, title: t.title, projectName: t.project?.name, priority: t.priority, completedAt: t.completedAt })),
+    });
+  } catch (e) {
+    console.error('[dashboard/my-impact]', e);
     return err(res, e.message);
   }
 });

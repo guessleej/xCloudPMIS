@@ -61,14 +61,14 @@ const USER_SELECT = {
   createdAt:  true,
   updatedAt:  true,
   company:    { select: { id: true, name: true, slug: true } },
-  oauthAccounts: {
+  // OAuthToken：每人最多一個（Microsoft），僅保留非敏感欄位
+  oauthToken: {
     select: {
-      id:           true,
-      provider:     true,
-      providerEmail:true,
-      displayName:  true,
-      avatarUrl:    true,
-      createdAt:    true,
+      id:             true,
+      provider:       true,
+      microsoftEmail: true,
+      isActive:       true,
+      createdAt:      true,
     },
   },
 };
@@ -81,7 +81,8 @@ function formatUser(user) {
     lastLoginAt:user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
     createdAt:  user.createdAt.toISOString(),
     updatedAt:  user.updatedAt.toISOString(),
-    oauthProviders: (user.oauthAccounts || []).map(a => a.provider),
+    // oauthToken 是單一物件（非陣列），轉成 oauthProviders 陣列供前端使用
+    oauthProviders: user.oauthToken ? [user.oauthToken.provider] : [],
   };
 }
 
@@ -298,7 +299,7 @@ router.put('/:id', async (req, res) => {
     if (!existing) return fail(res, '找不到此使用者', 404);
 
     // 禁止管理員停用/降級自己（透過 PUT 修改 role/isActive）
-    if (id === req.user.userId && req.body.role && req.body.role !== 'admin') {
+    if (id === req.user.id && req.body.role && req.body.role !== 'admin') {
       return fail(res, '不能修改自己的角色');
     }
 
@@ -358,7 +359,7 @@ router.patch('/:id/toggle', async (req, res) => {
     const companyId = req.user.companyId;
 
     if (isNaN(id)) return fail(res, '無效的使用者 ID');
-    if (id === req.user.userId) return fail(res, '不能停用自己的帳號');
+    if (id === req.user.id) return fail(res, '不能停用自己的帳號');
 
     const existing = await prisma.user.findFirst({ where: { id, companyId } });
     if (!existing) return fail(res, '找不到此使用者', 404);
@@ -432,21 +433,20 @@ router.delete('/:id/oauth/:provider', async (req, res) => {
     const existing = await prisma.user.findFirst({ where: { id, companyId } });
     if (!existing) return fail(res, '找不到此使用者', 404);
 
-    // 若使用者沒有密碼且只剩一個 OAuth，拒絕取消（避免帳號無法登入）
-    const oauthCount = await prisma.userOAuthAccount.count({ where: { userId: id } });
+    // 若使用者沒有密碼且有 OAuth Token，拒絕取消（避免帳號無法登入）
+    const oauthToken = await prisma.oAuthToken.findUnique({ where: { userId: id } });
     const hasPassword = !!existing.passwordHash;
 
-    if (!hasPassword && oauthCount <= 1) {
-      return fail(res, '此使用者沒有密碼，取消最後一個 OAuth 連結將導致無法登入，請先設定密碼');
+    if (!hasPassword && oauthToken) {
+      return fail(res, '此使用者沒有密碼，取消 OAuth 連結將導致無法登入，請先設定密碼');
     }
 
-    const deleted = await prisma.userOAuthAccount.deleteMany({
-      where: { userId: id, provider },
-    });
-
-    if (deleted.count === 0) {
+    if (!oauthToken || oauthToken.provider !== provider) {
       return fail(res, `此使用者尚未連結 ${provider} 帳號`, 404);
     }
+
+    await prisma.oAuthToken.delete({ where: { userId: id } });
+    const deleted = { count: 1 };
 
     console.log(`✅ [admin/users] 取消 OAuth 連結：id=${id} provider=${provider}，by ${req.user.email}`);
     return ok(res, { message: `已取消 ${existing.name} 的 ${provider} 帳號連結` });

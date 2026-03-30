@@ -69,7 +69,7 @@ function AvatarBubble({ name, url, size = 20 }) {
   ) : (
     <span style={{
       width: size, height: size, borderRadius: '50%',
-      background: 'var(--xc-brand)', color: '#fff',
+      background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff',
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       fontSize: size * 0.5, fontWeight: 700, flexShrink: 0,
     }}>

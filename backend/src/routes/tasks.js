@@ -1,10 +1,16 @@
 /**
- * 任務 API 路由（我的任務頁面專用）
+ * 任務 API 路由
  *
- * GET /api/tasks?companyId=2   取得登入者的任務列表（純陣列格式）
+ * GET   /api/tasks?companyId=1&assigneeId=1  取得任務列表
+ * PATCH /api/tasks/:id/health                手動覆寫健康度
  *
- * 注意：回應格式為純 JSON 陣列（非 {success, data} 包裝格式），
- * 因為 MyTasksPage 使用 Array.isArray(data) 判斷資料是否存在。
+ * healthStatus 計算規則（系統自動）：
+ *   on_track  → 未逾期（剩餘 > 3 天或無截止日）
+ *   at_risk   → 即將到期（剩餘 0~3 天，含今天）
+ *   off_track → 已逾期（截止日 < 今天）
+ *
+ * 手動覆寫：PATCH /api/tasks/:id/health { healthStatus: "at_risk" | null }
+ *   null = 清除覆寫，恢復自動計算
  */
 
 const express = require('express');
@@ -12,84 +18,118 @@ const router  = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// ── 判斷任務的時間分區 ───────────────────────────────────────
-// section 值對應前端的分組標籤：
-//   today     → 今天執行
-//   upcoming  → 近期指派（7 天內）
-//   next_week → 下週執行（8～14 天）
-//   later     → 稍後執行（14 天以上或無截止日）
-function deriveSection(dueDate) {
-  if (!dueDate) return 'later';
+// ── 健康度自動計算 ────────────────────────────────────────────
+// 僅對未完成任務計算；已完成任務固定回傳 null
+function calcHealth(dueDate, status) {
+  if (status === 'done' || status === 'cancelled') return null;
+  if (!dueDate) return 'on_track';
 
   const now   = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const due   = new Date(dueDate);
   const dueMidnight = new Date(due.getFullYear(), due.getMonth(), due.getDate());
 
-  const diffMs   = dueMidnight - today;
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round((dueMidnight - today) / 86400000);
 
-  if (diffDays === 0)               return 'today';
-  if (diffDays >= 1 && diffDays <= 7)  return 'upcoming';
-  if (diffDays >= 8 && diffDays <= 14) return 'next_week';
+  if (diffDays < 0)  return 'off_track'; // 已逾期
+  if (diffDays <= 3) return 'at_risk';   // 3 天內到期
+  return 'on_track';
+}
+
+// ── 時間分區 ──────────────────────────────────────────────────
+function deriveSection(dueDate) {
+  if (!dueDate) return 'later';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due   = new Date(dueDate); due.setHours(0,0,0,0);
+  const diff  = Math.round((due - today) / 86400000);
+  if (diff === 0)              return 'today';
+  if (diff >= 1 && diff <= 7)  return 'upcoming';
+  if (diff >= 8 && diff <= 14) return 'next_week';
   return 'later';
 }
 
+// ── 格式化單筆任務 ────────────────────────────────────────────
+function formatTask(t) {
+  const dueDateStr = t.dueDate ? t.dueDate.toISOString().split('T')[0] : null;
+  // 有手動覆寫用覆寫值；否則自動計算
+  const health = t.healthStatus ?? calcHealth(t.dueDate, t.status);
+  return {
+    id:           t.id,
+    title:        t.title,
+    description:  t.description || '',
+    status:       t.status,
+    priority:     t.priority,
+    healthStatus: health,
+    dueDate:      dueDateStr,
+    progressPercent: t.progressPercent ?? 0,
+    project:      t.project,
+    assignee:     t.assignee,
+    section:      deriveSection(t.dueDate),
+  };
+}
+
 // ════════════════════════════════════════════════════════════
-// GET /api/tasks?companyId=2
-// 取得該公司所有任務，以純陣列格式回傳（MyTasksPage 相容格式）
+// GET /api/tasks?companyId=1[&assigneeId=1]
 // ════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
-  const companyId = parseInt(req.query.companyId) || 2;
+  const companyId  = parseInt(req.query.companyId)  || 1;
+  const assigneeId = parseInt(req.query.assigneeId) || null;
 
   try {
-    // 取得該公司旗下所有未刪除專案的 ID
     const projects = await prisma.project.findMany({
       where:  { companyId, deletedAt: null },
       select: { id: true, name: true },
     });
     const projectIds = projects.map(p => p.id);
+    if (!projectIds.length) return res.json({ success: true, data: [], meta: { total: 0 } });
 
-    if (projectIds.length === 0) {
-      // 公司下無專案，直接回傳空陣列
-      return res.json([]);
-    }
+    const where = { projectId: { in: projectIds }, deletedAt: null };
+    if (assigneeId) where.assigneeId = assigneeId;
 
-    // 查詢所有未刪除任務
     const tasks = await prisma.task.findMany({
-      where: {
-        projectId: { in: projectIds },
-        deletedAt: null,
-      },
-      orderBy: [
-        { priority: 'desc' },
-        { dueDate:  'asc'  },
-        { createdAt: 'asc' },
-      ],
+      where,
+      orderBy: [{ dueDate: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
       include: {
         assignee: { select: { id: true, name: true } },
         project:  { select: { id: true, name: true } },
       },
     });
 
-    // 格式化成 MyTasksPage 期望的欄位結構，並加入 section 分區
-    const result = tasks.map(t => ({
-      id:       t.id,
-      title:    t.title,
-      status:   t.status,
-      priority: t.priority,
-      dueDate:  t.dueDate ? t.dueDate.toISOString().split('T')[0] : null,
-      project:  t.project,
-      assignee: t.assignee,
-      section:  deriveSection(t.dueDate),
-    }));
-
-    // 直接回傳陣列，MyTasksPage 以 Array.isArray() 判斷
-    res.json(result);
+    const data = tasks.map(formatTask);
+    res.json({ success: true, data, meta: { total: data.length } });
   } catch (e) {
-    // 查詢失敗時回傳空陣列，讓前端使用 Demo 資料，避免頁面崩潰
-    console.error('[tasks] Prisma 查詢失敗，回傳空陣列:', e.message);
-    res.json([]);
+    console.error('[tasks GET]', e.message);
+    res.json({ success: true, data: [], meta: { total: 0 } });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// PATCH /api/tasks/:id/health
+// 手動覆寫健康度（傳 null 可清除覆寫，回到自動計算）
+// body: { healthStatus: "on_track" | "at_risk" | "off_track" | null }
+// ════════════════════════════════════════════════════════════
+router.patch('/:id/health', async (req, res) => {
+  const id     = parseInt(req.params.id);
+  const { healthStatus } = req.body;
+
+  const VALID = ['on_track', 'at_risk', 'off_track', null];
+  if (!VALID.includes(healthStatus)) {
+    return res.status(400).json({ success: false, error: 'healthStatus 值無效' });
+  }
+
+  try {
+    const task = await prisma.task.update({
+      where: { id },
+      data:  { healthStatus: healthStatus ?? null },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        project:  { select: { id: true, name: true } },
+      },
+    });
+    res.json({ success: true, data: formatTask(task) });
+  } catch (e) {
+    console.error('[tasks PATCH health]', e.message);
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

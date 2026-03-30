@@ -38,6 +38,11 @@ const rulesRouter         = require('./routes/rules');
 const goalsRouter         = require('./routes/goals');
 const portfoliosRouter    = require('./routes/portfolios');
 const authRouter          = require('./routes/auth/login');
+const customFieldsRouter  = require('./routes/custom-fields');
+const workflowRouter      = require('./routes/workflow');
+const formsRouter         = require('./routes/forms');
+const adminUsersRouter    = require('./routes/admin/users');
+const myFilesRouter       = require('./routes/files');
 const optionalAuth        = require('./middleware/optionalAuth');
 
 const app = express();
@@ -262,6 +267,44 @@ app.use('/api/portfolios', portfoliosRouter);
 // GET  /api/auth/me     → 驗證 token 並回傳當前使用者資訊
 // POST /api/auth/logout → 登出（前端清除 token）
 app.use('/api/auth', authRouter);
+
+// ── 自訂欄位路由 ──────────────────────────────────────────────
+// GET    /api/custom-fields?companyId=N  → 欄位列表
+// POST   /api/custom-fields              → 新增欄位
+// PATCH  /api/custom-fields/:id          → 更新欄位
+// DELETE /api/custom-fields/:id          → 封存欄位
+app.use('/api/custom-fields', customFieldsRouter);
+
+// ── 工作流程路由 ──────────────────────────────────────────────
+// GET    /api/workflow?companyId=N  → 流程列表
+// POST   /api/workflow              → 建立流程
+// PATCH  /api/workflow/:id          → 更新流程
+// DELETE /api/workflow/:id          → 刪除流程
+app.use('/api/workflow', workflowRouter);
+
+// ── 表單管理路由 ──────────────────────────────────────────────
+// GET    /api/forms?companyId=N  → 表單列表
+// POST   /api/forms              → 建立表單
+// PATCH  /api/forms/:id          → 更新表單
+// DELETE /api/forms/:id          → 刪除表單
+app.use('/api/forms', formsRouter);
+
+// ── 管理員使用者管理路由（Admin 專用）──────────────────────────
+// GET    /api/admin/users              → 使用者列表（搜尋/篩選/分頁）
+// GET    /api/admin/users/stats        → 統計數字
+// POST   /api/admin/users              → 建立使用者
+// GET    /api/admin/users/:id          → 使用者詳情
+// PUT    /api/admin/users/:id          → 更新使用者
+// PATCH  /api/admin/users/:id/toggle   → 停用/啟用使用者
+// POST   /api/admin/users/:id/reset-password → 重設密碼
+// DELETE /api/admin/users/:id/oauth/:provider → 取消 OAuth 連結
+app.use('/api/admin/users', adminUsersRouter);
+
+// ── 我的任務 > 檔案管理路由 ──────────────────────────────────
+// GET    /api/my-files           → 列出當前使用者的所有檔案
+// POST   /api/my-files           → 上傳檔案（multipart/form-data）
+// DELETE /api/my-files/:id       → 刪除指定檔案
+app.use('/api/my-files', myFilesRouter);
 
 // ── 404 處理 ────────────────────────────────────────────────
 app.use((req, res) => {

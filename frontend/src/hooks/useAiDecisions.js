@@ -14,26 +14,30 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
 const API = '';
-
-// ── API 呼叫工具 ───────────────────────────────────────────────
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || '未知錯誤');
-  return json;
-}
 
 // ════════════════════════════════════════════════════════════
 // Hook：useAiDecisions
 // ════════════════════════════════════════════════════════════
 
 export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
+  const { authFetch } = useAuth();
+
+  // ── API 呼叫工具 ──────────────────────────────────────────
+  const apiFetch = useCallback(async (path, options = {}) => {
+    const fetcher = authFetch || fetch;
+    const res = await fetcher(`${API}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '未知錯誤');
+    return json;
+  }, [authFetch]);
+
   // ── 狀態 ──────────────────────────────────────────────────
   const [stats,      setStats]      = useState(null);
   const [decisions,  setDecisions]  = useState([]);
@@ -187,7 +191,8 @@ export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`${API}/api/ai/agent/run`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API}/api/ai/agent/run`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ companyId, dryRun }),

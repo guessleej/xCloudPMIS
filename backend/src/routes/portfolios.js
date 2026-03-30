@@ -63,6 +63,7 @@ router.get('/', async (req, res) => {
         id:          p.id,
         name:        p.name,
         status:      p.status,
+        access:      p.access,   // ← 隱私設定
         health,
         progress,
         total,

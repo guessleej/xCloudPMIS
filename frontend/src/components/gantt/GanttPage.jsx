@@ -254,7 +254,7 @@ const LabelRow = ({ label, required, children }) => (
 // ════════════════════════════════════════════════════════════
 // 子元件：EditProjectModal — 編輯專案
 // ════════════════════════════════════════════════════════════
-function EditProjectModal({ project, users, onClose, onSaved }) {
+function EditProjectModal({ project, users, onClose, onSaved, authFetch }) {
   const [form, setForm]       = useState({
     name: '', description: '', status: 'active',
     budget: '', startDate: '', endDate: '', ownerId: '',
@@ -265,7 +265,8 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
 
   // 取得完整專案資料（含 description / budget）
   useEffect(() => {
-    fetch(`${API_BASE}/projects/${project.id}`)
+    const fetcher = authFetch || fetch;
+    fetcher(`${API_BASE}/projects/${project.id}`)
       .then(r => r.json())
       .then(resp => {
         const d = resp.data || resp;
@@ -281,7 +282,7 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [project.id]);
+  }, [project.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
@@ -290,7 +291,8 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/projects/${project.id}`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/projects/${project.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -381,7 +383,7 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
-              <button onClick={save} disabled={saving} style={btnSt('#3b82f6', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
+              <button onClick={save} disabled={saving} style={btnSt('#2563eb', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
                 {saving ? '儲存中...' : '💾 儲存'}
               </button>
             </div>
@@ -395,7 +397,7 @@ function EditProjectModal({ project, users, onClose, onSaved }) {
 // ════════════════════════════════════════════════════════════
 // 子元件：DeleteProjectModal — 刪除專案確認
 // ════════════════════════════════════════════════════════════
-function DeleteProjectModal({ project, onClose, onDeleted }) {
+function DeleteProjectModal({ project, onClose, onDeleted, authFetch }) {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
@@ -403,7 +405,8 @@ function DeleteProjectModal({ project, onClose, onDeleted }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/projects/${project.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/projects/${project.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || '刪除失敗');
@@ -465,7 +468,7 @@ function DeleteProjectModal({ project, onClose, onDeleted }) {
 // ════════════════════════════════════════════════════════════
 // 子元件：EditTaskModal — 編輯任務
 // ════════════════════════════════════════════════════════════
-function EditTaskModal({ task, project, users, onClose, onSaved }) {
+function EditTaskModal({ task, project, users, onClose, onSaved, authFetch }) {
   const [form, setForm] = useState({
     title:      task.title      || '',
     status:     task.status     || 'todo',
@@ -484,7 +487,8 @@ function EditTaskModal({ task, project, users, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/projects/tasks/${task.id}`, {
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/projects/tasks/${task.id}`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -568,7 +572,7 @@ function EditTaskModal({ task, project, users, onClose, onSaved }) {
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={btnSt('#f3f4f6', '#374151', { padding: '8px 18px' })}>取消</button>
-          <button onClick={save} disabled={saving} style={btnSt('#3b82f6', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
+          <button onClick={save} disabled={saving} style={btnSt('#2563eb', 'white', { padding: '8px 18px', opacity: saving ? 0.7 : 1 })}>
             {saving ? '儲存中...' : '💾 儲存'}
           </button>
         </div>
@@ -580,7 +584,7 @@ function EditTaskModal({ task, project, users, onClose, onSaved }) {
 // ════════════════════════════════════════════════════════════
 // 子元件：DeleteTaskModal — 刪除任務確認
 // ════════════════════════════════════════════════════════════
-function DeleteTaskModal({ task, project, onClose, onDeleted }) {
+function DeleteTaskModal({ task, project, onClose, onDeleted, authFetch }) {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
@@ -588,7 +592,8 @@ function DeleteTaskModal({ task, project, onClose, onDeleted }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/projects/tasks/${task.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API_BASE}/projects/tasks/${task.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || '刪除失敗');
@@ -653,7 +658,7 @@ function DeleteTaskModal({ task, project, onClose, onDeleted }) {
 // 主元件：GanttPage
 // ════════════════════════════════════════════════════════════
 export default function GanttPage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
   const [data,          setData]          = useState(null);
@@ -682,7 +687,7 @@ export default function GanttPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/gantt?companyId=${companyId}`);
+      const res = await authFetch(`${API_BASE}/gantt?companyId=${companyId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData(json);
@@ -699,7 +704,7 @@ export default function GanttPage() {
   const loadUsers = async () => {
     if (!companyId) return;
     try {
-      const res = await fetch(`${API_BASE}/projects/users?companyId=${companyId}`);
+      const res = await authFetch(`${API_BASE}/projects/users?companyId=${companyId}`);
       if (!res.ok) return;
       const json = await res.json();
       setUsers(Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : (json.users || [])));
@@ -779,7 +784,7 @@ export default function GanttPage() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 40 }}>😢</div>
       <div style={{ fontWeight: 600, color: T.text }}>載入失敗：{error}</div>
-      <button onClick={load} style={{ ...btnSt('#3b82f6', 'white'), padding: '8px 20px', fontSize: 14 }}>重試</button>
+      <button onClick={load} style={{ ...btnSt('#2563eb', 'white'), padding: '8px 20px', fontSize: 14 }}>重試</button>
     </div>
   );
 
@@ -841,7 +846,7 @@ export default function GanttPage() {
         </div>
 
         {/* 重新整理 */}
-        <button onClick={load} style={btnSt('#3b82f6', 'white')}>🔄 重新整理</button>
+        <button onClick={load} style={btnSt('#2563eb', 'white')}>🔄 重新整理</button>
       </div>
 
       {/* ══ 甘特圖本體（可橫向 + 縱向捲動） ════════════════ */}
@@ -1015,8 +1020,8 @@ export default function GanttPage() {
                           onClick={e => { e.stopPropagation(); setEditProject(project); }}
                           title="編輯專案"
                           style={{
-                            background:   '#e0f2fe',
-                            color:        '#0369a1',
+                            background:   'color-mix(in srgb,#3B82F6 14%,var(--xc-surface))',
+                            color:        '#3B82F6',
                             border:       'none',
                             borderRadius: 4,
                             padding:      '2px 6px',
@@ -1029,8 +1034,8 @@ export default function GanttPage() {
                           onClick={e => { e.stopPropagation(); setDeleteProject(project); }}
                           title="刪除專案"
                           style={{
-                            background:   '#fee2e2',
-                            color:        '#dc2626',
+                            background:   'color-mix(in srgb,#EF4444 14%,var(--xc-surface))',
+                            color:        '#EF4444',
                             border:       'none',
                             borderRadius: 4,
                             padding:      '2px 6px',
@@ -1204,8 +1209,8 @@ export default function GanttPage() {
                               onClick={e => { e.stopPropagation(); setEditTask({ task, project }); }}
                               title="編輯任務"
                               style={{
-                                background:   '#e0f2fe',
-                                color:        '#0369a1',
+                                background:   'color-mix(in srgb,#3B82F6 14%,var(--xc-surface))',
+                                color:        '#3B82F6',
                                 border:       'none',
                                 borderRadius: 4,
                                 padding:      '2px 6px',
@@ -1218,8 +1223,8 @@ export default function GanttPage() {
                               onClick={e => { e.stopPropagation(); setDeleteTask({ task, project }); }}
                               title="刪除任務"
                               style={{
-                                background:   '#fee2e2',
-                                color:        '#dc2626',
+                                background:   'color-mix(in srgb,#EF4444 14%,var(--xc-surface))',
+                                color:        '#EF4444',
                                 border:       'none',
                                 borderRadius: 4,
                                 padding:      '2px 6px',
@@ -1329,11 +1334,11 @@ export default function GanttPage() {
 
         {/* 里程碑 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: T.surfaceStrong, border: '2px solid #10b981', borderRadius: 2 }} />
+          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: '#10b981', border: '2px solid #10b981', borderRadius: 2 }} />
           <span>里程碑（已達成）</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: '#10b981', border: '2px solid #10b981', borderRadius: 2 }} />
+          <div style={{ width: 12, height: 12, transform: 'rotate(45deg)', background: T.surfaceStrong, border: '2px solid #10b981', borderRadius: 2 }} />
           <span>里程碑（未達成）</span>
         </div>
 
@@ -1363,6 +1368,7 @@ export default function GanttPage() {
           users={users}
           onClose={() => setEditProject(null)}
           onSaved={handleProjectSaved}
+          authFetch={authFetch}
         />
       )}
       {deleteProject && (
@@ -1370,6 +1376,7 @@ export default function GanttPage() {
           project={deleteProject}
           onClose={() => setDeleteProject(null)}
           onDeleted={handleProjectDeleted}
+          authFetch={authFetch}
         />
       )}
       {editTask && (
@@ -1379,6 +1386,7 @@ export default function GanttPage() {
           users={users}
           onClose={() => setEditTask(null)}
           onSaved={handleTaskSaved}
+          authFetch={authFetch}
         />
       )}
       {deleteTask && (
@@ -1387,6 +1395,7 @@ export default function GanttPage() {
           project={deleteTask.project}
           onClose={() => setDeleteTask(null)}
           onDeleted={handleTaskDeleted}
+          authFetch={authFetch}
         />
       )}
 

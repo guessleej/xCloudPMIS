@@ -28,6 +28,65 @@ const STATUS_CFG = {
   planning:  { label: '規劃中', color: '#8b5cf6' },
 };
 
+// ── 隱私設定 ──────────────────────────────────────────────────
+const ACCESS_CFG = {
+  public:  { label: '公開',     icon: '🌐', color: '#10b981', bg: 'rgba(16,185,129,.1)',  desc: '工作空間所有人可見' },
+  team:    { label: '僅成員',   icon: '👥', color: '#3b82f6', bg: 'rgba(59,130,246,.1)',  desc: '僅專案成員可見' },
+  private: { label: '私人',     icon: '🔒', color: '#6b7280', bg: 'rgba(107,114,128,.1)', desc: '僅建立者可見' },
+};
+const ACCESS_ORDER = ['public', 'team', 'private'];
+
+function AccessBadge({ access, projectId, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const cfg = ACCESS_CFG[access] || ACCESS_CFG.team;
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        title={cfg.desc}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '3px 8px', borderRadius: 8, cursor: 'pointer',
+          background: cfg.bg, color: cfg.color,
+          fontSize: 10, fontWeight: 700, border: 'none',
+          letterSpacing: '0.02em',
+        }}
+      >
+        {cfg.icon} {cfg.label}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0, zIndex: 100,
+          background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
+          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+          minWidth: 160, overflow: 'hidden',
+        }}
+          onMouseLeave={() => setOpen(false)}
+        >
+          {ACCESS_ORDER.map(k => {
+            const c = ACCESS_CFG[k];
+            return (
+              <button key={k} onClick={e => { e.stopPropagation(); onChanged(projectId, k); setOpen(false); }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '9px 14px', background: k === access ? c.bg : 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{c.icon}</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--xc-text-muted)' }}>{c.desc}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 環形圖 ────────────────────────────────────────────────────
 function HealthDonut({ summary }) {
   const data = [
@@ -66,7 +125,7 @@ function HealthDonut({ summary }) {
 }
 
 // ── 專案卡片 ─────────────────────────────────────────────────
-function ProjectCard({ project }) {
+function ProjectCard({ project, onAccessChange }) {
   const hCfg = HEALTH_CFG[project.health] || HEALTH_CFG.healthy;
   const sCfg = STATUS_CFG[project.status] || STATUS_CFG.active;
   const pctColor = project.progress >= 80 ? '#10b981' : project.progress >= 50 ? '#f59e0b' : '#3b82f6';
@@ -86,10 +145,11 @@ function ProjectCard({ project }) {
           <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {project.name}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '2px', display: 'flex', gap: '8px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '4px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ color: sCfg.color }}>● {sCfg.label}</span>
             {project.memberCount > 0 && <span>👤 {project.memberCount} 人</span>}
             {project.totalHours > 0 && <span>⏱ {project.totalHours}h</span>}
+            <AccessBadge access={project.access || 'team'} projectId={project.id} onChanged={onAccessChange} />
           </div>
         </div>
         <div style={{
@@ -146,14 +206,14 @@ function ProjectCard({ project }) {
 }
 
 // ── 列表行 ────────────────────────────────────────────────────
-function ProjectRow({ project }) {
+function ProjectRow({ project, onAccessChange }) {
   const hCfg = HEALTH_CFG[project.health] || HEALTH_CFG.healthy;
   const sCfg = STATUS_CFG[project.status] || STATUS_CFG.active;
   const pctColor = project.progress >= 80 ? '#10b981' : project.progress >= 50 ? '#f59e0b' : '#3b82f6';
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '2fr 80px 120px 60px 60px 60px 60px',
+      display: 'grid', gridTemplateColumns: '2fr 80px 80px 120px 60px 60px 60px 60px',
       alignItems: 'center', gap: '12px',
       padding: '12px 16px',
       borderBottom: '1px solid var(--xc-border)',
@@ -167,6 +227,8 @@ function ProjectRow({ project }) {
         background: `${hCfg.color}15`, color: hCfg.color,
         fontSize: '11px', fontWeight: 700,
       }}>{hCfg.icon} {hCfg.label}</div>
+      {/* 隱私 */}
+      <div><AccessBadge access={project.access || 'team'} projectId={project.id} onChanged={onAccessChange} /></div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: 'var(--xc-border)', overflow: 'hidden' }}>
           <div style={{ width: `${project.progress}%`, height: '100%', background: pctColor }} />
@@ -219,6 +281,22 @@ export default function PortfoliosPage() {
   }, [companyId, authFetch]);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── 隱私設定快速切換 ─────────────────────────────────────
+  const handleAccessChange = useCallback(async (projectId, newAccess) => {
+    // 樂觀更新 UI
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, access: newAccess } : p));
+    try {
+      await authFetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: newAccess }),
+      });
+    } catch (e) {
+      console.error('[access patch]', e);
+      load(); // 失敗則重新載入恢復原狀
+    }
+  }, [authFetch, load]);
 
   // 篩選 + 排序
   const filtered = projects
@@ -349,21 +427,21 @@ export default function PortfoliosPage() {
         </div>
       ) : viewMode === 'card' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-          {filtered.map(p => <ProjectCard key={p.id} project={p} />)}
+          {filtered.map(p => <ProjectCard key={p.id} project={p} onAccessChange={handleAccessChange} />)}
         </div>
       ) : (
         <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: '12px', overflow: 'hidden' }}>
           {/* 列表標題 */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '2fr 80px 120px 60px 60px 60px 60px',
+            display: 'grid', gridTemplateColumns: '2fr 80px 80px 120px 60px 60px 60px 60px',
             gap: '12px', padding: '10px 16px',
             background: 'var(--xc-surface-soft)', borderBottom: '1px solid var(--xc-border)',
           }}>
-            {['專案名稱', '健康', '進度', '總計', '完成', '逾期', '成員'].map(h => (
+            {['專案名稱', '健康', '隱私', '進度', '總計', '完成', '逾期', '成員'].map(h => (
               <div key={h} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--xc-text-muted)', textAlign: h !== '專案名稱' ? 'center' : 'left' }}>{h}</div>
             ))}
           </div>
-          {filtered.map(p => <ProjectRow key={p.id} project={p} />)}
+          {filtered.map(p => <ProjectRow key={p.id} project={p} onAccessChange={handleAccessChange} />)}
         </div>
       )}
     </div>

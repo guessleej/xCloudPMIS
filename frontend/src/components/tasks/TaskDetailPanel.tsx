@@ -43,6 +43,13 @@ export interface TaskCustomFieldDefinition {
   options?: TaskCustomFieldOption[];
 }
 
+export interface TaskChecklistItem {
+  id: EntityId;
+  title: string;
+  isDone: boolean;
+  position: number;
+}
+
 export interface TaskSubtaskNode {
   id: EntityId;
   title: string;
@@ -115,6 +122,12 @@ export interface TaskDetailPanelProps {
     subtaskId: EntityId;
     completed: boolean;
   }) => Promise<void> | void;
+  // Checklist
+  checklistItems?: TaskChecklistItem[];
+  checklistLoading?: boolean;
+  onAddChecklistItem?: (title: string) => Promise<void> | void;
+  onToggleChecklistItem?: (itemId: EntityId, isDone: boolean) => Promise<void> | void;
+  onDeleteChecklistItem?: (itemId: EntityId) => Promise<void> | void;
 }
 
 const BRAND = {
@@ -830,6 +843,11 @@ export default function TaskDetailPanel({
   commentSaving = false,
   commentError = null,
   onToggleSubtask,
+  checklistItems = [],
+  checklistLoading = false,
+  onAddChecklistItem,
+  onToggleChecklistItem,
+  onDeleteChecklistItem,
 }: TaskDetailPanelProps) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -842,6 +860,12 @@ export default function TaskDetailPanel({
   const [subtaskInput, setSubtaskInput] = useState('');
   const [subtaskPending, setSubtaskPending] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [checklistInput, setChecklistInput] = useState('');
+  const [checklistPending, setChecklistPending] = useState(false);
+
+  // ── 根本修正：task 物件每次由父層 inline 建立，ref 不同但 id 相同
+  //    只在 task.id 真正改變時重設所有欄位，避免父層 re-render 覆蓋使用者編輯中的值
+  const cfvFromParentRef = useRef<TaskCustomFieldValueMap | null>(null);
 
   useEffect(() => {
     if (!open || !task) return;
@@ -851,11 +875,28 @@ export default function TaskDetailPanel({
     setDueDate(formatDateInputValue(task.dueDate));
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
+    cfvFromParentRef.current = task.customFieldValues || null;
     setSubtaskInput('');
     setCommentText('');
+    setChecklistInput('');
     setShowProjectPicker(false);
     setIsEditingTitle(false);
-  }, [open, task]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, task?.id]);
+
+  // 當父層非同步載入自訂欄位值時（第一次載入），同步更新本地狀態；
+  // 但若使用者已開始編輯（cfvFromParentRef 已經不同），則不覆蓋
+  useEffect(() => {
+    if (!open || !task) return;
+    const incoming = task.customFieldValues;
+    // 若 incoming 是同一個 reference，代表沒有新資料，不處理
+    if (incoming === cfvFromParentRef.current) return;
+    // 只在值真的從 API 載入後（非空）才更新
+    if (!incoming || Object.keys(incoming).length === 0) return;
+    cfvFromParentRef.current = incoming;
+    setCustomFieldValues(incoming);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.customFieldValues]);
 
   useEffect(() => {
     if (!open) return;
@@ -1404,6 +1445,172 @@ export default function TaskDetailPanel({
                     目前還沒有子任務，先加一個開始拆解執行步驟。
                   </div>
                 )}
+              </div>
+            </div>
+          </Section>
+
+          <Section kicker="Checklist" title="待辦清單">
+            <div
+              style={{
+                border: `1px solid ${BRAND.line}`,
+                borderRadius: 22,
+                background: BRAND.white,
+                padding: 18,
+                boxShadow: 'var(--xc-shadow)',
+              }}
+            >
+              {/* 進度列 */}
+              {checklistItems.length > 0 ? (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.carbon }}>
+                      完成進度
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                      {checklistItems.filter(i => i.isDone).length} / {checklistItems.length}
+                    </span>
+                  </div>
+                  <div style={{ height: 7, borderRadius: 999, background: BRAND.surfaceMuted, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${Math.round((checklistItems.filter(i => i.isDone).length / checklistItems.length) * 100)}%`,
+                        height: '100%',
+                        background: `linear-gradient(90deg, ${BRAND.crimsonDeep}, ${BRAND.crimson})`,
+                        transition: 'width .2s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {/* 清單項目 */}
+              {checklistLoading ? (
+                <div style={{ fontSize: 13, color: BRAND.muted, padding: '8px 0' }}>載入中...</div>
+              ) : checklistItems.length === 0 ? (
+                <div
+                  style={{
+                    border: `1px dashed ${BRAND.line}`,
+                    borderRadius: 14,
+                    padding: '14px 12px',
+                    background: BRAND.surfaceSoft,
+                    fontSize: 13,
+                    color: BRAND.muted,
+                    marginBottom: 14,
+                  }}
+                >
+                  目前沒有待辦項目，可以把任務拆成小步驟。
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+                  {checklistItems.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        border: `1px solid ${item.isDone ? BRAND.successSoft : BRAND.line}`,
+                        background: item.isDone ? BRAND.successSoft : BRAND.surface,
+                        transition: 'all .15s',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => void onToggleChecklistItem?.(item.id, !item.isDone)}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          border: `1.5px solid ${item.isDone ? BRAND.success : BRAND.line}`,
+                          background: item.isDone ? BRAND.success : BRAND.white,
+                          color: BRAND.white,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {item.isDone ? '✓' : ''}
+                      </button>
+                      <span
+                        style={{
+                          flex: 1,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: item.isDone ? BRAND.muted : BRAND.ink,
+                          textDecoration: item.isDone ? 'line-through' : 'none',
+                          opacity: item.isDone ? 0.7 : 1,
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void onDeleteChecklistItem?.(item.id)}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: BRAND.muted,
+                          cursor: 'pointer',
+                          fontSize: 16,
+                          lineHeight: 1,
+                          padding: '0 2px',
+                          flexShrink: 0,
+                        }}
+                        title="刪除此項目"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 新增輸入 */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={checklistInput}
+                  onChange={(event) => setChecklistInput(event.target.value)}
+                  onKeyDown={async (event) => {
+                    if (event.key === 'Enter' && checklistInput.trim() && onAddChecklistItem) {
+                      event.preventDefault();
+                      setChecklistPending(true);
+                      try { await onAddChecklistItem(checklistInput.trim()); setChecklistInput(''); }
+                      finally { setChecklistPending(false); }
+                    }
+                  }}
+                  placeholder="新增待辦項目..."
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  disabled={!checklistInput.trim() || checklistPending || !onAddChecklistItem}
+                  onClick={async () => {
+                    if (!checklistInput.trim() || !onAddChecklistItem) return;
+                    setChecklistPending(true);
+                    try { await onAddChecklistItem(checklistInput.trim()); setChecklistInput(''); }
+                    finally { setChecklistPending(false); }
+                  }}
+                  style={{
+                    border: 'none',
+                    borderRadius: 14,
+                    padding: '0 16px',
+                    background: !checklistInput.trim() || !onAddChecklistItem ? 'var(--xc-brand-soft)' : BRAND.crimson,
+                    color: BRAND.white,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: !checklistInput.trim() || !onAddChecklistItem ? 'not-allowed' : 'pointer',
+                    minWidth: 80,
+                  }}
+                >
+                  {checklistPending ? '...' : '新增'}
+                </button>
               </div>
             </div>
           </Section>

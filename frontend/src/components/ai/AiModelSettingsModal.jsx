@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 // ── 供應商預設清單 ──────────────────────────────────────────
 const PROVIDERS = [
@@ -92,43 +93,9 @@ const PROVIDERS = [
 // ── API 呼叫輔助 ────────────────────────────────────────────
 const API_BASE = import.meta.env?.VITE_API_URL || '';
 
-async function fetchAiSettings(companyId) {
-  const res = await fetch(`${API_BASE}/api/settings/ai?companyId=${companyId}`);
-  if (!res.ok) throw new Error(`取得設定失敗：HTTP ${res.status}`);
-  return res.json();
-}
-
-async function saveAiSettings(payload) {
-  const res = await fetch(`${API_BASE}/api/settings/ai`, {
-    method:  'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(payload),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // 顯示後端詳細錯誤（details 欄位）
-    throw new Error(body.details || body.error || `儲存失敗：HTTP ${res.status}`);
-  }
-  return body;
-}
-
-async function fetchOllamaModels(baseUrl) {
-  const url = `${API_BASE}/api/settings/ai/ollama-models?baseUrl=${encodeURIComponent(baseUrl)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-  return res.json();
-}
-
-async function testAiConnection(payload) {
-  const res = await fetch(`${API_BASE}/api/settings/ai/test`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(payload),
-  });
-  return res.json();   // 測試端點一律回傳 200（錯誤資訊在 body 內）
-}
-
 // ── 主元件 ──────────────────────────────────────────────────
 export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
+  const { authFetch } = useAuth();
   // ── 表單狀態 ──────────────────────────────────────────────
   const [provider,     setProvider]     = useState('openai');
   const [baseUrl,      setBaseUrl]      = useState('https://api.openai.com/v1');
@@ -159,7 +126,9 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
     setTestResult(null);
     setSaved(false);
 
-    fetchAiSettings(companyId)
+    const fetcher = authFetch || fetch;
+    fetcher(`${API_BASE}/api/settings/ai?companyId=${companyId}`)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(({ config }) => {
         // 根據 baseUrl 推斷供應商
         const matched = PROVIDERS.find(p => p.baseUrl && config.baseUrl?.startsWith(p.baseUrl.split('<')[0]));
@@ -173,7 +142,7 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
       })
       .catch(err => setError('載入設定失敗：' + err.message))
       .finally(() => setLoading(false));
-  }, [open, companyId]);
+  }, [open, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 切換供應商時自動填入預設值 ───────────────────────────
   const handleProviderChange = useCallback((pid) => {
@@ -192,7 +161,9 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
     setLoadingModels(true);
     setOllamaModels([]);
     try {
-      const result = await fetchOllamaModels(baseUrl);
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API_BASE}/api/settings/ai/ollama-models?baseUrl=${encodeURIComponent(baseUrl)}`, { signal: AbortSignal.timeout(6000) });
+      const result = await r.json();
       if (result.models?.length > 0) {
         setOllamaModels(result.models);
         // 自動填入第一個可用模型（若目前欄位是預設值或空值）
@@ -214,12 +185,13 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await testAiConnection({
-        companyId,
-        baseUrl:   baseUrl || null,
-        apiKey:    apiKey  || '',
-        modelHeavy,
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API_BASE}/api/settings/ai/test`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ companyId, baseUrl: baseUrl || null, apiKey: apiKey || '', modelHeavy }),
       });
+      const result = await r.json();
       setTestResult(result);
     } catch (err) {
       setTestResult({ success: false, error: err.message });
@@ -233,16 +205,23 @@ export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
     setSaving(true);
     setError(null);
     try {
-      await saveAiSettings({
-        companyId,
-        provider,
-        baseUrl:     baseUrl   || null,
-        apiKey:      apiKey    || '',
-        modelHeavy,
-        modelLight,
-        maxTokens:   Number(maxTokens),
-        temperature: Number(temperature),
+      const fetcher = authFetch || fetch;
+      const r = await fetcher(`${API_BASE}/api/settings/ai`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          companyId,
+          provider,
+          baseUrl:     baseUrl   || null,
+          apiKey:      apiKey    || '',
+          modelHeavy,
+          modelLight,
+          maxTokens:   Number(maxTokens),
+          temperature: Number(temperature),
+        }),
       });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.details || body.error || `儲存失敗：HTTP ${r.status}`);
       setSaved(true);
       // 儲存成功後 1 秒自動收起面板
       setTimeout(() => {

@@ -100,6 +100,7 @@ const inputStyle = {
   border: `1px solid ${BRAND.silver}`, borderRadius: 8,
   fontSize: '13px', boxSizing: 'border-box',
   outline: 'none', background: BRAND.white,
+  color: BRAND.ink,
 };
 const labelStyle = {
   fontSize: '12px', fontWeight: 600,
@@ -123,6 +124,28 @@ function lsSet(key, val) {
 
 function normalizeDropStatus(columnId) {
   return columnId === 'done' ? 'completed' : columnId;
+}
+
+// ── 健康度徽章 ────────────────────────────────────────────────
+const HEALTH_META = {
+  on_track:  { label: '進度正常', color: '#10B981', bg: 'color-mix(in srgb,#10B981 14%,transparent)', icon: '✓' },
+  at_risk:   { label: '存在風險', color: '#F59E0B', bg: 'color-mix(in srgb,#F59E0B 14%,transparent)', icon: '⚠' },
+  off_track: { label: '偏離進度', color: '#EF4444', bg: 'color-mix(in srgb,#EF4444 14%,transparent)', icon: '✕' },
+};
+function HealthBadge({ status }) {
+  const m = HEALTH_META[status];
+  if (!m) return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '3px 8px', borderRadius: 999,
+      fontSize: 10, fontWeight: 700,
+      color: m.color, background: m.bg,
+      letterSpacing: '0.02em',
+    }}>
+      {m.icon} {m.label}
+    </span>
+  );
 }
 
 function formatAutomationMessage(taskTitle, automation) {
@@ -246,13 +269,36 @@ function getStatusMeta(status) {
 }
 
 function mapPanelFieldType(type) {
-  if (type === 'currency') return 'number';
+  if (type === 'currency' || type === 'percent') return 'number';
   if (type === 'checkbox') return 'select';
   if (type === 'people') return 'people';
-  if (type === 'date') return 'date';
-  if (type === 'select') return 'select';
+  if (type === 'date' || type === 'datetime') return 'date';
+  if (type === 'select' || type === 'single_select') return 'select';
+  if (type === 'multi_select') return 'multi_select';
   if (type === 'number') return 'number';
   return 'text';
+}
+
+// API format: { id, name, fieldType, options: [{id, name, color}] }
+// → panel format: { id, name, type, placeholder, unit, options: [{label, value, color}] }
+function mapApiFieldToPanelField(field) {
+  const ft = field.fieldType || field.type || 'text';
+  const opts = ft === 'checkbox'
+    ? [{ label: '是', value: 'true' }, { label: '否', value: 'false' }]
+    : (field.options || []).map(o => ({
+        label: o.name || o.label || o.value || '',
+        value: o.name || o.value || o.label || '',
+        color: o.color || null,
+      }));
+  return {
+    id:          field.id,
+    name:        field.name,
+    type:        mapPanelFieldType(ft),
+    placeholder: `設定 ${field.name}`,
+    description: '',
+    unit:        ft === 'currency' ? 'NT$' : ft === 'percent' ? '%' : undefined,
+    options:     opts,
+  };
 }
 
 function mapPanelFieldOptions(field) {
@@ -417,11 +463,9 @@ function TaskCard({
   const dueDateLabel = formatDueDateLabel(task.dueDate);
   const hasSummary = Boolean(task.description?.trim());
 
-  // Read local indicators
-  const deps     = lsGet(`xcloud-deps-${task.id}`, { blocking: [], waitingOn: [] });
-  const comments = lsGet(`xcloud-comments-${task.id}`, []);
-  const depCount = (deps.blocking?.length || 0) + (deps.waitingOn?.length || 0);
-  const mentionCount = comments.reduce((s, c) => s + (c.mentions?.length || 0), 0);
+  // 使用後端 API 回傳的計數，不再依賴 localStorage
+  const depCount     = task.depCount     || 0;
+  const commentCount = task.commentCount || 0;
 
   return (
     <div
@@ -466,7 +510,7 @@ function TaskCard({
             fontSize: '10px',
             fontWeight: 800,
             background: BRAND.accentSoft,
-            color: BRAND.crimsonDeep,
+            color: 'var(--xc-brand)',
             padding: '5px 9px',
             borderRadius: 999,
             letterSpacing: '.08em',
@@ -479,7 +523,7 @@ function TaskCard({
               <span style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: isOverdue ? BRAND.crimson : days !== null && days <= 3 ? BRAND.warning : BRAND.carbon,
+                color: isOverdue ? 'var(--xc-danger)' : days !== null && days <= 3 ? BRAND.warning : BRAND.carbon,
                 background: isOverdue ? BRAND.dangerSoft : BRAND.surfaceSoft,
                 padding: '5px 8px',
                 borderRadius: 999,
@@ -573,6 +617,7 @@ function TaskCard({
               已完成
             </span>
           )}
+          <HealthBadge status={task.healthStatus} />
         </div>
 
         {task.tags?.length > 0 && (
@@ -643,7 +688,7 @@ function TaskCard({
                 依賴 {depCount}
               </span>
             )}
-            {mentionCount > 0 && (
+            {commentCount > 0 && (
               <span style={{
                 fontSize: '10px',
                 padding: '3px 7px',
@@ -651,8 +696,8 @@ function TaskCard({
                 background: BRAND.surfaceMuted,
                 color: BRAND.carbon,
                 fontWeight: 700,
-              }} title="提及">
-                @ {mentionCount}
+              }} title="評論數">
+                💬 {commentCount}
               </span>
             )}
           </div>
@@ -667,19 +712,19 @@ function TaskCard({
                   borderRadius: 999,
                   border: `1px solid ${task.status === 'done' ? BRAND.silver : BRAND.crimson}`,
                   background: task.status === 'done' ? BRAND.white : BRAND.crimson,
-                  color: task.status === 'done' ? BRAND.carbon : BRAND.white,
+                  color: task.status === 'done' ? BRAND.carbon : '#ffffff',
                   cursor: 'pointer',
                   fontWeight: 700,
                   transition: 'all .15s', flexShrink: 0,
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.background  = task.status === 'done' ? BRAND.surfaceSoft : BRAND.crimsonDeep;
-                  e.currentTarget.style.color       = task.status === 'done' ? BRAND.ink : BRAND.white;
+                  e.currentTarget.style.color       = task.status === 'done' ? BRAND.ink : '#ffffff';
                   e.currentTarget.style.borderColor = task.status === 'done' ? BRAND.silver : BRAND.crimsonDeep;
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.background  = task.status === 'done' ? BRAND.white : BRAND.crimson;
-                  e.currentTarget.style.color       = task.status === 'done' ? BRAND.carbon : BRAND.white;
+                  e.currentTarget.style.color       = task.status === 'done' ? BRAND.carbon : '#ffffff';
                   e.currentTarget.style.borderColor = task.status === 'done' ? BRAND.silver : BRAND.crimson;
                 }}
               >
@@ -912,11 +957,11 @@ function KanbanColumn({
 // ════════════════════════════════════════════════════════════
 // 新增任務對話框（保持置中 modal）
 // ════════════════════════════════════════════════════════════
-function AddTaskModal({ defaultStatus, projects, users, onSave, onClose, authFetch }) {
+function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave, onClose, authFetch }) {
   const [form, setForm] = useState({
     title: '', description: '',
     status: defaultStatus || 'todo', priority: 'medium',
-    projectId: projects[0]?.id || '', assigneeId: '', dueDate: '',
+    projectId: defaultProjectId || projects[0]?.id || '', assigneeId: '', dueDate: '',
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1083,7 +1128,7 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
           borderRadius: 10, padding: '12px 16px',
           margin: '12px 0 16px', textAlign: 'left',
         }}>
-          <div style={{ fontSize: '11px', color: BRAND.crimsonDeep, fontWeight: 600, marginBottom: 4 }}>
+          <div style={{ fontSize: '11px', color: 'var(--xc-brand)', fontWeight: 600, marginBottom: 4 }}>
             📁 {task.project?.name || '未知專案'}
           </div>
           <div style={{ fontSize: '14px', fontWeight: 700, color: BRAND.ink, marginBottom: 6 }}>
@@ -1129,11 +1174,12 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
 // ════════════════════════════════════════════════════════════
 // 任務詳情側邊面板 (Asana 風格)
 // ════════════════════════════════════════════════════════════
-function TaskSidePanel({
+export function TaskSidePanel({
   task,
   users,
   projects,
   allTasks,
+  customFieldDefs,
   onClose,
   onSaved,
   onDeleteRequest,
@@ -1145,10 +1191,11 @@ function TaskSidePanel({
     name: task.project.name,
     color: 'var(--xc-brand-soft)',
   } : null;
-  const extraProjects = lsGet(`xcloud-multihome-${task.id}`, []);
+  // 使用後端回傳的 extraProjects（TaskProject 表），不再用 localStorage
+  const apiExtraProjects = task.extraProjects || [];
   const linkedProjects = [
     ...(currentProject ? [currentProject] : []),
-    ...extraProjects
+    ...apiExtraProjects
       .filter((project) => String(project.id) !== String(currentProject?.id))
       .map((project) => ({
         id: project.id,
@@ -1156,50 +1203,53 @@ function TaskSidePanel({
         color: project.color || 'var(--xc-surface-muted)',
       })),
   ];
-  const scopedProjectIds = linkedProjects.map((project) => String(project.id));
-  const customFieldDefinitions = lsGet('xcloud-custom-fields', [])
-    .filter((field) => {
-      const usedInProjects = (field.usedInProjects || []).map(String);
-      return field.global || usedInProjects.length === 0 || usedInProjects.some((projectId) => scopedProjectIds.includes(projectId));
-    })
-    .map((field) => ({
-      id: field.id,
-      name: field.name,
-      type: mapPanelFieldType(field.type),
-      placeholder: field.description || `設定 ${field.name}`,
-      description: field.description || '',
-      unit: field.type === 'currency' ? 'NT$' : field.unit,
-      options: mapPanelFieldOptions(field),
-    }));
-  const customFieldValues = lsGet(`xcloud-task-fields-${task.id}`, {});
+  // 從 API 載入自訂欄位值（取代 localStorage）
+  const [customFieldValues, setCustomFieldValues] = useState({});
+  // 評論
   const [comments, setComments] = useState([]);
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState('');
+  // Checklist
+  const [checklistItems, setChecklistItems] = useState([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+
   const subtasks = buildSubtaskTree(allTasks, task.id);
   const activity = buildTaskActivity(task, linkedProjects, comments, currentUser, users);
 
+  // 使用 prop 傳入的 customFieldDefs（從主元件 API 載入），不再用 localStorage
+  const customFieldDefinitions = (customFieldDefs || []).map(mapApiFieldToPanelField);
+
   useEffect(() => {
+    if (!authFetch || !task.id) return;
     let cancelled = false;
 
-    const loadComments = async () => {
+    const loadData = async () => {
       try {
-        const response = await authFetch(`${API}/tasks/${task.id}/comments`);
-        const payload = await response.json();
+        const [commentsRes, cfvRes, clRes] = await Promise.all([
+          authFetch(`${API}/tasks/${task.id}/comments`),
+          authFetch(`${API}/tasks/${task.id}/custom-field-values`),
+          authFetch(`${API}/tasks/${task.id}/checklist`),
+        ]);
+        const commentsPayload = await commentsRes.json();
+        const cfvPayload      = await cfvRes.json();
+        const clPayload       = await clRes.json();
         if (cancelled) return;
-        setComments(Array.isArray(payload.data) ? payload.data : []);
+
+        setComments(Array.isArray(commentsPayload.data) ? commentsPayload.data : []);
         setCommentError('');
+        if (cfvPayload.success) setCustomFieldValues(cfvPayload.data || {});
+        setChecklistItems(Array.isArray(clPayload.data) ? clPayload.data : []);
       } catch (error) {
         if (cancelled) return;
         setComments([]);
-        setCommentError(`留言載入失敗：${error.message}`);
+        setCommentError(`資料載入失敗：${error.message}`);
       }
     };
 
-    loadComments();
+    setChecklistLoading(true);
+    loadData().finally(() => { if (!cancelled) setChecklistLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [authFetch, task.id]);
 
   const handleSave = async (payload) => {
@@ -1207,30 +1257,56 @@ function TaskSidePanel({
       const res = await authFetch(`${API}/tasks/${task.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          title: payload.title.trim(),
-          assigneeId: payload.assigneeId ? parseInt(payload.assigneeId, 10) : null,
-          dueDate: payload.dueDate || null,
+          title:             payload.title.trim(),
+          assigneeId:        payload.assigneeId ? parseInt(payload.assigneeId, 10) : null,
+          dueDate:           payload.dueDate || null,
+          projectIds:        payload.projectIds || [],
+          customFieldValues: payload.customFieldValues || {},
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-
-      const primaryProjectId = currentProject ? String(currentProject.id) : String(payload.projectIds[0] || '');
-      const persistedExtraProjects = projects
-        .filter((project) =>
-          payload.projectIds.some((projectId) => String(projectId) === String(project.id) && String(project.id) !== primaryProjectId)
-        )
-        .map((project) => ({
-          id: project.id,
-          name: project.name,
-          color: '#F3EEEA',
-        }));
-
-      lsSet(`xcloud-multihome-${task.id}`, persistedExtraProjects);
-      lsSet(`xcloud-task-fields-${task.id}`, payload.customFieldValues || {});
       onSaved();
     } catch (error) {
       alert(`更新失敗：${error.message}`);
+    }
+  };
+
+  // ── Checklist handlers ────────────────────────────────────
+  const handleAddChecklistItem = async (title) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${task.id}/checklist`, {
+        method: 'POST',
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setChecklistItems(prev => [...prev, data.data]);
+    } catch (error) {
+      alert(`新增待辦項目失敗：${error.message}`);
+    }
+  };
+
+  const handleToggleChecklistItem = async (itemId, isDone) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${task.id}/checklist/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isDone }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setChecklistItems(prev => prev.map(item => item.id === itemId ? data.data : item));
+    } catch (error) {
+      alert(`更新待辦項目失敗：${error.message}`);
+    }
+  };
+
+  const handleDeleteChecklistItem = async (itemId) => {
+    try {
+      await authFetch(`${API}/tasks/${task.id}/checklist/${itemId}`, { method: 'DELETE' });
+      setChecklistItems(prev => prev.filter(item => item.id !== itemId));
+    } catch (error) {
+      alert(`刪除待辦項目失敗：${error.message}`);
     }
   };
 
@@ -1324,6 +1400,11 @@ function TaskSidePanel({
       commentSaving={commentSaving}
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
+      checklistItems={checklistItems}
+      checklistLoading={checklistLoading}
+      onAddChecklistItem={handleAddChecklistItem}
+      onToggleChecklistItem={handleToggleChecklistItem}
+      onDeleteChecklistItem={handleDeleteChecklistItem}
     />
   );
 }
@@ -1338,11 +1419,12 @@ export default function TaskKanbanPage() {
     ? { id: user.id, name: user.name || '我', color: BRAND.crimson }
     : { id: 0, name: '我', color: BRAND.crimson };
 
-  const [kanban,   setKanban]   = useState({ todo: [], in_progress: [], review: [], done: [] });
-  const [projects, setProjects] = useState([]);
-  const [users,    setUsers]    = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
+  const [kanban,          setKanban]          = useState({ todo: [], in_progress: [], review: [], done: [] });
+  const [projects,        setProjects]        = useState([]);
+  const [users,           setUsers]           = useState([]);
+  const [customFieldDefs, setCustomFieldDefs] = useState([]);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState(null);
 
   // 篩選器
   const [filterProject,  setFilterProject]  = useState('');
@@ -1389,18 +1471,29 @@ export default function TaskKanbanPage() {
       if (filterAssignee) params.set('assigneeId', filterAssignee);
       if (filterPriority) params.set('priority',   filterPriority);
 
-      const [tasksRes, usersRes] = await Promise.all([
+      const [tasksRes, usersRes, cfDefsRes] = await Promise.all([
         authFetch(`${API}/tasks?${params}`),
         authFetch(`${API}/users?companyId=${companyId}`),
+        authFetch(`/api/custom-fields?companyId=${companyId}`),
       ]);
-      const tasksData = await tasksRes.json();
-      const usersData = await usersRes.json();
+      const tasksData  = await tasksRes.json();
+      const usersData  = await usersRes.json();
+      const cfDefsData = await cfDefsRes.json();
 
       if (!tasksData.success) throw new Error(tasksData.error);
-      setKanban(tasksData.data.kanban);
+      // 防禦性過濾：確保子任務（parentTaskId != null）不出現在主看板各欄
+      const rawKanban = tasksData.data.kanban || {};
+      const filterTopLevel = (arr) => (arr || []).filter(t => !t.parentTaskId);
+      setKanban({
+        todo:        filterTopLevel(rawKanban.todo),
+        in_progress: filterTopLevel(rawKanban.in_progress),
+        review:      filterTopLevel(rawKanban.review),
+        done:        filterTopLevel(rawKanban.done),
+      });
       setDragPreviewKanban(null);
       setProjects(tasksData.data.projects || []);
       setUsers(usersData.data || []);
+      if (cfDefsData.success) setCustomFieldDefs(cfDefsData.data || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1684,6 +1777,7 @@ export default function TaskKanbanPage() {
                     fontWeight: 800,
                     letterSpacing: '.08em',
                     textTransform: 'uppercase',
+                    color: '#ffffff',
                   }}>
                     {chip}
                   </span>
@@ -1854,7 +1948,7 @@ export default function TaskKanbanPage() {
               borderRadius: 16,
               background: automationFeed ? BRAND.accentSoft : BRAND.surfaceMuted,
               border: `1px solid ${automationFeed ? BRAND.accentBorder : BRAND.mist}`,
-              color: automationFeed ? BRAND.crimsonDeep : BRAND.carbon,
+              color: automationFeed ? 'var(--xc-brand)' : BRAND.carbon,
               fontSize: 12,
               fontWeight: 700,
             }}>
@@ -2029,6 +2123,7 @@ export default function TaskKanbanPage() {
             users={users}
             projects={projects}
             allTasks={persistedTasks}
+            customFieldDefs={customFieldDefs}
             onClose={() => setPanelTask(null)}
             onSaved={() => { fetchData(); showToast('任務已更新', 'neutral'); }}
             onDeleteRequest={(task) => { setPanelTask(null); setDeleteTask(task); }}
@@ -2040,6 +2135,7 @@ export default function TaskKanbanPage() {
         {addModal && (
           <AddTaskModal
             defaultStatus={addModal}
+            defaultProjectId={filterProject}
             projects={projects}
             users={users}
             onSave={() => { setAddModal(null); fetchData(); showToast('任務已建立', 'accent'); }}

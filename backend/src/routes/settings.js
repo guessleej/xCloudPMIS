@@ -271,7 +271,8 @@ router.patch('/profile/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/notifications', async (req, res) => {
   try {
-    const userId = parseInt(req.user?.userId || '0', 10);
+    // JWT payload 使用 `id`；相容舊版 userId 欄位，也接受 query param 備用
+    const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0', 10);
     if (!userId) {
       return res.status(401).json({ error: '需要有效登入 Token' });
     }
@@ -291,7 +292,7 @@ router.get('/notifications', async (req, res) => {
 router.patch('/notifications/:id', async (req, res) => {
   try {
     const targetUserId = parseInt(req.params.id, 10);
-    const actorUserId = parseInt(req.user?.userId || '0', 10);
+    const actorUserId = parseInt(req.user?.id || req.user?.userId || '0', 10);
 
     if (!targetUserId) {
       return res.status(400).json({ error: '無效的使用者 ID' });

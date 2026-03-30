@@ -147,8 +147,8 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
             style={{
               padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
               border: '1px solid var(--xc-border)', cursor: 'pointer',
-              background: mode === k ? 'var(--xc-brand)' : 'var(--xc-surface)',
-              color: mode === k ? '#fff' : 'var(--xc-text-soft)',
+              background: mode === k ? 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)' : 'var(--xc-surface)',
+              color: mode === k ? '#ffffff' : 'var(--xc-text-soft)',
               fontWeight: mode === k ? 700 : 400,
               transition: 'all .15s',
             }}

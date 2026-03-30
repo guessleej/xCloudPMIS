@@ -1445,9 +1445,9 @@ export default function MyTasksWorkspacePage() {
     setLoadingOverview(true);
     try {
       const payload = await requestJson('/api/my-tasks/overview');
-      setLists(payload.data.lists || []);
-      setTasks(payload.data.tasks || []);
-      setProjects(payload.data.projects || []);
+      setLists(payload.data?.lists || []);
+      setTasks(payload.data?.tasks || []);
+      setProjects(payload.data?.projects || []);
       setError('');
     } catch (fetchError) {
       setFlash('error', fetchError.message);
@@ -1463,8 +1463,8 @@ export default function MyTasksWorkspacePage() {
     try {
       const payload = await requestJson('/api/my-tasks/files');
       setFiles({
-        myFiles: payload.data.myFiles || [],
-        attachments: payload.data.attachments || [],
+        myFiles: payload.data?.myFiles || [],
+        attachments: payload.data?.attachments || [],
       });
       setError('');
     } catch (fetchError) {

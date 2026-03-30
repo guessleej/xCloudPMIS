@@ -88,20 +88,20 @@ const TEMPLATES = {
   ],
 };
 
-// ── 狀態與健康定義 ───────────────────────────────────────
+// ── 狀態與健康定義（使用 color-mix 自動適應深淺色主題）────────
 const STATUS = {
-  planning:  { bg: '#EDE9FE', color: '#5B21B6', dot: '#7C3AED', label: '規劃中', colBg: '#FAF5FF' },
-  active:    { bg: '#DCFCE7', color: '#15803D', dot: '#16A34A', label: '進行中', colBg: '#F0FDF4' },
-  on_hold:   { bg: '#FEF9C3', color: '#A16207', dot: '#D97706', label: '暫停中', colBg: '#FFFBEB' },
-  completed: { bg: '#F1F5F9', color: '#475569', dot: '#64748B', label: '已完成', colBg: '#F8FAFC' },
-  cancelled: { bg: '#FEE2E2', color: '#B91C1C', dot: '#DC2626', label: '已取消', colBg: '#FEF2F2' },
+  planning:  { bg: 'color-mix(in srgb,#7C3AED 14%,var(--xc-surface))', color: '#8B5CF6', dot: '#8B5CF6', label: '規劃中', colBg: 'color-mix(in srgb,#7C3AED 7%,var(--xc-bg))' },
+  active:    { bg: 'color-mix(in srgb,#16A34A 14%,var(--xc-surface))', color: '#16A34A', dot: '#16A34A', label: '進行中', colBg: 'color-mix(in srgb,#16A34A 7%,var(--xc-bg))' },
+  on_hold:   { bg: 'color-mix(in srgb,#D97706 14%,var(--xc-surface))', color: '#D97706', dot: '#D97706', label: '暫停中', colBg: 'color-mix(in srgb,#D97706 7%,var(--xc-bg))' },
+  completed: { bg: 'var(--xc-surface-muted)',                           color: 'var(--xc-text-muted)', dot: 'var(--xc-text-muted)', label: '已完成', colBg: 'var(--xc-bg-soft)' },
+  cancelled: { bg: 'color-mix(in srgb,#DC2626 14%,var(--xc-surface))', color: '#EF4444', dot: '#EF4444', label: '已取消', colBg: 'color-mix(in srgb,#DC2626 7%,var(--xc-bg))' },
 };
 
 const HEALTH = {
-  on_track:  { color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0', label: '順利' },
-  at_risk:   { color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', label: '有風險' },
-  off_track: { color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: '落後' },
-  completed: { color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1', label: '完成' },
+  on_track:  { color: '#16A34A', bg: 'color-mix(in srgb,#16A34A 14%,var(--xc-surface))', border: 'color-mix(in srgb,#16A34A 28%,var(--xc-border))', label: '順利' },
+  at_risk:   { color: '#D97706', bg: 'color-mix(in srgb,#D97706 14%,var(--xc-surface))', border: 'color-mix(in srgb,#D97706 28%,var(--xc-border))', label: '有風險' },
+  off_track: { color: '#EF4444', bg: 'color-mix(in srgb,#EF4444 14%,var(--xc-surface))', border: 'color-mix(in srgb,#EF4444 28%,var(--xc-border))', label: '落後' },
+  completed: { color: 'var(--xc-text-muted)', bg: 'var(--xc-surface-muted)', border: 'var(--xc-border)', label: '完成' },
 };
 
 function getHealth(p) {
@@ -123,7 +123,7 @@ const daysLeft = (iso) => iso ? Math.ceil((new Date(iso) - new Date()) / 864e5) 
 
 // ── 共用樣式 ─────────────────────────────────────────────
 const inputSt = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: '8px', padding: '8px 12px', fontSize: '13.5px', color: C.ink, outline: 'none', background: C.white, fontFamily: 'inherit' };
-const btnP    = { background: C.brand, color: 'white', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
+const btnP    = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
 const btnO    = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
 const btnD    = { background: '#DC2626', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
 
@@ -439,12 +439,13 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
 // ══════════════════════════════════════════════════════════════
 // ③ 刪除確認
 // ══════════════════════════════════════════════════════════════
-function DeleteModal({ project, onClose, onDeleted }) {
+function DeleteModal({ project, onClose, onDeleted, authFetch }) {
   const [del, setDel] = useState(false), [err, setErr] = useState('');
   const go = async () => {
     setDel(true); setErr('');
     try {
-      const res = await fetch(`${API}/api/projects/${project.id}`, { method: 'DELETE' });
+      const fetcher = authFetch || fetch;
+      const res = await fetcher(`${API}/api/projects/${project.id}`, { method: 'DELETE' });
       const j   = await res.json();
       if (!res.ok) throw new Error(j.error || '刪除失敗');
       onDeleted(project.id);
@@ -533,7 +534,7 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
             {/* 操作 */}
             <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
               <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-              <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
+              <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
             </div>
           </div>
         );
@@ -595,7 +596,7 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                     <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
                       onClick={e => e.stopPropagation()}>
                       <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: '#DC2626', fontFamily: 'inherit' }}>刪除</button>
+                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
                     </div>
                   </div>
                 );
@@ -830,7 +831,7 @@ export default function ProjectsPage() {
             { label: '全部專案', value: stats.total,     bg: C.surfaceMuted, vc: C.ink2,    dot: C.ink3 },
             { label: '進行中',   value: stats.active,    bg: C.successSoft,  vc: '#15803D', dot: '#16A34A' },
             { label: '有風險',   value: stats.at_risk,   bg: C.warningSoft,  vc: '#B45309', dot: '#D97706' },
-            { label: '已完成',   value: stats.completed, bg: C.surfaceSoft,  vc: '#475569', dot: '#64748B' },
+            { label: '已完成',   value: stats.completed, bg: C.surfaceSoft,  vc: 'var(--xc-text-muted)', dot: '#64748B' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
@@ -847,15 +848,15 @@ export default function ProjectsPage() {
           <div style={{ display: 'flex', gap: '4px', flex: 1, flexWrap: 'wrap' }}>
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                background: filter === f.key ? C.ink : C.surface,
-                color: filter === f.key ? 'white' : C.ink2,
-                border: `1px solid ${filter === f.key ? C.ink : C.line}`,
+                background: filter === f.key ? 'var(--xc-text)' : C.surface,
+                color: filter === f.key ? 'var(--xc-bg)' : C.ink2,
+                border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
                 borderRadius: '99px', padding: '5px 13px',
                 fontSize: '12.5px', fontWeight: '500', cursor: 'pointer',
                 transition: 'all 0.15s', fontFamily: 'inherit',
               }}>
                 {f.label}
-                <span style={{ marginLeft: '5px', fontSize: '10.5px', background: filter === f.key ? 'rgba(255,255,255,0.2)' : C.lineL, color: filter === f.key ? 'white' : C.ink4, borderRadius: '99px', padding: '1px 6px' }}>
+                <span style={{ marginLeft: '5px', fontSize: '10.5px', background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.lineL, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: '99px', padding: '1px 6px' }}>
                   {f.count}
                 </span>
               </button>
@@ -931,7 +932,7 @@ export default function ProjectsPage() {
         <ProjectFormModal users={users} project={editProject} template={null} onClose={() => setEditProject(null)} onSaved={onEdited} />
       )}
       {deleteProject && (
-        <DeleteModal project={deleteProject} onClose={() => setDeleteProject(null)} onDeleted={onDeleted} />
+        <DeleteModal project={deleteProject} onClose={() => setDeleteProject(null)} onDeleted={onDeleted} authFetch={authFetch} />
       )}
 
       <style>{`

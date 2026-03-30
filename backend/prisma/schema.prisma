@@ -44,6 +44,12 @@ model Company {
   automationRuleRuns AutomationRuleRun[]
   tags          Tag[]           // ← Phase 3 新增：公司共用標籤庫
   aiModelConfig AiModelConfig[] // ← Phase 4 新增：AI 模型設定
+  goals         Goal[]          // ← Phase 5 新增：OKR 目標管理
+  workflows     Workflow[]      // ← Phase 6 新增：工作流程
+  forms         Form[]          // ← Phase 6 新增：表單管理
+  customFields  CustomFieldDefinition[] @relation("CompanyCustomFields") // ← Phase 6
+  workTimeLogs  WorkTimeLog[]           // ← 手動工時記錄（每日時間表）
+  aiSuggestions AiSuggestion[]          // ← AI 建議決策
 
   @@map("companies")
 }
@@ -87,7 +93,8 @@ model User {
   automationRuleRunsTriggered AutomationRuleRun[] @relation("AutomationRuleTriggeredBy")
 
   // ── Phase 3 新增的關聯 ────────────────────────────────
-  timeEntries   TimeEntry[]    // 這個人的所有工時記錄
+  timeEntries   TimeEntry[]    // 這個人的所有工時記錄（計時器）
+  workTimeLogs  WorkTimeLog[]  // 這個人的手動工時記錄
   attachments   Attachment[]   // 這個人上傳的所有附件
   comments      Comment[]      // 這個人發的所有評論
   notifications Notification[] // 這個人收到的所有通知
@@ -131,8 +138,9 @@ enum TeamMemberRole {
 }
 
 enum ProjectAccess {
-  team
-  private
+  public   // 對工作空間所有成員公開
+  team     // 僅專案成員可見（預設）
+  private  // 僅建立者可見
 }
 
 enum ProjectMemberRole {
@@ -330,6 +338,12 @@ model Task {
   // ─────────────────────────────────────────────────────
 
   dueDate        DateTime?  @map("due_date") @db.Date
+  /// 計劃開始時間（甘特圖用）
+  planStart      DateTime?  @map("plan_start") @db.Date
+  /// 計劃結束時間（甘特圖用）
+  planEnd        DateTime?  @map("plan_end") @db.Date
+  /// 健康度：null = 系統自動計算；有值 = 手動覆寫
+  healthStatus   HealthStatus? @map("health_status")
   position       Int        @default(0)
   deletedAt      DateTime?  @map("deleted_at")
   createdAt      DateTime   @default(now()) @map("created_at")
@@ -516,6 +530,12 @@ enum TaskStatus {
   in_progress
   review
   done
+}
+
+enum HealthStatus {
+  on_track
+  at_risk
+  off_track
 }
 
 enum Priority {
@@ -744,6 +764,7 @@ model TaskTag {
 
 model CustomFieldDefinition {
   id           Int                   @id @default(autoincrement())
+  companyId    Int?                  @map("company_id")         // ← Phase 6 新增
   workspaceId  Int?                  @map("workspace_id")
   createdById  Int?                  @map("created_by_id")
   name         String                @db.VarChar(255)
@@ -759,6 +780,7 @@ model CustomFieldDefinition {
   createdAt    DateTime              @default(now()) @map("created_at")
   updatedAt    DateTime              @updatedAt @map("updated_at")
 
+  company   Company?   @relation("CompanyCustomFields", fields: [companyId], references: [id], onDelete: SetNull)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   createdBy User?      @relation("CustomFieldCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -766,6 +788,7 @@ model CustomFieldDefinition {
   projects ProjectCustomField[]
   values   CustomFieldValue[]
 
+  @@index([companyId])
   @@index([workspaceId, entityType])
   @@index([createdById])
   @@index([scope])
@@ -1121,6 +1144,71 @@ model AiAgentLog {
 //   groq      → https://api.groq.com/openai/v1
 //   custom    → 使用者自行輸入
 // ─────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// Phase 5 新增模型：OKR 目標管理
+// ════════════════════════════════════════════════════════════
+
+// ── Goal（Objective）────────────────────────────────────────
+//
+// 取代原本的 /tmp/pmis-goals-{companyId}.json 輕量儲存
+// 支援父子目標階層（parentId 自我關聯），刪除父目標時子目標
+// 的 parentId 設為 NULL（升格為頂層目標，不連鎖刪除）
+// ────────────────────────────────────────────────────────────
+model Goal {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+
+  title       String   @db.VarChar(500)
+  description String?  @db.Text
+  quarter     String   @default("Q1") @db.VarChar(10)   // Q1 ~ Q4
+  year        Int      @default(2024)
+  status      String   @default("active") @db.VarChar(50) // active|completed|cancelled|on_hold
+  owner       String?  @db.VarChar(255)                  // 負責人（文字，非 FK）
+
+  // 父子目標自我關聯（策略地圖階層）
+  parentId    Int?     @map("parent_id")
+  parent      Goal?    @relation("GoalParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Goal[]   @relation("GoalParent")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  keyResults KeyResult[]
+
+  @@index([companyId])
+  @@index([parentId])
+  @@index([companyId, status])
+  @@index([companyId, quarter, year])
+  @@map("goals")
+}
+
+// ── KeyResult（關鍵結果）────────────────────────────────────
+//
+// 每個 Goal 可包含多個 KR，刪除 Goal 時 KR 一併刪除（Cascade）
+// ────────────────────────────────────────────────────────────
+model KeyResult {
+  id           Int      @id @default(autoincrement())
+  goalId       Int      @map("goal_id")
+
+  title        String   @db.VarChar(500)
+  unit         String   @default("") @db.VarChar(50)
+  targetValue  Float    @default(0)  @map("target_value")
+  currentValue Float    @default(0)  @map("current_value")
+  status       String   @default("in_progress") @db.VarChar(50) // in_progress|done|at_risk|not_started
+  position     Int      @default(0)                               // 排序用
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("key_results")
+}
+
+// ════════════════════════════════════════════════════════════
+
 model AiModelConfig {
   id          Int      @id @default(autoincrement())
   companyId   Int      @map("company_id")
@@ -1161,4 +1249,99 @@ model AiModelConfig {
   @@index([companyId])
   @@index([isActive])
   @@map("ai_model_configs")
+}
+
+// ════════════════════════════════════════════════════════════
+// Phase 6：工作流程 & 表單管理（/tmp JSON → PostgreSQL）
+// ════════════════════════════════════════════════════════════
+
+/// 工作流程定義（節點圖 + 觸發規則）
+model Workflow {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String   @db.VarChar(255)
+  /// 流程節點陣列，如 [{id, label, color, count, desc}]
+  nodes     Json     @default("[]")
+  /// 觸發規則陣列，如 [{trigger, action, enabled}]
+  rules     Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("workflows")
+}
+
+/// 公司內部表單（需求提交、Bug 回報等）
+model Form {
+  id          Int       @id @default(autoincrement())
+  companyId   Int       @map("company_id")
+  name        String    @db.VarChar(255)
+  description String    @default("") @db.Text
+  /// active | inactive
+  status      String    @default("active") @db.VarChar(20)
+  /// 累計提交次數
+  submissions Int       @default(0)
+  lastSubmit  DateTime? @map("last_submit")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt      @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("forms")
+}
+
+// ════════════════════════════════════════════════════════════
+// 手動工時記錄（每日時間表）
+// 前端「工時管理」頁面使用，以文字記錄專案/任務名稱
+// 不同於 time_entries（計時器啟停），這是手動填入 hours 的日報表
+// ════════════════════════════════════════════════════════════
+model WorkTimeLog {
+  id        String   @id @default(cuid())
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id")
+  date      String   @db.VarChar(10)   // YYYY-MM-DD
+  project   String   @db.VarChar(255)  // 專案名稱（自由文字）
+  task      String   @db.VarChar(255)  // 任務名稱（自由文字）
+  hours     Float                      // 工時（小時，允許小數）
+  note      String   @default("") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([date])
+  @@index([companyId, date])
+  @@map("work_time_logs")
+}
+
+// ════════════════════════════════════════════════════════════
+// AI 建議決策（前端 AI 助理頁面）
+// 比 AiDecision（ReAct Agent 用）簡單，存放人工可審核的建議清單
+// ════════════════════════════════════════════════════════════
+model AiSuggestion {
+  id          String    @id @default(cuid())
+  companyId   Int       @map("company_id")
+  type        String    @db.VarChar(100)   // 風險預警|自動指派|截止日建議|效率洞察
+  title       String    @db.VarChar(255)
+  scope       String    @db.VarChar(255)   // 適用範圍（專案名稱或「全局」）
+  confidence  Int       @default(0)        // 信心度 0~100
+  detail      String    @default("") @db.Text
+  status      String    @default("pending") @db.VarChar(20) // pending|approved|rejected
+  reviewedAt  DateTime? @map("reviewed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([companyId, status])
+  @@map("ai_suggestions")
 }
