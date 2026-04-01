@@ -28,7 +28,7 @@ const teamRouter          = require('./routes/team');
 const settingsRouter      = require('./routes/settings');
 const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
-const microsoftAuthRouter = require('./routes/auth/microsoft');
+const microsoftAuthRouter = require('./routes/auth/microsoftOAuth');
 const adminMcpRouter      = require('./routes/adminMcp');
 const tasksRouter         = require('./routes/tasks');
 const myTasksRouter       = require('./routes/myTasks');
@@ -214,11 +214,11 @@ app.use('/api/health', healthRouter);
 // status / sessions / tools / logs / api-keys
 app.use('/api/admin/mcp', adminMcpRouter);
 
-// ── Microsoft OAuth 2.0 Delegated 授權路由 ───────────────────
-// GET    /auth/microsoft            → 發起 OAuth 流程
-// GET    /auth/microsoft/callback   → OAuth 回呼（交換 Token）
-// GET    /auth/microsoft/status     → 查詢連線狀態
-// DELETE /auth/microsoft/revoke     → 撤銷授權
+// ── Microsoft OAuth 2.0 登入路由 ─────────────────────────────
+// GET  /api/auth/microsoft           → 發起 OAuth 授權流程
+// GET  /api/auth/microsoft/callback  → Azure AD 回呼（交換 Token、發出 JWT）
+app.use('/api/auth/microsoft', microsoftAuthRouter);
+// 相容：也掛載在 /auth/microsoft（舊路徑 / Delegated 設定頁面）
 app.use('/auth/microsoft', microsoftAuthRouter);
 
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
