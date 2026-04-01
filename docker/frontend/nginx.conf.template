@@ -4,6 +4,34 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # ── 後端 API 反向代理 ──────────────────────────────────
+    # BACKEND_HOST 由 envsubst 在容器啟動時注入
+    # Docker Compose: pmis-backend:3000
+    # Azure Container Apps: pmis-backend.internal.xxx.azurecontainerapps.io
+
+    # /api/ 路由 → Backend
+    location /api/ {
+        proxy_pass http://${BACKEND_HOST}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+    }
+
+    # /auth/ 路由 → Backend（OAuth Delegated Token 用）
+    location /auth/ {
+        proxy_pass http://${BACKEND_HOST}/auth/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Gzip 壓縮設定
     gzip on;
     gzip_vary on;

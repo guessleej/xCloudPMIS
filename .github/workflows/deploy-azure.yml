@@ -162,10 +162,15 @@ jobs:
         uses: azure/CLI@v1
         with:
           inlineScript: |
+            BACKEND_FQDN=$(az containerapp show \
+              --name ${{ env.BACKEND_APP }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --query properties.configuration.ingress.fqdn -o tsv)
             az containerapp update \
               --name ${{ env.FRONTEND_APP }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --image ${{ env.ACR_LOGIN_SERVER }}/pmis-frontend:${{ needs.build-push.outputs.app_version }}
+              --image ${{ env.ACR_LOGIN_SERVER }}/pmis-frontend:${{ needs.build-push.outputs.app_version }} \
+              --set-env-vars "BACKEND_HOST=${BACKEND_FQDN}"
 
       - name: ⏳ Wait for deployment stabilization
         run: sleep 30
