@@ -25,12 +25,17 @@ export default defineConfig({
     allowedHosts: ['localhost', '127.0.0.1', 'host.docker.internal'],
 
     // ── API Proxy ────────────────────────────────────────────────
-    // 所有 /api/* 請求由 Vite dev server 轉發到後端
-    // 前端程式碼一律使用相對路徑 /api/...，不再硬編碼 localhost:3010
-    // 在 Docker 環境中走內部網路 pmis-backend:3000；本機開發走 localhost:3010
+    // 前端程式碼一律使用相對路徑 /api/...，不再硬編碼 localhost
+    // 本機開發預設走 localhost:3000；Docker 環境透過 VITE_PROXY_TARGET 覆寫
     proxy: {
       '/api': {
-        target: process.env.VITE_PROXY_TARGET || 'http://pmis-backend:3000',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // /auth 路由（OAuth 相關：Microsoft/Google/GitHub 帳號連結）
+      '/auth': {
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },
