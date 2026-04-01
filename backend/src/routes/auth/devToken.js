@@ -25,12 +25,7 @@ if (process.env.NODE_ENV === 'production') {
    * 回傳模擬使用者的 JWT（userId=4，陳志明 admin）
    */
   router.get('/', (req, res) => {
-    const secret = process.env.APP_JWT_SECRET;
-    if (!secret) {
-      return res.status(500).json({
-        error: 'APP_JWT_SECRET 未設定，請在 .env 加入此變數',
-      });
-    }
+    const { JWT_SECRET: secret } = require('../../config/jwt');
 
     const payload = {
       userId: 4,

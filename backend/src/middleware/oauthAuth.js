@@ -73,13 +73,8 @@ function requireAuth(req, res, next) {
 
   const token = authHeader.slice(7).trim();
 
-  const secret = process.env.APP_JWT_SECRET;
-  if (!secret) {
-    console.error('❌ APP_JWT_SECRET 未設定，無法驗證 JWT');
-    return res.status(500).json({
-      error: '伺服器設定錯誤：JWT 密鑰未設定，請聯繫系統管理員',
-    });
-  }
+  const { JWT_SECRET } = require('../config/jwt');
+  const secret = JWT_SECRET;
 
   try {
     const payload = jwt.verify(token, secret);

@@ -22,9 +22,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // ── 常數 ──────────────────────────────────────────────────────
+const { JWT_SECRET } = require('../../config/jwt');
 const TOKEN_KEY   = 'xcloud-auth-token';
 const ROLE_LABEL  = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
-const JWT_SECRET  = () => process.env.APP_JWT_SECRET || 'xcloud-dev-secret-change-in-production';
 const FRONTEND_URL= () => process.env.APP_FRONTEND_URL || 'http://localhost:3838';
 
 // ── 工具 ──────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ async function issueJwtForUser(user) {
     name:      user.name,
   };
 
-  const token = jwt.sign(payload, JWT_SECRET(), { expiresIn: '7d' });
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 
   // 更新最後登入時間
   await prisma.user.update({

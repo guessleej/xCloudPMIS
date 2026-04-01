@@ -3,8 +3,7 @@
  * 有 Token 時解析並注入 req.user，無 Token 時直接繼續
  */
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'pmis-dev-secret-2024';
+const { JWT_SECRET } = require('../config/jwt');
 
 module.exports = function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;

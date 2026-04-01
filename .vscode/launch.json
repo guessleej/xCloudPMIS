@@ -1,0 +1,101 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🔧 Backend: Debug",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/src/index.js",
+      "cwd": "${workspaceFolder}/backend",
+      "restart": true,
+      "runtimeExecutable": "nodemon",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3010",
+        "DB_HOST": "localhost",
+        "DB_PORT": "5432",
+        "DB_NAME": "pmis_db",
+        "DB_USER": "pmis_user",
+        "DB_PASSWORD": "pmis_password",
+        "DATABASE_URL": "postgresql://pmis_user:pmis_password@localhost:5432/pmis_db?schema=public",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "REDIS_PASSWORD": "redis123",
+        "JWT_SECRET": "your-super-secret-jwt-key-change-in-production"
+      }
+    },
+    {
+      "name": "🔧 Backend: Attach to Docker",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9229,
+      "localRoot": "${workspaceFolder}/backend",
+      "remoteRoot": "/app",
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "🤖 AI Service: Debug",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/ai-service/server.js",
+      "cwd": "${workspaceFolder}/ai-service",
+      "restart": true,
+      "runtimeExecutable": "nodemon",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3002"
+      }
+    },
+    {
+      "name": "⚛️ Frontend: Chrome Debug",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3838",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMapPathOverrides": {
+        "webpack:///./src/*": "${webRoot}/*"
+      }
+    },
+    {
+      "name": "🚀 Full Stack: Backend + Chrome",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/src/index.js",
+      "cwd": "${workspaceFolder}/backend",
+      "restart": true,
+      "runtimeExecutable": "nodemon",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3010",
+        "DATABASE_URL": "postgresql://pmis_user:pmis_password@localhost:5432/pmis_db?schema=public",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "REDIS_PASSWORD": "redis123",
+        "JWT_SECRET": "your-super-secret-jwt-key-change-in-production"
+      },
+      "serverReadyAction": {
+        "pattern": "Server running on port",
+        "uriFormat": "http://localhost:3838",
+        "action": "debugWithChrome"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "🔥 Full Stack Debug (Backend + Frontend)",
+      "configurations": [
+        "🔧 Backend: Debug",
+        "⚛️ Frontend: Chrome Debug"
+      ],
+      "stopAll": true
+    }
+  ]
+}

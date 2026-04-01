@@ -8,8 +8,7 @@ const bcrypt   = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma       = new PrismaClient();
-const JWT_SECRET   = process.env.JWT_SECRET   || 'pmis-dev-secret-2024';
-const JWT_EXPIRES  = process.env.JWT_EXPIRES  || '7d';
+const { JWT_SECRET, JWT_EXPIRES } = require('../../config/jwt');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3838';
 
 // ── 找到或建立 OAuth 使用者 ─────────────────────────────────
@@ -26,12 +25,21 @@ async function findOrCreateOAuthUser({ email, name, avatarUrl }) {
   });
 
   if (user) {
+    if (!user.isActive) {
+      throw new Error('此帳號已停用，請聯絡系統管理員');
+    }
     // 更新最後登入時間
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     }).catch(() => {});
     return user;
+  }
+
+  // ── 檢查是否允許 OAuth 自動建立帳號 ───────────────────────
+  const allowReg = process.env.OAUTH_ALLOW_REGISTRATION === 'true';
+  if (!allowReg) {
+    throw new Error(`此 Email（${normalizedEmail}）尚未在系統中建立帳號，請聯絡管理員後再使用社群帳號登入`);
   }
 
   // 找第一個公司作為預設公司

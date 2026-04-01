@@ -24,8 +24,7 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'pmis-dev-secret-2024';
-const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
+const { JWT_SECRET, JWT_EXPIRES } = require('../../config/jwt');
 
 // ── 登入 ──────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {

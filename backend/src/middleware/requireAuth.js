@@ -33,8 +33,8 @@ module.exports = function requireAuth(req, res, next) {
   }
 
   // ── 驗證 Token ─────────────────────────────────────────────
-  // 與 login.js 使用相同的 JWT_SECRET（優先讀取 JWT_SECRET 再 APP_JWT_SECRET）
-  const secret = process.env.JWT_SECRET || process.env.APP_JWT_SECRET || 'pmis-dev-secret-2024';
+  const { JWT_SECRET } = require('../config/jwt');
+  const secret = JWT_SECRET;
 
   try {
     const decoded = jwt.verify(token, secret);
