@@ -43,6 +43,9 @@ COPY --from=deps --chown=nodeuser:nodejs /app/prisma ./prisma
 COPY --chown=nodeuser:nodejs backend/src ./src
 COPY --chown=nodeuser:nodejs backend/package.json ./
 
+# 建立上傳目錄（在切換使用者前，確保有寫入權限）
+RUN mkdir -p /app/uploads && chown nodeuser:nodejs /app/uploads
+
 # 切換至非 root 使用者
 USER nodeuser
 
