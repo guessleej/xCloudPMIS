@@ -95,7 +95,9 @@ export default function FormsPage() {
   }
 
   function copyLink(name) {
-    alert(`已複製連結：https://pmis.example.com/forms/${encodeURIComponent(name)}`);
+    const url = `${window.location.origin}/forms/${encodeURIComponent(name)}`;
+    navigator.clipboard?.writeText(url).catch(() => {});
+    alert(`已複製連結：${url}`);
   }
 
   async function handleSubmit() {

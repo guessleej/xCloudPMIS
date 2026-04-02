@@ -94,7 +94,7 @@ const PROVIDERS = [
 const API_BASE = import.meta.env?.VITE_API_URL || '';
 
 // ── 主元件 ──────────────────────────────────────────────────
-export default function AiModelSettingsModal({ open, onClose, companyId = 2 }) {
+export default function AiModelSettingsModal({ open, onClose, companyId }) {
   const { authFetch } = useAuth();
   // ── 表單狀態 ──────────────────────────────────────────────
   const [provider,     setProvider]     = useState('openai');

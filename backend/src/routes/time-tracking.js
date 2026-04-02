@@ -65,33 +65,12 @@ function calcStats(entries, userId) {
   return { weekTotal, monthTotal, todayTotal, dailyAvg, weekDays };
 }
 
-async function seedIfEmpty(companyId) {
-  const count = await prisma.workTimeLog.count({ where: { companyId } });
-  if (count > 0) return;
-
-  const seedRows = [
-    { companyId, userId: 1, date: '2026-03-27', project: 'API 閘道升級',   task: 'OAuth 驗證模組',      hours: 3.5, note: '完成 token refresh 邏輯' },
-    { companyId, userId: 1, date: '2026-03-27', project: '行動 App v2.0',  task: 'React Native 架構',   hours: 2,   note: '' },
-    { companyId, userId: 1, date: '2026-03-26', project: 'API 閘道升級',   task: 'API 路由重構',         hours: 4,   note: '拆分 v1 / v2 路由' },
-    { companyId, userId: 1, date: '2026-03-26', project: '電商平台重構',   task: '購物車邏輯',           hours: 4,   note: '' },
-    { companyId, userId: 1, date: '2026-03-25', project: '行動 App v2.0',  task: 'UI 原型設計評審',      hours: 2.5, note: '確認設計稿版本' },
-    { companyId, userId: 1, date: '2026-03-25', project: '資安合規審查',   task: '滲透測試報告撰寫',    hours: 3,   note: '' },
-    { companyId, userId: 1, date: '2026-03-24', project: '電商平台重構',   task: '資料庫 Schema 設計',  hours: 5,   note: '建立 ER Diagram' },
-    { companyId, userId: 1, date: '2026-03-24', project: 'API 閘道升級',   task: 'CI/CD Pipeline 設定', hours: 2.5, note: '' },
-    { companyId, userId: 1, date: '2026-03-23', project: '行動 App v2.0',  task: 'Push 通知整合',        hours: 3,   note: 'FCM 設定完成' },
-    { companyId, userId: 1, date: '2026-03-22', project: '資安合規審查',   task: '弱點掃描執行',         hours: 4,   note: '使用 Nessus' },
-  ];
-  await prisma.workTimeLog.createMany({ data: seedRows });
-}
-
 // GET /api/time-tracking?companyId=N&userId=N
 router.get('/', async (req, res) => {
   try {
     const companyId = parseInt(req.query.companyId);
     const userId    = req.query.userId;
     if (!companyId) return err(res, 'companyId 為必填', 400);
-
-    await seedIfEmpty(companyId);
 
     const where = { companyId };
     if (userId) where.userId = parseInt(userId);

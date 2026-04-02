@@ -20,7 +20,12 @@ const https   = require('https');
 const { URL } = require('url');
 
 const AI_SERVICE_BASE = process.env.INTERNAL_AI_SERVICE_URL || 'http://ai-service:3002';
-const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET     || 'pmis-internal-secret-dev';
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET
+  || (process.env.NODE_ENV === 'production' ? undefined : 'pmis-internal-secret-dev');
+if (!INTERNAL_SECRET) {
+  console.error('❌ [FATAL] 正式環境必須設定 INTERNAL_API_SECRET 環境變數');
+  process.exit(1);
+}
 const TIMEOUT_MS      = parseInt(process.env.AI_SERVICE_TIMEOUT_MS) || 120_000;
 
 // 降級開關：若 ai-service 連續失敗，暫時切回直接呼叫

@@ -10,6 +10,16 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') }); // worktree 根目錄
 require('dotenv').config({ path: path.join(__dirname, '../.env') });    // backend/ 目錄（備用）
 
+// ── 正式環境必要變數檢查 ─────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const required = ['DATABASE_URL'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) {
+    console.error(`❌ [FATAL] 正式環境缺少必要環境變數: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
@@ -51,10 +61,11 @@ const PORT = process.env.PORT || 3000;
 
 // ── Socket.io WebSocket 伺服器 ───────────────────────────────
 // 取代前端 polling，提供即時推播（通知、儀表板更新）
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3838')
+  .split(',').map(s => s.trim()).filter(Boolean);
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: ['http://localhost:3838', 'http://127.0.0.1:3838',
-             'http://host.docker.internal:3838'],
+    origin: allowedOrigins,
     credentials: true,
   },
   path: '/ws',
@@ -79,10 +90,9 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // ── 中介軟體設定 ─────────────────────────────────────────────
-// 跨來源資源共用（CORS）：允許前端（埠 3838）呼叫後端 API
+// 跨來源資源共用（CORS）：允許前端呼叫後端 API
 app.use(cors({
-  origin: ['http://localhost:3838', 'http://127.0.0.1:3838',
-           'http://host.docker.internal:3838'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 // 解析 JSON 格式的請求主體
@@ -93,12 +103,13 @@ app.use(optionalAuth);
 
 // ── PostgreSQL 連線池設定 ───────────────────────────────────
 // 使用「連線池」而不是單一連線，可以同時處理多個請求
+// 正式環境靠 DATABASE_URL 檢查門檻（上方已擋）；開發環境使用預設值
 const pool = new Pool({
   host:     process.env.DB_HOST     || 'localhost',
   port:     parseInt(process.env.DB_PORT) || 5432,
   database: process.env.DB_NAME     || 'pmis_db',
   user:     process.env.DB_USER     || 'pmis_user',
-  password: process.env.DB_PASSWORD || 'pmis_password',
+  password: process.env.DB_PASSWORD || (process.env.NODE_ENV === 'production' ? undefined : 'pmis_password'),
   max: 25,              // 最多同時 25 個連線（支援 50+ 併發用戶）
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

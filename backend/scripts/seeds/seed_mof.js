@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-const CID = 2;
+const CID = parseInt(process.env.SEED_COMPANY_ID) || 1;
 const DEFAULT_PW = '$2b$10$placeholder.hash.for.dev.use.only.xxxxxxxxxxx';
 
 async function run() {

@@ -24,7 +24,7 @@ const API = '';
 // ════════════════════════════════════════════════════════════
 
 export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
 
   // ── API 呼叫工具 ──────────────────────────────────────────
   const apiFetch = useCallback(async (path, options = {}) => {
@@ -115,13 +115,14 @@ export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
   // ════════════════════════════════════════════════════════
 
   /** 批准 Staging 決策 */
-  const approveDecision = useCallback(async (id, userId = 1) => {
+  const approveDecision = useCallback(async (id, userId) => {
+    const uid = userId || user?.id;
     setActionLoading(true);
     setActionError(null);
     try {
       await apiFetch(`/api/ai/decisions/${id}/approve`, {
         method: 'POST',
-        body:   JSON.stringify({ userId }),
+        body:   JSON.stringify({ userId: uid }),
       });
       await refresh();
       return true;
@@ -134,7 +135,8 @@ export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
   }, [refresh]);
 
   /** 拒絕 Staging 決策 */
-  const rejectDecision = useCallback(async (id, userId = 1, note) => {
+  const rejectDecision = useCallback(async (id, userId, note) => {
+    const uid = userId || user?.id;
     if (!note?.trim()) {
       setActionError('請填寫拒絕原因');
       return false;
@@ -144,7 +146,7 @@ export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
     try {
       await apiFetch(`/api/ai/decisions/${id}/reject`, {
         method: 'POST',
-        body:   JSON.stringify({ userId, note }),
+        body:   JSON.stringify({ userId: uid, note }),
       });
       await refresh();
       return true;
@@ -157,13 +159,14 @@ export function useAiDecisions({ companyId, autoRefresh = true } = {}) {
   }, [refresh]);
 
   /** 回滾已完成決策 */
-  const rollbackDecision = useCallback(async (id, userId = 1) => {
+  const rollbackDecision = useCallback(async (id, userId) => {
+    const uid = userId || user?.id;
     setActionLoading(true);
     setActionError(null);
     try {
       await apiFetch(`/api/ai/decisions/${id}/rollback`, {
         method: 'POST',
-        body:   JSON.stringify({ userId }),
+        body:   JSON.stringify({ userId: uid }),
       });
       await refresh();
       return true;

@@ -104,7 +104,8 @@ const MILESTONE_COLOR = {
 // ════════════════════════════════════════════════════════════
 router.get('/projects', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
     const format    = req.query.format || 'json'; // json | csv
 
     const projects = await prisma.project.findMany({
@@ -229,7 +230,8 @@ router.get('/projects', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/tasks', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
     const projectId = req.query.projectId ? parseInt(req.query.projectId) : null;
     const status    = req.query.status || null;
     const format    = req.query.format || 'json';
@@ -337,7 +339,8 @@ router.get('/tasks', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/timelog', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
     const groupBy   = req.query.groupBy || 'project'; // project | user | task
     const format    = req.query.format || 'json';
 
@@ -521,7 +524,8 @@ router.get('/timelog', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/milestones', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
     const format    = req.query.format || 'json';
 
     const milestones = await prisma.milestone.findMany({
@@ -611,7 +615,8 @@ router.get('/milestones', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/filter-options', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
 
     const [projects, users] = await Promise.all([
       prisma.project.findMany({

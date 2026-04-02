@@ -72,7 +72,8 @@ function formatTask(t) {
 // GET /api/tasks?companyId=1[&assigneeId=1]
 // ════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
-  const companyId  = parseInt(req.query.companyId)  || 1;
+  const companyId  = parseInt(req.query.companyId);
+  if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
   const assigneeId = parseInt(req.query.assigneeId) || null;
 
   try {

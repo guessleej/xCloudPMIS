@@ -25,7 +25,7 @@ const prisma = new PrismaClient();
 const { JWT_SECRET } = require('../../config/jwt');
 const TOKEN_KEY   = 'xcloud-auth-token';
 const ROLE_LABEL  = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
-const FRONTEND_URL= () => process.env.APP_FRONTEND_URL || 'http://localhost:3838';
+const FRONTEND_URL= () => process.env.FRONTEND_URL || process.env.APP_FRONTEND_URL || 'http://localhost:3838';
 
 // ── 工具 ──────────────────────────────────────────────────────
 const ok   = (res, data, s = 200) => res.status(s).json({ success: true,  ...data });

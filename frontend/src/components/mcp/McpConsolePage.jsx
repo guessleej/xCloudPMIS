@@ -1050,14 +1050,14 @@ function ExternalTab({ toolsData, loadingTools }) {
 // Tab 4 — API 金鑰管理
 // ════════════════════════════════════════════════════════════
 
-function ApiKeysTab({ authFetch }) {
+function ApiKeysTab({ authFetch, userCompanyId }) {
   const [keys, setKeys]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showCreate, setCreate] = useState(false);
   const [newKey, setNewKey]     = useState(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
-    systemName: '', companyId: '1',
+    systemName: '', companyId: String(userCompanyId || ''),
     scopes: ['read:projects', 'read:tasks'],
   });
 
@@ -1093,7 +1093,7 @@ function ApiKeysTab({ authFetch }) {
       if (d.success) {
         setNewKey(d.data);
         setCreate(false);
-        setForm({ systemName: '', companyId: '1', scopes: ['read:projects','read:tasks'] });
+        setForm({ systemName: '', companyId: String(userCompanyId || ''), scopes: ['read:projects','read:tasks'] });
         load();
       }
     } catch {}
@@ -1494,7 +1494,7 @@ function LogsTab({ authFetch }) {
 // ════════════════════════════════════════════════════════════
 
 export default function McpConsolePage() {
-  const { authFetch } = useAuth();
+  const { authFetch, user } = useAuth();
   const [activeTab,   setActiveTab]   = useState('overview');
   const [status,      setStatus]      = useState(null);
   const [chart,       setChart]       = useState(null);
@@ -1624,7 +1624,7 @@ export default function McpConsolePage() {
       {activeTab === 'microsoft' && <MicrosoftTab  data={status} loading={loading} />}
       {activeTab === 'notify'    && <NotifyTab     data={status} loading={loading} authFetch={authFetch} />}
       {activeTab === 'external'  && <ExternalTab   toolsData={toolsData} loadingTools={loadingTools} />}
-      {activeTab === 'apikeys'   && <ApiKeysTab authFetch={authFetch} />}
+      {activeTab === 'apikeys'   && <ApiKeysTab authFetch={authFetch} userCompanyId={user?.companyId} />}
       {activeTab === 'logs'      && <LogsTab authFetch={authFetch} />}
     </div>
   );

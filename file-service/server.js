@@ -32,7 +32,12 @@ const app  = express();
 const PORT = process.env.PORT || 3001;
 
 // ── 服務間認證 ───────────────────────────────────────────────
-const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET || 'pmis-internal-secret-dev';
+const INTERNAL_SECRET = process.env.INTERNAL_API_SECRET
+  || (process.env.NODE_ENV === 'production' ? undefined : 'pmis-internal-secret-dev');
+if (!INTERNAL_SECRET) {
+  console.error('❌ [FATAL] 正式環境必須設定 INTERNAL_API_SECRET 環境變數');
+  process.exit(1);
+}
 
 // ── 上傳目錄設定（與主後端共享 Volume）──────────────────────
 const UPLOAD_ROOT = process.env.UPLOAD_DIR || '/uploads';

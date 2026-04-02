@@ -682,7 +682,7 @@ const toolImpl = {
     await prisma.activityLog.create({
       data: {
         taskId:   task.id,
-        userId:   args.createdById || 1,
+        userId:   args.createdById || apiKeyInfo.userId || 1,
         action:   'task_created_via_mcp',
         oldValue: null,
         newValue: JSON.stringify({ system: apiKeyInfo.systemName }),
@@ -725,7 +725,7 @@ const toolImpl = {
     await prisma.activityLog.create({
       data: {
         taskId:   args.taskId,
-        userId:   1,
+        userId:   apiKeyInfo.userId || 1,
         action:   'status_changed_via_mcp',
         oldValue: oldStatus,
         newValue: args.status,
@@ -1132,7 +1132,7 @@ const toolImpl = {
         await prisma.activityLog.create({
           data: {
             taskId:   args.taskId,
-            userId:   1,
+            userId:   apiKeyInfo.userId || 1,
             action:   'rpa_executed',
             oldValue: null,
             newValue: JSON.stringify({ flowId: args.flowId, executionId, result }),

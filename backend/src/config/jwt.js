@@ -15,9 +15,16 @@
 
 'use strict';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const JWT_SECRET  = process.env.APP_JWT_SECRET
                  || process.env.JWT_SECRET
-                 || 'xcloud-dev-secret-change-in-production';
+                 || (isProduction ? undefined : 'xcloud-dev-secret-change-in-production');
+
+if (!JWT_SECRET) {
+  console.error('❌ [FATAL] 正式環境必須設定 APP_JWT_SECRET 或 JWT_SECRET 環境變數');
+  process.exit(1);
+}
 
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
 

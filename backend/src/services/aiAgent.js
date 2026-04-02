@@ -60,10 +60,11 @@ const _prisma = new PrismaClient();
 
 /**
  * 取得目前有效的模型設定（DB 優先，ENV 回退）
- * @param {number} [companyId]  公司 ID（預設 1，多公司環境下傳入）
+ * @param {number} companyId  公司 ID（必填）
  * @returns {Promise<{baseUrl:string|null, apiKey:string, modelHeavy:string, modelLight:string, maxTokens:number}>}
  */
-async function getActiveConfig(companyId = 2) {
+async function getActiveConfig(companyId) {
+  if (!companyId) throw new Error('getActiveConfig: companyId 為必填');
   const now = Date.now();
   if (_configCache && now < _configExpiry) return _configCache;
 
@@ -507,8 +508,9 @@ async function breakdownTask(projectGoal, options = {}) {
     duration        = null,
     taskCount       = '8 ~ 12',
     existingContext = null,
-    companyId       = 1,
+    companyId,
   } = options;
+  if (!companyId) throw new Error('breakdownTask: options.companyId 為必填');
 
   // 取得動態模型設定（DB → ENV 回退）
   const config = await getActiveConfig(companyId);
@@ -736,8 +738,9 @@ async function generateWeeklyReport(reportData) {
     nextWeekPlan      = [],
     audience          = '主管',
     style             = 'formal',
-    companyId         = 1,
+    companyId,
   } = reportData;
+  if (!companyId) throw new Error('generateWeeklyReport: companyId 為必填');
 
   // 取得動態模型設定
   const config = await getActiveConfig(companyId);

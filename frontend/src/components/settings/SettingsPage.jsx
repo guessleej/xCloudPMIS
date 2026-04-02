@@ -1578,7 +1578,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                 lineHeight: 1.9, margin: '8px 0 4px',
               }}>
                 <div style={{ color: '#94a3b8' }}># 開發環境</div>
-                <div style={{ color: '#86efac' }}>http://localhost:3010/auth/microsoft/callback</div>
+                <div style={{ color: '#86efac' }}>http://localhost:3000/auth/microsoft/callback</div>
                 <div style={{ color: '#94a3b8', marginTop: 6 }}># 正式環境（換成貴公司實際網域）</div>
                 <div style={{ color: '#38bdf8' }}>https://backend.your-company.com/auth/microsoft/callback</div>
               </div>

@@ -22,18 +22,46 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   /**
    * GET /api/auth/dev-token
-   * 回傳模擬使用者的 JWT（userId=4，陳志明 admin）
+   * 回傳第一位 admin 使用者的 JWT（從資料庫查詢）
    */
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const { JWT_SECRET: secret } = require('../../config/jwt');
 
-    const payload = {
-      userId: 4,
-      sub:    '4',
-      email:  'chenchiming@xcmb.com.tw',
-      role:   'admin',
-      name:   '陳志明',
-    };
+    let payload;
+    try {
+      const { PrismaClient } = require('@prisma/client');
+      const prisma = new PrismaClient();
+      try {
+        const admin = await prisma.user.findFirst({
+          where: { role: 'admin', isActive: true },
+          orderBy: { id: 'asc' },
+          select: { id: true, email: true, role: true, name: true },
+        });
+        if (admin) {
+          payload = {
+            userId: admin.id,
+            sub:    String(admin.id),
+            email:  admin.email,
+            role:   admin.role,
+            name:   admin.name,
+          };
+        }
+      } finally {
+        await prisma.$disconnect();
+      }
+    } catch (e) {
+      console.warn('[dev-token] DB 查詢失敗，使用最小預設值:', e.message);
+    }
+
+    if (!payload) {
+      payload = {
+        userId: 1,
+        sub:    '1',
+        email:  'dev@localhost',
+        role:   'admin',
+        name:   'Dev Admin',
+      };
+    }
 
     const token = jwt.sign(payload, secret, { expiresIn: '24h' });
 

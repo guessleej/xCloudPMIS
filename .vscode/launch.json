@@ -11,9 +11,10 @@
       "runtimeExecutable": "nodemon",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "NODE_ENV": "development",
-        "PORT": "3010",
+        "PORT": "3000",
         "DB_HOST": "localhost",
         "DB_PORT": "5432",
         "DB_NAME": "pmis_db",
@@ -72,9 +73,10 @@
       "runtimeExecutable": "nodemon",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/.env",
       "env": {
         "NODE_ENV": "development",
-        "PORT": "3010",
+        "PORT": "3000",
         "DATABASE_URL": "postgresql://pmis_user:pmis_password@localhost:5432/pmis_db?schema=public",
         "REDIS_HOST": "localhost",
         "REDIS_PORT": "6379",

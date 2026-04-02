@@ -5,32 +5,32 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const COMPANY_ID = 2;
+const COMPANY_ID = parseInt(process.env.SEED_COMPANY_ID) || 1;
 
 async function main() {
   console.log('🌱 開始建立財政部地端AI專案資料...');
 
   // ── 1. 建立 18 位成員（跳過已存在的） ──────────────────
   const members = [
-    { name: '李偉業', email: 'admin@xcloud.com',      role: 'admin',  seed: 'admin'    }, // 已存在
-    { name: '林雅婷', email: 'linyating@mof.gov.tw',  role: 'pm',     seed: 'linyating' },
-    { name: '張志明', email: 'zhangzhiming@mof.gov.tw',role: 'member', seed: 'zhang'    },
-    { name: '陳美華', email: 'chenmeihua@mof.gov.tw',  role: 'member', seed: 'chen1'    },
-    { name: '林志遠', email: 'linzhiyuan@mof.gov.tw',  role: 'member', seed: 'lin2'     },
-    { name: '王建國', email: 'wangjianguo@mof.gov.tw', role: 'member', seed: 'wang2'    },
-    { name: '劉家豪', email: 'liujiahao@mof.gov.tw',   role: 'member', seed: 'liu'      },
-    { name: '黃佳欣', email: 'huangjiaxin@mof.gov.tw', role: 'member', seed: 'huang'    },
-    { name: '吳雅婷', email: 'wuyating@mof.gov.tw',    role: 'member', seed: 'wu'       },
-    { name: '蔡承翰', email: 'caichenghan@mof.gov.tw', role: 'member', seed: 'cai'      },
-    { name: '許志豪', email: 'xuzhihao@mof.gov.tw',    role: 'member', seed: 'xu'       },
-    { name: '鄭雅文', email: 'zhengyawen@mof.gov.tw',  role: 'member', seed: 'zheng'    },
-    { name: '郭建宏', email: 'guojianhong@mof.gov.tw', role: 'member', seed: 'guo'      },
-    { name: '林淑芬', email: 'linshufeng@mof.gov.tw',  role: 'member', seed: 'lin3'     },
-    { name: '賴志明', email: 'laizhiming@mof.gov.tw',  role: 'member', seed: 'lai'      },
-    { name: '洪雅萍', email: 'hongyaping@mof.gov.tw',  role: 'member', seed: 'hong'     },
-    { name: '曾建志', email: 'zengjjanzhi@mof.gov.tw', role: 'member', seed: 'zeng'     },
-    { name: '謝佳穎', email: 'xiejiaying@mof.gov.tw',  role: 'member', seed: 'xie'      },
-    { name: '莊志豪', email: 'zhuangzhihao@mof.gov.tw',role: 'member', seed: 'zhuang'  },
+    { name: '李偉業', email: 'admin@example.com',        role: 'admin',  seed: 'admin'    }, // 已存在
+    { name: '林雅婷', email: 'linyating@example.com',   role: 'pm',     seed: 'linyating' },
+    { name: '張志明', email: 'zhangzhiming@example.com', role: 'member', seed: 'zhang'    },
+    { name: '陳美華', email: 'chenmeihua@example.com',   role: 'member', seed: 'chen1'    },
+    { name: '林志遠', email: 'linzhiyuan@example.com',   role: 'member', seed: 'lin2'     },
+    { name: '王建國', email: 'wangjianguo@example.com',  role: 'member', seed: 'wang2'    },
+    { name: '劉家豪', email: 'liujiahao@example.com',    role: 'member', seed: 'liu'      },
+    { name: '黃佳欣', email: 'huangjiaxin@example.com',  role: 'member', seed: 'huang'    },
+    { name: '吳雅婷', email: 'wuyating@example.com',     role: 'member', seed: 'wu'       },
+    { name: '蔡承翰', email: 'caichenghan@example.com',  role: 'member', seed: 'cai'      },
+    { name: '許志豪', email: 'xuzhihao@example.com',     role: 'member', seed: 'xu'       },
+    { name: '鄭雅文', email: 'zhengyawen@example.com',   role: 'member', seed: 'zheng'    },
+    { name: '郭建宏', email: 'guojianhong@example.com',  role: 'member', seed: 'guo'      },
+    { name: '林淑芬', email: 'linshufeng@example.com',   role: 'member', seed: 'lin3'     },
+    { name: '賴志明', email: 'laizhiming@example.com',   role: 'member', seed: 'lai'      },
+    { name: '洪雅萍', email: 'hongyaping@example.com',   role: 'member', seed: 'hong'     },
+    { name: '曾建志', email: 'zengjjanzhi@example.com',  role: 'member', seed: 'zeng'     },
+    { name: '謝佳穎', email: 'xiejiaying@example.com',   role: 'member', seed: 'xie'      },
+    { name: '莊志豪', email: 'zhuangzhihao@example.com', role: 'member', seed: 'zhuang'  },
   ];
 
   const userMap = {};

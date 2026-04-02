@@ -30,7 +30,8 @@ const getAiAgent = () => require('../services/aiClient');
 // ════════════════════════════════════════════════════════════
 router.get('/company', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
 
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -325,7 +326,8 @@ router.patch('/notifications/:id', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/system', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
     const startTime = Date.now();
 
     // ── 資料庫健康檢查 ────────────────────────────────────
@@ -468,7 +470,8 @@ router.get('/system', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get('/ai', async (req, res) => {
   try {
-    const companyId = parseInt(req.query.companyId) || 2;
+    const companyId = parseInt(req.query.companyId);
+    if (!companyId) return res.status(400).json({ success: false, error: 'companyId 為必填' });
 
     const record = await prisma.aiModelConfig.findFirst({
       where:   { companyId, isActive: true },

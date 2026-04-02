@@ -363,7 +363,7 @@ app.post('/mcp/webhook/rpa', async (req, res) => {
       await prisma.activityLog.create({
         data: {
           taskId:   parseInt(taskId),
-          userId:   1,  // system user
+          userId:   req.apiKeyInfo?.userId || 1,  // MCP system user
           action:   `rpa_${status}`,
           oldValue: null,
           newValue: JSON.stringify({ flowId, result: result || rpaError, metadata }),
