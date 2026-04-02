@@ -18,15 +18,47 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 };
 
 /**
- * 建立通知（批量）
+ * 通知 type → 使用者偏好設定 key 的映射
+ * 與 Prisma NotificationType enum 一致：
+ *   task_assigned, deadline_approaching, mentioned, comment_added,
+ *   task_completed, milestone_achieved
+ * 若 type 不在映射表中，預設允許送出
+ */
+const TYPE_TO_SETTING_KEY = {
+  task_assigned:        'taskAssigned',
+  deadline_approaching: 'taskDueReminder',   // DB enum: deadline_approaching
+  task_completed:       'taskCompleted',
+  mentioned:            'mentioned',
+  comment_added:        'mentioned',          // 留言通知歸類到「被提及」
+  milestone_achieved:   'projectUpdate',      // 里程碑歸類到「專案更新」
+};
+
+/**
+ * 建立通知（批量）— 會依據每位收件者的通知偏好過濾
  * @param {object} opts - { prisma, recipients: number[], type, title, message, resourceType?, resourceId? }
  */
 async function createNotifications(opts = {}) {
   const { prisma, recipients = [], type, title, message, resourceType, resourceId } = opts;
   if (!prisma || !recipients.length || !type || !title) return [];
   try {
+    // ── 依據每位收件者的偏好過濾 ────────────────────────────
+    const settingKey = TYPE_TO_SETTING_KEY[type];
+    let filteredRecipients = recipients;
+
+    if (settingKey) {
+      const checks = await Promise.all(
+        recipients.map(async (rid) => {
+          const prefs = await getUserNotificationSettings(prisma, rid);
+          return { rid, allowed: !!prefs[settingKey] && !!prefs.pushNotifications };
+        }),
+      );
+      filteredRecipients = checks.filter(c => c.allowed).map(c => c.rid);
+    }
+
+    if (!filteredRecipients.length) return [];
+
     const now = new Date().toISOString();
-    const data = recipients.map(recipientId => ({
+    const data = filteredRecipients.map(recipientId => ({
       recipientId,
       type,
       title,

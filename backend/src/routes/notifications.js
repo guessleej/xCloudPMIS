@@ -17,51 +17,7 @@ function getPrisma() {
   }
 }
 
-// 若通知為空，自動建立 seed 示範通知
-async function seedNotificationsIfEmpty(prisma, userId, companyId) {
-  try {
-    const count = await prisma.notification.count({ where: { recipientId: userId } });
-    if (count > 0) return;
-
-    const now = new Date();
-    const seeds = [
-      {
-        recipientId:  userId,
-        type:         'task_assigned',
-        title:        '你被指派了新任務',
-        message:      '專案經理已將一項新任務指派給你，請確認任務內容並開始執行。',
-        isRead:       false,
-        resourceType: 'task',
-        resourceId:   1,
-        createdAt:    new Date(now - 1 * 60 * 60 * 1000),
-      },
-      {
-        recipientId:  userId,
-        type:         'mentioned',
-        title:        '@你：請確認設計稿',
-        message:      '同事在任務討論中提及你，請查看留言並回應。',
-        isRead:       false,
-        resourceType: 'task',
-        resourceId:   2,
-        createdAt:    new Date(now - 3 * 60 * 60 * 1000),
-      },
-      {
-        recipientId:  userId,
-        type:         'deadline_approaching',
-        title:        '任務截止日提醒',
-        message:      '你有一項任務將在 2 天後截止，請留意進度。',
-        isRead:       false,
-        resourceType: 'task',
-        resourceId:   3,
-        createdAt:    new Date(now - 6 * 60 * 60 * 1000),
-      },
-    ];
-
-    await prisma.notification.createMany({ data: seeds });
-  } catch (e) {
-    console.warn('[notifications seed]', e.message);
-  }
-}
+// seed 示範通知已移除 — 改由真實業務流程產生通知
 
 // GET /api/notifications/unread-count — 未讀數量（需放在 /:id 之前）
 router.get('/unread-count', async (req, res) => {
@@ -97,8 +53,6 @@ router.get('/', async (req, res) => {
   if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
-    await seedNotificationsIfEmpty(prisma, userId, companyId);
-
     const [items, unreadCount] = await Promise.all([
       prisma.notification.findMany({
         where:   { recipientId: userId },

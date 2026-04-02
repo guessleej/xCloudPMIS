@@ -104,15 +104,16 @@ const PAGE_TITLES = {
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS = {
-  type_assign: true,
-  type_mention: true,
-  type_comment: true,
-  type_done: true,
-  type_due: true,
-  email_daily: true,
-  email_instant: false,
-  app_desktop: true,
-  app_sound: false,
+  taskAssigned:        true,
+  taskDueReminder:     true,
+  taskOverdue:         true,
+  taskCompleted:       false,
+  mentioned:           true,
+  projectUpdate:       true,
+  weeklyDigest:        true,
+  emailNotifications:  false,
+  pushNotifications:   true,
+  digestFrequency:     'weekly',
 };
 
 // ── 全部有效路由 ──────────────────────────────────────────────
@@ -2432,7 +2433,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 // ════════════════════════════════════════════════════════════
 // 個人資料頁
 // ════════════════════════════════════════════════════════════
-function ProfilePage({ onBack, currentUser, onLogout }) {
+function ProfilePage({ onBack, currentUser, onLogout, onNavigate }) {
   const { isDark } = useTheme();
   const ROLE_LABEL = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
   const INFO_ROWS = [
@@ -2487,8 +2488,8 @@ function ProfilePage({ onBack, currentUser, onLogout }) {
       <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: T.shadow }}>
         <div style={{ padding: '15px 20px', borderBottom: `1px solid ${T.div}`, fontSize: '13px', fontWeight: '800', color: T.t1 }}>帳戶設定</div>
         {[
-          { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全', onClick: null },
-          { label: '通知偏好', desc: '設定 Email / App 通知類型', onClick: null },
+          { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全', onClick: () => onNavigate?.('settings', { initialTab: 'profile' }) },
+          { label: '通知偏好', desc: '設定 Email / App 通知類型', onClick: () => onNavigate?.('settings', { initialTab: 'notifications' }) },
           { label: '語言與時區', desc: '繁體中文 / Asia/Taipei', onClick: null },
           { label: '登出', desc: '結束目前登入階段', danger: true, onClick: onLogout },
         ].map((item, i, arr) => (
@@ -2661,10 +2662,8 @@ export default function Dashboard() {
         if (freshNotifications.length === 0) return;
 
         freshNotifications.forEach((item) => {
-          if (settings.app_desktop) {
+          if (settings.pushNotifications) {
             dispatchDesktopNotification(item);
-          }
-          if (settings.app_sound) {
             playNotificationSound();
           }
         });
@@ -2711,7 +2710,7 @@ export default function Dashboard() {
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
-    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} />;
+    if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} onNavigate={(nav, state) => { setSettingsState(state); navigate(nav); }} />;
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '14px' }}>

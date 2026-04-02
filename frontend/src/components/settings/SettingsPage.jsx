@@ -1,9 +1,11 @@
 /**
  * 系統設定頁面
  *
- * 四個分頁：
+ * 六個分頁：
  *   🏢 公司資訊   — 顯示 / 編輯公司名稱
  *   👤 個人資料   — 編輯姓名、Email；修改密碼
+ *   🔔 通知偏好   — 各類通知開關（App / Email / 摘要）
+ *   🔗 整合服務   — Microsoft OAuth
  *   📊 系統狀態   — Backend / PostgreSQL / Redis 健康卡片
  *   🗄️ 資料統計   — 各資料表計數總覽
  */
@@ -40,11 +42,12 @@ const T = {
 
 // ── 分頁定義 ─────────────────────────────────────────────────
 const TABS = [
-  { id: 'company',      icon: '🏢', label: '公司資訊' },
-  { id: 'profile',      icon: '👤', label: '個人資料' },
-  { id: 'integrations', icon: '🔗', label: '整合服務' },
-  { id: 'system',       icon: '📊', label: '系統狀態' },
-  { id: 'stats',        icon: '🗄️', label: '資料統計' },
+  { id: 'company',       icon: '🏢', label: '公司資訊' },
+  { id: 'profile',       icon: '👤', label: '個人資料' },
+  { id: 'notifications', icon: '🔔', label: '通知偏好' },
+  { id: 'integrations',  icon: '🔗', label: '整合服務' },
+  { id: 'system',        icon: '📊', label: '系統狀態' },
+  { id: 'stats',         icon: '🗄️', label: '資料統計' },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -1168,7 +1171,251 @@ function SystemStatsTab({ activeTab }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Tab 5：整合服務（Microsoft OAuth）
+// Tab：通知偏好
+// ════════════════════════════════════════════════════════════
+
+/** 通知類型定義 */
+const NOTIFICATION_TYPES = [
+  { key: 'taskAssigned',    label: '任務指派',     desc: '當有新任務指派給你時收到通知', icon: '📋' },
+  { key: 'taskDueReminder', label: '到期提醒',     desc: '任務即將到期時提前提醒',       icon: '⏰' },
+  { key: 'taskOverdue',     label: '逾期警示',     desc: '任務超過截止日期時通知',       icon: '🚨' },
+  { key: 'taskCompleted',   label: '任務完成',     desc: '你負責的任務被標記完成時通知', icon: '✅' },
+  { key: 'mentioned',       label: '被提及',       desc: '有人在留言或描述中 @提到你',   icon: '💬' },
+  { key: 'projectUpdate',   label: '專案更新',     desc: '你參與的專案有重要變更時通知', icon: '📁' },
+];
+
+const DIGEST_OPTIONS = [
+  { value: 'daily',   label: '每日' },
+  { value: 'weekly',  label: '每週' },
+  { value: 'monthly', label: '每月' },
+];
+
+/** 切換開關元件 */
+function ToggleSwitch({ checked, onChange, disabled }) {
+  return (
+    <button
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      style={{
+        width:        44,
+        height:       24,
+        borderRadius: 12,
+        border:       'none',
+        background:   checked ? T.info : T.borderStrong,
+        position:     'relative',
+        cursor:       disabled ? 'not-allowed' : 'pointer',
+        transition:   'background 0.2s',
+        padding:      0,
+        flexShrink:   0,
+      }}
+    >
+      <span style={{
+        width:        18,
+        height:       18,
+        borderRadius: '50%',
+        background:   '#fff',
+        position:     'absolute',
+        top:          3,
+        left:         checked ? 23 : 3,
+        transition:   'left 0.2s',
+        boxShadow:    '0 1px 3px rgba(0,0,0,0.2)',
+      }} />
+    </button>
+  );
+}
+
+function NotificationsTab() {
+  const { user, authFetch } = useAuth();
+  const userId = user?.id;
+
+  const [settings, setSettings] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [banner,   setBanner]   = useState({ type: '', message: '' });
+
+  // 載入設定
+  const fetchSettings = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const res  = await authFetch(`${API_BASE}/api/settings/notifications`);
+      const data = await res.json();
+      setSettings(data.settings || data.defaults);
+    } catch {
+      setBanner({ type: 'error', message: '無法載入通知設定' });
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  // 切換單項設定
+  const handleToggle = async (key, value) => {
+    const prev = { ...settings };
+    const updated = { ...settings, [key]: value };
+    setSettings(updated);
+    setSaving(true);
+    try {
+      const res = await authFetch(`${API_BASE}/api/settings/notifications/${userId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ [key]: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '更新失敗');
+      setSettings(data.settings);
+      // 通知 Dashboard 刷新通知列表
+      window.dispatchEvent(new CustomEvent('xcloud-notification-settings-updated'));
+    } catch (err) {
+      setSettings(prev);
+      setBanner({ type: 'error', message: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 切換摘要頻率
+  const handleDigestFrequency = async (freq) => {
+    await handleToggle('digestFrequency', freq);
+  };
+
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入中…</p>;
+  if (!settings) return <p style={{ color: T.danger, fontSize: 14 }}>無法載入通知設定</p>;
+
+  return (
+    <div>
+      <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
+
+      {/* 通知類型開關 */}
+      <Card title="事件通知">
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: T.textMuted }}>
+          選擇哪些事件要觸發系統內通知（收件匣）
+        </p>
+        {NOTIFICATION_TYPES.map((nt, i) => (
+          <div key={nt.key} style={{
+            display:      'flex',
+            alignItems:   'center',
+            gap:          14,
+            padding:      '12px 0',
+            borderBottom: i < NOTIFICATION_TYPES.length - 1 ? `1px solid ${T.border}` : 'none',
+          }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>{nt.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{nt.label}</div>
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{nt.desc}</div>
+            </div>
+            <ToggleSwitch
+              checked={!!settings[nt.key]}
+              onChange={(v) => handleToggle(nt.key, v)}
+              disabled={saving}
+            />
+          </div>
+        ))}
+      </Card>
+
+      {/* 通知管道 */}
+      <Card title="通知管道">
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: T.textMuted }}>
+          設定透過哪些管道接收通知
+        </p>
+
+        <div style={{
+          display:      'flex',
+          alignItems:   'center',
+          gap:          14,
+          padding:      '12px 0',
+          borderBottom: `1px solid ${T.border}`,
+        }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>🔔</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>應用程式通知</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>在系統內收件匣中顯示通知</div>
+          </div>
+          <ToggleSwitch
+            checked={!!settings.pushNotifications}
+            onChange={(v) => handleToggle('pushNotifications', v)}
+            disabled={saving}
+          />
+        </div>
+
+        <div style={{
+          display:      'flex',
+          alignItems:   'center',
+          gap:          14,
+          padding:      '12px 0',
+        }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>📧</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Email 通知</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>將通知副本寄到你的電子郵件</div>
+          </div>
+          <ToggleSwitch
+            checked={!!settings.emailNotifications}
+            onChange={(v) => handleToggle('emailNotifications', v)}
+            disabled={saving}
+          />
+        </div>
+      </Card>
+
+      {/* 摘要報告 */}
+      <Card title="摘要報告">
+        <div style={{
+          display:      'flex',
+          alignItems:   'center',
+          gap:          14,
+          padding:      '12px 0',
+          borderBottom: `1px solid ${T.border}`,
+        }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>📊</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>定期摘要</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>接收專案進度與待辦事項的定期彙整</div>
+          </div>
+          <ToggleSwitch
+            checked={!!settings.weeklyDigest}
+            onChange={(v) => handleToggle('weeklyDigest', v)}
+            disabled={saving}
+          />
+        </div>
+
+        {settings.weeklyDigest && (
+          <div style={{ padding: '12px 0', paddingLeft: 34 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: T.textSoft, marginBottom: 8 }}>摘要頻率</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {DIGEST_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleDigestFrequency(opt.value)}
+                  disabled={saving}
+                  style={{
+                    padding:       '6px 16px',
+                    borderRadius:  8,
+                    border:        `1px solid ${settings.digestFrequency === opt.value ? T.info : T.borderStrong}`,
+                    background:    settings.digestFrequency === opt.value ? T.infoSoft : 'transparent',
+                    color:         settings.digestFrequency === opt.value ? T.info : T.textSoft,
+                    fontSize:      13,
+                    fontWeight:    settings.digestFrequency === opt.value ? 600 : 400,
+                    cursor:        saving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {saving && (
+        <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'center' }}>儲存中…</p>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Tab：整合服務（Microsoft OAuth）
 // ════════════════════════════════════════════════════════════
 
 /** 資訊列（label + value 二欄） */
@@ -1697,9 +1944,10 @@ export default function SettingsPage({ initialTab, callbackState }) {
       {/* 內容區域 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
         <div style={{ maxWidth: 720 }}>
-          {activeTab === 'company'      && <CompanyTab />}
-          {activeTab === 'profile'      && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
-          {activeTab === 'integrations' && <IntegrationsTab callbackState={callbackState} authToken={token} />}
+          {activeTab === 'company'       && <CompanyTab />}
+          {activeTab === 'profile'       && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
+          {activeTab === 'notifications' && <NotificationsTab />}
+          {activeTab === 'integrations'  && <IntegrationsTab callbackState={callbackState} authToken={token} />}
           {(activeTab === 'system' || activeTab === 'stats') && (
             <SystemStatsTab activeTab={activeTab} />
           )}

@@ -31,8 +31,10 @@ const btnGhost   = { padding: '7px 16px', borderRadius: 7, border: `1px solid ${
 // 類型色條對應（API type: task_assigned / mentioned / deadline_approaching / …）
 const TYPE_COLOR = {
   task_assigned:        '#3B82F6',
+  comment_added:        '#F59E0B',
   mentioned:            '#8B5CF6',
   deadline_approaching: '#C70018',
+  milestone_achieved:   '#0EA5E9',
   system_alert:         '#6B7280',
   task_completed:       '#16824B',
   // 向下相容舊版 mock 型態
@@ -45,8 +47,10 @@ const TYPE_COLOR = {
 
 const TYPE_LABEL = {
   task_assigned:        '任務指派',
+  comment_added:        '留言通知',
   mentioned:            '@提及',
   deadline_approaching: '截止提醒',
+  milestone_achieved:   '里程碑達成',
   system_alert:         '系統',
   task_completed:       '已完成',
   // 向下相容

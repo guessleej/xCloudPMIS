@@ -69,17 +69,15 @@ class TaskRuleEngine extends EventEmitter {
     if (notificationContext.recipientIds.length > 0) {
       // Fire-and-forget：通知寫入不阻塞主要業務事務
       setImmediate(() => {
-        createNotifications(
-          this.prisma,
-          notificationContext.recipientIds.map((recipientId) => ({
-            recipientId,
-            type: 'task_completed',
-            title: `任務已完成：${afterTask.title}`,
-            message: `${notificationContext.projectNames}中的任務「${afterTask.title}」已移動到已完成欄位。`,
-            resourceType: 'task',
-            resourceId: afterTask.id,
-          }))
-        ).then((notifications) => {
+        createNotifications({
+          prisma: this.prisma,
+          recipients: notificationContext.recipientIds,
+          type: 'task_completed',
+          title: `任務已完成：${afterTask.title}`,
+          message: `${notificationContext.projectNames}中的任務「${afterTask.title}」已移動到已完成欄位。`,
+          resourceType: 'task',
+          resourceId: afterTask.id,
+        }).then((notifications) => {
           summary.notificationsSent = notifications.length;
           summary.notifiedRecipientIds = notifications.map((n) => n.recipientId);
         }).catch((err) => {
