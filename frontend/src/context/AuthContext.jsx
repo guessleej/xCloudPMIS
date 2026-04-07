@@ -150,6 +150,8 @@ export function AuthProvider({ children }) {
   // ── 清除 OAuth 錯誤 ────────────────────────────────────────
   const clearOauthError = useCallback(() => setOauthError(null), []);
 
+  const isAdmin = user?.role === 'admin';
+
   const value = {
     user,
     token,
@@ -158,6 +160,7 @@ export function AuthProvider({ children }) {
     logout,
     updateUser,
     authFetch,
+    isAdmin,
     oauthError,
     clearOauthError,
   };

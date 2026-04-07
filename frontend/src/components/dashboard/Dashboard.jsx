@@ -41,6 +41,7 @@ import PortfoliosPage        from '../portfolios/PortfoliosPage';
 import HelpPanel             from './HelpPanel';
 import WorkloadPage          from '../workload/WorkloadPage';
 import RulesPage             from '../rules/RulesPage';
+import UserManagementPage    from '../admin/UserManagementPage';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
@@ -100,6 +101,7 @@ const PAGE_TITLES = {
   settings:        { title: '設定',        sub: '偏好與整合設定' },
   'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
   'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
+  'user-management':{ title: '使用者管理',  sub: '帳號 · 角色 · 權限設定' },
   profile:         { title: '個人資料',    sub: '帳戶設定' },
 };
 
@@ -121,7 +123,7 @@ const ALL_NAV_IDS = [
   'home','inbox','my-tasks','projects','tasks','gantt',
   'analytics','reports','portfolios','goals','workload',
   'rules','forms','custom-fields','workflow',
-  'time','team','settings','ai-center','mcp-console','profile',
+  'time','team','settings','ai-center','mcp-console','user-management','profile',
 ];
 
 function readHashNav() {
@@ -251,6 +253,7 @@ const Ic = {
   settings: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>,
   ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   mcp: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
+  userMgmt: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>,
   search: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   bell: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>,
   moon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3c0 5 4 9 9 9 .27 0 .53-.01.79-.03A6.78 6.78 0 0021 12.79z"/></svg>,
@@ -630,9 +633,12 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
 
       </nav>
 
-      {/* ── 底部：設定 + 使用者 ─────────────────────────────── */}
+      {/* ── 底部：設定 + 管理員 + 使用者 ───────────────────── */}
       <div style={{ padding: isCollapsed ? '8px 4px 12px' : '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
         <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
+        {currentUser?.role === 'admin' && (
+          <NavItem id="user-management" icon={Ic.userMgmt} label="使用者管理" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
+        )}
 
         {/* 使用者資料列 */}
         <button
@@ -2708,6 +2714,7 @@ export default function Dashboard() {
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
     if (activeNav === 'ai-center')     return <AiDecisionCenter />;
     if (activeNav === 'mcp-console')   return <McpConsolePage />;
+    if (activeNav === 'user-management') return <UserManagementPage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
     if (activeNav === 'profile')       return <ProfilePage onBack={() => navigate('home')} currentUser={currentUser} onLogout={logout} onNavigate={(nav, state) => { setSettingsState(state); navigate(nav); }} />;
