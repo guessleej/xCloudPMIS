@@ -290,6 +290,31 @@ async function updateUserNotificationSettings(prisma, userId, updates = {}) {
 }
 
 /**
+ * 專案負責人指派通知
+ * @param {object} prisma
+ * @param {object} opts - { projectId, projectName, recipientId, actorId }
+ */
+async function createProjectAssignmentNotifications(prisma, opts = {}) {
+  const { projectId, projectName, recipientId, actorId } = opts;
+  if (!recipientId || recipientId === actorId) return [];
+  try {
+    const name = projectName || `專案 #${projectId}`;
+    return createNotifications({
+      prisma,
+      recipients:   [recipientId],
+      type:         'task_assigned',
+      title:        `你已被指派為專案負責人：${name}`,
+      message:      `你已被指派為「${name}」的專案負責人`,
+      resourceType: 'project',
+      resourceId:   projectId,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createProjectAssignmentNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
  * 任務指派通知
  * @param {object} prisma
  * @param {object} opts - { taskId, projectId, recipientId, actorId }
@@ -766,6 +791,7 @@ async function scanTaskOverdue(prisma) {
 module.exports = {
   DEFAULT_NOTIFICATION_SETTINGS,
   createNotifications,
+  createProjectAssignmentNotifications,
   createTaskAssignmentNotifications,
   createTaskCommentNotifications,
   createMentionNotifications,

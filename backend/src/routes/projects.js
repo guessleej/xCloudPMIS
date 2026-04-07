@@ -19,6 +19,7 @@ const { PrismaClient } = require('@prisma/client');
 const { taskController } = require('../controllers/task.controller');
 const { taskRuleEngine } = require('../services/taskRuleEngine');
 const {
+  createProjectAssignmentNotifications,
   createTaskAssignmentNotifications,
   createTaskCommentNotifications,
   createMentionNotifications,
@@ -162,6 +163,17 @@ router.post('/', async (req, res) => {
     });
 
     ok(res, project);
+
+    // 專案負責人指派通知
+    if (ownerId) {
+      const actorId = req.user?.id || req.user?.userId;
+      createProjectAssignmentNotifications(prisma, {
+        projectId:   project.id,
+        projectName: project.name,
+        recipientId: parseInt(ownerId),
+        actorId:     actorId ? parseInt(actorId) : null,
+      }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
+    }
   } catch (e) {
     console.error(e);
     err(res, e.message);
@@ -388,6 +400,11 @@ router.patch('/:id', async (req, res) => {
 
     if (Object.keys(data).length === 0) return err(res, '沒有要更新的欄位', 400);
 
+    // 查詢舊的 ownerId 以便偵測是否變更
+    const oldProject = data.ownerId !== undefined
+      ? await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
+      : null;
+
     const project = await prisma.project.update({
       where: { id },
       data,
@@ -395,6 +412,17 @@ router.patch('/:id', async (req, res) => {
     });
 
     ok(res, project);
+
+    // 專案負責人變更通知（新 owner 與舊 owner 不同時觸發）
+    if (data.ownerId && data.ownerId !== oldProject?.ownerId) {
+      const actorId = req.user?.id || req.user?.userId;
+      createProjectAssignmentNotifications(prisma, {
+        projectId:   project.id,
+        projectName: project.name,
+        recipientId: data.ownerId,
+        actorId:     actorId ? parseInt(actorId) : null,
+      }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
+    }
   } catch (e) {
     console.error(e);
     err(res, e.message);
