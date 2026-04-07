@@ -1,0 +1,30 @@
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+
+(async () => {
+  const forms = await p.form.findMany({ select: { id:true, name:true } });
+  const users = await p.user.findMany({ select: { id:true, name:true, email:true } });
+  const companies = await p.company.findMany({ select: { id:true, name:true } });
+  const teams = await p.team.findMany({ select: { id:true, name:true } });
+  const taskProjects = await p.taskProject.count();
+  const taskAssigneeLinks = await p.taskAssigneeLink.count();
+  const automationRuleProjects = await p.automationRuleProject.count();
+  const automationRuleRuns = await p.automationRuleRun.count();
+  const customFieldDefs = await p.customFieldDefinition.count();
+  const aiDecisions = await p.aiDecision.count();
+  const aiAgentLogs = await p.aiAgentLog.count();
+  const aiSuggestions = await p.aiSuggestion.count();
+  console.log('Forms:', JSON.stringify(forms));
+  console.log('Users:', JSON.stringify(users));
+  console.log('Companies:', JSON.stringify(companies));
+  console.log('Teams:', JSON.stringify(teams));
+  console.log('TaskProjects:', taskProjects);
+  console.log('TaskAssigneeLinks:', taskAssigneeLinks);
+  console.log('AutomationRuleProjects:', automationRuleProjects);
+  console.log('AutomationRuleRuns:', automationRuleRuns);
+  console.log('CustomFieldDefs:', customFieldDefs);
+  console.log('AiDecisions:', aiDecisions);
+  console.log('AiAgentLogs:', aiAgentLogs);
+  console.log('AiSuggestions:', aiSuggestions);
+  await p.$disconnect();
+})();

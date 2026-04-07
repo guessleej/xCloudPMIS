@@ -38,6 +38,7 @@ const TYPE_COLOR = {
   milestone_achieved:   '#0EA5E9',
   system_alert:         '#6B7280',
   task_completed:       '#16824B',
+  system_digest:        '#7C3AED',
   // 向下相容舊版 mock 型態
   assign:  '#3B82F6',
   mention: '#8B5CF6',
@@ -55,6 +56,7 @@ const TYPE_LABEL = {
   milestone_achieved:   '里程碑達成',
   system_alert:         '系統',
   task_completed:       '已完成',
+  system_digest:        '📊 摘要報告',
   // 向下相容
   assign:  '任務指派',
   mention: '@提及',
@@ -160,6 +162,27 @@ export default function InboxPage({ onNavigate }) {
     }
   }
 
+  const [deletingAll, setDeletingAll] = useState(false);
+  async function deleteAll() {
+    if (deletingAll || items.length === 0) return;
+    if (!window.confirm(`確定要刪除全部 ${items.length} 則通知嗎？此操作無法復原。`)) return;
+    setDeletingAll(true);
+    setItems([]);
+    setSelected(null);
+    try {
+      const res = await authFetch('/api/notifications/delete-all', { method: 'DELETE' });
+      if (!res.ok) {
+        console.error('[InboxPage deleteAll] API 回傳錯誤:', res.status);
+      }
+      await load();
+    } catch (e) {
+      console.error('[InboxPage deleteAll]', e);
+      await load();
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayMs  = items.filter(m => (m.createdAt || '').startsWith(todayStr)).length;
   const mentionMs = items.filter(m => m.type === 'mentioned' || m.type === 'mention').length;
@@ -188,14 +211,25 @@ export default function InboxPage({ onNavigate }) {
               <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              style={{ marginLeft:'auto', padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'transparent', color:'#fff', fontSize:12, cursor:'pointer' }}
-            >
-              全部標為已讀
-            </button>
-          )}
+          <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+            {items.length > 0 && (
+              <button
+                onClick={deleteAll}
+                disabled={deletingAll}
+                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.12)', color:'#fff', fontSize:12, cursor: deletingAll ? 'not-allowed' : 'pointer', opacity: deletingAll ? 0.55 : 1 }}
+              >
+                {deletingAll ? '刪除中…' : '🗑 一鍵刪除全部'}
+              </button>
+            )}
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'transparent', color:'#fff', fontSize:12, cursor:'pointer' }}
+              >
+                全部標為已讀
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -301,7 +335,7 @@ export default function InboxPage({ onNavigate }) {
                 <div style={{ borderTop:`1px solid ${BRAND.mist}`, marginBottom:20 }} />
 
                 {/* Message */}
-                <p style={{ fontSize:14, color:BRAND.ink, lineHeight:1.75, margin:'0 0 28px' }}>
+                <p style={{ fontSize:14, color:BRAND.ink, lineHeight:1.75, margin:'0 0 28px', whiteSpace:'pre-wrap' }}>
                   {selectedMsg.message || selectedMsg.detail || '（無詳細說明）'}
                 </p>
 

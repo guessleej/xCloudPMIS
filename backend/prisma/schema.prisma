@@ -914,6 +914,7 @@ enum NotificationType {
   comment_added        // 你的任務有新評論
   task_completed       // 你建立的任務完成了
   milestone_achieved   // 里程碑達成
+  system_digest        // 定期摘要報告
 }
 
 // ── 表格 13：activity_logs（任務變更歷史）───────────────────

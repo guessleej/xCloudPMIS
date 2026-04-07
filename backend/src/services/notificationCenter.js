@@ -325,6 +325,179 @@ async function scanDeadlineApproaching(prisma) {
 }
 
 /**
+ * 產生定期摘要通知 — system_digest
+ *
+ * 依據每位使用者的 digestFrequency（daily / weekly / monthly）設定，
+ * 在足夠時間間隔後產生一份摘要通知，內容包含：
+ *   1. 未讀通知數
+ *   2. 待辦 / 進行中任務數
+ *   3. 逾期任務數
+ *   4. 即將到期任務（7 天內）
+ *   5. 期間內已完成任務數
+ *   6. 所屬專案進度概覽
+ */
+async function generateDigestNotifications(prisma) {
+  const FREQ_MS = {
+    daily:   24 * 60 * 60 * 1000,        // 1 天
+    weekly:  7 * 24 * 60 * 60 * 1000,     // 7 天
+    monthly: 30 * 24 * 60 * 60 * 1000,    // 30 天
+  };
+  const FREQ_LABEL = { daily: '每日', weekly: '每週', monthly: '每月' };
+
+  const now = new Date();
+  let created = 0;
+
+  try {
+    // 取得所有使用者（含 settings）
+    const users = await prisma.user.findMany({
+      where:  { isActive: true },
+      select: { id: true, name: true, settings: true },
+    });
+
+    for (const user of users) {
+      const settings = {
+        ...DEFAULT_NOTIFICATION_SETTINGS,
+        ...((user.settings && typeof user.settings === 'object')
+          ? (user.settings.notificationSettings || {})
+          : {}),
+      };
+
+      // 使用者關閉了摘要
+      if (!settings.weeklyDigest) continue;
+
+      const freq = settings.digestFrequency || 'weekly';
+      const interval = FREQ_MS[freq] || FREQ_MS.weekly;
+
+      // 去重：上次摘要通知是否已在間隔內
+      const lastDigest = await prisma.notification.findFirst({
+        where: {
+          recipientId: user.id,
+          type:        'system_digest',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (lastDigest && (now - new Date(lastDigest.createdAt)) < interval) {
+        continue; // 尚未到發送時間
+      }
+
+      // ── 收集統計資料 ───────────────────────────────────
+      const periodStart = new Date(now.getTime() - interval);
+
+      // 1) 未讀通知數
+      const unreadCount = await prisma.notification.count({
+        where: { recipientId: user.id, isRead: false },
+      });
+
+      // 2) 待辦 & 進行中任務數
+      const pendingTasks = await prisma.task.count({
+        where: {
+          assigneeId: user.id,
+          status:     { in: ['todo', 'in_progress'] },
+          deletedAt:  null,
+        },
+      });
+
+      // 3) 逾期任務數
+      const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+      const overdueTasks = await prisma.task.count({
+        where: {
+          assigneeId: user.id,
+          status:     { not: 'done' },
+          dueDate:    { lt: todayStart },
+          deletedAt:  null,
+        },
+      });
+
+      // 4) 即將到期任務（7 天內）
+      const weekLater = new Date(now); weekLater.setDate(weekLater.getDate() + 7);
+      const upcomingDeadlines = await prisma.task.count({
+        where: {
+          assigneeId: user.id,
+          status:     { not: 'done' },
+          dueDate:    { gte: todayStart, lte: weekLater },
+          deletedAt:  null,
+        },
+      });
+
+      // 5) 期間內已完成任務數
+      const completedTasks = await prisma.task.count({
+        where: {
+          assigneeId: user.id,
+          status:     'done',
+          updatedAt:  { gte: periodStart },
+          deletedAt:  null,
+        },
+      });
+
+      // 6) 專案進度概覽
+      const myProjects = await prisma.projectMember.findMany({
+        where:  { userId: user.id },
+        select: { projectId: true },
+      });
+      const projIds = myProjects.map(p => p.projectId);
+
+      let projectSummaryLines = [];
+      if (projIds.length > 0) {
+        for (const pid of projIds.slice(0, 5)) { // 最多列出 5 個專案
+          const proj = await prisma.project.findUnique({
+            where:  { id: pid },
+            select: { name: true },
+          });
+          const total = await prisma.task.count({
+            where: { projectId: pid, deletedAt: null },
+          });
+          const done = await prisma.task.count({
+            where: { projectId: pid, status: 'done', deletedAt: null },
+          });
+          if (total > 0) {
+            const pct = Math.round((done / total) * 100);
+            projectSummaryLines.push(`  • ${proj?.name || `專案 #${pid}`}：${done}/${total}（${pct}%）`);
+          }
+        }
+      }
+
+      // ── 組合摘要內容 ──────────────────────────────────
+      const lines = [
+        `📊 ${FREQ_LABEL[freq]}工作摘要`,
+        ``,
+        `📬 未讀通知：${unreadCount} 則`,
+        `📋 待辦 / 進行中：${pendingTasks} 項`,
+        `⚠️ 逾期任務：${overdueTasks} 項`,
+        `⏰ 7 天內到期：${upcomingDeadlines} 項`,
+        `✅ 期間完成：${completedTasks} 項`,
+      ];
+
+      if (projectSummaryLines.length > 0) {
+        lines.push(``, `📁 專案進度：`);
+        lines.push(...projectSummaryLines);
+      }
+
+      const message = lines.join('\n');
+      const title = `${FREQ_LABEL[freq]}摘要報告`;
+
+      // 摘要不經偏好過濾，直接建立
+      await prisma.notification.create({
+        data: {
+          recipientId:  user.id,
+          type:         'system_digest',
+          title,
+          message,
+          resourceType: 'digest',
+          isRead:       false,
+        },
+      });
+      created++;
+    }
+
+    return created;
+  } catch (e) {
+    console.warn('[notificationCenter] generateDigestNotifications 失敗:', e.message);
+    return 0;
+  }
+}
+
+/**
  * 掃描已逾期任務 — task_overdue
  * 條件：dueDate < 今天、狀態不是 done/cancelled、未刪除
  *       且 24 小時內未對同一任務+收件人送過相同通知
@@ -387,6 +560,7 @@ module.exports = {
   createMilestoneAchievedNotifications,
   scanDeadlineApproaching,
   scanTaskOverdue,
+  generateDigestNotifications,
   getUnreadCount,
   getUserNotificationSettings,
   updateUserNotificationSettings,

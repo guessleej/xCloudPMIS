@@ -116,6 +116,27 @@ router.post('/mark-all-read', async (req, res) => {
   }
 });
 
+// DELETE /api/notifications/delete-all — 一鍵刪除當前使用者所有通知
+router.delete('/delete-all', async (req, res) => {
+  const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
+  if (!userId) return err(res, 'userId 為必填', 400);
+
+  const prisma = getPrisma();
+  if (!prisma) return err(res, 'Prisma 未設定', 503);
+
+  try {
+    const result = await prisma.notification.deleteMany({
+      where: { recipientId: userId },
+    });
+    return ok(res, { deleted: result.count });
+  } catch (e) {
+    console.error('[notifications delete-all]', e.message);
+    return err(res, e.message);
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
 // DELETE /api/notifications/:id — 刪除通知（只能刪自己的通知）
 router.delete('/:id', async (req, res) => {
   const id     = parseInt(req.params.id);
