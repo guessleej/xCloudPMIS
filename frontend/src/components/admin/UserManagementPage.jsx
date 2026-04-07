@@ -571,6 +571,7 @@ export default function UserManagementPage() {
   const [stats,    setStats]    = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [meta,     setMeta]     = useState({ total: 0, pages: 1, page: 1 });
+  const [error,    setError]    = useState(null);
 
   // 篩選狀態
   const [search,   setSearch]   = useState('');
@@ -598,6 +599,7 @@ export default function UserManagementPage() {
     const active = opts.active   ?? activeFilter;
 
     setLoading(true);
+    setError(null);
     try {
       const qs = new URLSearchParams({
         page: p, pageSize: 20, search: s,
@@ -613,9 +615,14 @@ export default function UserManagementPage() {
       if (data.success) {
         setUsers(data.data);
         setMeta(data.meta);
+      } else {
+        setError(data.error || '載入使用者列表失敗');
+        showToast(data.error || '載入使用者列表失敗', 'error');
       }
     } catch (e) {
       console.error('[UserManagement] 載入失敗:', e);
+      setError(`載入失敗：${e.message}`);
+      showToast(`載入失敗：${e.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -630,7 +637,8 @@ export default function UserManagementPage() {
     } catch {}
   }, [authFetch]);
 
-  useEffect(() => { loadUsers(); loadStats(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadUsers(); loadStats(); }, [authFetch]);
 
   // ── 停用 / 啟用 ──────────────────────────────────────────
   const handleToggle = async (user) => {
@@ -764,6 +772,25 @@ export default function UserManagementPage() {
             loadUsers({ search: '', role: '', active: '', page: 1 });
           }}>清除篩選</Btn>
         </div>
+
+        {/* ── 錯誤提示 ─────────────────────────────────── */}
+        {error && (
+          <div style={{
+            padding:      '12px 16px',
+            marginBottom: 16,
+            background:   'rgba(220,38,38,0.08)',
+            border:       '1px solid rgba(220,38,38,0.25)',
+            borderRadius: 10,
+            color:        '#dc2626',
+            fontSize:     13,
+            display:      'flex',
+            alignItems:   'center',
+            gap:          10,
+          }}>
+            <span>⚠️ {error}</span>
+            <Btn variant="danger" small onClick={() => loadUsers()}>重新載入</Btn>
+          </div>
+        )}
 
         {/* ── 使用者列表 ─────────────────────────────────── */}
         <div style={{
