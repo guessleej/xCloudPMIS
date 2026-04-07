@@ -109,25 +109,24 @@ async function dispatchEmailNotifications(opts = {}) {
 
       const templateFn = TYPE_TO_EMAIL_TEMPLATE[type];
 
-      if (templateFn && (type === 'task_assigned' || type === 'deadline_approaching' || type === 'task_overdue')) {
-        // ── 有專用模板：需要查詢任務詳情 ─────────────────
-        if (resourceType === 'task' && resourceId) {
-          const task = await prisma.task.findUnique({
-            where:  { id: resourceId },
-            include: { project: { select: { name: true } } },
-          });
-          if (task) {
-            const taskDetails = {
-              id:          task.id,
-              title:       task.title,
-              projectName: task.project?.name || '未指定',
-              priority:    task.priority || 'medium',
-              status:      task.status || 'todo',
-              dueDate:     task.dueDate,
-              description: task.description || '',
-            };
-            emailJobs.push(() => emailService[templateFn](user.email, user.name, taskDetails));
-          }
+      if (templateFn && (type === 'task_assigned' || type === 'deadline_approaching' || type === 'task_overdue')
+          && resourceType === 'task' && resourceId) {
+        // ── 有專用模板 + 資源是任務：查詢任務詳情 ─────────
+        const task = await prisma.task.findUnique({
+          where:  { id: resourceId },
+          include: { project: { select: { name: true } } },
+        });
+        if (task) {
+          const taskDetails = {
+            id:          task.id,
+            title:       task.title,
+            projectName: task.project?.name || '未指定',
+            priority:    task.priority || 'medium',
+            status:      task.status || 'todo',
+            dueDate:     task.dueDate,
+            description: task.description || '',
+          };
+          emailJobs.push(() => emailService[templateFn](user.email, user.name, taskDetails));
         }
       } else {
         // ── 通用郵件模板 ─────────────────────────────────
