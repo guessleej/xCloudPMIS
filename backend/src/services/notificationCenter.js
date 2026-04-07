@@ -295,8 +295,8 @@ async function updateUserNotificationSettings(prisma, userId, updates = {}) {
  * @param {object} opts - { projectId, projectName, recipientId, actorId }
  */
 async function createProjectAssignmentNotifications(prisma, opts = {}) {
-  const { projectId, projectName, recipientId, actorId } = opts;
-  if (!recipientId || recipientId === actorId) return [];
+  const { projectId, projectName, recipientId } = opts;
+  if (!recipientId) return [];
   try {
     const name = projectName || `專案 #${projectId}`;
     return createNotifications({
@@ -320,8 +320,8 @@ async function createProjectAssignmentNotifications(prisma, opts = {}) {
  * @param {object} opts - { taskId, projectId, recipientId, actorId }
  */
 async function createTaskAssignmentNotifications(prisma, opts = {}) {
-  const { taskId, projectId, recipientId, actorId } = opts;
-  if (!recipientId || recipientId === actorId) return [];
+  const { taskId, projectId, recipientId } = opts;
+  if (!recipientId) return [];
   try {
     const task = await prisma.task.findUnique({
       where:   { id: taskId },
