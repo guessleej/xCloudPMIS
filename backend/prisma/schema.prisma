@@ -909,6 +909,7 @@ model Notification {
 enum NotificationType {
   task_assigned        // 被指派任務
   deadline_approaching // 截止日期快到了
+  task_overdue         // 任務已逾期
   mentioned            // 在評論中被@提及
   comment_added        // 你的任務有新評論
   task_completed       // 你建立的任務完成了

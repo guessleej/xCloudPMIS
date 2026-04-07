@@ -27,6 +27,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 const TYPE_TO_SETTING_KEY = {
   task_assigned:        'taskAssigned',
   deadline_approaching: 'taskDueReminder',   // DB enum: deadline_approaching
+  task_overdue:         'taskOverdue',       // DB enum: task_overdue
   task_completed:       'taskCompleted',
   mentioned:            'mentioned',
   comment_added:        'mentioned',          // 留言通知歸類到「被提及」
@@ -199,11 +200,193 @@ async function createTaskCommentNotifications(prisma, opts = {}) {
   }
 }
 
+/**
+ * @提及通知 — 評論中被 @ 的使用者
+ * @param {object} prisma
+ * @param {object} opts - { taskId, authorId, mentionIds, content, commentId }
+ */
+async function createMentionNotifications(prisma, opts = {}) {
+  const { taskId, authorId, mentionIds = [], content, commentId } = opts;
+  // 排除留言作者本人
+  const recipients = mentionIds.filter(id => id !== authorId);
+  if (!recipients.length) return [];
+  try {
+    const task = await prisma.task.findUnique({
+      where:  { id: taskId },
+      select: { title: true },
+    });
+    return createNotifications({
+      prisma,
+      recipients,
+      type:         'mentioned',
+      title:        `你在「${task?.title || `#${taskId}`}」被提及`,
+      message:      content ? content.slice(0, 80) : '',
+      resourceType: 'task',
+      resourceId:   taskId,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createMentionNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
+ * 里程碑達成通知 — 通知專案所有成員
+ * @param {object} prisma
+ * @param {object} opts - { milestoneId, projectId, actorId }
+ */
+async function createMilestoneAchievedNotifications(prisma, opts = {}) {
+  const { milestoneId, projectId, actorId } = opts;
+  if (!milestoneId || !projectId) return [];
+  try {
+    const milestone = await prisma.milestone.findUnique({
+      where:  { id: milestoneId },
+      select: { name: true },
+    });
+    // 取得專案全體成員（排除操作者）
+    const members = await prisma.projectMember.findMany({
+      where:  { projectId },
+      select: { userId: true },
+    });
+    const recipients = members
+      .map(m => m.userId)
+      .filter(uid => uid !== actorId);
+    if (!recipients.length) return [];
+
+    return createNotifications({
+      prisma,
+      recipients,
+      type:         'milestone_achieved',
+      title:        `里程碑「${milestone?.name || `#${milestoneId}`}」已達成 🎉`,
+      message:      `專案里程碑已完成`,
+      resourceType: 'milestone',
+      resourceId:   milestoneId,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createMilestoneAchievedNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
+ * 掃描即將到期任務 — deadline_approaching
+ * 條件：dueDate 在 1~2 天內、狀態不是 done/cancelled、未刪除
+ *       且 24 小時內未對同一任務+收件人送過相同通知
+ */
+async function scanDeadlineApproaching(prisma) {
+  const now = new Date();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1); tomorrow.setHours(0,0,0,0);
+  const dayAfterTomorrow = new Date(now); dayAfterTomorrow.setDate(now.getDate() + 2); dayAfterTomorrow.setHours(23,59,59,999);
+
+  try {
+    const tasks = await prisma.task.findMany({
+      where: {
+        dueDate:   { gte: tomorrow, lte: dayAfterTomorrow },
+        status:    { not: 'done' },
+        deletedAt: null,
+        assigneeId: { not: null },
+      },
+      select: { id: true, title: true, assigneeId: true, dueDate: true },
+    });
+
+    let created = 0;
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    for (const task of tasks) {
+      // 去重：24h 內已通知則跳過
+      const existing = await prisma.notification.findFirst({
+        where: {
+          recipientId:  task.assigneeId,
+          type:         'deadline_approaching',
+          resourceType: 'task',
+          resourceId:   task.id,
+          createdAt:    { gte: cutoff },
+        },
+      });
+      if (existing) continue;
+
+      const dueStr = task.dueDate.toLocaleDateString('zh-TW');
+      await createNotifications({
+        prisma,
+        recipients:   [task.assigneeId],
+        type:         'deadline_approaching',
+        title:        `任務即將到期：${task.title || `#${task.id}`}`,
+        message:      `截止日期 ${dueStr}，請儘快處理`,
+        resourceType: 'task',
+        resourceId:   task.id,
+      });
+      created++;
+    }
+    return created;
+  } catch (e) {
+    console.warn('[notificationCenter] scanDeadlineApproaching 失敗:', e.message);
+    return 0;
+  }
+}
+
+/**
+ * 掃描已逾期任務 — task_overdue
+ * 條件：dueDate < 今天、狀態不是 done/cancelled、未刪除
+ *       且 24 小時內未對同一任務+收件人送過相同通知
+ */
+async function scanTaskOverdue(prisma) {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+
+  try {
+    const tasks = await prisma.task.findMany({
+      where: {
+        dueDate:    { lt: todayStart },
+        status:     { not: 'done' },
+        deletedAt:  null,
+        assigneeId: { not: null },
+      },
+      select: { id: true, title: true, assigneeId: true, dueDate: true },
+    });
+
+    let created = 0;
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    for (const task of tasks) {
+      const existing = await prisma.notification.findFirst({
+        where: {
+          recipientId:  task.assigneeId,
+          type:         'task_overdue',
+          resourceType: 'task',
+          resourceId:   task.id,
+          createdAt:    { gte: cutoff },
+        },
+      });
+      if (existing) continue;
+
+      const overdueDays = Math.ceil((todayStart - task.dueDate) / 86400000);
+      await createNotifications({
+        prisma,
+        recipients:   [task.assigneeId],
+        type:         'task_overdue',
+        title:        `任務已逾期：${task.title || `#${task.id}`}`,
+        message:      `已逾期 ${overdueDays} 天，請立即處理`,
+        resourceType: 'task',
+        resourceId:   task.id,
+      });
+      created++;
+    }
+    return created;
+  } catch (e) {
+    console.warn('[notificationCenter] scanTaskOverdue 失敗:', e.message);
+    return 0;
+  }
+}
+
 module.exports = {
   DEFAULT_NOTIFICATION_SETTINGS,
   createNotifications,
   createTaskAssignmentNotifications,
   createTaskCommentNotifications,
+  createMentionNotifications,
+  createMilestoneAchievedNotifications,
+  scanDeadlineApproaching,
+  scanTaskOverdue,
   getUnreadCount,
   getUserNotificationSettings,
   updateUserNotificationSettings,

@@ -344,6 +344,14 @@ httpServer.listen(PORT, () => {
     console.error('[Startup] 無法載入 SafetyGuard:', err.message);
   }
 
+  // ── 通知排程器：到期提醒 / 逾期警示 ──────────────────────
+  try {
+    const { startNotificationScheduler } = require('./services/notificationScheduler');
+    startNotificationScheduler();
+  } catch (err) {
+    console.error('[Startup] 無法啟動通知排程器:', err.message);
+  }
+
   console.log('');
   console.log('╔════════════════════════════════════╗');
   console.log('║   xCloudPMIS 後端服務已啟動         ║');

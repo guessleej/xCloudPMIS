@@ -21,6 +21,8 @@ const { taskRuleEngine } = require('../services/taskRuleEngine');
 const {
   createTaskAssignmentNotifications,
   createTaskCommentNotifications,
+  createMentionNotifications,
+  createMilestoneAchievedNotifications,
 } = require('../services/notificationCenter');
 const prisma = new PrismaClient();
 
@@ -941,6 +943,19 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
       console.warn(`[projects] 建立評論通知失敗 comment=${comment.id}: ${error.message}`);
     });
 
+    // ── @提及通知（與留言通知分開，type = mentioned）────────
+    if (mentionIds.length) {
+      createMentionNotifications(prisma, {
+        taskId,
+        authorId,
+        mentionIds,
+        content,
+        commentId: comment.id,
+      }).catch((error) => {
+        console.warn(`[projects] 建立提及通知失敗 comment=${comment.id}: ${error.message}`);
+      });
+    }
+
     ok(res, {
       id: comment.id,
       text: comment.content,
@@ -1175,6 +1190,19 @@ router.patch('/milestones/:milestoneId', async (req, res) => {
     }
 
     const updated = await prisma.milestone.update({ where: { id: milestoneId }, data });
+
+    // ── 里程碑達成通知 ─────────────────────────────────────
+    if (Boolean(isAchieved) && !existing.isAchieved) {
+      const actorId = req.user?.id ? parseInt(req.user.id, 10) : null;
+      createMilestoneAchievedNotifications(prisma, {
+        milestoneId,
+        projectId: existing.projectId,
+        actorId,
+      }).catch((error) => {
+        console.warn(`[milestones] 建立里程碑達成通知失敗 #${milestoneId}: ${error.message}`);
+      });
+    }
+
     ok(res, updated);
   } catch (e) {
     console.error(e);
