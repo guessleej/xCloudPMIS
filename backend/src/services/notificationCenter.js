@@ -41,13 +41,6 @@ const TYPE_TO_SETTING_KEY = {
  * 通知 type → emailService 函式名 的映射
  * 用來決定要呼叫哪個郵件模板函式
  */
-const TYPE_TO_EMAIL_TEMPLATE = {
-  task_assigned:        'sendTaskAssignmentNotification',
-  deadline_approaching: 'sendTaskReminder',
-  task_overdue:         'sendOverdueWarning',
-  // 其餘類型使用通用郵件
-};
-
 /**
  * 通知 type → emailService accent color 的映射（通用郵件用）
  */
@@ -78,22 +71,21 @@ const TYPE_TO_EMAIL_SUBJECT_PREFIX = {
 
 /**
  * 非同步發送 Email 通知（fire-and-forget，不阻塞通知建立流程）
- * 只有使用者開啟 emailNotifications 才會觸發
- *
- * @param {object} opts - { prisma, recipientIds, type, title, message, resourceType?, resourceId? }
+ * 規則很簡單：使用者開啟 emailNotifications → 系統通知有一封，email 就寄一封
  */
 async function dispatchEmailNotifications(opts = {}) {
-  const { prisma, recipientIds = [], type, title, message, resourceType, resourceId } = opts;
+  const { prisma, recipientIds = [], type, title, message } = opts;
   if (!recipientIds.length) return;
 
   try {
-    // 批量查詢收件者的 email, name, settings
     const users = await prisma.user.findMany({
       where:  { id: { in: recipientIds } },
       select: { id: true, email: true, name: true, settings: true },
     });
 
     const emailJobs = [];
+    const prefix      = TYPE_TO_EMAIL_SUBJECT_PREFIX[type] || '🔔';
+    const accentColor = TYPE_TO_EMAIL_COLOR[type] || '#3B82F6';
 
     for (const user of users) {
       const prefs = {
@@ -102,86 +94,53 @@ async function dispatchEmailNotifications(opts = {}) {
           ? (user.settings.notificationSettings || {})
           : {}),
       };
+      if (!prefs.emailNotifications || !user.email) continue;
 
-      // 使用者沒開 emailNotifications → 跳過
-      if (!prefs.emailNotifications) continue;
-      if (!user.email) continue;
-
-      const templateFn = TYPE_TO_EMAIL_TEMPLATE[type];
-
-      if (templateFn && (type === 'task_assigned' || type === 'deadline_approaching' || type === 'task_overdue')
-          && resourceType === 'task' && resourceId) {
-        // ── 有專用模板 + 資源是任務：查詢任務詳情 ─────────
-        const task = await prisma.task.findUnique({
-          where:  { id: resourceId },
-          include: { project: { select: { name: true } } },
-        });
-        if (task) {
-          const taskDetails = {
-            id:          task.id,
-            title:       task.title,
-            projectName: task.project?.name || '未指定',
-            priority:    task.priority || 'medium',
-            status:      task.status || 'todo',
-            dueDate:     task.dueDate,
-            description: task.description || '',
-          };
-          emailJobs.push(() => emailService[templateFn](user.email, user.name, taskDetails));
-        }
-      } else {
-        // ── 通用郵件模板 ─────────────────────────────────
-        const prefix = TYPE_TO_EMAIL_SUBJECT_PREFIX[type] || '🔔';
-        const accentColor = TYPE_TO_EMAIL_COLOR[type] || '#3B82F6';
-        const subject = `${prefix} ${title}`;
-
-        // 將純文字 message 轉為 HTML（保留換行）
-        const htmlMessage = (message || '').replace(/\n/g, '<br>');
-        const htmlBody = `
-          <h2 style="margin:0 0 8px;font-size:20px;color:#1a202c;font-weight:700;">
-            ${title}
-          </h2>
-          <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
-            系統通知 · ${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+      const subject = `${prefix} ${title}`;
+      const htmlMessage = (message || '').replace(/\n/g, '<br>');
+      const htmlBody = `
+        <h2 style="margin:0 0 8px;font-size:20px;color:#1a202c;font-weight:700;">
+          ${title}
+        </h2>
+        <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+          系統通知 · ${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+        </p>
+        <p style="font-size:15px;color:#374151;margin:0 0 20px;">
+          ${user.name} 您好，
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;margin-bottom:20px;">
+          <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">
+            ${htmlMessage || '（無詳細說明）'}
           </p>
-          <p style="font-size:15px;color:#374151;margin:0 0 20px;">
-            ${user.name} 您好，
-          </p>
-          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;margin-bottom:20px;">
-            <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">
-              ${htmlMessage || '（無詳細說明）'}
-            </p>
-          </div>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td align="center" style="padding:10px 0 24px;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
-                   style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
-                  前往系統查看 →
-                </a>
-              </td>
-            </tr>
-          </table>
-        `;
+        </div>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="center" style="padding:10px 0 24px;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
+                 style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
+                前往系統查看 →
+              </a>
+            </td>
+          </tr>
+        </table>
+      `;
 
-        emailJobs.push(() => emailService.sendEmail({
-          to:       user.email,
-          subject,
-          htmlBody: emailService.wrapEmailTemplate
-            ? emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody })
-            : htmlBody,
-        }));
-      }
+      emailJobs.push(() => emailService.sendEmail({
+        to:       user.email,
+        subject,
+        htmlBody: emailService.wrapEmailTemplate
+          ? emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody })
+          : htmlBody,
+      }));
     }
 
     if (emailJobs.length > 0) {
       console.log(`📧 [notificationCenter] 觸發 Email 發送：${emailJobs.length} 封（type: ${type}）`);
-      // fire-and-forget — 使用 batchSendEmails 控制速率
       emailService.batchSendEmails(emailJobs).catch(err => {
         console.warn('[notificationCenter] Email 批次發送失敗:', err.message);
       });
     }
   } catch (e) {
-    // Email 發送失敗不影響通知建立
     console.warn('[notificationCenter] dispatchEmailNotifications 失敗:', e.message);
   }
 }
