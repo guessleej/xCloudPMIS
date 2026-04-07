@@ -1,7 +1,10 @@
 /**
  * notificationCenter — 通知中心服務
  * 提供通知設定的讀寫，以及建立通知的統一入口
+ * 當使用者開啟 emailNotifications 時，會同步透過 emailService 發送郵件
  */
+
+const emailService = require('./emailService');
 
 // 預設通知設定（使用者未自訂時回傳）
 const DEFAULT_NOTIFICATION_SETTINGS = {
@@ -33,6 +36,156 @@ const TYPE_TO_SETTING_KEY = {
   comment_added:        'mentioned',          // 留言通知歸類到「被提及」
   milestone_achieved:   'projectUpdate',      // 里程碑歸類到「專案更新」
 };
+
+/**
+ * 通知 type → emailService 函式名 的映射
+ * 用來決定要呼叫哪個郵件模板函式
+ */
+const TYPE_TO_EMAIL_TEMPLATE = {
+  task_assigned:        'sendTaskAssignmentNotification',
+  deadline_approaching: 'sendTaskReminder',
+  task_overdue:         'sendOverdueWarning',
+  // 其餘類型使用通用郵件
+};
+
+/**
+ * 通知 type → emailService accent color 的映射（通用郵件用）
+ */
+const TYPE_TO_EMAIL_COLOR = {
+  task_assigned:        '#3B82F6',
+  comment_added:        '#F59E0B',
+  mentioned:            '#8B5CF6',
+  deadline_approaching: '#C70018',
+  task_overdue:         '#DC2626',
+  milestone_achieved:   '#0EA5E9',
+  task_completed:       '#16824B',
+  system_digest:        '#7C3AED',
+};
+
+/**
+ * 通知 type → 郵件主旨前綴
+ */
+const TYPE_TO_EMAIL_SUBJECT_PREFIX = {
+  task_assigned:        '📋',
+  comment_added:        '💬',
+  mentioned:            '📢',
+  deadline_approaching: '⏰',
+  task_overdue:         '🚨',
+  milestone_achieved:   '🎉',
+  task_completed:       '✅',
+  system_digest:        '📊',
+};
+
+/**
+ * 非同步發送 Email 通知（fire-and-forget，不阻塞通知建立流程）
+ * 只有使用者開啟 emailNotifications 才會觸發
+ *
+ * @param {object} opts - { prisma, recipientIds, type, title, message, resourceType?, resourceId? }
+ */
+async function dispatchEmailNotifications(opts = {}) {
+  const { prisma, recipientIds = [], type, title, message, resourceType, resourceId } = opts;
+  if (!recipientIds.length) return;
+
+  try {
+    // 批量查詢收件者的 email, name, settings
+    const users = await prisma.user.findMany({
+      where:  { id: { in: recipientIds } },
+      select: { id: true, email: true, name: true, settings: true },
+    });
+
+    const emailJobs = [];
+
+    for (const user of users) {
+      const prefs = {
+        ...DEFAULT_NOTIFICATION_SETTINGS,
+        ...((user.settings && typeof user.settings === 'object')
+          ? (user.settings.notificationSettings || {})
+          : {}),
+      };
+
+      // 使用者沒開 emailNotifications → 跳過
+      if (!prefs.emailNotifications) continue;
+      if (!user.email) continue;
+
+      const templateFn = TYPE_TO_EMAIL_TEMPLATE[type];
+
+      if (templateFn && (type === 'task_assigned' || type === 'deadline_approaching' || type === 'task_overdue')) {
+        // ── 有專用模板：需要查詢任務詳情 ─────────────────
+        if (resourceType === 'task' && resourceId) {
+          const task = await prisma.task.findUnique({
+            where:  { id: resourceId },
+            include: { project: { select: { name: true } } },
+          });
+          if (task) {
+            const taskDetails = {
+              id:          task.id,
+              title:       task.title,
+              projectName: task.project?.name || '未指定',
+              priority:    task.priority || 'medium',
+              status:      task.status || 'todo',
+              dueDate:     task.dueDate,
+              description: task.description || '',
+            };
+            emailJobs.push(() => emailService[templateFn](user.email, user.name, taskDetails));
+          }
+        }
+      } else {
+        // ── 通用郵件模板 ─────────────────────────────────
+        const prefix = TYPE_TO_EMAIL_SUBJECT_PREFIX[type] || '🔔';
+        const accentColor = TYPE_TO_EMAIL_COLOR[type] || '#3B82F6';
+        const subject = `${prefix} ${title}`;
+
+        // 將純文字 message 轉為 HTML（保留換行）
+        const htmlMessage = (message || '').replace(/\n/g, '<br>');
+        const htmlBody = `
+          <h2 style="margin:0 0 8px;font-size:20px;color:#1a202c;font-weight:700;">
+            ${title}
+          </h2>
+          <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+            系統通知 · ${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+          </p>
+          <p style="font-size:15px;color:#374151;margin:0 0 20px;">
+            ${user.name} 您好，
+          </p>
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;margin-bottom:20px;">
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">
+              ${htmlMessage || '（無詳細說明）'}
+            </p>
+          </div>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td align="center" style="padding:10px 0 24px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
+                   style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
+                  前往系統查看 →
+                </a>
+              </td>
+            </tr>
+          </table>
+        `;
+
+        emailJobs.push(() => emailService.sendOutlookEmail({
+          to:       user.email,
+          subject,
+          htmlBody: emailService.wrapEmailTemplate
+            ? emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody })
+            : htmlBody,
+        }));
+      }
+    }
+
+    if (emailJobs.length > 0) {
+      console.log(`📧 [notificationCenter] 觸發 Email 發送：${emailJobs.length} 封（type: ${type}）`);
+      // fire-and-forget — 使用 batchSendEmails 控制速率
+      emailService.batchSendEmails(emailJobs).catch(err => {
+        console.warn('[notificationCenter] Email 批次發送失敗:', err.message);
+      });
+    }
+  } catch (e) {
+    // Email 發送失敗不影響通知建立
+    console.warn('[notificationCenter] dispatchEmailNotifications 失敗:', e.message);
+  }
+}
 
 /**
  * 建立通知（批量）— 會依據每位收件者的通知偏好過濾
@@ -70,6 +223,18 @@ async function createNotifications(opts = {}) {
       createdAt: now,
     }));
     await prisma.notification.createMany({ data });
+
+    // ── Email 通知（非同步發送，不阻塞）────────────────────
+    dispatchEmailNotifications({
+      prisma,
+      recipientIds: filteredRecipients,
+      type,
+      title,
+      message,
+      resourceType,
+      resourceId: resourceId ? (parseInt(String(resourceId), 10) || null) : null,
+    });
+
     return data;
   } catch (e) {
     console.warn('[notificationCenter] createNotifications 失敗:', e.message);
@@ -487,6 +652,53 @@ async function generateDigestNotifications(prisma) {
           isRead:       false,
         },
       });
+
+      // ── 如果使用者開啟了 emailNotifications，寄送摘要郵件 ──
+      if (settings.emailNotifications) {
+        const userRecord = await prisma.user.findUnique({
+          where:  { id: user.id },
+          select: { email: true },
+        });
+        if (userRecord?.email) {
+          const htmlMessage = message.replace(/\n/g, '<br>');
+          const accentColor = '#7C3AED';
+          const subject = `📊 ${title}`;
+          const htmlBody = `
+            <h2 style="margin:0 0 8px;font-size:20px;color:#1a202c;font-weight:700;">
+              ${title}
+            </h2>
+            <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+              系統定期報告 · ${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+            </p>
+            <p style="font-size:15px;color:#374151;margin:0 0 20px;">
+              ${user.name} 您好，以下是您的${FREQ_LABEL[freq]}工作摘要：
+            </p>
+            <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;margin-bottom:20px;">
+              <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">
+                ${htmlMessage}
+              </p>
+            </div>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" style="padding:10px 0 24px;">
+                  <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
+                     style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
+                    前往系統查看 →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          `;
+          emailService.sendOutlookEmail({
+            to:       userRecord.email,
+            subject,
+            htmlBody: emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody }),
+          }).catch(err => {
+            console.warn(`[notificationCenter] 摘要郵件發送失敗（${userRecord.email}）:`, err.message);
+          });
+        }
+      }
+
       created++;
     }
 

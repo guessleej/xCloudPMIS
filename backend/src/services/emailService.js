@@ -867,4 +867,5 @@ module.exports = {
   sendOverdueWarning,
   sendWeeklyReport,
   batchSendEmails,
+  wrapEmailTemplate,
 };
