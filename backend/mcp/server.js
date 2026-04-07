@@ -47,8 +47,8 @@
  * 環境變數（.env）：
  *   DATABASE_URL              PostgreSQL 連線字串（必填）
  *   DEFAULT_COMPANY_ID        預設公司 ID（選填，預設 1）
- *   O365_CLIENT_ID/SECRET/TENANT_ID  郵件功能（選填）
- *   O365_SENDER_EMAIL         寄件信箱（選填）
+ *   ACS_CONNECTION_STRING     ACS 郵件連線字串（選填）
+ *   ACS_SENDER_EMAIL          寄件信箱（選填）
  */
 
 'use strict';

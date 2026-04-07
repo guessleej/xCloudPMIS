@@ -164,7 +164,7 @@ async function dispatchEmailNotifications(opts = {}) {
           </table>
         `;
 
-        emailJobs.push(() => emailService.sendOutlookEmail({
+        emailJobs.push(() => emailService.sendEmail({
           to:       user.email,
           subject,
           htmlBody: emailService.wrapEmailTemplate
@@ -689,7 +689,7 @@ async function generateDigestNotifications(prisma) {
               </tr>
             </table>
           `;
-          emailService.sendOutlookEmail({
+          emailService.sendEmail({
             to:       userRecord.email,
             subject,
             htmlBody: emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody }),

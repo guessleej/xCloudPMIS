@@ -1,40 +1,41 @@
 /**
  * services/emailService.js
  * ─────────────────────────────────────────────────────────────
- * Microsoft Graph API 郵件發送服務
+ * Azure Communication Services (ACS) 郵件發送服務
  *
  * 功能：
- *   - 透過 Exchange Online 發送 HTML 格式郵件
+ *   - 透過 ACS Email 發送 HTML 格式郵件
  *   - 支援任務提醒、逾期警告、週報等業務場景
- *   - 自動 Token 重試（401 時清除快取再重試一次）
- *   - 速率限制保護（避免觸發 Microsoft Graph 限流）
+ *   - 自動輪詢等待發送結果（Polling）
+ *   - 速率限制保護（避免觸發 ACS 限流）
  *   - 批次發送（大量郵件時分批處理）
  *   - 網域白名單（防止誤發到外部網域）
  *
  * 使用方式：
  *   const email = require('./emailService');
- *   await email.sendTaskReminder('user@company.com', taskDetails);
+ *   await email.sendTaskReminder('user@company.com', 'User', taskDetails);
  *
- * Microsoft Graph API 限制（參考）：
- *   - 每分鐘最多 10,000 個請求（租用戶等級）
- *   - 每個使用者每分鐘最多 1,200 封郵件
- *   - 建議批次發送間隔：每封間隔 200ms 以上
+ * 前置條件：
+ *   - Azure Communication Services 資源（含已驗證的寄件網域）
+ *   - 環境變數：ACS_CONNECTION_STRING, ACS_SENDER_EMAIL
  */
 
 'use strict';
 
-const axios          = require('axios');
-const { getAccessToken, clearTokenCache } = require('./graphAuth');
+const { EmailClient } = require('@azure/communication-email');
 
 // ════════════════════════════════════════════════════════════
 // 設定常數
 // ════════════════════════════════════════════════════════════
 
-/** Microsoft Graph API 的基礎 URL */
-const GRAPH_API = 'https://graph.microsoft.com/v1.0';
+/** ACS 連線字串 */
+const ACS_CONNECTION_STRING = process.env.ACS_CONNECTION_STRING;
 
-/** 發件人信箱（共享信箱或一般信箱，需有 Mail.Send 權限） */
-const SENDER_EMAIL = process.env.O365_SENDER_EMAIL;
+/** 發件人信箱（需在 ACS 已驗證的網域中） */
+const SENDER_EMAIL = process.env.ACS_SENDER_EMAIL;
+
+/** 發件人顯示名稱 */
+const SENDER_NAME = process.env.ACS_SENDER_NAME || 'xCloudPMIS';
 
 /**
  * 允許發信的網域白名單
@@ -48,8 +49,32 @@ const ALLOWED_DOMAINS = process.env.EMAIL_ALLOWED_DOMAINS
 /** 批次發送時，每封郵件的間隔毫秒數（避免觸發速率限制） */
 const BATCH_DELAY_MS = parseInt(process.env.EMAIL_BATCH_DELAY_MS) || 300;
 
-/** 最大重試次數（401 Token 過期情況） */
-const MAX_RETRY = 2;
+/** 輪詢發送結果的間隔毫秒數 */
+const POLL_INTERVAL_MS = 1000;
+
+/** 輪詢最長等待時間（毫秒） */
+const POLL_TIMEOUT_MS = 60000;
+
+// ════════════════════════════════════════════════════════════
+// ACS Email Client（延遲初始化）
+// ════════════════════════════════════════════════════════════
+
+let _emailClient = null;
+
+/**
+ * 取得 ACS EmailClient 實例（單例模式）
+ * @returns {EmailClient}
+ */
+function getEmailClient() {
+  if (!_emailClient) {
+    if (!ACS_CONNECTION_STRING) {
+      throw new Error('環境變數 ACS_CONNECTION_STRING 未設定，請確認 .env 設定');
+    }
+    _emailClient = new EmailClient(ACS_CONNECTION_STRING);
+    console.log('✅ ACS EmailClient 初始化完成');
+  }
+  return _emailClient;
+}
 
 // ════════════════════════════════════════════════════════════
 // 工具函式
@@ -92,101 +117,12 @@ function checkDomainWhitelist(email) {
   return { allowed: true };
 }
 
-/**
- * 格式化 Graph API 的收件人物件
- * @param {string|string[]} to - 單一或多個信箱地址
- * @returns {Array<{ emailAddress: { address: string } }>}
- */
-function formatRecipients(to) {
-  const list = Array.isArray(to) ? to : [to];
-  return list.map(addr => ({
-    emailAddress: { address: addr.trim() },
-  }));
-}
-
 // ════════════════════════════════════════════════════════════
-// 核心發送函式（帶重試機制）
+// 核心發送函式
 // ════════════════════════════════════════════════════════════
 
 /**
- * 呼叫 Graph API 發送郵件（內部函式）
- * 當收到 401 錯誤時，自動清除 Token 快取並重試一次
- *
- * @param {Object} messagePayload - Graph API 的 message 物件
- * @param {number} retryCount - 目前重試次數（內部遞迴用）
- * @throws {Error} 超過最大重試次數或非 Token 類型錯誤
- */
-async function callGraphSendMail(messagePayload, retryCount = 0) {
-  let token;
-  try {
-    token = await getAccessToken();
-  } catch (authErr) {
-    throw new Error(`認證失敗，無法發送郵件：${authErr.message}`);
-  }
-
-  try {
-    // 使用「代理發送」端點：/users/{senderEmail}/sendMail
-    // 需要 Mail.Send 應用程式權限（不需要使用者委派）
-    const endpoint = `${GRAPH_API}/users/${encodeURIComponent(SENDER_EMAIL)}/sendMail`;
-
-    await axios.post(endpoint, { message: messagePayload, saveToSentItems: true }, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        // 明確要求 Graph API 不要快取回應
-        'Cache-Control': 'no-cache',
-      },
-      timeout: 15000, // 15 秒逾時
-    });
-
-  } catch (err) {
-    const status   = err.response?.status;
-    const graphErr = err.response?.data?.error;
-
-    // ── 401 Token 過期 → 清快取、重試 ─────────────────────
-    if (status === 401 && retryCount < MAX_RETRY) {
-      console.warn(`⚠️ Token 已過期（401），清除快取後重試（第 ${retryCount + 1} 次）`);
-      clearTokenCache();
-      await sleep(500); // 等 500ms 後重試
-      return callGraphSendMail(messagePayload, retryCount + 1);
-    }
-
-    // ── 429 速率限制 → 等待並重試 ─────────────────────────
-    if (status === 429 && retryCount < MAX_RETRY) {
-      const retryAfter = parseInt(err.response?.headers?.['retry-after'] || '5');
-      console.warn(`⚠️ 超過速率限制（429），等待 ${retryAfter} 秒後重試`);
-      await sleep(retryAfter * 1000);
-      return callGraphSendMail(messagePayload, retryCount + 1);
-    }
-
-    // ── 其他錯誤：組合友善的錯誤訊息 ─────────────────────
-    let friendlyMsg = '郵件發送失敗';
-    if (status === 403) {
-      friendlyMsg = '權限不足（403）— 請確認應用程式已獲得 Mail.Send 應用程式權限，且管理員已同意授權';
-    } else if (status === 404) {
-      friendlyMsg = `找不到發件人信箱（404）— 請確認 O365_SENDER_EMAIL="${SENDER_EMAIL}" 在此 Exchange 組織中存在`;
-    } else if (graphErr) {
-      friendlyMsg = `Graph API 錯誤 [${graphErr.code}]：${graphErr.message}`;
-    } else if (err.code === 'ECONNABORTED') {
-      friendlyMsg = '請求逾時（15秒）— Graph API 可能暫時不可用';
-    } else if (err.code === 'ENOTFOUND') {
-      friendlyMsg = '無法連線到 Microsoft Graph API — 請確認網路連線';
-    }
-
-    const error = new Error(friendlyMsg);
-    error.code   = graphErr?.code || err.code || 'EMAIL_SEND_FAILED';
-    error.status = status;
-    console.error(`❌ ${friendlyMsg}`);
-    throw error;
-  }
-}
-
-// ════════════════════════════════════════════════════════════
-// 公開 API
-// ════════════════════════════════════════════════════════════
-
-/**
- * 發送 Outlook 郵件（核心函式）
+ * 發送郵件（核心函式）
  *
  * @param {Object} options - 發送選項
  * @param {string|string[]} options.to         - 收件人信箱（一或多個）
@@ -196,21 +132,13 @@ async function callGraphSendMail(messagePayload, retryCount = 0) {
  * @param {string[]}        [options.bcc]      - 密件副本收件人（選填）
  * @param {string}          [options.priority] - 重要性：'normal'|'high'|'low'（預設 normal）
  *
- * @returns {Promise<{ success: boolean, recipients: string[] }>}
+ * @returns {Promise<{ success: boolean, recipients: string[], messageId: string }>}
  * @throws {Error} 驗證失敗或發送失敗
- *
- * @example
- * await sendOutlookEmail({
- *   to: 'user@company.com',
- *   subject: '任務提醒',
- *   htmlBody: '<p>您有一個任務即將到期</p>',
- *   priority: 'high',
- * });
  */
-async function sendOutlookEmail({ to, subject, htmlBody, cc = [], bcc = [], priority = 'normal' }) {
+async function sendEmail({ to, subject, htmlBody, cc = [], bcc = [], priority = 'normal' }) {
   // ── 前置驗證 ─────────────────────────────────────────────
   if (!SENDER_EMAIL) {
-    throw new Error('環境變數 O365_SENDER_EMAIL 未設定，請確認 .env 設定');
+    throw new Error('環境變數 ACS_SENDER_EMAIL 未設定，請確認 .env 設定');
   }
   if (!to || (Array.isArray(to) && to.length === 0)) {
     throw new Error('收件人信箱不得為空');
@@ -232,28 +160,81 @@ async function sendOutlookEmail({ to, subject, htmlBody, cc = [], bcc = [], prio
     }
   }
 
-  // ── 組建 Graph API Payload ────────────────────────────────
-  const message = {
-    subject,
-    importance: priority === 'high' ? 'high' : priority === 'low' ? 'low' : 'normal',
-    body: {
-      contentType: 'HTML',
-      content:     htmlBody,
+  // ── 組建 ACS Email Payload ────────────────────────────────
+  const emailMessage = {
+    senderAddress: SENDER_EMAIL,
+    content: {
+      subject,
+      html: htmlBody,
     },
-    toRecipients:  formatRecipients(recipients),
-    ccRecipients:  cc.length  > 0 ? formatRecipients(cc)  : [],
-    bccRecipients: bcc.length > 0 ? formatRecipients(bcc) : [],
-    // 回覆地址指向發件人（方便收件人回覆）
-    replyTo: [{ emailAddress: { address: SENDER_EMAIL } }],
+    recipients: {
+      to: recipients.map(addr => ({ address: addr, displayName: '' })),
+    },
+    headers: {
+      'x-priority': priority === 'high' ? '1' : priority === 'low' ? '5' : '3',
+    },
   };
 
-  // ── 發送 ─────────────────────────────────────────────────
-  console.log(`📧 發送郵件 → ${recipients.join(', ')} | 主旨：${subject}`);
-  await callGraphSendMail(message);
-  console.log(`✅ 郵件發送成功 → ${recipients.join(', ')}`);
+  if (cc.length > 0) {
+    emailMessage.recipients.cc = cc.map(addr => ({ address: addr.trim(), displayName: '' }));
+  }
+  if (bcc.length > 0) {
+    emailMessage.recipients.bcc = bcc.map(addr => ({ address: addr.trim(), displayName: '' }));
+  }
 
-  return { success: true, recipients };
+  // ── 發送 & 輪詢結果 ──────────────────────────────────────
+  console.log(`📧 發送郵件 → ${recipients.join(', ')} | 主旨：${subject}`);
+
+  const client = getEmailClient();
+
+  try {
+    const poller = await client.beginSend(emailMessage);
+
+    // 使用 SDK 內建的 pollUntilDone() — 會自動輪詢直到完成
+    const result = await poller.pollUntilDone({
+      updateIntervalInMs: POLL_INTERVAL_MS,
+    });
+
+    if (result.status === 'Succeeded') {
+      console.log(`✅ 郵件發送成功 → ${recipients.join(', ')} [messageId: ${result.id}]`);
+      return { success: true, recipients, messageId: result.id };
+    } else {
+      const errDetail = result.error?.message || result.status || '未知錯誤';
+      throw new Error(`ACS 回報發送失敗：${errDetail}`);
+    }
+
+  } catch (err) {
+    let friendlyMsg = err.message;
+
+    if (err.statusCode === 401 || err.code === 'Unauthorized') {
+      friendlyMsg = '認證失敗（401）— 請確認 ACS_CONNECTION_STRING 是否正確';
+    } else if (err.statusCode === 403) {
+      friendlyMsg = '權限不足（403）— 請確認 ACS 資源已啟用 Email 功能';
+    } else if (err.statusCode === 404) {
+      friendlyMsg = `寄件人信箱不存在（404）— 請確認 "${SENDER_EMAIL}" 已在 ACS 中驗證`;
+    } else if (err.message?.includes('InvalidSenderAddress')) {
+      friendlyMsg = `寄件人信箱無效 — "${SENDER_EMAIL}" 不在已驗證的 ACS 網域中`;
+    } else if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
+      friendlyMsg = '無法連線到 ACS — 請確認網路連線與連線字串';
+    }
+
+    console.error(`❌ ${friendlyMsg}`);
+    if (friendlyMsg !== err.message) {
+      console.error(`  原始錯誤: ${err.message}`);
+    }
+
+    const error = new Error(friendlyMsg);
+    error.code = err.code || 'EMAIL_SEND_FAILED';
+    error.statusCode = err.statusCode;
+    throw error;
+  }
 }
+
+/**
+ * sendOutlookEmail 的向後相容別名
+ * （notificationCenter.js 等處可能仍在使用此名稱）
+ */
+const sendOutlookEmail = sendEmail;
 
 // ════════════════════════════════════════════════════════════
 // HTML 郵件模板
@@ -502,7 +483,7 @@ async function sendTaskAssignmentNotification(userEmail, userName, taskDetails) 
     ? `🔴 [緊急] 新任務指派：${taskDetails.title}`
     : `📋 新任務指派：${taskDetails.title}`;
 
-  return sendOutlookEmail({
+  return sendEmail({
     to:       userEmail,
     subject,
     htmlBody: wrapEmailTemplate({
@@ -608,7 +589,7 @@ async function sendTaskReminder(userEmail, userName, taskDetails) {
   `;
 
   const subject = `${subjectPrefix} ${taskDetails.title}`;
-  return sendOutlookEmail({
+  return sendEmail({
     to:       userEmail,
     subject,
     htmlBody: wrapEmailTemplate({ title: subject, accentColor, content }),
@@ -680,7 +661,7 @@ async function sendOverdueWarning(userEmail, userName, taskDetails) {
   `;
 
   const subject = `🚨 [逾期警告] ${taskDetails.title}（已逾期 ${daysOverdue} 天）`;
-  return sendOutlookEmail({
+  return sendEmail({
     to:       userEmail,
     subject,
     htmlBody: wrapEmailTemplate({ title: subject, accentColor: '#dc2626', content }),
@@ -807,7 +788,7 @@ async function sendWeeklyReport(managerEmail, managerName, reportData) {
   `;
 
   const subject = `📊 xCloudPMIS 週報 ${weekLabel}`;
-  return sendOutlookEmail({
+  return sendEmail({
     to:       managerEmail,
     subject,
     htmlBody: wrapEmailTemplate({ title: subject, accentColor: '#3b82f6', content }),
@@ -861,7 +842,8 @@ async function batchSendEmails(emailJobs, batchSize = 10) {
 
 // ── 模組匯出 ─────────────────────────────────────────────────
 module.exports = {
-  sendOutlookEmail,
+  sendEmail,
+  sendOutlookEmail,          // 向後相容別名
   sendTaskAssignmentNotification,
   sendTaskReminder,
   sendOverdueWarning,
