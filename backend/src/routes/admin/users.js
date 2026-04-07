@@ -33,11 +33,26 @@ const fail = (res, msg, status = 400) =>
 const ROLE_LABEL = { admin: '系統管理員', pm: '專案經理', member: '一般成員' };
 const VALID_ROLES = ['admin', 'pm', 'member'];
 
-// ── Admin 驗證中間件 ──────────────────────────────────────────
-function requireAdmin(req, res, next) {
+// ── Admin 驗證中間件（從 DB 即時確認角色）──────────────────
+async function requireAdmin(req, res, next) {
   if (!req.user) return fail(res, '請先登入', 401);
-  if (req.user.role !== 'admin') return fail(res, '此操作需要管理員權限', 403);
-  next();
+
+  // JWT payload 可能是舊版本，不一定有 role → 直接查 DB
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: Number(req.user.id) },
+      select: { role: true, isActive: true },
+    });
+    if (!dbUser || !dbUser.isActive) return fail(res, '帳號不存在或已停用', 403);
+    if (dbUser.role !== 'admin') return fail(res, '此操作需要管理員權限', 403);
+
+    // 同步更新 req.user.role 供後續使用
+    req.user.role = dbUser.role;
+    next();
+  } catch (e) {
+    console.error('[requireAdmin] DB 查詢失敗:', e.message);
+    return fail(res, '權限驗證失敗', 500);
+  }
 }
 
 // 所有路由都需要 JWT + Admin
