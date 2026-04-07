@@ -478,6 +478,58 @@ function DeleteModal({ project, onClose, onDeleted, authFetch }) {
 // ══════════════════════════════════════════════════════════════
 // ④-A 列表視圖（Asana 表格樣式）
 // ══════════════════════════════════════════════════════════════
+
+/** 單行元件 — 各行獨立管理 hover 狀態，避免在 map 中使用 hooks */
+function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
+  const [hov, setHov] = useState(false);
+  const pal = getProjectColor(p.id);
+  const dl  = daysLeft(p.endDate);
+  const dlC = dl === null ? C.ink4 : dl < 0 ? '#DC2626' : dl <= 7 ? '#D97706' : C.ink3;
+  const st  = STATUS[p.status] || STATUS.active;
+  return (
+    <div
+      onMouseOver={() => setHov(true)} onMouseOut={() => setHov(false)}
+      style={{
+        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
+        padding: '9px 18px', borderBottom: isLast ? 'none' : `1px solid ${C.lineL}`,
+        background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
+        alignItems: 'center',
+      }}>
+      {/* 顏色條 */}
+      <div style={{ width: '3px', height: '28px', borderRadius: '99px', background: pal.hex }} />
+      {/* 健康點 */}
+      <HealthDot project={p} />
+      {/* 名稱 */}
+      <div onClick={() => onOpen(p)} style={{ cursor: 'pointer' }}>
+        <div style={{ fontSize: '13.5px', fontWeight: '600', color: C.ink }}>{p.name}</div>
+        {p.description && (
+          <div style={{ fontSize: '11.5px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
+        )}
+      </div>
+      {/* 負責人 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <Avatar name={p.owner?.name} size={22} color={pal.hex} />
+        <span style={{ fontSize: '12px', color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>{p.owner?.name || '—'}</span>
+      </div>
+      {/* 狀態 */}
+      <span style={{ fontSize: '10.5px', fontWeight: '600', color: st.color, background: st.bg, borderRadius: '99px', padding: '3px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{st.label}</span>
+      {/* 進度 */}
+      <ProgressRing pct={p.completion || 0} size={34} stroke={3} colorHex={pal.hex} />
+      {/* 截止日 */}
+      <div style={{ fontSize: '12px', color: dlC, fontWeight: dl !== null && dl <= 7 ? '600' : '400', whiteSpace: 'nowrap' }}>
+        {dl === null ? '—' : dl < 0 ? `逾期${Math.abs(dl)}天` : dl === 0 ? '今天' : fmtDate(p.endDate)}
+      </div>
+      {/* 任務數 */}
+      <div style={{ fontSize: '12px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
+      {/* 操作 */}
+      <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
+        <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
+        <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
+      </div>
+    </div>
+  );
+}
+
 function ListView({ projects, onOpen, onEdit, onDelete }) {
   return (
     <div style={{ background: C.surface }}>
@@ -490,55 +542,9 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
           <div key={i} style={{ fontSize: '10.5px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
         ))}
       </div>
-      {projects.map((p, i) => {
-        const pal = getProjectColor(p.id);
-        const dl  = daysLeft(p.endDate);
-        const dlC = dl === null ? C.ink4 : dl < 0 ? '#DC2626' : dl <= 7 ? '#D97706' : C.ink3;
-        const st  = STATUS[p.status] || STATUS.active;
-        const [hov, setHov] = useState(false);
-        return (
-          <div key={p.id}
-            onMouseOver={() => setHov(true)} onMouseOut={() => setHov(false)}
-            style={{
-              display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
-              padding: '9px 18px', borderBottom: i < projects.length - 1 ? `1px solid ${C.lineL}` : 'none',
-              background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
-              alignItems: 'center',
-            }}>
-            {/* 顏色條 */}
-            <div style={{ width: '3px', height: '28px', borderRadius: '99px', background: pal.hex }} />
-            {/* 健康點 */}
-            <HealthDot project={p} />
-            {/* 名稱 */}
-            <div onClick={() => onOpen(p)} style={{ cursor: 'pointer' }}>
-              <div style={{ fontSize: '13.5px', fontWeight: '600', color: C.ink }}>{p.name}</div>
-              {p.description && (
-                <div style={{ fontSize: '11.5px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
-              )}
-            </div>
-            {/* 負責人 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Avatar name={p.owner?.name} size={22} color={pal.hex} />
-              <span style={{ fontSize: '12px', color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>{p.owner?.name || '—'}</span>
-            </div>
-            {/* 狀態 */}
-            <span style={{ fontSize: '10.5px', fontWeight: '600', color: st.color, background: st.bg, borderRadius: '99px', padding: '3px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{st.label}</span>
-            {/* 進度 */}
-            <ProgressRing pct={p.completion || 0} size={34} stroke={3} colorHex={pal.hex} />
-            {/* 截止日 */}
-            <div style={{ fontSize: '12px', color: dlC, fontWeight: dl !== null && dl <= 7 ? '600' : '400', whiteSpace: 'nowrap' }}>
-              {dl === null ? '—' : dl < 0 ? `逾期${Math.abs(dl)}天` : dl === 0 ? '今天' : fmtDate(p.endDate)}
-            </div>
-            {/* 任務數 */}
-            <div style={{ fontSize: '12px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
-            {/* 操作 */}
-            <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-              <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-              <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
-            </div>
-          </div>
-        );
-      })}
+      {projects.map((p, i) => (
+        <ListRow key={p.id} p={p} isLast={i === projects.length - 1} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+      ))}
     </div>
   );
 }
