@@ -465,6 +465,43 @@ async function scanDeadlineApproaching(prisma) {
       });
       created++;
     }
+
+    // ── 專案 (Project) 到期掃描 ────────────────────────────
+    const projects = await prisma.project.findMany({
+      where: {
+        endDate:   { gte: tomorrow, lte: dayAfterTomorrow },
+        status:    { notIn: ['completed', 'cancelled', 'archived'] },
+        deletedAt: null,
+        ownerId:   { not: null },
+      },
+      select: { id: true, name: true, ownerId: true, endDate: true },
+    });
+
+    for (const proj of projects) {
+      const existing = await prisma.notification.findFirst({
+        where: {
+          recipientId:  proj.ownerId,
+          type:         'deadline_approaching',
+          resourceType: 'project',
+          resourceId:   proj.id,
+          createdAt:    { gte: cutoff },
+        },
+      });
+      if (existing) continue;
+
+      const dueStr = proj.endDate.toLocaleDateString('zh-TW');
+      await createNotifications({
+        prisma,
+        recipients:   [proj.ownerId],
+        type:         'deadline_approaching',
+        title:        `專案即將到期：${proj.name || `#${proj.id}`}`,
+        message:      `截止日期 ${dueStr}，請儘快確認進度`,
+        resourceType: 'project',
+        resourceId:   proj.id,
+      });
+      created++;
+    }
+
     return created;
   } catch (e) {
     console.warn('[notificationCenter] scanDeadlineApproaching 失敗:', e.message);
@@ -739,6 +776,43 @@ async function scanTaskOverdue(prisma) {
       });
       created++;
     }
+
+    // ── 專案 (Project) 逾期掃描 ────────────────────────────
+    const projects = await prisma.project.findMany({
+      where: {
+        endDate:   { lt: todayStart },
+        status:    { notIn: ['completed', 'cancelled', 'archived'] },
+        deletedAt: null,
+        ownerId:   { not: null },
+      },
+      select: { id: true, name: true, ownerId: true, endDate: true },
+    });
+
+    for (const proj of projects) {
+      const existing = await prisma.notification.findFirst({
+        where: {
+          recipientId:  proj.ownerId,
+          type:         'task_overdue',
+          resourceType: 'project',
+          resourceId:   proj.id,
+          createdAt:    { gte: cutoff },
+        },
+      });
+      if (existing) continue;
+
+      const overdueDays = Math.ceil((todayStart - proj.endDate) / 86400000);
+      await createNotifications({
+        prisma,
+        recipients:   [proj.ownerId],
+        type:         'task_overdue',
+        title:        `專案已逾期：${proj.name || `#${proj.id}`}`,
+        message:      `已逾期 ${overdueDays} 天，請立即處理`,
+        resourceType: 'project',
+        resourceId:   proj.id,
+      });
+      created++;
+    }
+
     return created;
   } catch (e) {
     console.warn('[notificationCenter] scanTaskOverdue 失敗:', e.message);
