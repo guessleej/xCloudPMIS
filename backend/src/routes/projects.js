@@ -23,8 +23,8 @@ const {
   createTaskAssignmentNotifications,
   createTaskCommentNotifications,
   createMentionNotifications,
-  createMilestoneAchievedNotifications,
 } = require('../services/notificationCenter');
+const { createCalendarEvent } = require('../services/userOutlookService');
 const prisma = new PrismaClient();
 
 // ── 小工具 ──────────────────────────────────────────────────
@@ -422,6 +422,25 @@ router.patch('/:id', async (req, res) => {
         recipientId: data.ownerId,
         actorId:     actorId ? parseInt(actorId) : null,
       }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
+    }
+
+    // 專案截止日變更→自動同步到專案負責人的 Outlook 行事曆
+    if (data.endDate && project.ownerId) {
+      const ownerId = project.ownerId;
+      const endDate = new Date(project.endDate);
+      const startDt = new Date(endDate); startDt.setHours(9, 0, 0, 0);
+      const endDt   = new Date(endDate); endDt.setHours(18, 0, 0, 0);
+      createCalendarEvent(ownerId, {
+        subject:       `📁 專案截止：${project.name}`,
+        startDateTime: startDt,
+        endDateTime:   endDt,
+        body:          `<p>專案「${project.name}」截止日已更新為 ${endDate.toLocaleDateString('zh-TW')}</p><p><a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}">前往 xCloudPMIS</a></p>`,
+      }).then(() => {
+        console.log(`📅 專案 ${project.name} 截止日已同步到用戶 ${ownerId} 行事曆`);
+      }).catch(err => {
+        // OAuth 未連結或失效時靜默跳過，不影響主流程
+        console.log(`📅 [calendar] 專案截止日同步跳過（用戶 ${ownerId}）: ${err.message}`);
+      });
     }
   } catch (e) {
     console.error(e);
@@ -1218,18 +1237,6 @@ router.patch('/milestones/:milestoneId', async (req, res) => {
     }
 
     const updated = await prisma.milestone.update({ where: { id: milestoneId }, data });
-
-    // ── 里程碑達成通知 ─────────────────────────────────────
-    if (Boolean(isAchieved) && !existing.isAchieved) {
-      const actorId = req.user?.id ? parseInt(req.user.id, 10) : null;
-      createMilestoneAchievedNotifications(prisma, {
-        milestoneId,
-        projectId: existing.projectId,
-        actorId,
-      }).catch((error) => {
-        console.warn(`[milestones] 建立里程碑達成通知失敗 #${milestoneId}: ${error.message}`);
-      });
-    }
 
     ok(res, updated);
   } catch (e) {

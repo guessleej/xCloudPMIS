@@ -51,6 +51,7 @@ const authRouter          = require('./routes/auth/login');
 const customFieldsRouter  = require('./routes/custom-fields');
 const workflowRouter      = require('./routes/workflow');
 const formsRouter         = require('./routes/forms');
+const calendarRouter      = require('./routes/calendar');
 const adminUsersRouter    = require('./routes/admin/users');
 const myFilesRouter       = require('./routes/files');
 const optionalAuth        = require('./middleware/optionalAuth');
@@ -290,6 +291,13 @@ app.use('/api/auth', authRouter);
 // PATCH  /api/custom-fields/:id          → 更新欄位
 // DELETE /api/custom-fields/:id          → 封存欄位
 app.use('/api/custom-fields', customFieldsRouter);
+
+// ── 行事曆整合路由 ────────────────────────────────────────────
+// GET  /api/calendar/task/:taskId/ics  → ICS 下載（從郵件一鍵加入行事曆）
+// POST /api/calendar/task/:taskId      → 透過 Graph API 加入 Outlook
+// POST /api/calendar/project/:id       → 專案截止日加入 Outlook
+// GET  /api/calendar/events            → 取得 Outlook 行事曆事件
+app.use('/api/calendar', calendarRouter);
 
 // ── 工作流程路由 ──────────────────────────────────────────────
 // GET    /api/workflow?companyId=N  → 流程列表
