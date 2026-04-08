@@ -225,11 +225,14 @@ app.use('/api/health', healthRouter);
 // status / sessions / tools / logs / api-keys
 app.use('/api/admin/mcp', adminMcpRouter);
 
-// ── Microsoft OAuth 2.0 登入路由 ─────────────────────────────
-// GET  /api/auth/microsoft           → 發起 OAuth 授權流程
-// GET  /api/auth/microsoft/callback  → Azure AD 回呼（交換 Token、發出 JWT）
+// ── Microsoft OAuth 2.0（雙用途：登入 + Delegated Token）─────
+// GET    /auth/microsoft           → 發起 OAuth（自動偵測流程）
+// GET    /auth/microsoft/callback  → Azure AD 回呼
+// GET    /auth/microsoft/status    → Delegated Token 連線狀態
+// DELETE /auth/microsoft/revoke    → 撤銷 Delegated Token
+// GET    /auth/microsoft/config    → 設定狀態
+// POST   /auth/microsoft/config    → 更新設定（Admin）
 app.use('/api/auth/microsoft', microsoftAuthRouter);
-// 相容：也掛載在 /auth/microsoft（舊路徑 / Delegated 設定頁面）
 app.use('/auth/microsoft', microsoftAuthRouter);
 
 // ── 任務列表路由（MyTasksPage 專用，純陣列格式）─────────────
