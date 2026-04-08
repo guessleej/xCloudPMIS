@@ -110,6 +110,7 @@ const pool = new Pool({
   database: process.env.DB_NAME     || 'pmis_db',
   user:     process.env.DB_USER     || 'pmis_user',
   password: process.env.DB_PASSWORD || (process.env.NODE_ENV === 'production' ? undefined : 'pmis_password'),
+  ssl:      process.env.DB_HOST?.includes('azure') ? { rejectUnauthorized: false } : false,
   max: 25,              // 最多同時 25 個連線（支援 50+ 併發用戶）
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
@@ -120,6 +121,7 @@ const redisClient = redis.createClient({
   socket: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT) || 6379,
+    tls:  process.env.REDIS_TLS === 'true',
   },
   password: process.env.REDIS_PASSWORD || undefined,
 });
