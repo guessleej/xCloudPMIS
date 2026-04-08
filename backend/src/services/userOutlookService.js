@@ -7,7 +7,7 @@
  *   - 從用戶信箱發送 Email（/me/sendMail）
  *   - 讀取 / 建立行事曆事件（/me/calendarView、/me/events）
  *   - 建立 Teams 線上會議（/me/onlineMeetings）
- *   - 同步任務到 Outlook To Do（/me/todo/lists/*/tasks）
+ *   - 同步任務到 Outlook To Do（/me/todo/lists/{listId}/tasks）
  *   - 尋找會議空檔（/me/findMeetingTimes）
  *   - 智慧通知路由：OAuth Delegated → Application 降級
  *

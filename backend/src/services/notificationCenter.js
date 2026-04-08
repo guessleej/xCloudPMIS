@@ -5,6 +5,8 @@
  */
 
 const emailService = require('./emailService');
+// 延遲載入 userOutlookService，避免循環依賴 & 註解語法問題
+const getUserOutlookService = () => require('./userOutlookService');
 
 // 預設通知設定（使用者未自訂時回傳）
 const DEFAULT_NOTIFICATION_SETTINGS = {
@@ -74,7 +76,7 @@ const TYPE_TO_EMAIL_SUBJECT_PREFIX = {
  * 規則很簡單：使用者開啟 emailNotifications → 系統通知有一封，email 就寄一封
  */
 async function dispatchEmailNotifications(opts = {}) {
-  const { prisma, recipientIds = [], type, title, message } = opts;
+  const { prisma, recipientIds = [], type, title, message, senderUserId } = opts;
   if (!recipientIds.length) return;
 
   try {
@@ -125,13 +127,21 @@ async function dispatchEmailNotifications(opts = {}) {
         </table>
       `;
 
-      emailJobs.push(() => emailService.sendEmail({
-        to:       user.email,
-        subject,
-        htmlBody: emailService.wrapEmailTemplate
-          ? emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody })
-          : htmlBody,
-      }));
+      const wrappedHtml = emailService.wrapEmailTemplate
+        ? emailService.wrapEmailTemplate({ title: subject, accentColor, content: htmlBody })
+        : htmlBody;
+
+      // 優先使用操作者的 Delegated Token（從其 Outlook 信箱發送）
+      // 無 Token 或失敗時自動降級為 ACS 系統信箱
+      if (senderUserId) {
+        emailJobs.push(() => getUserOutlookService().sendNotification(senderUserId, {
+          to: user.email, subject, htmlBody: wrappedHtml,
+        }));
+      } else {
+        emailJobs.push(() => emailService.sendEmail({
+          to: user.email, subject, htmlBody: wrappedHtml,
+        }));
+      }
     }
 
     if (emailJobs.length > 0) {
@@ -150,7 +160,7 @@ async function dispatchEmailNotifications(opts = {}) {
  * @param {object} opts - { prisma, recipients: number[], type, title, message, resourceType?, resourceId? }
  */
 async function createNotifications(opts = {}) {
-  const { prisma, recipients = [], type, title, message, resourceType, resourceId } = opts;
+  const { prisma, recipients = [], type, title, message, resourceType, resourceId, senderUserId } = opts;
   if (!prisma || !recipients.length || !type || !title) return [];
   try {
     // ── 依據每位收件者的偏好過濾 ────────────────────────────
@@ -191,6 +201,7 @@ async function createNotifications(opts = {}) {
       message,
       resourceType,
       resourceId: resourceId ? (parseInt(String(resourceId), 10) || null) : null,
+      senderUserId,
     });
 
     return data;
@@ -253,7 +264,7 @@ async function updateUserNotificationSettings(prisma, userId, updates = {}) {
  * @param {object} opts - { projectId, projectName, recipientId, actorId }
  */
 async function createProjectAssignmentNotifications(prisma, opts = {}) {
-  const { projectId, projectName, recipientId } = opts;
+  const { projectId, projectName, recipientId, actorId } = opts;
   if (!recipientId) return [];
   try {
     const name = projectName || `專案 #${projectId}`;
@@ -265,6 +276,7 @@ async function createProjectAssignmentNotifications(prisma, opts = {}) {
       message:      `你已被指派為「${name}」的專案負責人`,
       resourceType: 'project',
       resourceId:   projectId,
+      senderUserId: actorId || null,
     });
   } catch (e) {
     console.warn('[notificationCenter] createProjectAssignmentNotifications 失敗:', e.message);
@@ -278,7 +290,7 @@ async function createProjectAssignmentNotifications(prisma, opts = {}) {
  * @param {object} opts - { taskId, projectId, recipientId, actorId }
  */
 async function createTaskAssignmentNotifications(prisma, opts = {}) {
-  const { taskId, projectId, recipientId } = opts;
+  const { taskId, projectId, recipientId, actorId } = opts;
   if (!recipientId) return [];
   try {
     const task = await prisma.task.findUnique({
@@ -293,6 +305,7 @@ async function createTaskAssignmentNotifications(prisma, opts = {}) {
       message:      `你已被指派到任務「${task?.title || `#${taskId}`}」`,
       resourceType: 'task',
       resourceId:   taskId,
+      senderUserId: actorId || null,
     });
   } catch (e) {
     console.warn('[notificationCenter] createTaskAssignmentNotifications 失敗:', e.message);
