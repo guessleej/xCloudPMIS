@@ -186,7 +186,7 @@ router.get('/', (req, res) => {
       scope:         DELEGATED_SCOPES,
       response_mode: 'query',
       state,
-      prompt:        'consent',     // 確保取得 Refresh Token
+      prompt:        'select_account', // 已有 Admin Consent 時不重複詢問
     });
 
     const authorizationUrl = `https://login.microsoftonline.com/${TENANT_ID()}/oauth2/v2.0/authorize?${params}`;
