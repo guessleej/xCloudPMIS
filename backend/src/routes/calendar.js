@@ -98,6 +98,123 @@ router.get('/task/:taskId/ics', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// GET /api/calendar/task/:taskId/add?token=<jwt>
+// 智慧端點：先嘗試 Graph API 直接加入 Outlook，失敗則降級為 ICS 下載
+// ════════════════════════════════════════════════════════════
+router.get('/task/:taskId/add', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return res.status(400).send('無效的任務 ID');
+
+  const { token } = req.query;
+  if (!token) return res.status(401).send('缺少驗證 token');
+
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+    if (payload.purpose !== 'calendar-add' || payload.taskId !== taskId) {
+      return res.status(403).send('token 無效');
+    }
+  } catch {
+    return res.status(403).send('token 已過期或無效');
+  }
+
+  const userId = payload.userId;
+  const icsUrl = `${FRONTEND_URL()}/api/calendar/task/${taskId}/ics?token=${encodeURIComponent(token)}`;
+
+  // 查詢任務資料
+  let task;
+  try {
+    task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true, title: true, description: true, dueDate: true,
+        project: { select: { name: true } },
+      },
+    });
+    if (!task) return res.status(404).send('找不到任務');
+  } catch (err) {
+    console.error('[calendar/add] 查詢任務失敗:', err.message);
+    return res.redirect(icsUrl);
+  }
+
+  // 嘗試透過 Graph API 直接加入 Outlook 行事曆
+  try {
+    const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
+    const startDateTime = new Date(dueDate);
+    startDateTime.setHours(9, 0, 0, 0);
+    const endDateTime = new Date(dueDate);
+    endDateTime.setHours(10, 0, 0, 0);
+
+    await createCalendarEvent(userId, {
+      subject: `📋 ${task.title}`,
+      startDateTime,
+      endDateTime,
+      body: `<p>專案：${task.project?.name || '未指定'}</p><p>${task.description || ''}</p><p><a href="${FRONTEND_URL()}">前往 xCloudPMIS</a></p>`,
+      location: task.project?.name || undefined,
+    });
+
+    // Graph API 成功 → 顯示成功頁面
+    return res.send(calendarResultPage({
+      success: true,
+      title: task.title,
+      message: '已自動加入您的 Outlook 行事曆！',
+      icsUrl: null,
+    }));
+  } catch (graphErr) {
+    console.log('[calendar/add] Graph API 失敗，降級為 ICS:', graphErr.message);
+
+    // Graph API 失敗 → 顯示頁面並自動觸發 ICS 下載
+    return res.send(calendarResultPage({
+      success: false,
+      title: task.title,
+      message: '無法自動加入行事曆（尚未連結 Microsoft 帳號），已為您下載行事曆檔案。',
+      icsUrl,
+    }));
+  }
+});
+
+/**
+ * 產出行事曆操作結果 HTML 頁面
+ * success=true  → 顯示成功訊息
+ * success=false → 顯示訊息 + 自動觸發 ICS 下載
+ */
+function calendarResultPage({ success, title, message, icsUrl }) {
+  const icon = success ? '✅' : '📥';
+  const autoDownload = !success && icsUrl
+    ? `<script>setTimeout(function(){ window.location.href = "${icsUrl}"; }, 1500);</script>`
+    : '';
+  const manualLink = !success && icsUrl
+    ? `<p style="margin-top:16px;"><a href="${icsUrl}" style="color:#0078d4;text-decoration:underline;font-size:14px;">若未自動下載，請點此手動下載 .ics 檔案</a></p>`
+    : '';
+  const backLink = `<p style="margin-top:24px;"><a href="${FRONTEND_URL()}" style="color:#0078d4;text-decoration:none;font-size:14px;">← 返回 xCloudPMIS</a></p>`;
+
+  return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>行事曆 - xCloudPMIS</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); padding: 40px 48px; text-align: center; max-width: 420px; }
+  .icon { font-size: 48px; margin-bottom: 16px; }
+  h2 { margin: 0 0 8px; color: #1a1a1a; font-size: 20px; }
+  .task-name { color: #666; font-size: 14px; margin-bottom: 16px; }
+  .msg { color: #333; font-size: 15px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">${icon}</div>
+  <h2>行事曆整合</h2>
+  <p class="task-name">📋 ${title}</p>
+  <p class="msg">${message}</p>
+  ${manualLink}
+  ${backLink}
+</div>
+${autoDownload}
+</body></html>`;
+}
+
+// ════════════════════════════════════════════════════════════
 // POST /api/calendar/task/:taskId
 // 透過 Graph API 直接加入 Outlook 行事曆（需登入 + OAuth）
 // ════════════════════════════════════════════════════════════
@@ -236,18 +353,18 @@ function generateCalendarToken(userId, taskId) {
 }
 
 /**
- * 產生完整的「加入行事曆」ICS 下載 URL
+ * 產生完整的「加入行事曆」URL（智慧端點：自動嘗試 Graph API → 降級 ICS）
  * 使用 FRONTEND_URL（前端 nginx 會反向代理 /api/ 到後端）
  * @param {number} userId
  * @param {number} taskId
  * @returns {string}
  */
-function getCalendarIcsUrl(userId, taskId) {
+function getCalendarAddUrl(userId, taskId) {
   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3838';
   const token = generateCalendarToken(userId, taskId);
-  return `${baseUrl}/api/calendar/task/${taskId}/ics?token=${token}`;
+  return `${baseUrl}/api/calendar/task/${taskId}/add?token=${token}`;
 }
 
 module.exports = router;
 module.exports.generateCalendarToken = generateCalendarToken;
-module.exports.getCalendarIcsUrl = getCalendarIcsUrl;
+module.exports.getCalendarAddUrl = getCalendarAddUrl;

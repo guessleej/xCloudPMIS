@@ -8,7 +8,7 @@ const emailService = require('./emailService');
 // 延遲載入 userOutlookService，避免循環依賴 & 註解語法問題
 const getUserOutlookService = () => require('./userOutlookService');
 // 行事曆 ICS 連結產生器（郵件「加入行事曆」按鈕用）
-const getCalendarIcsUrl = () => require('../routes/calendar').getCalendarIcsUrl;
+const getCalendarAddUrl = () => require('../routes/calendar').getCalendarAddUrl;
 
 // 預設通知設定（使用者未自訂時回傳）
 const DEFAULT_NOTIFICATION_SETTINGS = {
@@ -129,7 +129,7 @@ async function dispatchEmailNotifications(opts = {}) {
           ${type === 'task_assigned' && resourceType === 'task' && resourceId ? `
           <tr>
             <td align="center" style="padding:8px 0 24px;">
-              <a href="${(() => { try { return getCalendarIcsUrl()(user.id, resourceId); } catch { return ''; } })()}"
+              <a href="${(() => { try { return getCalendarAddUrl()(user.id, resourceId); } catch { return ''; } })()}"
                  style="display:inline-block;background:#0078d4;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:10px 24px;border-radius:8px;">
                 📅 加入 Outlook 行事曆
               </a>
