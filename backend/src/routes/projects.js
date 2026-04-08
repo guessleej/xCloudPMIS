@@ -21,6 +21,8 @@ const { taskRuleEngine } = require('../services/taskRuleEngine');
 const {
   createProjectAssignmentNotifications,
   createTaskAssignmentNotifications,
+  createTaskCompletedNotifications,
+  createProjectStatusChangeNotifications,
   createTaskCommentNotifications,
   createMentionNotifications,
 } = require('../services/notificationCenter');
@@ -412,6 +414,17 @@ router.patch('/:id', async (req, res) => {
     });
 
     ok(res, project);
+
+    // 專案狀態變更通知（通知專案負責人 + 成員）
+    if (data.status) {
+      const actorId = req.user?.id || req.user?.userId;
+      createProjectStatusChangeNotifications(prisma, {
+        projectId:   project.id,
+        projectName: project.name,
+        newStatus:   data.status,
+        actorId:     actorId ? parseInt(actorId) : null,
+      }).catch(e => console.warn(`[projects] 專案狀態變更通知失敗: ${e.message}`));
+    }
 
     // 專案負責人變更通知（新 owner 與舊 owner 不同時觸發）
     if (data.ownerId && data.ownerId !== oldProject?.ownerId) {
@@ -838,6 +851,17 @@ router.patch('/tasks/:taskId', async (req, res) => {
         actorId,
       }).catch((error) => {
         console.warn(`[projects] 更新任務指派通知失敗 task=${task.id}: ${error.message}`);
+      });
+    }
+
+    // 任務完成通知 → 通知專案負責人
+    if (data.status === 'done' && existingTask.status !== 'done') {
+      createTaskCompletedNotifications(prisma, {
+        taskId: task.id,
+        projectId: task.projectId,
+        actorId,
+      }).catch((error) => {
+        console.warn(`[projects] 任務完成通知失敗 task=${task.id}: ${error.message}`);
       });
     }
   } catch (e) {

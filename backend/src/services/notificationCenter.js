@@ -403,6 +403,81 @@ async function createMentionNotifications(prisma, opts = {}) {
 }
 
 /**
+ * 任務完成通知 — 通知專案負責人（owner）
+ * @param {object} prisma
+ * @param {object} opts - { taskId, projectId, actorId }
+ */
+async function createTaskCompletedNotifications(prisma, opts = {}) {
+  const { taskId, projectId, actorId } = opts;
+  if (!taskId || !projectId) return [];
+  try {
+    const [task, project] = await Promise.all([
+      prisma.task.findUnique({ where: { id: taskId }, select: { title: true, assigneeId: true } }),
+      prisma.project.findUnique({ where: { id: projectId }, select: { name: true, ownerId: true } }),
+    ]);
+    // 若無專案負責人，或操作者就是負責人本人 → 不通知
+    if (!project?.ownerId || project.ownerId === actorId) return [];
+    return createNotifications({
+      prisma,
+      recipients:   [project.ownerId],
+      type:         'task_completed',
+      title:        `任務已完成：${task?.title || `#${taskId}`}`,
+      message:      `專案「${project.name}」中的任務「${task?.title || `#${taskId}`}」已被標記為完成`,
+      resourceType: 'task',
+      resourceId:   taskId,
+      senderUserId: actorId || null,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createTaskCompletedNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
+ * 專案狀態變更通知 — 通知專案負責人 + 專案成員
+ * @param {object} prisma
+ * @param {object} opts - { projectId, projectName, newStatus, actorId }
+ */
+async function createProjectStatusChangeNotifications(prisma, opts = {}) {
+  const { projectId, projectName, newStatus, actorId } = opts;
+  if (!projectId || !newStatus) return [];
+
+  const statusLabel = {
+    planning: '規劃中', active: '進行中', on_hold: '暫停',
+    completed: '已完成', cancelled: '已取消', archived: '已封存',
+  };
+  const label = statusLabel[newStatus] || newStatus;
+  const name = projectName || `專案 #${projectId}`;
+
+  try {
+    // 取得專案負責人 + 全體成員（排除操作者）
+    const [project, members] = await Promise.all([
+      prisma.project.findUnique({ where: { id: projectId }, select: { ownerId: true } }),
+      prisma.projectMember.findMany({ where: { projectId }, select: { userId: true } }),
+    ]);
+    const recipientSet = new Set(members.map(m => m.userId));
+    if (project?.ownerId) recipientSet.add(project.ownerId);
+    // 排除操作者本人
+    if (actorId) recipientSet.delete(actorId);
+    if (!recipientSet.size) return [];
+
+    return createNotifications({
+      prisma,
+      recipients:   [...recipientSet],
+      type:         'milestone_achieved',   // 借用 milestone_achieved → 對應 projectUpdate 偏好
+      title:        `專案「${name}」狀態變更為「${label}」`,
+      message:      `專案「${name}」的狀態已更新為「${label}」`,
+      resourceType: 'project',
+      resourceId:   projectId,
+      senderUserId: actorId || null,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createProjectStatusChangeNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
  * 里程碑達成通知 — 通知專案所有成員
  * @param {object} prisma
  * @param {object} opts - { milestoneId, projectId, actorId }
@@ -849,6 +924,8 @@ module.exports = {
   createNotifications,
   createProjectAssignmentNotifications,
   createTaskAssignmentNotifications,
+  createTaskCompletedNotifications,
+  createProjectStatusChangeNotifications,
   createTaskCommentNotifications,
   createMentionNotifications,
   scanDeadlineApproaching,
