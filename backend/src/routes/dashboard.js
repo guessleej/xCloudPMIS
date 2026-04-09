@@ -8,8 +8,7 @@
 
 const express      = require('express');
 const router       = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma       = new PrismaClient();
+const prisma       = require('../lib/prisma');
 
 const ok  = (res, data) => res.json({ success: true, data, timestamp: new Date().toISOString() });
 const err = (res, msg, status = 500) => res.status(status).json({ success: false, error: msg });
@@ -230,6 +229,81 @@ router.get('/summary', async (req, res) => {
           type:  'info',
           title: `${topUser.name} 工作負載較重（${topUser.totalTasks} 項任務）`,
           body:  '考慮重新分配部分任務，平衡團隊工作負載。',
+        });
+      }
+    }
+
+    // ── 6b. 里程碑風險偵測 ─────────────────────────────────
+    try {
+      const msWeekLater = new Date(now);
+      msWeekLater.setDate(msWeekLater.getDate() + 7);
+
+      const atRiskMilestones = await prisma.milestone.findMany({
+        where: {
+          isAchieved: false,
+          dueDate: { lte: msWeekLater },
+          project: { companyId, deletedAt: null },
+        },
+        select: { id: true, name: true, dueDate: true, color: true },
+        orderBy: { dueDate: 'asc' },
+        take: 5,
+      });
+
+      const overdueMilestones = atRiskMilestones.filter(m => new Date(m.dueDate) < now);
+      const upcomingMilestones = atRiskMilestones.filter(m => new Date(m.dueDate) >= now);
+
+      if (overdueMilestones.length > 0) {
+        insights.push({
+          type:  'danger',
+          title: `${overdueMilestones.length} 個里程碑已逾期`,
+          body:  `「${overdueMilestones[0].name}」等里程碑已過預定日期，建議立即確認進度。`,
+        });
+      }
+      if (upcomingMilestones.length > 0) {
+        insights.push({
+          type:  'warning',
+          title: `${upcomingMilestones.length} 個里程碑即將到期（7 天內）`,
+          body:  `「${upcomingMilestones[0].name}」將於 ${new Date(upcomingMilestones[0].dueDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })} 到期，請提前準備。`,
+        });
+      }
+    } catch (msErr) {
+      console.warn('[dashboard] milestone insight skipped:', msErr.message);
+    }
+
+    // ── 6c. 週完成率趨勢比較 ──────────────────────────────
+    {
+      const thisWeekStart = new Date(now);
+      thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+      const thisWeekDone = allTasks.filter(
+        t => t.completedAt && new Date(t.completedAt) >= thisWeekStart && new Date(t.completedAt) < now
+      ).length;
+      const lastWeekDone = allTasks.filter(
+        t => t.completedAt && new Date(t.completedAt) >= lastWeekStart && new Date(t.completedAt) < thisWeekStart
+      ).length;
+
+      if (lastWeekDone > 0) {
+        const change = Math.round(((thisWeekDone - lastWeekDone) / lastWeekDone) * 100);
+        if (change >= 20) {
+          insights.push({
+            type:  'success',
+            title: `本週完成量較上週增加 ${change}%`,
+            body:  `本週完成 ${thisWeekDone} 項（上週 ${lastWeekDone} 項），團隊產出明顯提升。`,
+          });
+        } else if (change <= -20) {
+          insights.push({
+            type:  'warning',
+            title: `本週完成量較上週減少 ${Math.abs(change)}%`,
+            body:  `本週完成 ${thisWeekDone} 項（上週 ${lastWeekDone} 項），建議檢視是否有阻塞。`,
+          });
+        }
+      } else if (thisWeekDone > 0) {
+        insights.push({
+          type:  'info',
+          title: `本週已完成 ${thisWeekDone} 項任務`,
+          body:  '上週無完成記錄，本週已開始推進。',
         });
       }
     }

@@ -5,11 +5,12 @@
  * 功能：
  *   - 使用者列表（搜尋 / 角色篩選 / 狀態篩選 / 分頁）
  *   - 統計卡（總人數 / 各角色數 / 本月新增）
- *   - 建立新使用者（姓名、Email、密碼、角色、部門、電話、職稱）
+ *   - 建立新使用者（姓名、Email、角色、部門、電話、職稱）
  *   - 編輯使用者資料
  *   - 停用 / 啟用帳號
- *   - 重設密碼
  *   - 查看 OAuth 連結清單並取消連結
+ *
+ * 本系統僅支援 Microsoft OAuth 登入，不提供帳號密碼功能。
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -24,8 +25,6 @@ const ROLE_COLOR  = {
   member: { bg: 'rgba(107,114,128,0.12)', color: '#6b7280' },
 };
 const PROVIDER_ICON = {
-  google:    '🔵',
-  github:    '⚫',
   microsoft: '🔷',
 };
 
@@ -255,7 +254,7 @@ function Btn({ onClick, disabled, variant = 'primary', children, small }) {
 // ════════════════════════════════════════════════════════════
 function CreateUserModal({ onClose, onCreated, authFetch }) {
   const [form, setForm] = useState({
-    name: '', email: '', password: '', confirmPwd: '',
+    name: '', email: '',
     role: 'member', department: '', phone: '', jobTitle: '', joinedAt: '',
   });
   const [errors, setErrors]   = useState({});
@@ -269,9 +268,6 @@ function CreateUserModal({ onClose, onCreated, authFetch }) {
     if (!form.name.trim())   e.name   = '姓名為必填';
     if (!form.email.trim())  e.email  = 'Email 為必填';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email 格式不正確';
-    if (!form.password)      e.password = '密碼為必填';
-    else if (form.password.length < 8) e.password = '密碼至少 8 個字元';
-    if (form.password && form.confirmPwd !== form.password) e.confirmPwd = '兩次密碼不一致';
     return e;
   };
 
@@ -289,7 +285,6 @@ function CreateUserModal({ onClose, onCreated, authFetch }) {
         body:    JSON.stringify({
           name:       form.name.trim(),
           email:      form.email.trim().toLowerCase(),
-          password:   form.password,
           role:       form.role,
           department: form.department || undefined,
           phone:      form.phone      || undefined,
@@ -331,14 +326,7 @@ function CreateUserModal({ onClose, onCreated, authFetch }) {
             <Input value={form.email} onChange={e => set('email', e.target.value)} placeholder="name@company.com" type="email" />
           </Field>
         </div>
-        <Field label="密碼" required error={errors.password}>
-          <Input value={form.password} onChange={e => set('password', e.target.value)} placeholder="至少 8 個字元" type="password" />
-        </Field>
-        <Field label="確認密碼" required error={errors.confirmPwd}>
-          <Input value={form.confirmPwd} onChange={e => set('confirmPwd', e.target.value)} placeholder="再輸入一次" type="password" />
-        </Field>
-        <div style={{ gridColumn: 'span 2' }}>
-          <Field label="角色" required>
+        <Field label="角色" required>
             <Select
               value={form.role}
               onChange={e => set('role', e.target.value)}
@@ -349,7 +337,6 @@ function CreateUserModal({ onClose, onCreated, authFetch }) {
               ]}
             />
           </Field>
-        </div>
         <Field label="部門">
           <Input value={form.department} onChange={e => set('department', e.target.value)} placeholder="研發部" />
         </Field>
@@ -391,7 +378,41 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
+  // Azure AD 同步
+  const [adSyncing, setAdSyncing] = useState(false);
+  const [adProfile, setAdProfile] = useState(null);
+
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: '' })); };
+
+  // 判斷使用者是否有 Microsoft OAuth 連結
+  const hasMicrosoftOAuth = user.oauthAccounts?.some(a => a.provider === 'microsoft');
+
+  const handleSyncAzureAD = async () => {
+    setAdSyncing(true);
+    setApiError('');
+    try {
+      const res = await authFetch(`${API_BASE}/api/admin/users/${user.id}/azure-profile`);
+      const data = await res.json();
+      if (!data.success) {
+        setApiError(data.error || '無法取得 Azure AD 資料');
+        return;
+      }
+      const profile = data.data;
+      setAdProfile(profile);
+      // 自動填入空白欄位
+      const updates = {};
+      if (profile.department  && !form.department) updates.department = profile.department;
+      if (profile.jobTitle    && !form.jobTitle)   updates.jobTitle   = profile.jobTitle;
+      if (profile.mobilePhone && !form.phone)      updates.phone      = profile.mobilePhone;
+      if (Object.keys(updates).length > 0) {
+        setForm(f => ({ ...f, ...updates }));
+      }
+    } catch {
+      setApiError('同步 Azure AD 資料時發生錯誤');
+    } finally {
+      setAdSyncing(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setApiError('');
@@ -463,6 +484,46 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
         <Field label="到職日期"><Input value={form.joinedAt} onChange={e => set('joinedAt', e.target.value)} type="date" /></Field>
       </div>
 
+      {/* Azure AD 同步 */}
+      {hasMicrosoftOAuth && (
+        <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--xc-bg-soft)', borderRadius: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: adProfile ? 10 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>🔷</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text-muted)' }}>Azure AD 組織資料</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSyncAzureAD}
+              disabled={adSyncing}
+              style={{
+                background: 'var(--xc-brand-soft, rgba(0,120,212,0.1))',
+                color:      'var(--xc-brand, #0078d4)',
+                border:     '1px solid var(--xc-border)',
+                borderRadius: 6,
+                padding:    '3px 10px',
+                fontSize:   11,
+                fontWeight: 600,
+                cursor:     adSyncing ? 'not-allowed' : 'pointer',
+                opacity:    adSyncing ? 0.6 : 1,
+              }}
+            >
+              {adSyncing ? '同步中…' : '🔄 從 Azure AD 同步'}
+            </button>
+          </div>
+          {adProfile && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+              {adProfile.displayName    && <div><span style={{ color: 'var(--xc-text-muted)' }}>顯示名稱：</span>{adProfile.displayName}</div>}
+              {adProfile.email          && <div><span style={{ color: 'var(--xc-text-muted)' }}>Email：</span>{adProfile.email}</div>}
+              {adProfile.jobTitle       && <div><span style={{ color: 'var(--xc-text-muted)' }}>職稱：</span>{adProfile.jobTitle}</div>}
+              {adProfile.department     && <div><span style={{ color: 'var(--xc-text-muted)' }}>部門：</span>{adProfile.department}</div>}
+              {adProfile.officeLocation && <div><span style={{ color: 'var(--xc-text-muted)' }}>辦公室：</span>{adProfile.officeLocation}</div>}
+              {adProfile.mobilePhone    && <div><span style={{ color: 'var(--xc-text-muted)' }}>行動電話：</span>{adProfile.mobilePhone}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* OAuth 連結清單 */}
       {user.oauthAccounts?.length > 0 && (
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--xc-bg-soft)', borderRadius: 10 }}>
@@ -492,76 +553,6 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// ResetPasswordModal — 重設密碼
-// ════════════════════════════════════════════════════════════
-function ResetPasswordModal({ user, onClose, authFetch }) {
-  const [pwd, setPwd]           = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [errors, setErrors]     = useState({});
-  const [loading, setLoading]   = useState(false);
-  const [apiError, setApiError] = useState('');
-  const [done, setDone]         = useState(false);
-
-  const handleSubmit = async () => {
-    setApiError('');
-    const e = {};
-    if (!pwd)              e.pwd = '請輸入新密碼';
-    else if (pwd.length < 8) e.pwd = '密碼至少 8 個字元';
-    if (pwd && confirm !== pwd) e.confirm = '兩次密碼不一致';
-    setErrors(e);
-    if (Object.keys(e).length > 0) return;
-
-    setLoading(true);
-    try {
-      const res = await authFetch(`${API_BASE}/api/admin/users/${user.id}/reset-password`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ newPassword: pwd, confirmPassword: confirm }),
-      });
-      const data = await res.json();
-      if (data.success) setDone(true);
-      else setApiError(data.error || '重設失敗');
-    } catch {
-      setApiError('網路錯誤，請稍後再試');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (done) return (
-    <Modal title="重設密碼" onClose={onClose} width={400}>
-      <div style={{ textAlign: 'center', padding: '16px 0' }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-        <p style={{ fontSize: 14, color: 'var(--xc-text)', margin: '0 0 20px' }}>
-          已成功重設 <strong>{user.name}</strong> 的密碼
-        </p>
-        <Btn onClick={onClose}>關閉</Btn>
-      </div>
-    </Modal>
-  );
-
-  return (
-    <Modal title={`重設密碼：${user.name}`} onClose={onClose} width={400}>
-      {apiError && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontSize: 13 }}>
-          ⛔ {apiError}
-        </div>
-      )}
-      <Field label="新密碼" required error={errors.pwd}>
-        <Input value={pwd} onChange={e => { setPwd(e.target.value); setErrors(p => ({...p, pwd: ''})); }} type="password" placeholder="至少 8 個字元" />
-      </Field>
-      <Field label="確認密碼" required error={errors.confirm}>
-        <Input value={confirm} onChange={e => { setConfirm(e.target.value); setErrors(p => ({...p, confirm: ''})); }} type="password" placeholder="再輸入一次" />
-      </Field>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 16, borderTop: '1px solid var(--xc-border)' }}>
-        <Btn variant="secondary" onClick={onClose} disabled={loading}>取消</Btn>
-        <Btn variant="danger" onClick={handleSubmit} disabled={loading}>{loading ? '重設中...' : '確認重設'}</Btn>
-      </div>
-    </Modal>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
 export default function UserManagementPage() {
@@ -582,7 +573,6 @@ export default function UserManagementPage() {
   // Modal 狀態
   const [showCreate, setShowCreate] = useState(false);
   const [editUser,   setEditUser]   = useState(null);
-  const [resetUser,  setResetUser]  = useState(null);
   const [toast,      setToast]      = useState(null);
 
   // ── Toast 通知 ───────────────────────────────────────────
@@ -891,7 +881,6 @@ export default function UserManagementPage() {
                 {/* 操作按鈕 */}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <Btn variant="secondary" small onClick={() => setEditUser(user)}>編輯</Btn>
-                  <Btn variant="secondary" small onClick={() => setResetUser(user)}>改密碼</Btn>
                   <Btn
                     variant={user.isActive ? 'danger' : 'success'}
                     small
@@ -943,14 +932,6 @@ export default function UserManagementPage() {
             setUsers(p => p.map(x => x.id === u.id ? u : x));
             showToast(`已更新 ${u.name} 的資料`);
           }}
-        />
-      )}
-
-      {resetUser && (
-        <ResetPasswordModal
-          user={resetUser}
-          authFetch={authFetch}
-          onClose={() => setResetUser(null)}
         />
       )}
 

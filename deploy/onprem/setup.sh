@@ -154,18 +154,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     if [[ -z "$SEED_ADMIN_EMAIL" ]]; then
         warn "未輸入管理員 Email，略過 Seed"
     else
-        read -r -s -p "請輸入管理員密碼（SEED_ADMIN_PASSWORD）: " SEED_ADMIN_PASSWORD
-        echo
-        if [[ -z "$SEED_ADMIN_PASSWORD" ]]; then
-            warn "未輸入管理員密碼，略過 Seed"
-        else
-            docker compose -f "$COMPOSE_FILE" exec \
-                -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
-                -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
-                pmis-backend \
-                npx prisma db seed
-            success "Seed 資料已建立"
-        fi
+        docker compose -f "$COMPOSE_FILE" exec \
+            -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
+            pmis-backend \
+            npx prisma db seed
+        success "Seed 資料已建立（請使用此 Email 對應的 Microsoft 帳號登入）"
     fi
 fi
 

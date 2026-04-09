@@ -20,10 +20,8 @@
  *   AGENT_DRY_RUN     — "true" 表示只分析不執行（寫入 staging 不自動執行）
  */
 
-const { PrismaClient } = require('@prisma/client');
+const prisma     = require('../../../lib/prisma');
 const { randomUUID }   = require('crypto');
-
-const prisma     = new PrismaClient({ log: ['error'] });
 const DRY_RUN    = process.env.AGENT_DRY_RUN === 'true';
 const COMPANY_ID = process.env.AGENT_COMPANY_ID ? parseInt(process.env.AGENT_COMPANY_ID) : null;
 const SESSION_ID = randomUUID();

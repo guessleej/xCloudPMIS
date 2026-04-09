@@ -37,7 +37,6 @@
 'use strict';
 
 const OpenAI = require('openai');
-const { PrismaClient } = require('@prisma/client');
 
 // ════════════════════════════════════════════════════════════
 // 設定
@@ -56,7 +55,7 @@ let _configExpiry    = 0;
 let _client          = null;
 let _clientConfigKey = '';    // 用來偵測設定是否變更
 
-const _prisma = new PrismaClient();
+const _prisma = require('../lib/prisma');
 
 /**
  * 取得目前有效的模型設定（DB 優先，ENV 回退）

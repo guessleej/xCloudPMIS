@@ -40,9 +40,11 @@ const axios   = require('axios');
 const router  = express.Router();
 
 const requireAuth = require('../../middleware/requireAuth');
+const prisma = require('../../lib/prisma');
 const {
   findOrCreateOAuthUser,
   issueJWT,
+  extractFrontendOrigin,
   redirectSuccess,
   redirectError,
   getCallbackBase,
@@ -109,16 +111,14 @@ const DELEGATED_SCOPES = [
   'User.Read',
   'Mail.ReadWrite', 'Mail.Send',
   'Calendars.ReadWrite',
-  'OnlineMeetings.ReadWrite',
-  'Tasks.ReadWrite',
 ].join(' ');
 
 // ── Login 所需的基本 Scopes ─────────────────────────────────
 const LOGIN_SCOPES = 'openid profile email User.Read';
 
 // ── 錯誤回導至前端 Settings 頁 ──────────────────────────────
-function settingsErrorRedirect(res, errorCode, message) {
-  const base   = FRONTEND();
+function settingsErrorRedirect(res, errorCode, message, frontendUrl) {
+  const base   = frontendUrl || FRONTEND();
   const params = new URLSearchParams({
     ms_error:   errorCode,
     ms_message: message || '',
@@ -126,8 +126,8 @@ function settingsErrorRedirect(res, errorCode, message) {
   return res.redirect(`${base}/?${params}`);
 }
 
-function settingsSuccessRedirect(res, email) {
-  const base   = FRONTEND();
+function settingsSuccessRedirect(res, email, frontendUrl) {
+  const base   = frontendUrl || FRONTEND();
   const params = new URLSearchParams({
     ms_connected: '1',
     ms_email:     email || '',
@@ -176,8 +176,9 @@ router.get('/', (req, res) => {
 
     cleanExpiredStates();
 
-    const state = generateState({ flow: 'delegated', userId: Number(userId) });
-    stateStore.set(state, { createdAt: Date.now(), flow: 'delegated', userId: Number(userId) });
+    const origin = extractFrontendOrigin(req);
+    const state = generateState({ flow: 'delegated', userId: Number(userId), origin });
+    stateStore.set(state, { createdAt: Date.now(), flow: 'delegated', userId: Number(userId), origin });
 
     const params = new URLSearchParams({
       client_id:     CLIENT_ID(),
@@ -198,8 +199,9 @@ router.get('/', (req, res) => {
   // ── Login 流程（直接重定向）──────────────────────────────
   cleanExpiredStates();
 
-  const state = generateState({ flow: 'login' });
-  stateStore.set(state, { createdAt: Date.now(), flow: 'login' });
+  const origin = extractFrontendOrigin(req);
+  const state = generateState({ flow: 'login', origin });
+  stateStore.set(state, { createdAt: Date.now(), flow: 'login', origin });
 
   const params = new URLSearchParams({
     client_id:     CLIENT_ID(),
@@ -226,6 +228,7 @@ router.get('/callback', async (req, res) => {
   const stateEntry = stateStore.get(state);
   const stateData  = parseState(state);
   const isDelegated = stateEntry?.flow === 'delegated' || stateData?.flow === 'delegated';
+  const frontendOrigin = stateEntry?.origin || stateData?.origin || null;
 
   // 清除已使用的 state
   if (state) stateStore.delete(state);
@@ -236,16 +239,16 @@ router.get('/callback', async (req, res) => {
     const errCode = (error || 'ACCESS_DENIED').toUpperCase().replace(/-/g, '_');
 
     if (isDelegated) {
-      return settingsErrorRedirect(res, errCode, errMsg);
+      return settingsErrorRedirect(res, errCode, errMsg, frontendOrigin);
     }
-    return redirectError(res, errMsg);
+    return redirectError(res, errMsg, frontendOrigin);
   }
 
   // ── 驗證 state 有效性 ─────────────────────────────────────
   if (!stateEntry) {
     const errMsg = 'OAuth 授權已逾時或無效，請重試';
-    if (isDelegated) return settingsErrorRedirect(res, 'INVALID_OR_EXPIRED_STATE', errMsg);
-    return redirectError(res, errMsg);
+    if (isDelegated) return settingsErrorRedirect(res, 'INVALID_OR_EXPIRED_STATE', errMsg, frontendOrigin);
+    return redirectError(res, errMsg, frontendOrigin);
   }
 
   try {
@@ -270,18 +273,19 @@ router.get('/callback', async (req, res) => {
       scope: grantedScope,
     } = tokenRes.data;
 
-    // ── 取得 Microsoft Graph 使用者資訊 ───────────────────
-    const profileRes = await axios.get('https://graph.microsoft.com/v1.0/me', {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
+    // ── 取得 Microsoft Graph 使用者資訊（含組織資料）────────
+    const profileRes = await axios.get(
+      'https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName,jobTitle,department,mobilePhone,officeLocation',
+      { headers: { Authorization: `Bearer ${access_token}` } },
+    );
 
     const profile = profileRes.data;
     const email   = profile.mail || profile.userPrincipalName;
 
     if (!email) {
       const msg = '無法從 Microsoft 帳號取得 Email，請確認帳號設定';
-      if (isDelegated) return settingsErrorRedirect(res, 'MISSING_EMAIL', msg);
-      return redirectError(res, msg);
+      if (isDelegated) return settingsErrorRedirect(res, 'MISSING_EMAIL', msg, frontendOrigin);
+      return redirectError(res, msg, frontendOrigin);
     }
 
     // ════════════════════════════════════════════════════════
@@ -291,12 +295,12 @@ router.get('/callback', async (req, res) => {
       const userId = stateEntry.userId || stateData?.userId;
 
       if (!userId) {
-        return settingsErrorRedirect(res, 'STATE_PARSE_ERROR', '無法解析用戶資訊，請重試');
+        return settingsErrorRedirect(res, 'STATE_PARSE_ERROR', '無法解析用戶資訊，請重試', frontendOrigin);
       }
 
       if (!refresh_token) {
         return settingsErrorRedirect(res, 'INCOMPLETE_TOKEN_RESPONSE',
-          'Microsoft 未回傳 Refresh Token，請確認 Azure App 已啟用 offline_access 權限後重試');
+          'Microsoft 未回傳 Refresh Token，請確認 Azure App 已啟用 offline_access 權限後重試', frontendOrigin);
       }
 
       try {
@@ -312,11 +316,11 @@ router.get('/callback', async (req, res) => {
         });
       } catch (saveErr) {
         console.error('[auth/microsoft] Token 儲存失敗：', saveErr.message);
-        return settingsErrorRedirect(res, 'TOKEN_SAVE_FAILED', 'Token 儲存失敗，請確認資料庫連線正常後重試');
+        return settingsErrorRedirect(res, 'TOKEN_SAVE_FAILED', 'Token 儲存失敗，請確認資料庫連線正常後重試', frontendOrigin);
       }
 
       console.log(`✅ [Microsoft OAuth] Delegated Token 已儲存：userId=${userId}, email=${email}`);
-      return settingsSuccessRedirect(res, email);
+      return settingsSuccessRedirect(res, email, frontendOrigin);
     }
 
     // ════════════════════════════════════════════════════════
@@ -329,30 +333,49 @@ router.get('/callback', async (req, res) => {
       provider:  'microsoft',
     });
 
+    // ── 自動同步 Azure AD 組織資料（職稱、部門、電話）───────
+    try {
+      const updates = {};
+      if (profile.jobTitle   && !user.jobTitle)   updates.jobTitle   = profile.jobTitle;
+      if (profile.department && !user.department) updates.department = profile.department;
+      if (profile.mobilePhone && !user.phone)    updates.phone      = profile.mobilePhone;
+      if (profile.displayName && user.name !== profile.displayName) {
+        updates.name = profile.displayName;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await prisma.user.update({ where: { id: user.id }, data: updates });
+        console.log(`🔄 [Microsoft OAuth] 已同步 Azure AD 組織資料：userId=${user.id}`, Object.keys(updates));
+      }
+    } catch (syncErr) {
+      // 同步失敗不影響登入
+      console.warn('[Microsoft OAuth] Azure AD 資料同步失敗（不影響登入）：', syncErr.message);
+    }
+
     const jwtToken = issueJWT(user);
     console.log(`✅ [Microsoft OAuth] Login 成功：${email}`);
-    redirectSuccess(res, jwtToken);
+    redirectSuccess(res, jwtToken, frontendOrigin);
 
   } catch (err) {
     const errMsg = err.response?.data?.error_description || err.message;
     console.error('[auth/microsoft] OAuth 回呼失敗：', err.response?.data || err.message);
 
     if (isDelegated) {
-      return settingsErrorRedirect(res, 'CALLBACK_FAILED', errMsg);
+      return settingsErrorRedirect(res, 'CALLBACK_FAILED', errMsg, frontendOrigin);
     }
-    redirectError(res, 'Microsoft 登入失敗，請稍後再試');
+    redirectError(res, 'Microsoft 登入失敗，請稍後再試', frontendOrigin);
   }
 });
 
 // ════════════════════════════════════════════════════════════
-// GET /status → 查詢 Delegated Token 連線狀態
+// GET /status → 查詢 Delegated Token 連線狀態 + Azure AD 個人資料
 // ════════════════════════════════════════════════════════════
 router.get('/status', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     const info = await getUserTokenInfo(userId);
 
-    return res.json({
+    const base = {
       connected:  info?.connected || false,
       configured: isConfigured(),
       email:      info?.microsoftEmail || null,
@@ -360,7 +383,26 @@ router.get('/status', requireAuth, async (req, res) => {
       expiresAt:  info?.expiresAt || null,
       connectedAt:     info?.connectedAt || null,
       lastRefreshedAt: info?.lastRefreshedAt || null,
-    });
+    };
+
+    // 已連線時，嘗試從 Graph API 取得完整 Azure AD 個人資料
+    if (info?.connected) {
+      try {
+        const { getMicrosoftProfile } = require('../../services/userOutlookService');
+        const profile = await getMicrosoftProfile(userId);
+        base.displayName       = profile.displayName       || null;
+        base.jobTitle          = profile.jobTitle          || null;
+        base.department        = profile.department        || null;
+        base.officeLocation    = profile.officeLocation    || null;
+        base.mobilePhone       = profile.mobilePhone       || null;
+        base.userPrincipalName = profile.userPrincipalName || null;
+      } catch (profileErr) {
+        // Graph API 失敗不影響基本連線狀態回傳
+        console.warn(`[auth/microsoft/status] 取得 Azure AD 個人資料失敗：${profileErr.message}`);
+      }
+    }
+
+    return res.json(base);
   } catch (err) {
     console.error('[auth/microsoft/status] 查詢失敗：', err.message);
     return res.json({ connected: false, configured: isConfigured() });
@@ -401,9 +443,6 @@ router.get('/config', requireAuth, (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.post('/config', requireAuth, async (req, res) => {
   // 簡易 admin 檢查
-  const { PrismaClient } = require('@prisma/client');
-  const prisma = new PrismaClient();
-
   try {
     const userId = req.user.id || req.user.userId;
     const user = await prisma.user.findUnique({

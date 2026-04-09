@@ -1,12 +1,10 @@
 const { EventEmitter } = require('events');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const {
   automationRuleService,
   SYSTEM_RULE_KEY,
 } = require('./automationRuleService');
 const { createNotifications } = require('./notificationCenter');
-
-const prisma = new PrismaClient();
 
 class TaskRuleEngine extends EventEmitter {
   constructor(prismaClient = prisma) {

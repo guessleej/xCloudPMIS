@@ -689,8 +689,6 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
 // 頂部搜尋列（Asana 風格）
 // ════════════════════════════════════════════════════════════
 function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOpen = false, panelMode = 'dark', onHelp }) {
-  const [searchVal, setSearchVal] = useState('');
-  const [searchFocus, setSearchFocus] = useState(false);
   const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
   const isLightPanel = panelMode === 'light';
   const panelIcon = isLightPanel ? Ic.sun : Ic.moon;
@@ -750,53 +748,8 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOp
         </div>
       </div>
 
-      {/* 全域搜尋 */}
-      <div style={{ flex: 1, minWidth: 0, maxWidth: '560px', marginLeft: 'auto' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          background: T.cardBg,
-          borderRadius: '11px', padding: '9px 14px',
-          border: `1px solid ${searchFocus ? T.borderStrong : T.border}`,
-          boxShadow: searchFocus ? T.focusRing : 'none',
-          transition: 'all 0.15s ease',
-        }}>
-          <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.search}</span>
-          <input
-            value={searchVal}
-            onChange={e => setSearchVal(e.target.value)}
-            onFocus={() => setSearchFocus(true)}
-            onBlur={() => setSearchFocus(false)}
-            placeholder="搜尋任務、專案、表單或成員"
-            style={{
-              border: 'none', background: 'none', outline: 'none',
-              fontSize: '13.5px', color: T.t1,
-              width: '100%', fontFamily: 'inherit',
-            }}
-          />
-          {!searchVal && (
-            <span style={{
-              padding: '2px 7px',
-              borderRadius: '999px',
-              background: T.mutedBg,
-              color: T.t3,
-              fontSize: '11px',
-              fontWeight: '700',
-              flexShrink: 0,
-            }}>
-              /
-            </span>
-          )}
-          {searchVal && (
-            <button
-              onClick={() => setSearchVal('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.t3, fontSize: '16px', lineHeight: 1, padding: 0 }}
-            >×</button>
-          )}
-        </div>
-      </div>
-
-      {/* 右側操作列 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+      {/* 右側操作列──推到最右 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
         <button
           onClick={onTogglePanel}
           title="工作面板"
@@ -979,24 +932,26 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
       <aside
         style={{
           position: 'fixed',
-          top: 0,
-          right: 0,
-          width: 'min(420px, 100vw)',
-          height: '100vh',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(480px, 95vw)',
+          maxHeight: '90vh',
           zIndex: 360,
           color: panelTheme.text,
           background: panelTheme.panelBg,
-          borderLeft: `1px solid ${panelTheme.panelBorder}`,
-          boxShadow: panelTheme.panelShadow,
+          borderRadius: 16,
+          boxShadow: '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
           animation: 'darkPanelSlideIn .18s ease',
         }}
       >
         <style>{`
           @keyframes darkPanelSlideIn {
-            from { opacity: 0; transform: translateX(18px); }
-            to { opacity: 1; transform: translateX(0); }
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
           }
         `}</style>
 
@@ -1594,14 +1549,14 @@ function AnalyticsPage({ dashData }) {
 function HomePage({ currentUser, onNavigate, dashData }) {
   const { isDark } = useTheme();
   const { authFetch } = useAuth();
-  const { projects, workload, loading, error, refresh } = dashData;
+  const { projects, workload, insights, monthlyTrend, loading, error, refresh } = dashData;
   const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
   const [myTasks,       setMyTasks]       = useState([]);
   const [tasksLoading,  setTasksLoading]  = useState(true);
   const [showCustomize, setShowCustomize] = useState(false);
   const [homeWidgets,   setHomeWidgets]   = useState(() => {
-    try { return JSON.parse(localStorage.getItem('xcloud-home-widgets') || 'null') || { tasks: true, projects: true, learn: true }; }
-    catch { return { tasks: true, projects: true, learn: true }; }
+    try { return JSON.parse(localStorage.getItem('xcloud-home-widgets') || 'null') || { tasks: true, projects: true, insights: true }; }
+    catch { return { tasks: true, projects: true, insights: true }; }
   });
 
   // 時段問候
@@ -1701,48 +1656,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
       accent: T.info,
     },
   ];
-  const guideCards = [
-    {
-      icon: Ic.myTasks,
-      title: '整理個人任務',
-      desc: '以截止日與優先順序檢視今天該推進的工作。',
-      nav: 'my-tasks',
-      tone: isDark
-        ? 'linear-gradient(180deg, rgba(56, 33, 43, 0.68), rgba(29, 36, 48, 0.96))'
-        : T.brandSoftStrong,
-      accent: T.accent,
-    },
-    {
-      icon: Ic.projects,
-      title: '檢查專案狀態',
-      desc: '查看專案健康度、進度與待處理風險。',
-      nav: 'projects',
-      tone: isDark
-        ? 'linear-gradient(180deg, rgba(61, 45, 18, 0.7), rgba(29, 36, 48, 0.96))'
-        : 'color-mix(in srgb, var(--xc-warning-soft) 48%, var(--xc-surface))',
-      accent: isDark ? T.warning : '#8A5D3B',
-    },
-    {
-      icon: Ic.rules,
-      title: '設定自動化規則',
-      desc: '把固定流程交給系統處理，減少手動追蹤。',
-      nav: 'rules',
-      tone: isDark
-        ? 'linear-gradient(180deg, rgba(36, 42, 78, 0.68), rgba(29, 36, 48, 0.96))'
-        : 'color-mix(in srgb, var(--xc-info-soft) 28%, var(--xc-surface))',
-      accent: '#5B57D9',
-    },
-    {
-      icon: Ic.goals,
-      title: '追蹤年度目標',
-      desc: '從目標頁確認專案輸出是否對齊階段成果。',
-      nav: 'goals',
-      tone: isDark
-        ? 'linear-gradient(180deg, rgba(22, 53, 36, 0.68), rgba(29, 36, 48, 0.96))'
-        : T.successSoft,
-      accent: T.success,
-    },
-  ];
+
   const pageBg = isDark
     ? 'linear-gradient(180deg, rgba(7,12,19,0.18), rgba(7,12,19,0.18)), linear-gradient(180deg, #111723 0%, #161D29 100%)'
     : 'linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), linear-gradient(180deg, #F4EFE9 0%, #F6F1EB 100%)';
@@ -1763,7 +1677,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
   const tabActiveShadow = isDark ? '0 1px 0 rgba(255,255,255,0.06)' : '0 1px 2px rgba(52,36,30,0.08)';
   const tabCountActiveBg = isDark ? T.brandSoft : '#FFF1F3';
   const tabCountInactiveBg = isDark ? T.cardBgStrong : '#EEE4DD';
-  const guideIconShadow = isDark ? '0 10px 24px rgba(2, 6, 23, 0.28)' : '0 6px 14px rgba(52, 36, 30, 0.06)';
+
   const cardShell = {
     background: T.cardBg,
     borderRadius: '18px',
@@ -1996,7 +1910,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 {[
                   { key: 'tasks',    label: '我的任務面板' },
                   { key: 'projects', label: '專案概覽面板' },
-                  { key: 'learn',    label: '常用入口面板' },
+                  { key: 'insights', label: '月度趨勢與洞察' },
                 ].map((w) => (
                   <label key={w.key} style={{
                     display: 'flex',
@@ -2380,57 +2294,14 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           </div>
         </div>
 
-        <div style={{
-          ...cardShell,
-          padding: '20px',
-          display: homeWidgets.learn ? 'block' : 'none',
-        }}>
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>常用入口</div>
-            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1 }}>你可能接下來會用到</div>
+        {/* 月度趨勢與洞察 */}
+        {homeWidgets.insights && (
+          <div style={{ ...cardShell, padding: '20px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>數據洞察</div>
+            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1, marginBottom: '16px' }}>📈 月度趨勢與洞察</div>
+            <ActionableInsights insights={insights} monthlyTrend={monthlyTrend} loading={loading} />
           </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '14px',
-          }}>
-            {guideCards.map((card) => (
-              <button
-                key={card.title}
-                onClick={() => onNavigate(card.nav)}
-                style={{
-                  padding: '18px',
-                  borderRadius: '14px',
-                  border: `1px solid ${T.border}`,
-                  background: card.tone,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  background: T.cardBg,
-                  color: card.accent,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: guideIconShadow,
-                }}>
-                  {card.icon}
-                </div>
-                <div style={{ marginTop: '14px', fontSize: '14px', fontWeight: '800', color: T.t1 }}>
-                  {card.title}
-                </div>
-                <div style={{ marginTop: '6px', fontSize: '12px', lineHeight: 1.7, color: T.t2 }}>
-                  {card.desc}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

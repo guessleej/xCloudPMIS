@@ -1053,7 +1053,7 @@ export default function HelpPanel({ open, onClose, currentPage }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 2000,
-      display: 'flex', justifyContent: 'flex-end',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       pointerEvents: 'none',
     }}>
       {/* 遮罩 */}
@@ -1061,7 +1061,8 @@ export default function HelpPanel({ open, onClose, currentPage }) {
         onClick={onClose}
         style={{
           position: 'absolute', inset: 0,
-          background: 'rgba(0,0,0,0.28)',
+          background: 'rgba(0,0,0,0.3)',
+          backdropFilter: 'blur(4px)',
           pointerEvents: 'auto',
           animation: 'helpFadeIn 0.22s ease',
         }}
@@ -1070,13 +1071,14 @@ export default function HelpPanel({ open, onClose, currentPage }) {
       {/* 主面板 */}
       <div style={{
         position: 'relative',
-        width: 780, maxWidth: '96vw', height: '100vh',
+        width: 820, maxWidth: '95vw', maxHeight: '90vh',
         background: 'var(--xc-surface)',
-        borderLeft: '1px solid var(--xc-border)',
+        borderRadius: 16,
         display: 'flex', flexDirection: 'column',
-        boxShadow: 'var(--xc-shadow-strong)',
+        overflow: 'hidden',
+        boxShadow: '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
         pointerEvents: 'auto',
-        animation: 'helpSlideIn 0.26s cubic-bezier(0.22, 1, 0.36, 1)',
+        animation: 'helpSlideIn 0.26s ease',
       }}>
 
         {/* ── 頂部標題 ── */}
@@ -1298,7 +1300,7 @@ export default function HelpPanel({ open, onClose, currentPage }) {
 
       <style>{`
         @keyframes helpFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes helpSlideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes helpSlideIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
       `}</style>
     </div>
   );

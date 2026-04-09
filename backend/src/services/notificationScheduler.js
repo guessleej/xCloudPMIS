@@ -5,7 +5,7 @@
  * 在 index.js 伺服器啟動後呼叫 startNotificationScheduler()。
  */
 
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const {
   scanDeadlineApproaching,
   scanTaskOverdue,
@@ -16,18 +16,11 @@ const SCAN_INTERVAL_MS = parseInt(process.env.NOTIF_SCAN_INTERVAL_MS, 10) || 30 
 const DIGEST_INTERVAL_MS = parseInt(process.env.DIGEST_SCAN_INTERVAL_MS, 10) || 60 * 60 * 1000; // 預設 60 分鐘
 let intervalId = null;
 let digestIntervalId = null;
-let prisma = null;           // 延遲建立，避免 import side-effect
-
-function getPrisma() {
-  if (!prisma) prisma = new PrismaClient();
-  return prisma;
-}
 
 async function runScan() {
-  const p = getPrisma();
   try {
-    const approaching = await scanDeadlineApproaching(p);
-    const overdue     = await scanTaskOverdue(p);
+    const approaching = await scanDeadlineApproaching(prisma);
+    const overdue     = await scanTaskOverdue(prisma);
     if (approaching || overdue) {
       console.log(`[notificationScheduler] 掃描完成：到期提醒 ${approaching} 筆、逾期警示 ${overdue} 筆`);
     }
@@ -37,9 +30,8 @@ async function runScan() {
 }
 
 async function runDigestScan() {
-  const p = getPrisma();
   try {
-    const created = await generateDigestNotifications(p);
+    const created = await generateDigestNotifications(prisma);
     if (created > 0) {
       console.log(`[notificationScheduler] 摘要報告產生完成：${created} 筆`);
     }
@@ -50,11 +42,19 @@ async function runDigestScan() {
 
 function startNotificationScheduler() {
   if (intervalId) return; // 已在執行
+
+  const isDev = process.env.NODE_ENV !== 'production';
+
   console.log(`⏰ 通知排程器已啟動（每 ${SCAN_INTERVAL_MS / 60000} 分鐘掃描到期/逾期，每 ${DIGEST_INTERVAL_MS / 60000} 分鐘掃描摘要）`);
-  // 啟動後延遲 10 秒先跑一次
+
+  // 到期/逾期掃描：啟動後延遲 10 秒先跑一次
   setTimeout(() => runScan(), 10_000);
-  setTimeout(() => runDigestScan(), 15_000);
   intervalId = setInterval(runScan, SCAN_INTERVAL_MS);
+
+  // 摘要掃描：正式環境啟動 30 秒後跑第一次；開發環境只靠 interval 不立即觸發
+  if (!isDev) {
+    setTimeout(() => runDigestScan(), 30_000);
+  }
   digestIntervalId = setInterval(runDigestScan, DIGEST_INTERVAL_MS);
 }
 
@@ -66,10 +66,6 @@ function stopNotificationScheduler() {
   if (digestIntervalId) {
     clearInterval(digestIntervalId);
     digestIntervalId = null;
-  }
-  if (prisma) {
-    prisma.$disconnect().catch(() => {});
-    prisma = null;
   }
   console.log('[notificationScheduler] 排程器已停止');
 }

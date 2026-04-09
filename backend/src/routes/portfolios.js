@@ -8,8 +8,7 @@
 
 const express            = require('express');
 const router             = express.Router();
-const { PrismaClient }   = require('@prisma/client');
-const prisma             = new PrismaClient();
+const prisma             = require('../lib/prisma');
 
 const ok  = (res, data)         => res.json({ success: true, data, timestamp: new Date().toISOString() });
 const err = (res, msg, s = 500) => res.status(s).json({ success: false, error: msg });

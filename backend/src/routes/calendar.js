@@ -11,12 +11,10 @@
 const express  = require('express');
 const router   = express.Router();
 const jwt      = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { JWT_SECRET }   = require('../config/jwt');
 const requireAuth      = require('../middleware/requireAuth');
 const { createCalendarEvent, getUserCalendarEvents } = require('../services/userOutlookService');
-
-const prisma = new PrismaClient();
 
 const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3838';
 

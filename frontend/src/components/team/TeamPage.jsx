@@ -182,14 +182,22 @@ function MemberDrawer({ member, onClose, onRoleChange }) {
   return (
     <>
       {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100 }} />
-      {/* Drawer */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
+      {/* Modal */}
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: 360,
-        background: BRAND.surface, borderLeft: `1px solid ${BRAND.mist}`,
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: 400, maxWidth: '95vw', maxHeight: '90vh',
+        background: BRAND.surface, borderRadius: 16,
         zIndex: 101, display: 'flex', flexDirection: 'column',
-        boxShadow: '-8px 0 32px rgba(0,0,0,0.2)',
+        boxShadow: '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
+        overflow: 'hidden', animation: 'memberModalIn .22s ease',
       }}>
+        <style>{`
+          @keyframes memberModalIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          }
+        `}</style>
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: `1px solid ${BRAND.mist}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: BRAND.ink }}>成員詳情</span>

@@ -132,7 +132,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
       {/* 標題 */}
       <span style={{
         flex: 1, fontSize: 13, color: task.status === 'done' ? BRAND.muted : BRAND.ink,
-        textDecoration: task.status === 'done' ? 'line-through' : 'none',
+
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
         {task.title}
@@ -165,14 +165,20 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
   );
 }
 
-// ── Detail panel ──────────────────────────────────────────────
-function DetailPanel({ task, onClose, onUpdate, onDelete }) {
+// ── Detail modal ──────────────────────────────────────────────
+function DetailModal({ task, onClose, onUpdate, onDelete }) {
   if (!task) return null;
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const sm      = STATUS_META[task.status]    || STATUS_META.todo;
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc,  setEditDesc]  = useState(task.description || '');
   const pm      = PRIORITY_META[task.priority] || PRIORITY_META.medium;
   const overdue = isOverdue(task.dueDate) && task.status !== 'done';
+  const isDone  = task.status === 'done';
+
+  // 同步外部 task 變更
+  useEffect(() => { setEditTitle(task.title); }, [task.title]);
+  useEffect(() => { setEditDesc(task.description || ''); }, [task.description]);
 
   async function handleField(field, value) {
     if (saving) return;
@@ -188,152 +194,230 @@ function DetailPanel({ task, onClose, onUpdate, onDelete }) {
     setDeleting(false);
   }
 
+  function handleToggleDone() {
+    handleField('status', isDone ? 'todo' : 'done');
+  }
+
   const selectStyle = {
-    padding: '5px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+    padding: '6px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
     border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
     color: BRAND.carbon, width: '100%', outline: 'none',
   };
   const labelStyle = {
-    fontSize: 10, color: BRAND.muted, marginBottom: 4,
+    fontSize: 11, color: BRAND.muted, marginBottom: 5, fontWeight: 600,
     textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block',
   };
 
   return (
-    <div style={{
-      width: 340, flexShrink: 0,
-      borderLeft: `1px solid ${BRAND.mist}`,
-      background: BRAND.surface,
-      display: 'flex', flexDirection: 'column',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 999,
+          background: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(4px)',
+        }}
+      />
+
+      {/* Modal */}
       <div style={{
-        padding: '14px 20px',
-        borderBottom: `1px solid ${BRAND.mist}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'fixed', zIndex: 1000,
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '90%', maxWidth: 560,
+        maxHeight: '85vh',
+        background: BRAND.surface,
+        borderRadius: 16,
+        border: `1px solid ${BRAND.mist}`,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: BRAND.carbon }}>任務詳情</span>
-          {saving && <span style={{ fontSize: 10, color: BRAND.muted }}>儲存中…</span>}
-        </div>
-        <button
-          onClick={onClose}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: BRAND.muted, fontSize: 16, padding: '0 4px' }}
-        >✕</button>
-      </div>
-
-      {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-        {/* 標題 */}
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: BRAND.ink, margin: '0 0 20px', lineHeight: 1.4 }}>
-          {task.title}
-        </h2>
-
-        {/* ── 可編輯欄位 ── */}
-
-        {/* 狀態 */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>狀態</label>
-          <select
-            value={task.status}
-            onChange={e => handleField('status', e.target.value)}
-            style={{ ...selectStyle, color: sm.color, fontWeight: 600 }}
-            disabled={saving}
-          >
-            {Object.entries(STATUS_META).map(([k, v]) => (
-              <option key={k} value={k}>{v.icon} {v.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 優先序 */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>優先序</label>
-          <select
-            value={task.priority || 'medium'}
-            onChange={e => handleField('priority', e.target.value)}
-            style={{ ...selectStyle, color: pm.dot, fontWeight: 600 }}
-            disabled={saving}
-          >
-            {Object.entries(PRIORITY_META).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}優先</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 截止日期 */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>截止日期</label>
-          <input
-            type="date"
-            defaultValue={task.dueDate || ''}
-            onBlur={e => {
-              const val = e.target.value || null;
-              if (val !== (task.dueDate || null)) handleField('dueDate', val);
-            }}
+        {/* Header */}
+        <div style={{
+          padding: '14px 24px',
+          borderBottom: `1px solid ${BRAND.mist}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* 標記完成按鈕 */}
+            <button
+              onClick={handleToggleDone}
+              disabled={saving}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                border: `1px solid ${isDone ? BRAND.success : BRAND.silver}`,
+                background: isDone
+                  ? 'color-mix(in srgb, var(--xc-success) 12%, transparent)'
+                  : BRAND.surfaceSoft,
+                color: isDone ? BRAND.success : BRAND.carbon,
+                transition: 'all .15s',
+              }}
+            >
+              {isDone ? '✓ 已完成' : '⊙ 標記完成'}
+            </button>
+            {saving && <span style={{ fontSize: 11, color: BRAND.muted }}>儲存中…</span>}
+          </div>
+          <button
+            onClick={onClose}
             style={{
-              ...selectStyle,
-              color: overdue ? BRAND.danger : BRAND.carbon,
-              fontWeight: overdue ? 700 : 400,
+              background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
+              cursor: 'pointer', color: BRAND.muted, fontSize: 14,
+              width: 28, height: 28, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
+          >✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+          {/* 可編輯標題 */}
+          <input
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            onBlur={() => {
+              const trimmed = editTitle.trim();
+              if (trimmed && trimmed !== task.title) handleField('title', trimmed);
+              else setEditTitle(task.title);
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+            style={{
+              width: '100%', fontSize: 18, fontWeight: 800, color: BRAND.ink,
+              lineHeight: 1.4, margin: '0 0 20px', padding: '4px 0',
+              border: 'none', borderBottom: '2px solid transparent',
+              background: 'transparent', outline: 'none',
+              transition: 'border-color .15s',
+
+            }}
+            onFocus={e => { e.target.style.borderBottomColor = BRAND.crimson; }}
+            onBlurCapture={e => { e.target.style.borderBottomColor = 'transparent'; }}
             disabled={saving}
+            placeholder="輸入任務標題…"
           />
-          {overdue && (
-            <span style={{ fontSize: 10, color: BRAND.danger, marginTop: 3, display: 'block' }}>⚠ 已逾期</span>
-          )}
+
+          {/* ── 可編輯欄位（雙欄佈局）── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: 16 }}>
+            {/* 截止日期 */}
+            <div>
+              <label style={labelStyle}>截止日期</label>
+              <input
+                type="date"
+                defaultValue={task.dueDate || ''}
+                onBlur={e => {
+                  const val = e.target.value || null;
+                  if (val !== (task.dueDate || null)) handleField('dueDate', val);
+                }}
+                style={{
+                  ...selectStyle,
+                  color: overdue ? BRAND.danger : BRAND.carbon,
+                  fontWeight: overdue ? 700 : 400,
+                }}
+                disabled={saving}
+              />
+              {overdue && (
+                <span style={{ fontSize: 10, color: BRAND.danger, marginTop: 3, display: 'block' }}>⚠ 已逾期</span>
+              )}
+            </div>
+
+            {/* 優先序 */}
+            <div>
+              <label style={labelStyle}>優先度</label>
+              <select
+                value={task.priority || 'medium'}
+                onChange={e => handleField('priority', e.target.value)}
+                style={{ ...selectStyle, color: pm.dot, fontWeight: 600 }}
+                disabled={saving}
+              >
+                {Object.entries(PRIORITY_META).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}優先</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 唯讀資訊（雙欄）*/}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: 16 }}>
+            {task.project?.name && (
+              <div>
+                <span style={labelStyle}>所屬專案</span>
+                <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.project.name}</span>
+              </div>
+            )}
+            {task.assignee?.name && (
+              <div>
+                <span style={labelStyle}>負責人</span>
+                <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.assignee.name}</span>
+              </div>
+            )}
+            <div>
+              <span style={labelStyle}>健康度</span>
+              <HealthBadge status={task.healthStatus} size="md" />
+            </div>
+          </div>
+
+          {/* 分隔線 */}
+          <div style={{ borderTop: `1px solid ${BRAND.mist}`, margin: '4px 0 16px' }} />
+
+          {/* 可編輯說明 */}
+          <div>
+            <label style={labelStyle}>說明</label>
+            <textarea
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+              onBlur={() => {
+                if (editDesc !== (task.description || '')) handleField('description', editDesc);
+              }}
+              placeholder="輸入任務說明…"
+              rows={4}
+              style={{
+                width: '100%', fontSize: 13, color: BRAND.carbon, lineHeight: 1.7,
+                padding: '8px 10px', borderRadius: 8, resize: 'vertical',
+                border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
+                outline: 'none', fontFamily: 'inherit',
+                transition: 'border-color .15s',
+              }}
+              onFocus={e => { e.target.style.borderColor = BRAND.crimson; }}
+              onBlurCapture={e => { e.target.style.borderColor = BRAND.silver; }}
+              disabled={saving}
+            />
+          </div>
         </div>
 
-        {/* 分隔線 */}
-        <div style={{ borderTop: `1px solid ${BRAND.mist}`, margin: '18px 0' }} />
-
-        {/* 唯讀資訊 */}
-        {task.project?.name && (
-          <div style={{ marginBottom: 12 }}>
-            <span style={labelStyle}>所屬專案</span>
-            <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.project.name}</span>
-          </div>
-        )}
-        {task.assignee?.name && (
-          <div style={{ marginBottom: 12 }}>
-            <span style={labelStyle}>負責人</span>
-            <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.assignee.name}</span>
-          </div>
-        )}
-
-        {/* 健康度 */}
-        <div style={{ marginBottom: 12 }}>
-          <span style={labelStyle}>健康度</span>
-          <HealthBadge status={task.healthStatus} size="md" />
+        {/* Footer */}
+        <div style={{
+          padding: '14px 24px',
+          borderTop: `1px solid ${BRAND.mist}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0,
+        }}>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{
+              padding: '7px 16px', borderRadius: 8, fontSize: 12, cursor: deleting ? 'not-allowed' : 'pointer',
+              border: `1px solid ${BRAND.danger}`, background: 'transparent',
+              color: BRAND.danger, opacity: deleting ? 0.5 : 1, fontWeight: 600,
+            }}
+          >
+            {deleting ? '刪除中…' : '🗑 刪除任務'}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '7px 20px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+              border: `1px solid ${BRAND.mist}`, background: BRAND.surfaceSoft,
+              color: BRAND.carbon, fontWeight: 600,
+            }}
+          >
+            關閉
+          </button>
         </div>
-
-        {/* 說明 */}
-        {task.description && (
-          <div style={{ marginTop: 6 }}>
-            <span style={labelStyle}>說明</span>
-            <p style={{ fontSize: 13, color: BRAND.carbon, lineHeight: 1.6, margin: 0 }}>{task.description}</p>
-          </div>
-        )}
       </div>
-
-      {/* Footer：刪除 */}
-      <div style={{
-        padding: '12px 20px',
-        borderTop: `1px solid ${BRAND.mist}`,
-        display: 'flex', justifyContent: 'flex-end',
-      }}>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          style={{
-            padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: deleting ? 'not-allowed' : 'pointer',
-            border: `1px solid ${BRAND.danger}`, background: 'transparent',
-            color: BRAND.danger, opacity: deleting ? 0.5 : 1, fontWeight: 600,
-          }}
-        >
-          {deleting ? '刪除中…' : '🗑 刪除任務'}
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -347,6 +431,7 @@ export default function MyTasksPage() {
   const [filterPri,    setFilterPri]    = useState('all');
   const [search,       setSearch]       = useState('');
   const [groupBy,      setGroupBy]      = useState('status'); // status | project | priority
+  const [sortBy,       setSortBy]       = useState('dueDate'); // dueDate | title | priority | project
 
   // ── Load ──
   const load = useCallback(async () => {
@@ -422,18 +507,41 @@ export default function MyTasksPage() {
     today:      tasks.filter(t => isToday(t.dueDate) && t.status !== 'done').length,
   }), [tasks]);
 
-  // ── Filter pipeline ──
+  // ── Filter + Sort pipeline ──
+  const isSearching = search.trim().length > 0;
+  const PRIORITY_RANK = { urgent: 0, high: 1, medium: 2, low: 3 };
   const filtered = useMemo(() => {
     let list = tasks;
-    if (filterStatus === 'active') list = list.filter(t => !['done','cancelled'].includes(t.status));
-    if (filterStatus === 'done')   list = list.filter(t => t.status === 'done');
-    if (filterPri !== 'all')       list = list.filter(t => t.priority === filterPri);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(t => t.title.toLowerCase().includes(q) || t.project?.name?.toLowerCase().includes(q));
+    // 搜尋時跨所有狀態查找，否則依狀態篩選
+    if (!isSearching) {
+      if (filterStatus === 'active') list = list.filter(t => !['done','cancelled'].includes(t.status));
+      if (filterStatus === 'done')   list = list.filter(t => t.status === 'done');
     }
+    if (filterPri !== 'all')       list = list.filter(t => t.priority === filterPri);
+    if (isSearching) {
+      const q = search.toLowerCase();
+      list = list.filter(t =>
+        t.title?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q) ||
+        t.project?.name?.toLowerCase().includes(q) ||
+        t.assignee?.name?.toLowerCase().includes(q)
+      );
+    }
+    // 排序
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'dueDate') {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+      if (sortBy === 'title')    return (a.title || '').localeCompare(b.title || '', 'zh-Hant');
+      if (sortBy === 'priority') return (PRIORITY_RANK[a.priority] ?? 2) - (PRIORITY_RANK[b.priority] ?? 2);
+      if (sortBy === 'project')  return (a.project?.name || '').localeCompare(b.project?.name || '', 'zh-Hant');
+      return 0;
+    });
     return list;
-  }, [tasks, filterStatus, filterPri, search]);
+  }, [tasks, filterStatus, filterPri, search, isSearching, sortBy]);
 
   // ── Group ──
   const groups = useMemo(() => {
@@ -500,17 +608,35 @@ export default function MyTasksPage() {
         background: BRAND.surface, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap',
       }}>
         {/* 搜尋 */}
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋任務或專案…"
-          style={{
-            padding: '6px 12px', borderRadius: 6, border: `1px solid ${BRAND.silver}`,
-            background: BRAND.surfaceSoft, color: BRAND.ink, fontSize: 12,
-            outline: 'none', width: 200, flexShrink: 0,
-          }}
-        />
-
+        <div style={{ position: 'relative', flexShrink: 0, width: 220 }}>
+          <span style={{
+            position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 12, color: BRAND.muted, pointerEvents: 'none',
+          }}>🔍</span>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="搜尋任務、專案、負責人…"
+            style={{
+              padding: '6px 12px 6px 28px', borderRadius: 6,
+              border: `1px solid ${isSearching ? BRAND.crimson : BRAND.silver}`,
+              background: BRAND.surfaceSoft, color: BRAND.ink, fontSize: 12,
+              outline: 'none', width: '100%',
+              transition: 'border-color .15s',
+            }}
+          />
+          {isSearching && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: BRAND.muted, fontSize: 13, padding: '0 2px', lineHeight: 1,
+              }}
+              title="清除搜尋"
+            >✕</button>
+          )}
+        </div>
         {/* 狀態篩選 */}
         <div style={{ display: 'flex', gap: 4 }}>
           {[
@@ -543,6 +669,21 @@ export default function MyTasksPage() {
           ))}
         </select>
 
+        {/* 排序 */}
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          style={{
+            padding: '5px 10px', borderRadius: 6, border: `1px solid ${BRAND.silver}`,
+            background: BRAND.surfaceSoft, color: BRAND.carbon, fontSize: 11, cursor: 'pointer',
+          }}
+        >
+          <option value="dueDate">依截止日期排序</option>
+          <option value="title">依標題排序</option>
+          <option value="priority">依優先度排序</option>
+          <option value="project">依專案排序</option>
+        </select>
+
         {/* 分組 */}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           <span style={{ fontSize: 11, color: BRAND.muted, alignSelf: 'center' }}>分組：</span>
@@ -561,8 +702,8 @@ export default function MyTasksPage() {
           ))}
         </div>
 
-        <div style={{ fontSize: 11, color: BRAND.muted, flexShrink: 0 }}>
-          {filtered.length} 筆
+        <div style={{ fontSize: 11, color: isSearching ? BRAND.crimson : BRAND.muted, flexShrink: 0, fontWeight: isSearching ? 600 : 400 }}>
+          {isSearching ? `搜尋到 ${filtered.length} 筆` : `${filtered.length} 筆`}
         </div>
       </div>
 
@@ -575,10 +716,23 @@ export default function MyTasksPage() {
             <div style={{ padding: 60, textAlign: 'center', color: BRAND.muted, fontSize: 13 }}>載入中…</div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: 60, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>{isSearching ? '🔍' : '✓'}</div>
               <div style={{ fontSize: 14, color: BRAND.muted }}>
-                {filterStatus === 'active' ? '沒有進行中的任務' : '找不到符合的任務'}
+                {isSearching
+                  ? `找不到「${search.trim()}」的相關任務`
+                  : filterStatus === 'active' ? '沒有進行中的任務' : '找不到符合的任務'
+                }
               </div>
+              {isSearching && (
+                <button
+                  onClick={() => setSearch('')}
+                  style={{
+                    marginTop: 12, padding: '6px 16px', borderRadius: 6,
+                    border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
+                    color: BRAND.carbon, fontSize: 12, cursor: 'pointer',
+                  }}
+                >清除搜尋</button>
+              )}
             </div>
           ) : (
             groups.map(group => (
@@ -622,9 +776,9 @@ export default function MyTasksPage() {
           )}
         </div>
 
-        {/* 右側詳情面板（互動式：可改狀態/優先度/截止日/刪除）*/}
+        {/* 右側詳情彈窗 */}
         {selected && (
-          <DetailPanel
+          <DetailModal
             task={tasks.find(t => t.id === selected.id) || selected}
             onClose={() => setSelected(null)}
             onUpdate={updateTask}

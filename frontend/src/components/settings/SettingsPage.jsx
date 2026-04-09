@@ -3,7 +3,7 @@
  *
  * 六個分頁：
  *   🏢 公司資訊   — 顯示 / 編輯公司名稱
- *   👤 個人資料   — 編輯姓名、Email；修改密碼
+ *   👤 個人資料   — 編輯姓名、Email
  *   🔔 通知偏好   — 各類通知開關（App / Email / 摘要）
  *   🔗 整合服務   — Microsoft OAuth
  *   📊 系統狀態   — Backend / PostgreSQL / Redis 健康卡片
@@ -470,15 +470,9 @@ function ProfileTab({ onGoToCompany }) {
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoErrors, setInfoErrors] = useState({});
 
-  // 密碼表單
-  const [pwdForm, setPwdForm] = useState({
-    currentPassword: '',
-    newPassword:     '',
-    confirmPassword: '',
-  });
-  const [pwdSaving,  setPwdSaving]  = useState(false);
-  const [pwdErrors,  setPwdErrors]  = useState({});
-  const [showPwd,    setShowPwd]    = useState(false);
+  // Azure AD 同步
+  const [adSyncing, setAdSyncing] = useState(false);
+  const [adProfile, setAdProfile] = useState(null);
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return;
@@ -503,6 +497,40 @@ function ProfileTab({ onGoToCompany }) {
   }, [userId]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  // 從 Azure AD 同步個人資料
+  const handleSyncFromAzureAD = async () => {
+    setAdSyncing(true);
+    try {
+      const token = localStorage.getItem('xcloud-auth-token');
+      const res = await fetch(`${API_BASE}/auth/microsoft/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!data.connected) {
+        setBanner({ type: 'error', message: '尚未連結 Microsoft 帳號，請先至「整合服務」連接' });
+        return;
+      }
+      setAdProfile(data);
+      // 自動填入表單（僅填入非空值）
+      const updates = {};
+      if (data.department     && !infoForm.department) updates.department = data.department;
+      if (data.jobTitle       && !infoForm.jobTitle)   updates.jobTitle   = data.jobTitle;
+      if (data.mobilePhone    && !infoForm.phone)      updates.phone      = data.mobilePhone;
+      if (data.displayName    && !infoForm.name)       updates.name       = data.displayName;
+
+      if (Object.keys(updates).length > 0) {
+        setInfoForm(f => ({ ...f, ...updates }));
+        setBanner({ type: 'success', message: `✅ 已從 Azure AD 同步 ${Object.keys(updates).length} 個欄位` });
+      } else {
+        setBanner({ type: 'success', message: '✅ 已取得 Azure AD 資料（所有欄位已有值，未覆蓋）' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: '同步 Azure AD 資料失敗' });
+    } finally {
+      setAdSyncing(false);
+    }
+  };
 
   // 更新基本資料
   const handleInfoSave = async () => {
@@ -542,36 +570,6 @@ function ProfileTab({ onGoToCompany }) {
       setBanner({ type: 'error', message: err.message });
     } finally {
       setInfoSaving(false);
-    }
-  };
-
-  // 修改密碼
-  const handlePwdSave = async () => {
-    const errs = {};
-    if (!pwdForm.currentPassword) errs.currentPassword = '請輸入目前密碼';
-    if (!pwdForm.newPassword)     errs.newPassword     = '請輸入新密碼';
-    else if (pwdForm.newPassword.length < 6) errs.newPassword = '新密碼至少 6 個字元';
-    if (pwdForm.newPassword !== pwdForm.confirmPassword) errs.confirmPassword = '兩次密碼不一致';
-    if (Object.keys(errs).length) { setPwdErrors(errs); return; }
-    setPwdErrors({});
-    setPwdSaving(true);
-    try {
-      const res  = await authFetch(`${API_BASE}/api/settings/profile/${userId}`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          currentPassword: pwdForm.currentPassword,
-          newPassword:     pwdForm.newPassword,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '密碼更新失敗');
-      setBanner({ type: 'success', message: '✅ 密碼已成功修改' });
-      setPwdForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err) {
-      setBanner({ type: 'error', message: err.message });
-    } finally {
-      setPwdSaving(false);
     }
   };
 
@@ -706,6 +704,73 @@ function ProfileTab({ onGoToCompany }) {
             </p>
           </div>
 
+          {/* Azure AD 同步按鈕 */}
+          <div style={{
+            display:      'flex',
+            alignItems:   'center',
+            justifyContent: 'space-between',
+            padding:      '10px 14px',
+            background:   T.surfaceSoft,
+            border:       `1.5px solid ${T.border}`,
+            borderRadius: 10,
+            marginBottom: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🔷</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                  從 Azure AD 同步
+                </div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>
+                  自動填入職稱、部門、電話等組織資料
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSyncFromAzureAD}
+              disabled={adSyncing}
+              style={{
+                background:   T.infoSoft,
+                color:        T.info,
+                border:       `1px solid ${T.border}`,
+                borderRadius: 7,
+                padding:      '5px 14px',
+                fontSize:     12,
+                fontWeight:   600,
+                cursor:       adSyncing ? 'not-allowed' : 'pointer',
+                whiteSpace:   'nowrap',
+                flexShrink:   0,
+                opacity:      adSyncing ? 0.6 : 1,
+              }}
+            >
+              {adSyncing ? '同步中…' : '🔄 同步'}
+            </button>
+          </div>
+
+          {/* Azure AD 資料預覽（同步後顯示） */}
+          {adProfile && (adProfile.jobTitle || adProfile.department || adProfile.officeLocation || adProfile.mobilePhone) && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 10,
+              padding: '12px 14px',
+              background: T.surfaceSoft,
+              border: `1px solid ${T.border}`,
+              borderRadius: 10,
+              marginBottom: 20,
+              fontSize: 12,
+            }}>
+              <div style={{ gridColumn: 'span 2', fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 2 }}>
+                📇 Azure AD 組織資料
+              </div>
+              {adProfile.jobTitle       && <InfoRow label="職稱"     value={adProfile.jobTitle} />}
+              {adProfile.department     && <InfoRow label="部門"     value={adProfile.department} />}
+              {adProfile.officeLocation && <InfoRow label="辦公室"   value={adProfile.officeLocation} />}
+              {adProfile.mobilePhone    && <InfoRow label="行動電話" value={adProfile.mobilePhone} />}
+            </div>
+          )}
+
           <Field label="部門">
             <Input
               value={infoForm.department}
@@ -752,95 +817,6 @@ function ProfileTab({ onGoToCompany }) {
         </div>
       </Card>
 
-      {/* 修改密碼 */}
-      <Card
-        title="修改密碼"
-        extra={
-          <button
-            onClick={() => setShowPwd(v => !v)}
-            style={{
-              background: 'none', border: `1px solid ${T.borderStrong}`,
-              borderRadius: 6, padding: '4px 10px',
-              fontSize: 12, cursor: 'pointer', color: T.textMuted,
-            }}
-          >
-            {showPwd ? '▲ 收起' : '▼ 展開'}
-          </button>
-        }
-      >
-        {showPwd && (
-          <div style={{ maxWidth: 480 }}>
-            <Field label="目前密碼" required error={pwdErrors.currentPassword}>
-              <Input
-                type="password"
-                value={pwdForm.currentPassword}
-                onChange={e => setPwdForm({ ...pwdForm, currentPassword: e.target.value })}
-                placeholder="請輸入目前使用的密碼"
-              />
-            </Field>
-            <Field
-              label="新密碼"
-              required
-              error={pwdErrors.newPassword}
-              hint="至少 6 個字元"
-            >
-              <Input
-                type="password"
-                value={pwdForm.newPassword}
-                onChange={e => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
-                placeholder="請設定新密碼"
-              />
-            </Field>
-            <Field label="確認新密碼" required error={pwdErrors.confirmPassword}>
-              <Input
-                type="password"
-                value={pwdForm.confirmPassword}
-                onChange={e => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
-                placeholder="再次輸入新密碼"
-              />
-            </Field>
-
-            {/* 密碼強度提示 */}
-            {pwdForm.newPassword && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 4 }}>密碼強度</div>
-                <div style={{
-                  height: 4, background: T.surfaceMuted, borderRadius: 4, overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%',
-                    borderRadius: 4,
-                    width: pwdForm.newPassword.length >= 12 ? '100%'
-                         : pwdForm.newPassword.length >= 8  ? '66%'
-                         : pwdForm.newPassword.length >= 6  ? '33%'
-                         : '10%',
-                    background: pwdForm.newPassword.length >= 12 ? '#22c55e'
-                              : pwdForm.newPassword.length >= 8  ? '#eab308'
-                              : '#ef4444',
-                    transition: 'all 0.3s',
-                  }} />
-                </div>
-                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 3 }}>
-                  {pwdForm.newPassword.length >= 12 ? '強'
-                 : pwdForm.newPassword.length >= 8  ? '中等'
-                 : pwdForm.newPassword.length >= 6  ? '弱'
-                 : '太短'}
-                </div>
-              </div>
-            )}
-
-            <PrimaryBtn onClick={handlePwdSave} loading={pwdSaving}>
-              🔒 更新密碼
-            </PrimaryBtn>
-          </div>
-        )}
-        {!showPwd && (
-          <p style={{ margin: 0, fontSize: 13, color: T.textMuted }}>
-            點選「展開」以修改登入密碼
-          </p>
-        )}
-      </Card>
-
       {/* 登出 */}
       <Card title="帳號操作">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -849,7 +825,7 @@ function ProfileTab({ onGoToCompany }) {
               登出系統
             </div>
             <div style={{ fontSize: 13, color: T.textMuted }}>
-              登出後需重新輸入帳號密碼才能使用系統
+              登出後需重新透過 Microsoft 帳號登入才能使用系統
             </div>
           </div>
           <button
@@ -1667,6 +1643,29 @@ function IntegrationsTab({ callbackState, authToken }) {
                   : (msStatus.scope || '—')
               } />
             </div>
+
+            {/* Azure AD 個人資料 */}
+            {(msStatus.jobTitle || msStatus.department || msStatus.officeLocation || msStatus.mobilePhone) && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 14,
+                background: T.surfaceSoft,
+                border: `1px solid ${T.border}`,
+                borderRadius: 10,
+                padding: '16px 20px',
+                marginBottom: 20,
+              }}>
+                <div style={{ gridColumn: 'span 2', fontSize: 13, fontWeight: 600, color: T.textSoft, marginBottom: 2 }}>
+                  📇 Azure AD 組織資料
+                </div>
+                {msStatus.jobTitle       && <InfoRow label="職稱"   value={msStatus.jobTitle} />}
+                {msStatus.department     && <InfoRow label="部門"   value={msStatus.department} />}
+                {msStatus.officeLocation && <InfoRow label="辦公室" value={msStatus.officeLocation} />}
+                {msStatus.mobilePhone    && <InfoRow label="行動電話" value={msStatus.mobilePhone} />}
+                {msStatus.userPrincipalName && <InfoRow label="UPN" value={msStatus.userPrincipalName} />}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <button

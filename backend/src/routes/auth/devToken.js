@@ -13,6 +13,7 @@
 const express = require('express');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
+const prisma  = require('../../lib/prisma');
 
 // 僅限開發環境（NODE_ENV 不是 production 才掛載）
 if (process.env.NODE_ENV === 'production') {
@@ -29,25 +30,19 @@ if (process.env.NODE_ENV === 'production') {
 
     let payload;
     try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
-      try {
-        const admin = await prisma.user.findFirst({
-          where: { role: 'admin', isActive: true },
-          orderBy: { id: 'asc' },
-          select: { id: true, email: true, role: true, name: true },
-        });
-        if (admin) {
-          payload = {
-            userId: admin.id,
-            sub:    String(admin.id),
-            email:  admin.email,
-            role:   admin.role,
-            name:   admin.name,
-          };
-        }
-      } finally {
-        await prisma.$disconnect();
+      const admin = await prisma.user.findFirst({
+        where: { role: 'admin', isActive: true },
+        orderBy: { id: 'asc' },
+        select: { id: true, email: true, role: true, name: true },
+      });
+      if (admin) {
+        payload = {
+          userId: admin.id,
+          sub:    String(admin.id),
+          email:  admin.email,
+          role:   admin.role,
+          name:   admin.name,
+        };
       }
     } catch (e) {
       console.warn('[dev-token] DB 查詢失敗，使用最小預設值:', e.message);

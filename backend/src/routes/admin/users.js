@@ -12,16 +12,14 @@
  *   GET    /api/admin/users/:id          — 取得使用者詳情（含 OAuth 帳號清單）
  *   PUT    /api/admin/users/:id          — 更新使用者資料
  *   PATCH  /api/admin/users/:id/toggle   — 停用 / 啟用使用者
- *   POST   /api/admin/users/:id/reset-password — 重設密碼
  *   DELETE /api/admin/users/:id/oauth/:provider — 取消連結指定 OAuth 帳號
  *   GET    /api/admin/users/stats        — 統計數字（總人數、各角色數、本月新增）
  */
 
 const express = require('express');
-const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');
 const router  = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma  = new PrismaClient();
+const prisma  = require('../../lib/prisma');
 const requireAuth = require('../../middleware/requireAuth');
 
 // ── 工具函式 ─────────────────────────────────────────────────
@@ -221,15 +219,13 @@ router.get('/stats', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      name, email, password, role = 'member',
+      name, email, role = 'member',
       department, phone, jobTitle, joinedAt,
     } = req.body;
 
     // ── 基本驗證 ────────────────────────────────────────────
     if (!name?.trim())   return fail(res, '姓名為必填');
     if (!email?.trim())  return fail(res, 'Email 為必填');
-    if (!password)       return fail(res, '密碼為必填');
-    if (password.length < 8) return fail(res, '密碼至少 8 個字元');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return fail(res, 'Email 格式不正確');
     }
@@ -244,8 +240,8 @@ router.post('/', async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { email: normalEmail } });
     if (existing) return fail(res, '此 Email 已被使用', 409);
 
-    // ── 雜湊密碼 ────────────────────────────────────────────
-    const passwordHash = await bcrypt.hash(password, 12);
+    // ── 產生隨機 passwordHash（本系統僅透過 Microsoft OAuth 登入）──
+    const passwordHash = crypto.randomBytes(32).toString('hex');
 
     // ── 建立使用者 ──────────────────────────────────────────
     const newUser = await prisma.user.create({
@@ -396,46 +392,8 @@ router.patch('/:id/toggle', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// POST /api/admin/users/:id/reset-password
-// 重設密碼
-// Body: { newPassword, confirmPassword? }
-// ════════════════════════════════════════════════════════════
-router.post('/:id/reset-password', async (req, res) => {
-  try {
-    const id        = parseInt(req.params.id);
-    const companyId = req.user.companyId;
-
-    if (isNaN(id)) return fail(res, '無效的使用者 ID');
-
-    const { newPassword, confirmPassword } = req.body;
-
-    if (!newPassword)            return fail(res, '新密碼為必填');
-    if (newPassword.length < 8)  return fail(res, '新密碼至少 8 個字元');
-    if (confirmPassword !== undefined && confirmPassword !== newPassword) {
-      return fail(res, '兩次密碼不一致');
-    }
-
-    const existing = await prisma.user.findFirst({ where: { id, companyId } });
-    if (!existing) return fail(res, '找不到此使用者', 404);
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
-      where: { id },
-      data:  { passwordHash },
-    });
-
-    console.log(`✅ [admin/users] 重設密碼：id=${id}（${existing.email}），by ${req.user.email}`);
-    return ok(res, { message: `已成功重設 ${existing.name} 的密碼` });
-
-  } catch (e) {
-    console.error('[admin/users] reset-password 錯誤:', e.message);
-    return fail(res, e.message, 500);
-  }
-});
-
-// ════════════════════════════════════════════════════════════
 // DELETE /api/admin/users/:id/oauth/:provider
-// 取消連結指定 OAuth 帳號（Google / GitHub / Microsoft）
+// 取消連結指定 OAuth 帳號（Microsoft）
 // ════════════════════════════════════════════════════════════
 router.delete('/:id/oauth/:provider', async (req, res) => {
   try {
@@ -448,13 +406,8 @@ router.delete('/:id/oauth/:provider', async (req, res) => {
     const existing = await prisma.user.findFirst({ where: { id, companyId } });
     if (!existing) return fail(res, '找不到此使用者', 404);
 
-    // 若使用者沒有密碼且有 OAuth Token，拒絕取消（避免帳號無法登入）
+    // 本系統僅透過 OAuth 登入，不允許取消唯一的 OAuth 連結
     const oauthToken = await prisma.oAuthToken.findUnique({ where: { userId: id } });
-    const hasPassword = !!existing.passwordHash;
-
-    if (!hasPassword && oauthToken) {
-      return fail(res, '此使用者沒有密碼，取消 OAuth 連結將導致無法登入，請先設定密碼');
-    }
 
     if (!oauthToken || oauthToken.provider !== provider) {
       return fail(res, `此使用者尚未連結 ${provider} 帳號`, 404);
@@ -468,6 +421,41 @@ router.delete('/:id/oauth/:provider', async (req, res) => {
 
   } catch (e) {
     console.error('[admin/users] delete-oauth 錯誤:', e.message);
+    return fail(res, e.message, 500);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/admin/users/:id/azure-profile
+// 取得使用者的 Azure AD 個人資料（需已連結 Microsoft）
+// ════════════════════════════════════════════════════════════
+router.get('/:id/azure-profile', async (req, res) => {
+  try {
+    const id        = parseInt(req.params.id);
+    const companyId = req.user.companyId;
+
+    if (isNaN(id)) return fail(res, '無效的使用者 ID');
+
+    const existing = await prisma.user.findFirst({ where: { id, companyId } });
+    if (!existing) return fail(res, '找不到此使用者', 404);
+
+    const { getMicrosoftProfile } = require('../../services/userOutlookService');
+    const profile = await getMicrosoftProfile(id);
+
+    return ok(res, {
+      displayName:       profile.displayName       || null,
+      email:             profile.email             || null,
+      jobTitle:          profile.jobTitle          || null,
+      department:        profile.department        || null,
+      officeLocation:    profile.officeLocation    || null,
+      mobilePhone:       profile.mobilePhone       || null,
+      userPrincipalName: profile.userPrincipalName || null,
+    });
+  } catch (e) {
+    if (e.code === 'NO_OAUTH_TOKEN' || e.needsReauth) {
+      return fail(res, '此使用者尚未連結 Microsoft 帳號', 404);
+    }
+    console.error('[admin/users] azure-profile 錯誤:', e.message);
     return fail(res, e.message, 500);
   }
 });

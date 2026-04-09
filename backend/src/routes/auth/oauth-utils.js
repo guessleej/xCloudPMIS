@@ -18,8 +18,7 @@
 
 const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../lib/prisma');
 
 // ── 常數 ──────────────────────────────────────────────────────
 const { JWT_SECRET } = require('../../config/jwt');

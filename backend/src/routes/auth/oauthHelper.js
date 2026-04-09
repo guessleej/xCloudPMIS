@@ -1,13 +1,11 @@
 /**
  * OAuth 共用工具函式
- * 供 Microsoft / Google / GitHub OAuth 路由共享
+ * 供 Microsoft OAuth 路由使用
  */
 
 const jwt      = require('jsonwebtoken');
-const bcrypt   = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma       = new PrismaClient();
+const crypto   = require('crypto');
+const prisma       = require('../../lib/prisma');
 const { JWT_SECRET, JWT_EXPIRES } = require('../../config/jwt');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3838';
 
@@ -48,9 +46,8 @@ async function findOrCreateOAuthUser({ email, name, avatarUrl }) {
     throw new Error('系統尚未建立公司，請先完成初始設定');
   }
 
-  // 產生隨機密碼（OAuth 使用者不用密碼登入）
-  const randomPassword = Math.random().toString(36) + Date.now().toString(36);
-  const passwordHash   = await bcrypt.hash(randomPassword, 10);
+  // 產生隨機 passwordHash（OAuth 使用者不用密碼登入）
+  const passwordHash = crypto.randomBytes(32).toString('hex');
 
   user = await prisma.user.create({
     data: {
@@ -82,15 +79,30 @@ function issueJWT(user) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
 }
 
+// ── 從 Request 提取前端來源 URL ─────────────────────────────
+// 優先從 Referer header 取得來源 origin（自動區分 localhost / Azure）
+function extractFrontendOrigin(req) {
+  const referer = req.headers.referer || req.headers.referrer;
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return url.origin; // e.g., "http://localhost:3838" or "https://pmis-frontend.xxx.io"
+    } catch {}
+  }
+  return FRONTEND_URL;
+}
+
 // ── OAuth 成功 → 帶 token 重定向到前端 ─────────────────────
-function redirectSuccess(res, token) {
-  res.redirect(`${FRONTEND_URL}/?oauthToken=${encodeURIComponent(token)}`);
+function redirectSuccess(res, token, frontendUrl) {
+  const base = frontendUrl || FRONTEND_URL;
+  res.redirect(`${base}/?oauthToken=${encodeURIComponent(token)}`);
 }
 
 // ── OAuth 失敗 → 帶錯誤訊息重定向到前端 ────────────────────
-function redirectError(res, message) {
+function redirectError(res, message, frontendUrl) {
+  const base = frontendUrl || FRONTEND_URL;
   console.error('[OAuth] 失敗：', message);
-  res.redirect(`${FRONTEND_URL}/?oauthError=${encodeURIComponent(message)}`);
+  res.redirect(`${base}/?oauthError=${encodeURIComponent(message)}`);
 }
 
 // ── 取得 OAuth 回呼基礎 URL ─────────────────────────────────
@@ -101,6 +113,7 @@ function getCallbackBase() {
 module.exports = {
   findOrCreateOAuthUser,
   issueJWT,
+  extractFrontendOrigin,
   redirectSuccess,
   redirectError,
   getCallbackBase,

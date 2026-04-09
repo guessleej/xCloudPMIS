@@ -1016,16 +1016,18 @@ export default function TaskDetailPanel({
       <aside
         style={{
           position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 'min(560px, 100vw)',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(600px, 95vw)',
+          maxHeight: '90vh',
           background: `linear-gradient(180deg, ${BRAND.white} 0%, ${BRAND.surface} 100%)`,
-          borderLeft: `1px solid ${BRAND.line}`,
-          boxShadow: 'var(--xc-shadow-strong)',
+          borderRadius: 16,
+          boxShadow: '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
           zIndex: 1100,
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
           animation: 'taskDetailPanelSlide .22s ease',
         }}
       >
@@ -1764,11 +1766,11 @@ export default function TaskDetailPanel({
         @keyframes taskDetailPanelSlide {
           from {
             opacity: 0;
-            transform: translateX(20px);
+            transform: translate(-50%, -50%) scale(0.95);
           }
           to {
             opacity: 1;
-            transform: translateX(0);
+            transform: translate(-50%, -50%) scale(1);
           }
         }
       `}</style>

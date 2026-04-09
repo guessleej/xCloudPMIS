@@ -112,7 +112,7 @@ const pool = new Pool({
   user:     process.env.DB_USER     || 'pmis_user',
   password: process.env.DB_PASSWORD || (process.env.NODE_ENV === 'production' ? undefined : 'pmis_password'),
   ssl:      process.env.DB_HOST?.includes('azure') ? { rejectUnauthorized: false } : false,
-  max: 25,              // 最多同時 25 個連線（支援 50+ 併發用戶）
+  max: 5,               // 僅供 health check 等少量原生 SQL，大部分查詢由 Prisma 單例處理
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 });
@@ -280,9 +280,9 @@ app.use('/api/goals', goalsRouter);
 app.use('/api/portfolios', portfoliosRouter);
 
 // ── 身分驗證路由 ─────────────────────────────────────────────
-// POST /api/auth/login  → Email/密碼登入，回傳 JWT
 // GET  /api/auth/me     → 驗證 token 並回傳當前使用者資訊
 // POST /api/auth/logout → 登出（前端清除 token）
+// GET  /auth/microsoft  → Microsoft OAuth 登入
 app.use('/api/auth', authRouter);
 
 // ── 自訂欄位路由 ──────────────────────────────────────────────
@@ -320,7 +320,6 @@ app.use('/api/forms', formsRouter);
 // GET    /api/admin/users/:id          → 使用者詳情
 // PUT    /api/admin/users/:id          → 更新使用者
 // PATCH  /api/admin/users/:id/toggle   → 停用/啟用使用者
-// POST   /api/admin/users/:id/reset-password → 重設密碼
 // DELETE /api/admin/users/:id/oauth/:provider → 取消 OAuth 連結
 app.use('/api/admin/users', adminUsersRouter);
 
@@ -401,7 +400,6 @@ httpServer.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/notifications/unread-count`);
   console.log('');
   console.log('🔑 身分驗證端點：');
-  console.log(`  POST http://localhost:${PORT}/api/auth/login   (Email/密碼登入)`);
   console.log(`  GET  http://localhost:${PORT}/api/auth/me      (驗證 Token)`);
   console.log(`  POST http://localhost:${PORT}/api/auth/logout  (登出)`);
   console.log('');

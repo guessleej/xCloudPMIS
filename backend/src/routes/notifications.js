@@ -8,14 +8,7 @@ const router  = express.Router();
 const ok  = (res, data, meta = {}) => res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
 const err = (res, msg, s = 500)   => res.status(s).json({ success: false, error: msg });
 
-function getPrisma() {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    return new PrismaClient();
-  } catch {
-    return null;
-  }
-}
+const prisma = require('../lib/prisma');
 
 // seed 示範通知已移除 — 改由真實業務流程產生通知
 
@@ -24,9 +17,6 @@ router.get('/unread-count', async (req, res) => {
   // userId 優先從 JWT (req.user.id)，備用 query param
   const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
   if (!userId) return err(res, 'userId 為必填', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const count = await prisma.notification.count({
@@ -48,9 +38,6 @@ router.get('/', async (req, res) => {
   const companyId = parseInt(req.query.companyId);
   const limit     = Math.min(parseInt(req.query.limit) || 50, 100);
   if (!userId) return err(res, 'userId 為必填', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const [items, unreadCount] = await Promise.all([
@@ -76,9 +63,6 @@ router.patch('/:id/read', async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 id', 400);
 
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
-
   try {
     const item = await prisma.notification.update({
       where: { id },
@@ -99,9 +83,6 @@ router.post('/mark-all-read', async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.body.userId || '0');
   if (!userId) return err(res, 'userId 為必填', 400);
 
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
-
   try {
     const result = await prisma.notification.updateMany({
       where: { recipientId: userId, isRead: false },
@@ -121,9 +102,6 @@ router.delete('/delete-all', async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
   if (!userId) return err(res, 'userId 為必填', 400);
 
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
-
   try {
     const result = await prisma.notification.deleteMany({
       where: { recipientId: userId },
@@ -142,9 +120,6 @@ router.delete('/:id', async (req, res) => {
   const id     = parseInt(req.params.id);
   const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
   if (!id) return err(res, '無效的 id', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     // 先確認通知存在且屬於當前使用者（防止越權刪除）

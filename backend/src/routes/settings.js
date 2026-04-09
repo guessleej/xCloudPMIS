@@ -5,16 +5,14 @@
  *   GET    /api/settings/company           → 取得公司資訊
  *   PATCH  /api/settings/company/:id       → 更新公司名稱
  *   GET    /api/settings/profile           → 取得個人資料（?userId=）
- *   PATCH  /api/settings/profile/:id       → 更新個人資料（姓名、Email、密碼）
+ *   PATCH  /api/settings/profile/:id       → 更新個人資料（姓名、Email）
  *   GET    /api/settings/system            → 系統健康狀態 + 資料統計
  */
 
 const express = require('express');
 const router  = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const bcrypt  = require('bcryptjs');
+const prisma  = require('../lib/prisma');
 const OpenAI  = require('openai');
-const prisma  = new PrismaClient();
 const {
   DEFAULT_NOTIFICATION_SETTINGS,
   getUserNotificationSettings,
@@ -176,12 +174,12 @@ router.get('/profile', async (req, res) => {
 // ════════════════════════════════════════════════════════════
 // PATCH /api/settings/profile/:id
 // 更新個人資料
-// Body: { name?, email?, currentPassword?, newPassword? }
+// Body: { name?, email?, department?, phone?, jobTitle?, joinedAt? }
 // ════════════════════════════════════════════════════════════
 router.patch('/profile/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, email, currentPassword, newPassword, department, phone, jobTitle, joinedAt } = req.body;
+    const { name, email, department, phone, jobTitle, joinedAt } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
@@ -210,23 +208,6 @@ router.patch('/profile/:id', async (req, res) => {
         return res.status(409).json({ error: '此 Email 已被其他帳號使用' });
       }
       updates.email = email.trim().toLowerCase();
-    }
-
-    // ── 更新密碼 ────────────────────────────────────────────
-    if (newPassword !== undefined) {
-      if (!currentPassword) {
-        return res.status(400).json({ error: '請輸入目前密碼以驗證身分' });
-      }
-      // 驗證目前密碼
-      const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!isMatch) {
-        return res.status(401).json({ error: '目前密碼輸入有誤' });
-      }
-      // 新密碼長度限制
-      if (newPassword.length < 6) {
-        return res.status(400).json({ error: '新密碼至少需要 6 個字元' });
-      }
-      updates.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
     // ── 更新個人資料欄位 ─────────────────────────────────────
@@ -316,7 +297,7 @@ router.patch('/notifications/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('❌ 更新通知設定失敗:', err);
-    res.status(500).json({ error: '伺服器錯誤', details: err.message });
+    res.status(500).json({ success: false, error: err.message || '伺服器錯誤' });
   }
 });
 

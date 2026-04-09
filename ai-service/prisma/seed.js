@@ -7,16 +7,17 @@
  *
  * 管理員帳號由環境變數提供：
  *   SEED_ADMIN_EMAIL       必填
- *   SEED_ADMIN_PASSWORD    必填
  *   SEED_ADMIN_NAME        選填（預設：系統管理員）
  *   SEED_COMPANY_NAME      選填（預設：xCloud 科技）
+ *
+ * 本系統僅支援 Microsoft OAuth 登入，不需要密碼。
  *
  * ⚠️  注意：此 seed 只建立最基本的公司與管理員帳號。
  *           專案、任務等業務資料請由使用者在登入後自行建立。
  */
 
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
@@ -32,7 +33,6 @@ async function main() {
   const companyName = process.env.SEED_COMPANY_NAME?.trim() || 'xCloud 科技';
   const adminName = process.env.SEED_ADMIN_NAME?.trim() || '系統管理員';
   const adminEmail = requireSeedValue('SEED_ADMIN_EMAIL');
-  const adminPassword = requireSeedValue('SEED_ADMIN_PASSWORD');
 
   console.log('');
   console.log('╔════════════════════════════════════╗');
@@ -74,7 +74,7 @@ async function main() {
 
   // ── 步驟 3：建立預設管理員帳號 ──────────────────────────────
   console.log(`👤 建立管理員帳號：${adminEmail}...`);
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  const passwordHash = crypto.randomBytes(32).toString('hex');
 
   const admin = await prisma.user.create({
     data: {
@@ -103,7 +103,7 @@ async function main() {
   console.log(`   公司 ID：${company.id}`);
   console.log(`   使用者 ID：${admin.id}`);
   console.log('');
-  console.log('💡 提示：請使用部署時設定的管理員密碼登入系統。');
+  console.log('💡 提示：請使用此 Email 對應的 Microsoft 帳號登入系統（OAuth 單一登入）。');
   console.log('');
 }
 

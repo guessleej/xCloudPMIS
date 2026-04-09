@@ -15,8 +15,7 @@
 
 const express = require('express');
 const router  = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 // ── 健康度自動計算 ────────────────────────────────────────────
 // 僅對未完成任務計算；已完成任務固定回傳 null

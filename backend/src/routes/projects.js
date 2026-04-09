@@ -15,7 +15,7 @@
 
 const express = require('express');
 const router  = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { taskController } = require('../controllers/task.controller');
 const { taskRuleEngine } = require('../services/taskRuleEngine');
 const {
@@ -27,7 +27,6 @@ const {
   createMentionNotifications,
 } = require('../services/notificationCenter');
 const { createCalendarEvent } = require('../services/userOutlookService');
-const prisma = new PrismaClient();
 
 // ── 小工具 ──────────────────────────────────────────────────
 const ok  = (res, data, meta = {}) =>

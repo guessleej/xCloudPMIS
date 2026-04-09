@@ -7,9 +7,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { getRedis } = require('../services/cache');
-const prisma = new PrismaClient();
 
 const GANTT_CACHE_TTL = 30; // 秒
 

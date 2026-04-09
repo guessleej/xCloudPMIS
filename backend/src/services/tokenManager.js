@@ -33,9 +33,7 @@
 
 const crypto = require('crypto');
 const axios  = require('axios');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 // ════════════════════════════════════════════════════════════
 // AES-256-GCM 加密 / 解密

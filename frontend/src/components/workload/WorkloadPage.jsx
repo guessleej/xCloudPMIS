@@ -135,17 +135,27 @@ function TaskDrawer({ open, title, tasks, onClose }) {
       {/* 遮罩 */}
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.3)', backdropFilter: 'blur(2px)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.3)', backdropFilter: 'blur(4px)' }}
       />
-      {/* 抽屜本體 */}
+      {/* 彈出視窗 */}
       <div style={{
-        position:     'fixed', top: 0, right: 0, bottom: 0,
-        width:        '400px', zIndex: 401,
+        position:     'fixed', top: '50%', left: '50%',
+        transform:    'translate(-50%, -50%)',
+        width:        '440px', maxWidth: '95vw', maxHeight: '90vh',
+        zIndex:       401,
         background:   'var(--xc-surface)',
-        borderLeft:   '1px solid var(--xc-border)',
+        borderRadius: 16,
         display:      'flex', flexDirection: 'column',
-        boxShadow:    '-8px 0 32px rgba(0,0,0,.15)',
+        overflow:     'hidden',
+        boxShadow:    '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
+        animation:    'taskDrawerModalIn .22s ease',
       }}>
+        <style>{`
+          @keyframes taskDrawerModalIn {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          }
+        `}</style>
         {/* 抽屜標頭 */}
         <div style={{
           padding:      '18px 20px',

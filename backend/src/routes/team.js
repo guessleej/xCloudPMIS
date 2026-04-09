@@ -10,22 +10,12 @@ const err = (res, msg, s = 500)   => res.status(s).json({ success: false, error:
 
 const VALID_ROLES = ['admin', 'pm', 'member'];
 
-function getPrisma() {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    return new PrismaClient();
-  } catch {
-    return null;
-  }
-}
+const prisma = require('../lib/prisma');
 
 // GET /api/team?companyId=N — 列出所有成員（含任務統計）
 router.get('/', async (req, res) => {
   const companyId = parseInt(req.query.companyId);
   if (!companyId) return err(res, 'companyId 為必填', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const users = await prisma.user.findMany({
@@ -85,9 +75,6 @@ router.get('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 id', 400);
 
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
-
   try {
     const user = await prisma.user.findUnique({
       where: { id },
@@ -118,9 +105,6 @@ router.patch('/:id', async (req, res) => {
   if (role !== undefined && !VALID_ROLES.includes(role)) {
     return err(res, `role 必須是: ${VALID_ROLES.join(', ')}`, 400);
   }
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const updateData = {};

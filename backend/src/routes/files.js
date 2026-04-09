@@ -10,9 +10,7 @@ const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('../lib/prisma');
 
 // BigInt → Number（PostgreSQL BIGINT 欄位會以 JS BigInt 回傳，JSON.stringify 不支援）
 function sanitize(rows) {

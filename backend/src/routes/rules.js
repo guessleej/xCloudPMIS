@@ -13,23 +13,12 @@ const VALID_TRIGGER_TYPES = [
   'status_changed', 'assignee_changed', 'field_changed',
 ];
 
-// 取得 Prisma client（若不可用則 fallback）
-function getPrisma() {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    return new PrismaClient();
-  } catch {
-    return null;
-  }
-}
+const prisma = require('../lib/prisma');
 
 // GET /api/rules?companyId=N — 列出所有規則
 router.get('/', async (req, res) => {
   const companyId = parseInt(req.query.companyId);
   if (!companyId) return err(res, 'companyId 為必填', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const rules = await prisma.automationRule.findMany({
@@ -75,9 +64,6 @@ router.post('/', async (req, res) => {
     return err(res, `triggerType 必須是: ${VALID_TRIGGER_TYPES.join(', ')}`, 400);
   }
 
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
-
   try {
     const rule = await prisma.automationRule.create({
       data: {
@@ -107,9 +93,6 @@ router.patch('/:id', async (req, res) => {
   if (!id) return err(res, '無效的 id', 400);
 
   const { name, description, isEnabled, triggerType, triggerConfig, conditions, actions } = req.body;
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     const updateData = { updatedById: req.user?.id || null };
@@ -143,9 +126,6 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 id', 400);
-
-  const prisma = getPrisma();
-  if (!prisma) return err(res, 'Prisma 未設定', 503);
 
   try {
     await prisma.automationRule.update({

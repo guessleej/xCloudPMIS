@@ -248,25 +248,30 @@ async function getUserNotificationSettings(prisma, userId) {
 }
 
 async function updateUserNotificationSettings(prisma, userId, updates = {}) {
-  try {
-    const current = await getUserNotificationSettings(prisma, userId);
-    const merged  = { ...current, ...updates };
+  const current = await getUserNotificationSettings(prisma, userId);
+  const merged  = { ...current, ...updates };
 
-    // 讀取現有 settings JSON，僅更新 notificationSettings key
-    const user = await prisma.user.findUnique({
-      where:  { id: parseInt(userId) },
-      select: { settings: true },
-    });
-    const existingSettings = (user?.settings && typeof user.settings === 'object') ? user.settings : {};
-    await prisma.user.update({
-      where: { id: parseInt(userId) },
-      data:  { settings: { ...existingSettings, notificationSettings: merged } },
-    });
-    return merged;
-  } catch (e) {
-    console.warn('[notificationCenter] 寫入設定失敗:', e.message);
-    return DEFAULT_NOTIFICATION_SETTINGS;
+  // 讀取現有 settings JSON，僅更新 notificationSettings key
+  const user = await prisma.user.findUnique({
+    where:  { id: parseInt(userId) },
+    select: { settings: true },
+  });
+  const existingSettings = (user?.settings && typeof user.settings === 'object') ? user.settings : {};
+  await prisma.user.update({
+    where: { id: parseInt(userId) },
+    data:  { settings: { ...existingSettings, notificationSettings: merged } },
+  });
+
+  // 回讀確認寫入成功
+  const verify = await prisma.user.findUnique({
+    where:  { id: parseInt(userId) },
+    select: { settings: true },
+  });
+  const saved = verify?.settings?.notificationSettings;
+  if (!saved) {
+    throw new Error('通知設定寫入後無法讀回，請檢查資料庫欄位');
   }
+  return saved;
 }
 
 /**
@@ -760,7 +765,15 @@ async function generateDigestNotifications(prisma) {
       const message = lines.join('\n');
       const title = `${FREQ_LABEL[freq]}摘要報告`;
 
-      // 摘要不經偏好過濾，直接建立
+      // ── 多 instance 競态保護：建立前再次確認沒有其他 instance 已經建立 ──
+      const recheck = await prisma.notification.findFirst({
+        where: { recipientId: user.id, type: 'system_digest' },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (recheck && (new Date() - new Date(recheck.createdAt)) < interval) {
+        continue; // 其他 instance 已建立
+      }
+
       await prisma.notification.create({
         data: {
           recipientId:  user.id,

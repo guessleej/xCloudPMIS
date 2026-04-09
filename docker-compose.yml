@@ -122,12 +122,6 @@ services:
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
       MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
       MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
-      # Google OAuth 2.0 設定（至 console.cloud.google.com 申請）
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      # GitHub OAuth App 設定（至 github.com/settings/developers 申請）
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       # 微服務通訊（服務間 HTTP 呼叫）
       INTERNAL_AI_SERVICE_URL: http://ai-service:3002
       INTERNAL_FILE_SERVICE_URL: http://file-service:3001
