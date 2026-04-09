@@ -542,17 +542,14 @@ async function scanDeadlineApproaching(prisma) {
     });
 
     let created = 0;
-    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
     for (const task of tasks) {
-      // 去重：24h 內已通知則跳過
+      // 去重：同一任務已有通知（含軟刪除）則跳過，避免使用者刪除後重複建立
       const existing = await prisma.notification.findFirst({
         where: {
           recipientId:  task.assigneeId,
           type:         'deadline_approaching',
           resourceType: 'task',
           resourceId:   task.id,
-          createdAt:    { gte: cutoff },
         },
       });
       if (existing) continue;
@@ -588,7 +585,6 @@ async function scanDeadlineApproaching(prisma) {
           type:         'deadline_approaching',
           resourceType: 'project',
           resourceId:   proj.id,
-          createdAt:    { gte: cutoff },
         },
       });
       if (existing) continue;
@@ -862,16 +858,15 @@ async function scanTaskOverdue(prisma) {
     });
 
     let created = 0;
-    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     for (const task of tasks) {
+      // 去重：同一任務已有逾期通知（含軟刪除）則跳過
       const existing = await prisma.notification.findFirst({
         where: {
           recipientId:  task.assigneeId,
           type:         'task_overdue',
           resourceType: 'task',
           resourceId:   task.id,
-          createdAt:    { gte: cutoff },
         },
       });
       if (existing) continue;
@@ -907,7 +902,6 @@ async function scanTaskOverdue(prisma) {
           type:         'task_overdue',
           resourceType: 'project',
           resourceId:   proj.id,
-          createdAt:    { gte: cutoff },
         },
       });
       if (existing) continue;

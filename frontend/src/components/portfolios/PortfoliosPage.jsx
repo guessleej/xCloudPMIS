@@ -1,267 +1,386 @@
 /**
- * PortfoliosPage — P3#38-41 多專案集合健康監控
+ * PortfoliosPage — 專案組合管理
  *
- * 企業 Portfolio 視圖：
- *   - 總體健康 KPI 欄
- *   - 健康狀態分布環形圖
- *   - 專案卡片牆（可切換列表/卡片）
- *   - 每張卡：進度條、逾期任務警示、成員數、工時
- *   - 篩選：健康狀態 / 狀態
+ * 10.1 統計卡片：總專案數 / 按計劃（綠） / 有風險（黃） / 已逾期（紅）
+ * 10.2 專案列表操作：點擊名稱跳轉、狀態下拉、健康度循環、週報面板、行內備註
+ * 10.3 新增組合：名稱 / 說明 / 顏色 / 勾選專案
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const HEALTH_CFG = {
-  healthy:  { label: '健康',   color: '#10b981', icon: '🟢' },
-  off_track: { label: '輕度落後', color: '#f59e0b', icon: '🟡' },
-  at_risk:  { label: '有風險', color: '#ef4444', icon: '🔴' },
-  on_hold:  { label: '暫停中', color: '#6b7280', icon: '⚪' },
+  on_track:  { label: '按計劃', color: '#10b981', icon: '🟢' },
+  off_track: { label: '有風險', color: '#f59e0b', icon: '🟡' },
+  at_risk:   { label: '已逾期', color: '#ef4444', icon: '🔴' },
+  on_hold:   { label: '暫停中', color: '#6b7280', icon: '⚪' },
 };
+const HEALTH_CYCLE = ['on_track', 'off_track', 'at_risk'];
 
-const STATUS_CFG = {
-  active:    { label: '進行中', color: '#3b82f6' },
-  completed: { label: '已完成', color: '#10b981' },
-  on_hold:   { label: '暫停中', color: '#6b7280' },
-  planning:  { label: '規劃中', color: '#8b5cf6' },
-};
+const STATUS_OPTIONS = [
+  { value: 'active',    label: '進行中', color: '#3b82f6' },
+  { value: 'completed', label: '已完成', color: '#10b981' },
+  { value: 'on_hold',   label: '暫停',   color: '#6b7280' },
+  { value: 'cancelled', label: '取消',   color: '#ef4444' },
+];
 
-// ── 隱私設定 ──────────────────────────────────────────────────
-const ACCESS_CFG = {
-  public:  { label: '公開',     icon: '🌐', color: '#10b981', bg: 'rgba(16,185,129,.1)',  desc: '工作空間所有人可見' },
-  team:    { label: '僅成員',   icon: '👥', color: '#3b82f6', bg: 'rgba(59,130,246,.1)',  desc: '僅專案成員可見' },
-  private: { label: '私人',     icon: '🔒', color: '#6b7280', bg: 'rgba(107,114,128,.1)', desc: '僅建立者可見' },
-};
-const ACCESS_ORDER = ['public', 'team', 'private'];
+const PALETTE = [
+  '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6',
+];
 
-function AccessBadge({ access, projectId, onChanged }) {
-  const [open, setOpen] = useState(false);
-  const cfg = ACCESS_CFG[access] || ACCESS_CFG.team;
+// ── 小元件 ───────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, color, loading }) {
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
-        title={cfg.desc}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          padding: '3px 8px', borderRadius: 8, cursor: 'pointer',
-          background: cfg.bg, color: cfg.color,
-          fontSize: 10, fontWeight: 700, border: 'none',
-          letterSpacing: '0.02em',
-        }}
-      >
-        {cfg.icon} {cfg.label}
+    <div style={{
+      background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
+      borderRadius: 12, padding: '16px 18px',
+      display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 140,
+    }}>
+      <span style={{ fontSize: 22 }}>{icon}</span>
+      <div>
+        <div style={{ fontSize: 24, fontWeight: 800, color }}>{loading ? '—' : value}</div>
+        <div style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+/* 狀態下拉 */
+function StatusDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const cfg = STATUS_OPTIONS.find(o => o.value === value) || STATUS_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button onClick={() => setOpen(v => !v)} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+        background: `${cfg.color}14`, color: cfg.color,
+        fontSize: 12, fontWeight: 600, border: `1px solid ${cfg.color}30`,
+      }}>
+        {cfg.label} ▾
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: '110%', left: 0, zIndex: 100,
+          position: 'absolute', top: '110%', left: 0, zIndex: 200,
           background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
-          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.15)',
-          minWidth: 160, overflow: 'hidden',
-        }}
-          onMouseLeave={() => setOpen(false)}
-        >
-          {ACCESS_ORDER.map(k => {
-            const c = ACCESS_CFG[k];
-            return (
-              <button key={k} onClick={e => { e.stopPropagation(); onChanged(projectId, k); setOpen(false); }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '9px 14px', background: k === access ? c.bg : 'transparent',
-                  border: 'none', cursor: 'pointer', textAlign: 'left',
-                }}
-              >
-                <span style={{ fontSize: 14 }}>{c.icon}</span>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: c.color }}>{c.label}</div>
-                  <div style={{ fontSize: 10, color: 'var(--xc-text-muted)' }}>{c.desc}</div>
-                </div>
-              </button>
-            );
-          })}
+          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+          minWidth: 120, overflow: 'hidden',
+        }}>
+          {STATUS_OPTIONS.map(o => (
+            <button key={o.value} onClick={() => { onChange(o.value); setOpen(false); }} style={{
+              width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer',
+              background: o.value === value ? `${o.color}14` : 'transparent',
+              color: o.color, fontSize: 12, fontWeight: 600, textAlign: 'left',
+            }}>
+              ● {o.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ── 環形圖 ────────────────────────────────────────────────────
-function HealthDonut({ summary }) {
-  const data = [
-    { name: '健康',   value: summary.healthy   || 0, color: '#10b981' },
-    { name: '輕度落後', value: summary.off_track || 0, color: '#f59e0b' },
-    { name: '有風險', value: summary.at_risk    || 0, color: '#ef4444' },
-    { name: '暫停中', value: summary.on_hold    || 0, color: '#9ca3af' },
-  ].filter(d => d.value > 0);
-
-  if (data.length === 0) return null;
-
+/* 健康度徽章（點擊循環切換） */
+function HealthBadge({ health, onClick }) {
+  const cfg = HEALTH_CFG[health] || HEALTH_CFG.on_track;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-      <ResponsiveContainer width={120} height={120}>
-        <PieChart>
-          <Pie data={data} cx={55} cy={55} innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
-            {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-          </Pie>
-          <Tooltip
-            formatter={(v, n) => [v, n]}
-            contentStyle={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: '8px', fontSize: '12px' }}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {data.map(d => (
-          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: '12px', color: 'var(--xc-text-soft)' }}>{d.name}</span>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: d.color, marginLeft: 'auto' }}>{d.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <button onClick={onClick} title="點擊循環切換健康度" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '4px 10px', borderRadius: 8,
+      background: `${cfg.color}14`, color: cfg.color,
+      fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+    }}>
+      {cfg.icon} {cfg.label}
+    </button>
   );
 }
 
-// ── 專案卡片 ─────────────────────────────────────────────────
-function ProjectCard({ project, onAccessChange }) {
-  const hCfg = HEALTH_CFG[project.health] || HEALTH_CFG.healthy;
-  const sCfg = STATUS_CFG[project.status] || STATUS_CFG.active;
-  const pctColor = project.progress >= 80 ? '#10b981' : project.progress >= 50 ? '#f59e0b' : '#3b82f6';
+/* 行內編輯備註 */
+function InlineNotes({ value, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || '');
+  const inputRef = useRef(null);
+
+  useEffect(() => { setDraft(value || ''); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = () => {
+    setEditing(false);
+    if (draft !== (value || '')) onSave(draft);
+  };
+
+  if (!editing) {
+    return (
+      <span onClick={() => setEditing(true)} title="點擊編輯備註" style={{
+        fontSize: 12, color: value ? 'var(--xc-text-soft)' : 'var(--xc-text-muted)',
+        cursor: 'pointer', fontStyle: value ? 'normal' : 'italic',
+        maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        display: 'inline-block',
+      }}>
+        {value || '點擊新增備註…'}
+      </span>
+    );
+  }
 
   return (
-    <div style={{
-      background:   'var(--xc-surface)',
-      border:       `1px solid ${project.health === 'at_risk' ? 'rgba(239,68,68,.3)' : 'var(--xc-border)'}`,
-      borderRadius: '14px',
-      padding:      '18px 20px',
-      display:      'flex', flexDirection: 'column', gap: '12px',
-      transition:   'box-shadow .15s',
-    }}>
-      {/* 頭部：名稱 + 健康標籤 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {project.name}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '4px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ color: sCfg.color }}>● {sCfg.label}</span>
-            {project.memberCount > 0 && <span>👤 {project.memberCount} 人</span>}
-            {project.totalHours > 0 && <span>⏱ {project.totalHours}h</span>}
-            <AccessBadge access={project.access || 'team'} projectId={project.id} onChanged={onAccessChange} />
-          </div>
-        </div>
+    <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+      onBlur={save} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setDraft(value || ''); setEditing(false); } }}
+      style={{
+        fontSize: 12, padding: '3px 6px', borderRadius: 4, width: 180,
+        border: '1px solid var(--xc-brand)', outline: 'none',
+        background: 'var(--xc-surface)', color: 'var(--xc-text)',
+      }}
+    />
+  );
+}
+
+/* 更多操作（···） */
+function MoreMenu({ onWeeklyReport, onRemove }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(v => !v)} style={{
+        width: 28, height: 28, borderRadius: 6, border: 'none',
+        background: open ? 'var(--xc-surface-strong)' : 'transparent',
+        cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>···</button>
+      {open && (
         <div style={{
-          padding: '3px 8px', borderRadius: '8px',
-          background: `${hCfg.color}15`, color: hCfg.color,
-          fontSize: '11px', fontWeight: 700, flexShrink: 0,
-          display: 'flex', alignItems: 'center', gap: '4px',
+          position: 'absolute', top: '110%', right: 0, zIndex: 200,
+          background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
+          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+          minWidth: 150, overflow: 'hidden',
         }}>
-          {hCfg.icon} {hCfg.label}
-        </div>
-      </div>
-
-      {/* 進度條 */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-          <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>任務完成率</span>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: pctColor }}>{project.progress}%</span>
-        </div>
-        <div style={{ height: '6px', borderRadius: '999px', background: 'var(--xc-border)', overflow: 'hidden' }}>
-          <div style={{ width: `${project.progress}%`, height: '100%', background: pctColor, borderRadius: '999px', transition: 'width .5s ease' }} />
-        </div>
-      </div>
-
-      {/* 任務統計 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
-        {[
-          { label: '總計', value: project.total, color: 'var(--xc-text-soft)' },
-          { label: '完成', value: project.done, color: '#10b981' },
-          { label: '進行', value: project.inProgress, color: '#3b82f6' },
-          { label: '逾期', value: project.overdue, color: project.overdue > 0 ? '#ef4444' : 'var(--xc-text-muted)' },
-        ].map(s => (
-          <div key={s.label} style={{
-            background:   'var(--xc-surface-soft)',
-            borderRadius: '6px', padding: '6px 8px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 逾期警示 */}
-      {project.overdue > 0 && (
-        <div style={{
-          padding: '6px 10px', borderRadius: '8px',
-          background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)',
-          fontSize: '11px', color: '#ef4444', fontWeight: 600,
-        }}>
-          ⏰ {project.overdue} 個任務逾期，需要立即關注
+          <button onClick={() => { onWeeklyReport(); setOpen(false); }} style={{
+            width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
+            background: 'transparent', textAlign: 'left', fontSize: 12,
+            color: 'var(--xc-text)',
+          }}>📝 填寫週報</button>
+          <button onClick={() => { onRemove(); setOpen(false); }} style={{
+            width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
+            background: 'transparent', textAlign: 'left', fontSize: 12,
+            color: '#ef4444',
+          }}>✕ 從組合移除</button>
         </div>
       )}
     </div>
   );
 }
 
-// ── 列表行 ────────────────────────────────────────────────────
-function ProjectRow({ project, onAccessChange }) {
-  const hCfg = HEALTH_CFG[project.health] || HEALTH_CFG.healthy;
-  const sCfg = STATUS_CFG[project.status] || STATUS_CFG.active;
-  const pctColor = project.progress >= 80 ? '#10b981' : project.progress >= 50 ? '#f59e0b' : '#3b82f6';
+/* 週報面板（Modal） */
+function WeeklyReportModal({ project, onClose, onSave }) {
+  const [report, setReport] = useState('');
+  const [saving, setSaving] = useState(false);
 
   return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '2fr 80px 80px 120px 60px 60px 60px 60px',
-      alignItems: 'center', gap: '12px',
-      padding: '12px 16px',
-      borderBottom: '1px solid var(--xc-border)',
-    }}>
-      <div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)' }}>{project.name}</div>
-        <div style={{ fontSize: '11px', color: sCfg.color }}>{sCfg.label}</div>
-      </div>
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', backdropFilter: 'blur(4px)', zIndex: 1000 }} />
       <div style={{
-        padding: '3px 6px', borderRadius: '6px', textAlign: 'center',
-        background: `${hCfg.color}15`, color: hCfg.color,
-        fontSize: '11px', fontWeight: 700,
-      }}>{hCfg.icon} {hCfg.label}</div>
-      {/* 隱私 */}
-      <div><AccessBadge access={project.access || 'team'} projectId={project.id} onChanged={onAccessChange} /></div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: 'var(--xc-border)', overflow: 'hidden' }}>
-          <div style={{ width: `${project.progress}%`, height: '100%', background: pctColor }} />
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: 480, maxWidth: '95vw', background: 'var(--xc-surface)', borderRadius: 16,
+        boxShadow: '0 24px 80px rgba(0,0,0,.25)', zIndex: 1001,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        animation: 'modalIn .2s ease',
+      }}>
+        <style>{`@keyframes modalIn { from { opacity:0; transform: translate(-50%,-50%) scale(.95); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }`}</style>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>📝 本週狀態更新</div>
+            <div style={{ fontSize: 12, color: 'var(--xc-text-muted)', marginTop: 2 }}>{project.name}</div>
+          </div>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>✕</button>
         </div>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: pctColor, flexShrink: 0 }}>{project.progress}%</span>
+        <div style={{ padding: 20 }}>
+          <textarea
+            value={report} onChange={e => setReport(e.target.value)}
+            placeholder="描述本週進展、遇到的問題、下週計畫…"
+            rows={6}
+            style={{
+              width: '100%', borderRadius: 8, border: '1px solid var(--xc-border)',
+              padding: 12, fontSize: 13, background: 'var(--xc-surface)',
+              color: 'var(--xc-text)', resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--xc-border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12, color: 'var(--xc-text-soft)' }}>取消</button>
+          <button
+            disabled={saving || !report.trim()}
+            onClick={async () => {
+              setSaving(true);
+              await onSave(report.trim());
+              setSaving(false);
+              onClose();
+            }}
+            style={{
+              padding: '8px 20px', borderRadius: 8, border: 'none',
+              background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, opacity: !report.trim() ? 0.5 : 1,
+            }}
+          >
+            {saving ? '儲存中…' : '儲存週報'}
+          </button>
+        </div>
       </div>
-      <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--xc-text-soft)' }}>{project.total}</div>
-      <div style={{ textAlign: 'center', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>{project.done}</div>
-      <div style={{ textAlign: 'center', fontSize: '12px', color: project.overdue > 0 ? '#ef4444' : 'var(--xc-text-muted)', fontWeight: project.overdue > 0 ? 700 : 400 }}>
-        {project.overdue}
-      </div>
-      <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--xc-text-soft)' }}>
-        {project.memberCount}👤
-      </div>
-    </div>
+    </>
   );
 }
+
+/* 新增組合 Modal */
+function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [color, setColor] = useState(PALETTE[0]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [creating, setCreating] = useState(false);
+  const [searchProject, setSearchProject] = useState('');
+
+  const toggle = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const filteredProjects = allProjects.filter(p =>
+    !searchProject || p.name.toLowerCase().includes(searchProject.toLowerCase())
+  );
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', backdropFilter: 'blur(4px)', zIndex: 1000 }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: 520, maxWidth: '95vw', maxHeight: '90vh', background: 'var(--xc-surface)',
+        borderRadius: 16, boxShadow: '0 24px 80px rgba(0,0,0,.25)', zIndex: 1001,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        animation: 'modalIn .2s ease',
+      }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>➕ 新增組合</div>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* 名稱 */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>組合名稱 *</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="如：2026 Q2 重點專案"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 13, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* 說明 */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>說明</label>
+            <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="簡要描述此組合目的…" rows={3}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 13, background: 'var(--xc-surface)', color: 'var(--xc-text)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {/* 顏色 */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>顏色</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {PALETTE.map(c => (
+                <button key={c} onClick={() => setColor(c)} style={{
+                  width: 28, height: 28, borderRadius: 8, border: color === c ? '2px solid var(--xc-text)' : '2px solid transparent',
+                  background: c, cursor: 'pointer', transition: 'border .1s',
+                }} />
+              ))}
+            </div>
+          </div>
+
+          {/* 選擇專案 */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>
+              納入專案 {selectedIds.size > 0 && <span style={{ color: 'var(--xc-brand)', fontWeight: 700 }}>（已選 {selectedIds.size}）</span>}
+            </label>
+            <input value={searchProject} onChange={e => setSearchProject(e.target.value)} placeholder="🔍 搜尋專案…"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 12, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }}
+            />
+            <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--xc-border)', borderRadius: 8, background: 'var(--xc-surface-soft)' }}>
+              {filteredProjects.length === 0 ? (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--xc-text-muted)' }}>無符合的專案</div>
+              ) : filteredProjects.map(p => (
+                <label key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                  cursor: 'pointer', borderBottom: '1px solid var(--xc-border)',
+                  background: selectedIds.has(p.id) ? 'color-mix(in srgb, var(--xc-brand) 8%, var(--xc-surface))' : 'transparent',
+                }}>
+                  <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggle(p.id)} style={{ accentColor: 'var(--xc-brand)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--xc-text)' }}>{p.name}</span>
+                  <span style={{ fontSize: 10, color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
+                    {(STATUS_OPTIONS.find(o => o.value === p.status) || STATUS_OPTIONS[0]).label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--xc-border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12, color: 'var(--xc-text-soft)' }}>取消</button>
+          <button
+            disabled={creating || !name.trim()}
+            onClick={async () => {
+              setCreating(true);
+              await onCreate({ name: name.trim(), description: desc, color, projectIds: [...selectedIds] });
+              setCreating(false);
+            }}
+            style={{
+              padding: '8px 20px', borderRadius: 8, border: 'none',
+              background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, opacity: !name.trim() ? 0.5 : 1,
+            }}
+          >
+            {creating ? '建立中…' : '建立組合'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 
 // ════════════════════════════════════════════════════════════
 // 主頁面
 // ════════════════════════════════════════════════════════════
-export default function PortfoliosPage() {
+export default function PortfoliosPage({ onNavigate }) {
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
-  const [projects,     setProjects]     = useState([]);
-  const [summary,      setSummary]      = useState({});
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState(null);
-  const [viewMode,     setViewMode]     = useState('card');  // 'card' | 'list'
-  const [filterHealth, setFilterHealth] = useState('');
-  const [sortBy,       setSortBy]       = useState('overdue'); // overdue | progress | name
+  const [portfolios,    setPortfolios]    = useState([]);
+  const [allProjects,   setAllProjects]   = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState(null);
+  const [activeId,      setActiveId]      = useState(null); // 選中的組合 id
+  const [showCreate,    setShowCreate]    = useState(false);
+  const [weeklyTarget,  setWeeklyTarget]  = useState(null); // project for weekly report
 
+  // ── 載入 ───────────────────────────────────────────────
   const load = useCallback(async () => {
     if (!companyId || !authFetch) { setLoading(false); return; }
     setLoading(true);
@@ -271,178 +390,346 @@ export default function PortfoliosPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const d    = json.data || json;
-      setProjects(d.projects || []);
-      setSummary(d.summary  || {});
+      setPortfolios(d.portfolios || []);
+      setAllProjects(d.allProjects || []);
+      // 自動選中第一個
+      if (!activeId && d.portfolios?.length > 0) {
+        setActiveId(d.portfolios[0].id);
+      }
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [companyId, authFetch]);
+  }, [companyId, authFetch, activeId]);
 
   useEffect(() => { load(); }, [load]);
 
-  // ── 隱私設定快速切換 ─────────────────────────────────────
-  const handleAccessChange = useCallback(async (projectId, newAccess) => {
-    // 樂觀更新 UI
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, access: newAccess } : p));
+  const active = portfolios.find(p => p.id === activeId);
+
+  // ── CRUD helpers ───────────────────────────────────────
+  const createPortfolio = async ({ name, description, color, projectIds }) => {
+    try {
+      await authFetch('/api/portfolios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, name, description, color, projectIds }),
+      });
+      setShowCreate(false);
+      const prev = activeId;
+      await load();
+      // 選中新建的
+      setActiveId(prev2 => {
+        const updated = portfolios;
+        return prev2;
+      });
+      // 重新 load 後選中最新的
+      setPortfolios(prev2 => {
+        if (prev2.length > 0) setActiveId(prev2[prev2.length - 1].id);
+        return prev2;
+      });
+    } catch (e) {
+      console.error('[create portfolio]', e);
+    }
+  };
+
+  const deletePortfolio = async (id) => {
+    if (!confirm('確定要刪除此組合？')) return;
+    try {
+      await authFetch(`/api/portfolios/${id}`, { method: 'DELETE' });
+      setActiveId(null);
+      load();
+    } catch (e) {
+      console.error('[delete portfolio]', e);
+    }
+  };
+
+  const changeProjectStatus = async (projectId, newStatus) => {
+    // 樂觀更新
+    setPortfolios(prev => prev.map(pf => ({
+      ...pf,
+      projects: pf.projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p),
+    })));
     try {
       await authFetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access: newAccess }),
+        body: JSON.stringify({ status: newStatus }),
       });
     } catch (e) {
-      console.error('[access patch]', e);
-      load(); // 失敗則重新載入恢復原狀
+      console.error('[change status]', e);
+      load();
     }
-  }, [authFetch, load]);
+  };
 
-  // 篩選 + 排序
-  const filtered = projects
-    .filter(p => !filterHealth || p.health === filterHealth)
-    .sort((a, b) => {
-      if (sortBy === 'overdue')   return b.overdue - a.overdue;
-      if (sortBy === 'progress')  return b.progress - a.progress;
-      if (sortBy === 'name')      return a.name.localeCompare(b.name);
-      return 0;
-    });
+  const cycleHealth = async (projectId, currentHealth) => {
+    if (!active) return;
+    const idx = HEALTH_CYCLE.indexOf(currentHealth);
+    const next = HEALTH_CYCLE[(idx + 1) % HEALTH_CYCLE.length];
+    // 樂觀更新
+    setPortfolios(prev => prev.map(pf => ({
+      ...pf,
+      projects: pf.projects.map(p => p.id === projectId ? { ...p, health: next } : p),
+    })));
+    try {
+      await authFetch(`/api/portfolios/${active.id}/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ healthOverride: next }),
+      });
+    } catch (e) {
+      console.error('[cycle health]', e);
+      load();
+    }
+  };
 
-  const kpis = [
-    { label: '專案總數', value: summary.totalProjects  ?? 0, color: 'var(--xc-brand)',   icon: '📁' },
-    { label: '平均進度', value: `${summary.avgProgress ?? 0}%`, color: '#3b82f6',        icon: '📈' },
-    { label: '總逾期數', value: summary.totalOverdue   ?? 0, color: '#ef4444',            icon: '⏰' },
-    { label: '總工時',   value: `${summary.totalHours ?? 0}h`, color: '#10b981',         icon: '⏱️' },
-  ];
+  const updateNotes = async (portfolioId, projectId, notes) => {
+    // 樂觀更新
+    setPortfolios(prev => prev.map(pf => pf.id === portfolioId ? {
+      ...pf,
+      projects: pf.projects.map(p => p.id === projectId ? { ...p, notes } : p),
+    } : pf));
+    try {
+      await authFetch(`/api/portfolios/${portfolioId}/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+    } catch (e) {
+      console.error('[update notes]', e);
+      load();
+    }
+  };
+
+  const removeProject = async (portfolioId, projectId) => {
+    setPortfolios(prev => prev.map(pf => pf.id === portfolioId ? {
+      ...pf,
+      projects: pf.projects.filter(p => p.id !== projectId),
+    } : pf));
+    try {
+      await authFetch(`/api/portfolios/${portfolioId}/projects/${projectId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('[remove project]', e);
+      load();
+    }
+  };
+
+  const saveWeeklyReport = async (text) => {
+    // 儲存為備註（附上日期）
+    if (!weeklyTarget || !active) return;
+    const dateStr = new Date().toLocaleDateString('zh-TW');
+    const newNotes = `[${dateStr} 週報] ${text}`;
+    await updateNotes(active.id, weeklyTarget.id, newNotes);
+  };
+
+  // ── 渲染 ───────────────────────────────────────────────
+  const summary = active?.summary || { totalProjects: 0, onTrack: 0, offTrack: 0, atRisk: 0 };
+  const projects = active?.projects || [];
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1280px', margin: '0 auto' }}>
-      {/* 頁頭 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--xc-text)', margin: 0 }}>專案集 Portfolio</h1>
-          <p style={{ fontSize: '13px', color: 'var(--xc-text-muted)', margin: '4px 0 0' }}>
-            多專案健康監控 · 進度一覽 · 逾期預警
-          </p>
-        </div>
-        <button onClick={load} style={{
-          padding: '8px 16px', borderRadius: '8px', fontSize: '12px',
-          border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          cursor: 'pointer', color: 'var(--xc-text-soft)',
-          display: 'flex', alignItems: 'center', gap: '6px',
-        }}>
-          <span style={{ animation: loading ? 'spin 1s linear infinite' : 'none', display: 'inline-block' }}>⟳</span>
-          重新整理
-        </button>
-      </div>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
 
-      {/* KPI 卡片 + 環形圖 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '14px', marginBottom: '24px', alignItems: 'stretch' }}>
-        {kpis.map(k => (
-          <div key={k.label} style={{
-            background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
-            borderRadius: '12px', padding: '16px 18px',
-            display: 'flex', alignItems: 'center', gap: '12px',
+      {/* ═══ 左側：組合列表 ═══ */}
+      <div style={{
+        width: 240, minWidth: 240, borderRight: '1px solid var(--xc-border)',
+        display: 'flex', flexDirection: 'column', background: 'var(--xc-surface-soft)',
+      }}>
+        <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid var(--xc-border)' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--xc-text)', marginBottom: 12 }}>專案組合</div>
+          <button onClick={() => setShowCreate(true)} style={{
+            width: '100%', padding: '9px 0', borderRadius: 8, border: '1px dashed var(--xc-border)',
+            background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+            color: 'var(--xc-brand)', transition: 'background .1s',
           }}>
-            <span style={{ fontSize: '22px' }}>{k.icon}</span>
-            <div>
-              <div style={{ fontSize: '22px', fontWeight: 800, color: k.color }}>
-                {loading ? '—' : k.value}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>{k.label}</div>
+            ＋ 新增組合
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+          {loading && portfolios.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 12 }}>載入中…</div>
+          ) : portfolios.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 12 }}>
+              尚無組合<br />點擊上方按鈕建立
             </div>
+          ) : portfolios.map(pf => (
+            <button key={pf.id} onClick={() => setActiveId(pf.id)} style={{
+              width: '100%', padding: '10px 12px', marginBottom: 4, borderRadius: 8,
+              border: 'none', cursor: 'pointer', textAlign: 'left',
+              background: pf.id === activeId ? 'color-mix(in srgb, var(--xc-brand) 12%, var(--xc-surface))' : 'transparent',
+              transition: 'background .1s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: pf.color, flexShrink: 0 }} />
+                <span style={{
+                  fontSize: 13, fontWeight: pf.id === activeId ? 700 : 500,
+                  color: pf.id === activeId ? 'var(--xc-brand)' : 'var(--xc-text)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{pf.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginLeft: 'auto', flexShrink: 0 }}>
+                  {pf.summary.totalProjects}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══ 右側：組合內容 ═══ */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+        {!active ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+            <div style={{ fontSize: 48 }}>📁</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>
+              {portfolios.length === 0 ? '建立你的第一個組合' : '選擇一個組合'}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
+              從左側選擇或新增組合來管理多專案
+            </div>
+            {portfolios.length === 0 && (
+              <button onClick={() => setShowCreate(true)} style={{
+                marginTop: 8, padding: '10px 24px', borderRadius: 8, border: 'none',
+                background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700,
+              }}>＋ 新增組合</button>
+            )}
           </div>
-        ))}
-        <div style={{
-          background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
-          borderRadius: '12px', padding: '16px 20px',
-        }}>
-          {loading ? (
-            <div style={{ width: '160px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--xc-text-muted)', fontSize: '12px' }}>載入中…</div>
-          ) : (
-            <HealthDonut summary={summary} />
-          )}
-        </div>
+        ) : (
+          <>
+            {/* 組合標題 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 4, background: active.color }} />
+                  <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--xc-text)', margin: 0 }}>{active.name}</h1>
+                </div>
+                {active.description && (
+                  <p style={{ fontSize: 13, color: 'var(--xc-text-muted)', margin: '6px 0 0 24px' }}>{active.description}</p>
+                )}
+              </div>
+              <button onClick={() => deletePortfolio(active.id)} style={{
+                padding: '6px 14px', borderRadius: 8, border: '1px solid var(--xc-border)',
+                background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12,
+                color: '#ef4444',
+              }}>🗑 刪除組合</button>
+            </div>
+
+            {/* 10.1 統計卡片 */}
+            <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
+              <StatCard icon="📁" label="總專案數"        value={summary.totalProjects} color="var(--xc-brand)" loading={loading} />
+              <StatCard icon="🟢" label="按計劃"          value={summary.onTrack}       color="#10b981"          loading={loading} />
+              <StatCard icon="🟡" label="有風險"          value={summary.offTrack}      color="#f59e0b"          loading={loading} />
+              <StatCard icon="🔴" label="已逾期"          value={summary.atRisk}        color="#ef4444"          loading={loading} />
+            </div>
+
+            {/* 錯誤 */}
+            {error && (
+              <div style={{ padding: 14, borderRadius: 10, marginBottom: 16, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#ef4444', fontSize: 13 }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* 10.2 專案列表 */}
+            {projects.length === 0 ? (
+              <div style={{ padding: '60px 40px', textAlign: 'center', background: 'var(--xc-surface)', border: '2px dashed var(--xc-border)', borderRadius: 16 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 6 }}>此組合尚無專案</div>
+                <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>編輯組合以新增專案</div>
+              </div>
+            ) : (
+              <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: 12 }}>
+                {/* 表頭 */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '2fr 100px 90px 110px 60px 180px 40px',
+                  alignItems: 'center', gap: 10, padding: '10px 16px',
+                  background: 'var(--xc-surface-soft)', borderBottom: '1px solid var(--xc-border)',
+                  borderRadius: '12px 12px 0 0',
+                }}>
+                  {['專案名稱', '狀態', '健康度', '進度', '逾期', '備註', ''].map(h => (
+                    <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--xc-text-muted)' }}>{h}</div>
+                  ))}
+                </div>
+
+                {/* 列 */}
+                {projects.map(p => {
+                  const pctColor = p.progress >= 80 ? '#10b981' : p.progress >= 50 ? '#f59e0b' : '#3b82f6';
+                  return (
+                    <div key={p.id} style={{
+                      display: 'grid', gridTemplateColumns: '2fr 100px 90px 110px 60px 180px 40px',
+                      alignItems: 'center', gap: 10, padding: '12px 16px',
+                      borderBottom: '1px solid var(--xc-border)',
+                    }}>
+                      {/* 專案名稱（可點擊跳轉） */}
+                      <div>
+                        <button onClick={() => onNavigate?.('projects')} style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                          fontSize: 13, fontWeight: 600, color: 'var(--xc-text)',
+                          textDecoration: 'none',
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--xc-brand)'}
+                          onMouseLeave={e => e.currentTarget.style.color = 'var(--xc-text)'}
+                        >
+                          {p.name}
+                        </button>
+                        <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginTop: 2 }}>
+                          👤 {p.memberCount} 人 · ⏱ {p.totalHours}h
+                        </div>
+                      </div>
+
+                      {/* 切換狀態 */}
+                      <StatusDropdown value={p.status} onChange={(v) => changeProjectStatus(p.id, v)} />
+
+                      {/* 切換健康度 */}
+                      <HealthBadge health={p.health} onClick={() => cycleHealth(p.id, p.health)} />
+
+                      {/* 進度 */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--xc-border)', overflow: 'hidden' }}>
+                          <div style={{ width: `${p.progress}%`, height: '100%', background: pctColor, borderRadius: 999 }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, flexShrink: 0 }}>{p.progress}%</span>
+                      </div>
+
+                      {/* 逾期 */}
+                      <div style={{
+                        textAlign: 'center', fontSize: 12, fontWeight: p.overdue > 0 ? 700 : 400,
+                        color: p.overdue > 0 ? '#ef4444' : 'var(--xc-text-muted)',
+                      }}>
+                        {p.overdue}
+                      </div>
+
+                      {/* 備註（行內編輯） */}
+                      <InlineNotes value={p.notes} onSave={(v) => updateNotes(active.id, p.id, v)} />
+
+                      {/* 更多操作 */}
+                      <MoreMenu
+                        onWeeklyReport={() => setWeeklyTarget(p)}
+                        onRemove={() => removeProject(active.id, p.id)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* 篩選/排序/切換列 */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '18px', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* 健康篩選 */}
-        <select value={filterHealth} onChange={e => setFilterHealth(e.target.value)} style={{
-          padding: '7px 12px', borderRadius: '8px', fontSize: '12px',
-          border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          color: 'var(--xc-text)',
-        }}>
-          <option value="">所有健康狀態</option>
-          {Object.entries(HEALTH_CFG).map(([k, v]) => (
-            <option key={k} value={k}>{v.icon} {v.label}</option>
-          ))}
-        </select>
-
-        {/* 排序 */}
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{
-          padding: '7px 12px', borderRadius: '8px', fontSize: '12px',
-          border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          color: 'var(--xc-text)',
-        }}>
-          <option value="overdue">排序：逾期多 → 少</option>
-          <option value="progress">排序：進度高 → 低</option>
-          <option value="name">排序：名稱</option>
-        </select>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', border: '1px solid var(--xc-border)', borderRadius: '8px', overflow: 'hidden' }}>
-          {[
-            { k: 'card', label: '⊞ 卡片' },
-            { k: 'list', label: '☰ 列表' },
-          ].map(({ k, label }) => (
-            <button key={k} onClick={() => setViewMode(k)} style={{
-              padding: '7px 14px', fontSize: '12px', border: 'none',
-              background: viewMode === k ? 'var(--xc-brand)' : 'var(--xc-surface)',
-              color: viewMode === k ? '#fff' : 'var(--xc-text-soft)',
-              cursor: 'pointer', fontWeight: viewMode === k ? 700 : 400,
-            }}>{label}</button>
-          ))}
-        </div>
-
-        <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
-          顯示 {filtered.length} / {projects.length} 個專案
-        </span>
-      </div>
-
-      {/* 錯誤 */}
-      {error && (
-        <div style={{ padding: '16px', borderRadius: '10px', marginBottom: '16px', background: 'color-mix(in srgb, var(--xc-danger) 8%, var(--xc-surface))', border: '1px solid var(--xc-danger)', color: 'var(--xc-danger)', fontSize: '13px' }}>
-          ⚠️ {error}
-        </div>
+      {/* ═══ Modals ═══ */}
+      {showCreate && (
+        <CreatePortfolioModal
+          onClose={() => setShowCreate(false)}
+          onCreate={createPortfolio}
+          allProjects={allProjects}
+        />
       )}
 
-      {/* 內容區 */}
-      {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '14px' }}>載入中…</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ padding: '60px 40px', textAlign: 'center', background: 'var(--xc-surface)', border: '2px dashed var(--xc-border)', borderRadius: '16px' }}>
-          <div style={{ fontSize: '40px', marginBottom: '12px' }}>📁</div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '6px' }}>尚無符合條件的專案</div>
-          <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>調整篩選條件或前往「專案」頁面新增</div>
-        </div>
-      ) : viewMode === 'card' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-          {filtered.map(p => <ProjectCard key={p.id} project={p} onAccessChange={handleAccessChange} />)}
-        </div>
-      ) : (
-        <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: '12px', overflow: 'hidden' }}>
-          {/* 列表標題 */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '2fr 80px 80px 120px 60px 60px 60px 60px',
-            gap: '12px', padding: '10px 16px',
-            background: 'var(--xc-surface-soft)', borderBottom: '1px solid var(--xc-border)',
-          }}>
-            {['專案名稱', '健康', '隱私', '進度', '總計', '完成', '逾期', '成員'].map(h => (
-              <div key={h} style={{ fontSize: '11px', fontWeight: 700, color: 'var(--xc-text-muted)', textAlign: h !== '專案名稱' ? 'center' : 'left' }}>{h}</div>
-            ))}
-          </div>
-          {filtered.map(p => <ProjectRow key={p.id} project={p} onAccessChange={handleAccessChange} />)}
-        </div>
+      {weeklyTarget && (
+        <WeeklyReportModal
+          project={weeklyTarget}
+          onClose={() => setWeeklyTarget(null)}
+          onSave={saveWeeklyReport}
+        />
       )}
     </div>
   );

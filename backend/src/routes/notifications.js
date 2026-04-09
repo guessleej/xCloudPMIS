@@ -20,7 +20,7 @@ router.get('/unread-count', async (req, res) => {
 
   try {
     const count = await prisma.notification.count({
-      where: { recipientId: userId, isRead: false },
+      where: { recipientId: userId, isRead: false, deletedAt: null },
     });
     return ok(res, { count });
   } catch (e) {
@@ -42,11 +42,11 @@ router.get('/', async (req, res) => {
   try {
     const [items, unreadCount] = await Promise.all([
       prisma.notification.findMany({
-        where:   { recipientId: userId },
+        where:   { recipientId: userId, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         take:    limit,
       }),
-      prisma.notification.count({ where: { recipientId: userId, isRead: false } }),
+      prisma.notification.count({ where: { recipientId: userId, isRead: false, deletedAt: null } }),
     ]);
 
     return ok(res, items, { unreadCount });
@@ -85,7 +85,7 @@ router.post('/mark-all-read', async (req, res) => {
 
   try {
     const result = await prisma.notification.updateMany({
-      where: { recipientId: userId, isRead: false },
+      where: { recipientId: userId, isRead: false, deletedAt: null },
       data:  { isRead: true, readAt: new Date() },
     });
     return ok(res, { updated: result.count });
@@ -97,14 +97,15 @@ router.post('/mark-all-read', async (req, res) => {
   }
 });
 
-// DELETE /api/notifications/delete-all — 一鍵刪除當前使用者所有通知
+// DELETE /api/notifications/delete-all — 一鍵刪除當前使用者所有通知（軟刪除）
 router.delete('/delete-all', async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
   if (!userId) return err(res, 'userId 為必填', 400);
 
   try {
-    const result = await prisma.notification.deleteMany({
-      where: { recipientId: userId },
+    const result = await prisma.notification.updateMany({
+      where: { recipientId: userId, deletedAt: null },
+      data:  { deletedAt: new Date() },
     });
     return ok(res, { deleted: result.count });
   } catch (e) {
@@ -115,7 +116,7 @@ router.delete('/delete-all', async (req, res) => {
   }
 });
 
-// DELETE /api/notifications/:id — 刪除通知（只能刪自己的通知）
+// DELETE /api/notifications/:id — 刪除通知（軟刪除，只能刪自己的通知）
 router.delete('/:id', async (req, res) => {
   const id     = parseInt(req.params.id);
   const userId = parseInt(req.user?.id || req.user?.userId || req.query.userId || '0');
@@ -125,11 +126,11 @@ router.delete('/:id', async (req, res) => {
     // 先確認通知存在且屬於當前使用者（防止越權刪除）
     if (userId) {
       const item = await prisma.notification.findFirst({
-        where: { id, recipientId: userId },
+        where: { id, recipientId: userId, deletedAt: null },
       });
       if (!item) return err(res, '找不到該通知或無權限刪除', 404);
     }
-    await prisma.notification.delete({ where: { id } });
+    await prisma.notification.update({ where: { id }, data: { deletedAt: new Date() } });
     return ok(res, { id });
   } catch (e) {
     // P2025 = record not found（已被刪除），視為成功

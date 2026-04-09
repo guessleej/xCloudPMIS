@@ -47,6 +47,7 @@ model Company {
   goals         Goal[]          // ← Phase 5 新增：OKR 目標管理
   workflows     Workflow[]      // ← Phase 6 新增：工作流程
   forms         Form[]          // ← Phase 6 新增：表單管理
+  portfolios    Portfolio[]     // ← 專案組合
   customFields  CustomFieldDefinition[] @relation("CompanyCustomFields") // ← Phase 6
   workTimeLogs  WorkTimeLog[]           // ← 手動工時記錄（每日時間表）
   aiSuggestions AiSuggestion[]          // ← AI 建議決策
@@ -205,6 +206,7 @@ model Project {
   customFieldValues CustomFieldValue[] @relation("ProjectCustomFieldValues")
   milestones Milestone[] // ← Phase 3 新增：里程碑
   aiDecisions AiDecision[] // ← AI 自主代理決策記錄
+  portfolioLinks PortfolioProject[] // ← 所屬組合
 
   @@index([companyId])
   @@index([workspaceId])
@@ -897,6 +899,7 @@ model Notification {
   resourceType String?          @map("resource_type") @db.VarChar(50)
   resourceId   Int?             @map("resource_id")   // 點擊通知要跳轉到的資源 ID
   createdAt    DateTime         @default(now()) @map("created_at")
+  deletedAt    DateTime?        @map("deleted_at")    // 軟刪除時間（非 null 表示已刪除）
 
   recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
@@ -1346,4 +1349,41 @@ model AiSuggestion {
   @@index([status])
   @@index([companyId, status])
   @@map("ai_suggestions")
+}
+
+// ════════════════════════════════════════════════════════════
+// 專案組合（Portfolio）
+// ════════════════════════════════════════════════════════════
+
+model Portfolio {
+  id          Int       @id @default(autoincrement())
+  companyId   Int       @map("company_id")
+  name        String    @db.VarChar(255)
+  description String    @default("")
+  color       String    @default("#3b82f6") @db.VarChar(30)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projects PortfolioProject[]
+
+  @@index([companyId])
+  @@map("portfolios")
+}
+
+model PortfolioProject {
+  id             Int      @id @default(autoincrement())
+  portfolioId    Int      @map("portfolio_id")
+  projectId      Int      @map("project_id")
+  notes          String   @default("")
+  healthOverride String?  @map("health_override") @db.VarChar(20) // 手動覆寫健康度（null = 自動計算）
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId],   references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, projectId])
+  @@index([portfolioId])
+  @@index([projectId])
+  @@map("portfolio_projects")
 }

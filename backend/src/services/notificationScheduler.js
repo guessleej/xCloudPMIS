@@ -51,11 +51,13 @@ function startNotificationScheduler() {
   setTimeout(() => runScan(), 10_000);
   intervalId = setInterval(runScan, SCAN_INTERVAL_MS);
 
-  // 摘要掃描：正式環境啟動 30 秒後跑第一次；開發環境只靠 interval 不立即觸發
+  // 摘要掃描：僅正式環境啟動（開發環境不跑，避免重啟時誤寄信件）
   if (!isDev) {
     setTimeout(() => runDigestScan(), 30_000);
+    digestIntervalId = setInterval(runDigestScan, DIGEST_INTERVAL_MS);
+  } else {
+    console.log('  ℹ️  開發環境：摘要排程已停用（不會寄出摘要郵件）');
   }
-  digestIntervalId = setInterval(runDigestScan, DIGEST_INTERVAL_MS);
 }
 
 function stopNotificationScheduler() {

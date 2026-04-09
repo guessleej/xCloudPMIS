@@ -12,7 +12,7 @@ async function main() {
 
   // ── 1. 建立 18 位成員（跳過已存在的） ──────────────────
   const members = [
-    { name: '李偉業', email: 'admin@example.com',        role: 'admin',  seed: 'admin'    }, // 已存在
+    { name: 'Eagle Wu', email: 'eagle_w@cloudinfo.com.tw', role: 'admin',  seed: 'admin'    }, // 已存在
     { name: '林雅婷', email: 'linyating@example.com',   role: 'pm',     seed: 'linyating' },
     { name: '張志明', email: 'zhangzhiming@example.com', role: 'member', seed: 'zhang'    },
     { name: '陳美華', email: 'chenmeihua@example.com',   role: 'member', seed: 'chen1'    },
@@ -45,6 +45,7 @@ async function main() {
           companyId: COMPANY_ID,
           name:      m.name,
           email:     m.email,
+          passwordHash: require('crypto').randomBytes(32).toString('hex'),
           role:      m.role,
           isActive:  true,
           avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.seed}`,
@@ -56,8 +57,8 @@ async function main() {
   }
 
   // ── 2. 建立財政部地端AI專案 ───────────────────────────
-  const pmId  = userMap['林雅婷'] || userMap['李偉業'];
-  const pm2Id = userMap['李偉業'];
+  const pmId  = userMap['林雅婷'] || userMap['Eagle Wu'];
+  const pm2Id = userMap['Eagle Wu'];
 
   let project = await prisma.project.findFirst({
     where: { companyId: COMPANY_ID, name: '財政部地端AI推論平台建置' },
@@ -73,7 +74,6 @@ async function main() {
         startDate:   new Date('2026-03-15'),
         endDate:     new Date('2026-12-31'),
         ownerId:     pm2Id,
-        createdById: pm2Id,
       },
     });
     console.log(`\n✅ 建立專案：${project.name} (id=${project.id})`);
