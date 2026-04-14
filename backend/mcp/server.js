@@ -120,7 +120,7 @@ const TOOLS = [
 
   {
     name: 'get_dashboard_summary',
-    description: '取得首頁儀表板摘要：統計卡片（進行中任務、逾期任務、本週完成、成員數）、專案健康分佈、可行動洞察。',
+    description: '取得首頁儀表板摘要：統計卡片（進行中任務、逾期任務、本週完成、成員數）、專案健康分佈。',
     inputSchema: {
       type: 'object',
       properties: {

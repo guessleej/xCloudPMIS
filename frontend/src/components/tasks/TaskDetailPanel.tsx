@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 type EntityId = string | number;
 
@@ -172,7 +173,7 @@ const inputStyle = {
   ...shellStyle,
   minHeight: 42,
   padding: '10px 12px',
-  fontSize: 13,
+  fontSize: 15,
   outline: 'none',
 };
 
@@ -277,7 +278,7 @@ function Section({
     <section style={{ marginTop: 24 }}>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: 800,
           letterSpacing: '.08em',
           textTransform: 'uppercase',
@@ -289,7 +290,7 @@ function Section({
       <h3
         style={{
           margin: '6px 0 14px',
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: 800,
           color: BRAND.ink,
         }}
@@ -362,7 +363,7 @@ function ProjectTag({
         borderRadius: 999,
         background: project.color || '#FBE5E8',
         color: BRAND.crimsonDeep,
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 700,
       }}
     >
@@ -377,7 +378,7 @@ function ProjectTag({
             color: 'inherit',
             cursor: 'pointer',
             padding: 0,
-            fontSize: 13,
+            fontSize: 15,
             lineHeight: 1,
           }}
         >
@@ -433,7 +434,7 @@ function CustomFieldControl({
               right: 12,
               top: '50%',
               transform: 'translateY(-50%)',
-              fontSize: 12,
+              fontSize: 14,
               color: BRAND.muted,
               fontWeight: 700,
             }}
@@ -482,7 +483,7 @@ function CustomFieldControl({
                   background: checked ? 'var(--xc-brand-soft)' : BRAND.white,
                   color: checked ? BRAND.crimsonDeep : BRAND.carbon,
                   cursor: 'pointer',
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: 700,
                 }}
               >
@@ -536,7 +537,7 @@ function CustomFieldControl({
                     borderRadius: 999,
                     background: BRAND.surfaceMuted,
                     color: BRAND.carbon,
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: 700,
                   }}
                 >
@@ -551,7 +552,7 @@ function CustomFieldControl({
                       color: 'inherit',
                       cursor: 'pointer',
                       padding: 0,
-                      fontSize: 13,
+                      fontSize: 15,
                     }}
                   >
                     ×
@@ -611,7 +612,7 @@ function SubtaskTree({
                 border: `1.5px solid ${item.completed ? BRAND.success : BRAND.line}`,
                 background: item.completed ? BRAND.success : BRAND.white,
                 color: BRAND.white,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 900,
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -626,7 +627,7 @@ function SubtaskTree({
             <div style={{ flex: 1 }}>
               <div
                 style={{
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: 700,
                   lineHeight: 1.4,
                   color: BRAND.ink,
@@ -640,7 +641,7 @@ function SubtaskTree({
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 13,
                     color: BRAND.muted,
                     background: BRAND.surfaceMuted,
                     padding: '4px 8px',
@@ -654,7 +655,7 @@ function SubtaskTree({
                 {item.dueDate ? (
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 13,
                       color: BRAND.muted,
                       background: BRAND.surfaceSoft,
                       padding: '4px 8px',
@@ -672,7 +673,7 @@ function SubtaskTree({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 8,
-                      fontSize: 11,
+                      fontSize: 13,
                       color: BRAND.carbon,
                       fontWeight: 700,
                     }}
@@ -706,7 +707,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
           background: BRAND.surfaceSoft,
           color: BRAND.muted,
           padding: '20px 18px',
-          fontSize: 13,
+          fontSize: 15,
         }}
       >
         尚無評論與操作紀錄。
@@ -747,12 +748,12 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                <span style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
                   {item.actor.name}
                 </span>
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 700,
                     borderRadius: 999,
                     padding: '4px 8px',
@@ -764,7 +765,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                 </span>
               </div>
 
-              <span style={{ fontSize: 11, color: BRAND.muted, fontWeight: 700 }}>
+              <span style={{ fontSize: 13, color: BRAND.muted, fontWeight: 700 }}>
                 {formatActivityTime(item.createdAt)}
               </span>
             </div>
@@ -772,7 +773,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
             <div
               style={{
                 marginTop: 10,
-                fontSize: 13,
+                fontSize: 15,
                 lineHeight: 1.7,
                 color: BRAND.carbon,
                 whiteSpace: 'pre-wrap',
@@ -791,7 +792,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                       borderRadius: 999,
                       background: BRAND.infoSoft,
                       color: '#2563EB',
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 700,
                     }}
                   >
@@ -811,7 +812,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
                       borderRadius: 999,
                       background: BRAND.surfaceSoft,
                       color: BRAND.muted,
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 700,
                     }}
                   >
@@ -1061,7 +1062,7 @@ export default function TaskDetailPanel({
                     borderRadius: 999,
                     background: 'rgba(255,255,255,.12)',
                     border: '1px solid rgba(255,255,255,.16)',
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 800,
                     letterSpacing: '.08em',
                     textTransform: 'uppercase',
@@ -1075,7 +1076,7 @@ export default function TaskDetailPanel({
                     borderRadius: 999,
                     background: statusTone.bg,
                     color: statusTone.color,
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 800,
                   }}
                 >
@@ -1106,7 +1107,7 @@ export default function TaskDetailPanel({
                     outline: 'none',
                     background: 'transparent',
                     color: BRAND.white,
-                    fontSize: 30,
+                    fontSize: 32,
                     fontWeight: 900,
                     lineHeight: 1.08,
                     letterSpacing: '-0.04em',
@@ -1121,7 +1122,7 @@ export default function TaskDetailPanel({
                     border: 'none',
                     background: 'transparent',
                     color: BRAND.white,
-                    fontSize: 30,
+                    fontSize: 32,
                     fontWeight: 900,
                     lineHeight: 1.08,
                     letterSpacing: '-0.04em',
@@ -1145,7 +1146,7 @@ export default function TaskDetailPanel({
                 background: 'rgba(255,255,255,.1)',
                 color: BRAND.white,
                 cursor: 'pointer',
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: 700,
                 flexShrink: 0,
               }}
@@ -1156,26 +1157,26 @@ export default function TaskDetailPanel({
 
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 16 }}>
             <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
                 負責人
               </div>
               {assignee ? (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   <Avatar user={assignee} size={28} />
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{assignee.name}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>{assignee.name}</span>
                 </div>
               ) : (
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.92)' }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,.92)' }}>
                   未指派
                 </span>
               )}
             </div>
 
             <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
                 截止日期
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>
                 {formatHumanDate(dueDate || task.dueDate)}
               </span>
             </div>
@@ -1186,7 +1187,7 @@ export default function TaskDetailPanel({
           <Section kicker="Properties" title="任務屬性">
             <div style={{ display: 'grid', gap: 16 }}>
               <div style={{ display: 'grid', gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                   負責人
                 </label>
                 <select
@@ -1204,7 +1205,7 @@ export default function TaskDetailPanel({
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                   日期
                 </label>
                 <input
@@ -1224,7 +1225,7 @@ export default function TaskDetailPanel({
                     gap: 10,
                   }}
                 >
-                  <label style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                  <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                     專案歸屬
                   </label>
                   {projectOptions.length > 0 ? (
@@ -1236,7 +1237,7 @@ export default function TaskDetailPanel({
                         background: BRAND.white,
                         borderRadius: 999,
                         padding: '6px 10px',
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 700,
                         color: BRAND.carbon,
                         cursor: 'pointer',
@@ -1294,7 +1295,7 @@ export default function TaskDetailPanel({
                     borderRadius: 18,
                     padding: '18px 16px',
                     background: BRAND.surfaceSoft,
-                    fontSize: 13,
+                    fontSize: 15,
                     color: BRAND.muted,
                   }}
                 >
@@ -1304,11 +1305,11 @@ export default function TaskDetailPanel({
                 customFields.map((field) => (
                   <div key={field.id} style={{ display: 'grid', gap: 8 }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
                         {field.name}
                       </div>
                       {field.description ? (
-                        <div style={{ marginTop: 4, fontSize: 12, color: BRAND.muted }}>
+                        <div style={{ marginTop: 4, fontSize: 14, color: BRAND.muted }}>
                           {field.description}
                         </div>
                       ) : null}
@@ -1351,15 +1352,15 @@ export default function TaskDetailPanel({
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
                     進度總覽
                   </div>
-                  <div style={{ marginTop: 4, fontSize: 12, color: BRAND.muted }}>
+                  <div style={{ marginTop: 4, fontSize: 14, color: BRAND.muted }}>
                     已完成 {subtaskStats.completed} / {subtaskStats.total} 項子任務
                   </div>
                 </div>
 
-                <div style={{ fontSize: 24, fontWeight: 900, color: BRAND.crimsonDeep }}>
+                <div style={{ fontSize: 26, fontWeight: 900, color: BRAND.crimsonDeep }}>
                   {subtaskStats.progress}%
                 </div>
               </div>
@@ -1408,7 +1409,7 @@ export default function TaskDetailPanel({
                     background:
                       !subtaskInput.trim() || !onQuickAddSubtask ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: 800,
                     cursor:
                       !subtaskInput.trim() || !onQuickAddSubtask ? 'not-allowed' : 'pointer',
@@ -1440,7 +1441,7 @@ export default function TaskDetailPanel({
                       borderRadius: 18,
                       padding: '20px 16px',
                       background: BRAND.surfaceSoft,
-                      fontSize: 13,
+                      fontSize: 15,
                       color: BRAND.muted,
                     }}
                   >
@@ -1465,10 +1466,10 @@ export default function TaskDetailPanel({
               {checklistItems.length > 0 ? (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.carbon }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: BRAND.carbon }}>
                       完成進度
                     </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.muted }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                       {checklistItems.filter(i => i.isDone).length} / {checklistItems.length}
                     </span>
                   </div>
@@ -1487,7 +1488,7 @@ export default function TaskDetailPanel({
 
               {/* 清單項目 */}
               {checklistLoading ? (
-                <div style={{ fontSize: 13, color: BRAND.muted, padding: '8px 0' }}>載入中...</div>
+                <div style={{ fontSize: 15, color: BRAND.muted, padding: '8px 0' }}>載入中...</div>
               ) : checklistItems.length === 0 ? (
                 <div
                   style={{
@@ -1495,7 +1496,7 @@ export default function TaskDetailPanel({
                     borderRadius: 14,
                     padding: '14px 12px',
                     background: BRAND.surfaceSoft,
-                    fontSize: 13,
+                    fontSize: 15,
                     color: BRAND.muted,
                     marginBottom: 14,
                   }}
@@ -1528,7 +1529,7 @@ export default function TaskDetailPanel({
                           border: `1.5px solid ${item.isDone ? BRAND.success : BRAND.line}`,
                           background: item.isDone ? BRAND.success : BRAND.white,
                           color: BRAND.white,
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: 900,
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -1542,7 +1543,7 @@ export default function TaskDetailPanel({
                       <span
                         style={{
                           flex: 1,
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: 600,
                           color: item.isDone ? BRAND.muted : BRAND.ink,
                           textDecoration: item.isDone ? 'line-through' : 'none',
@@ -1559,7 +1560,7 @@ export default function TaskDetailPanel({
                           background: 'transparent',
                           color: BRAND.muted,
                           cursor: 'pointer',
-                          fontSize: 16,
+                          fontSize: 17,
                           lineHeight: 1,
                           padding: '0 2px',
                           flexShrink: 0,
@@ -1605,7 +1606,7 @@ export default function TaskDetailPanel({
                     padding: '0 16px',
                     background: !checklistInput.trim() || !onAddChecklistItem ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: 800,
                     cursor: !checklistInput.trim() || !onAddChecklistItem ? 'not-allowed' : 'pointer',
                     minWidth: 80,
@@ -1628,10 +1629,10 @@ export default function TaskDetailPanel({
                 boxShadow: 'var(--xc-shadow)',
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 800, color: BRAND.ink }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
                 新增留言
               </div>
-              <div style={{ marginTop: 6, fontSize: 12, color: BRAND.muted, lineHeight: 1.6 }}>
+              <div style={{ marginTop: 6, fontSize: 14, color: BRAND.muted, lineHeight: 1.6 }}>
                 可直接輸入工作更新，使用 @姓名 提及團隊成員。
               </div>
 
@@ -1658,7 +1659,7 @@ export default function TaskDetailPanel({
                     background: BRAND.dangerSoft,
                     color: BRAND.crimsonDeep,
                     padding: '10px 12px',
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: 700,
                   }}
                 >
@@ -1678,7 +1679,7 @@ export default function TaskDetailPanel({
                       !commentText.trim() || !onAddComment || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
                     color: BRAND.white,
                     padding: '11px 16px',
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: 800,
                     cursor:
                       !commentText.trim() || !onAddComment || commentSaving ? 'not-allowed' : 'pointer',
@@ -1714,7 +1715,7 @@ export default function TaskDetailPanel({
               background: BRAND.dangerSoft,
               color: onDelete ? BRAND.crimsonDeep : BRAND.muted,
               padding: '12px 14px',
-              fontSize: 13,
+              fontSize: 15,
               fontWeight: 800,
               cursor: onDelete ? 'pointer' : 'not-allowed',
             }}
@@ -1732,7 +1733,7 @@ export default function TaskDetailPanel({
                 background: BRAND.white,
                 color: BRAND.carbon,
                 padding: '12px 16px',
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -1750,7 +1751,7 @@ export default function TaskDetailPanel({
                 background: saving || !title.trim() ? 'var(--xc-brand-soft)' : BRAND.crimson,
                 color: BRAND.white,
                 padding: '12px 18px',
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 900,
                 cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
                 minWidth: 116,

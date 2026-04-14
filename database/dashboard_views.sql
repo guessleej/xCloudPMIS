@@ -145,7 +145,6 @@ SELECT
     p.end_date,
     u.name                  AS owner_name,
     u.email                 AS owner_email,
-    u.avatar_url            AS owner_avatar,
 
     -- ── 任務統計 ──────────────────────────────────────────
     COALESCE(ts.total_tasks, 0)           AS total_tasks,
@@ -384,7 +383,6 @@ SELECT
     d.work_date,
     u.id             AS user_id,
     u.name           AS user_name,
-    u.avatar_url,
     u.role,
 
     -- 計算這一天這個人有幾個任務
@@ -417,7 +415,7 @@ LEFT JOIN upcoming_tasks ut
     ON ut.user_id = u.id
     AND d.work_date BETWEEN ut.task_start AND ut.task_end
 WHERE u.is_active = true
-GROUP BY d.work_date, u.id, u.name, u.avatar_url, u.role
+GROUP BY d.work_date, u.id, u.name, u.role
 ORDER BY d.work_date, u.name;
 
 

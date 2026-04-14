@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const STATUS_COLORS = {
   todo:        '#94a3b8',
@@ -37,10 +38,10 @@ function CustomTooltip({ active, payload, label }) {
       borderRadius: '8px',
       padding:      '10px 14px',
       boxShadow:    '0 4px 12px rgba(0,0,0,.12)',
-      fontSize:     '12px',
+      fontSize: '14px',
       minWidth:     '140px',
     }}>
-      <div style={{ fontWeight: 600, color: 'var(--xc-text)', marginBottom: '6px', fontSize: '13px' }}>
+      <div style={{ fontWeight: 600, color: 'var(--xc-text)', marginBottom: '6px', fontSize: '15px' }}>
         {label}
       </div>
       {payload.map((entry) => (
@@ -81,7 +82,7 @@ export default function WorkloadHeatmap({ workload, loading }) {
 
   if (users.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--xc-text-muted)', fontSize: '13px' }}>
+      <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--xc-text-muted)', fontSize: '15px' }}>
         尚無成員工作負載資料
       </div>
     );
@@ -104,13 +105,13 @@ export default function WorkloadHeatmap({ workload, loading }) {
           <CartesianGrid vertical={false} stroke="var(--xc-border)" strokeDasharray="3 3" />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 11, fill: 'var(--xc-text-soft)' }}
+            tick={{ fontSize: 13, fill: 'var(--xc-text-soft)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fontSize: 11, fill: 'var(--xc-text-muted)' }}
+            tick={{ fontSize: 13, fill: 'var(--xc-text-muted)' }}
             axisLine={false}
             tickLine={false}
           />
@@ -118,7 +119,7 @@ export default function WorkloadHeatmap({ workload, loading }) {
           <Legend
             iconType="square"
             iconSize={8}
-            formatter={(v) => <span style={{ fontSize: '11px', color: 'var(--xc-text-soft)' }}>{STATUS_LABELS[v] || v}</span>}
+            formatter={(v) => <span style={{ fontSize: '13px', color: 'var(--xc-text-soft)' }}>{STATUS_LABELS[v] || v}</span>}
           />
           <Bar dataKey="todo"        stackId="a" fill={STATUS_COLORS.todo}        radius={0} />
           <Bar dataKey="in_progress" stackId="a" fill={STATUS_COLORS.in_progress} radius={0} />
@@ -139,7 +140,7 @@ export default function WorkloadHeatmap({ workload, loading }) {
               borderRadius: '20px',
               background:   'color-mix(in srgb, var(--xc-danger) 12%, var(--xc-surface))',
               border:       '1px solid color-mix(in srgb, var(--xc-danger) 30%, transparent)',
-              fontSize:     '11px',
+              fontSize: '13px',
               color:        'var(--xc-danger)',
             }}>
               ⚠️ {u.name} · {u.overdueTasks} 逾期

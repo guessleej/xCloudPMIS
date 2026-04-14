@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -25,8 +26,8 @@ const BRAND = {
   info:    'var(--xc-info)',
 };
 
-const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' };
-const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize:13, cursor:'pointer' };
+const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize: 15, fontWeight:600, cursor:'pointer' };
+const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize: 15, cursor:'pointer' };
 
 const TYPE_LABEL = {
   text:          '文字型',
@@ -55,9 +56,10 @@ const FIELD_TYPES = [
   { key:'people',        label:'成員',   desc:'指派給特定成員' },
 ];
 
-const TH_STYLE = { fontSize:11, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
+const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
 
 export default function CustomFieldsPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
 
   const [fields,     setFields]     = useState([]);
@@ -156,47 +158,47 @@ export default function CustomFieldsPage() {
   return (
     <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit' }}>
       {/* Hero */}
-      <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff' }}>
-        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
+      <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff' }}>
+        <div style={{ fontSize: 13, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
           custom fields
         </div>
-        <h1 style={{ fontSize:26, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>自訂欄位</h1>
-        <p style={{ fontSize:13, opacity:0.7, margin:0 }}>為任務與專案新增自訂資料欄位，擴充系統預設屬性</p>
+        <h1 style={{ fontSize: 28, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>自訂欄位</h1>
+        <p style={{ fontSize: 15, opacity:0.7, margin:0 }}>為任務與專案新增自訂資料欄位，擴充系統預設屬性</p>
         <div style={{ display:'flex', gap:32, marginTop:20 }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize:24, fontWeight:800, lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight:800, lineHeight:1 }}>{k.value}</div>
+              <div style={{ fontSize: 13, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ padding:'24px 32px' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '24px 32px' }}>
         {/* Field type legend */}
         <div style={{ display:'flex', flexWrap:'wrap', gap:16, padding:'14px 20px', background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, marginBottom:20 }}>
           {FIELD_TYPES.map(ft => (
             <div key={ft.key} style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-              <span style={{ fontSize:12, fontWeight:600, color:BRAND.ink }}>{ft.label}</span>
-              <span style={{ fontSize:11, color:BRAND.muted }}>{ft.desc}</span>
+              <span style={{ fontSize: 14, fontWeight:600, color:BRAND.ink }}>{ft.label}</span>
+              <span style={{ fontSize: 13, color:BRAND.muted }}>{ft.desc}</span>
             </div>
           ))}
         </div>
 
         {/* Table header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-          <div style={{ fontSize:14, fontWeight:600, color:BRAND.ink }}>欄位列表</div>
+          <div style={{ fontSize: 16, fontWeight:600, color:BRAND.ink }}>欄位列表</div>
           <button style={btnPrimary} onClick={openAdd}>+ 新增欄位</button>
         </div>
 
         {/* Loading */}
         {loading && (
-          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>載入中…</div>
+          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>載入中…</div>
         )}
 
         {/* Table */}
         {!loading && (
-          <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, overflow:'hidden' }}>
+          <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, overflowX:'auto' }}>
             <div style={{
               display:'grid', gridTemplateColumns:'1fr 110px 90px 60px 110px 100px',
               padding:'10px 16px', borderBottom:`1px solid ${BRAND.mist}`,
@@ -208,7 +210,7 @@ export default function CustomFieldsPage() {
             </div>
 
             {fields.length === 0 && (
-              <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>尚無自訂欄位</div>
+              <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>尚無自訂欄位</div>
             )}
 
             {fields.map((f, idx) => {
@@ -229,16 +231,16 @@ export default function CustomFieldsPage() {
                   onMouseEnter={e => e.currentTarget.style.background = BRAND.surfaceSoft}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <span style={{ fontSize:13, color:BRAND.ink, fontWeight:500 }}>{f.name}</span>
-                  <span style={{ fontSize:12, color:BRAND.carbon }}>{TYPE_LABEL[fieldType] || fieldType}</span>
-                  <span style={{ fontSize:12, color:BRAND.carbon }}>{SCOPE_LABEL[entityType] || entityType}</span>
-                  <span style={{ fontSize:13, fontWeight:600, color: isRequired ? BRAND.crimson : BRAND.muted }}>
+                  <span style={{ fontSize: 15, color:BRAND.ink, fontWeight:500 }}>{f.name}</span>
+                  <span style={{ fontSize: 14, color:BRAND.carbon }}>{TYPE_LABEL[fieldType] || fieldType}</span>
+                  <span style={{ fontSize: 14, color:BRAND.carbon }}>{SCOPE_LABEL[entityType] || entityType}</span>
+                  <span style={{ fontSize: 15, fontWeight:600, color: isRequired ? BRAND.crimson : BRAND.muted }}>
                     {isRequired ? '是' : '否'}
                   </span>
-                  <span style={{ fontSize:12, color:BRAND.muted }}>{createdDate}</span>
+                  <span style={{ fontSize: 14, color:BRAND.muted }}>{createdDate}</span>
                   <span style={{ display:'flex', gap:10 }}>
-                    <button onClick={() => openEdit(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:BRAND.carbon, padding:0 }}>編輯</button>
-                    <button onClick={() => deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:BRAND.muted, padding:0 }}>刪除</button>
+                    <button onClick={() => openEdit(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>
+                    <button onClick={() => deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>
                   </span>
                 </div>
               );
@@ -250,46 +252,46 @@ export default function CustomFieldsPage() {
       {/* Modal */}
       {showModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div style={{ background:BRAND.white, borderRadius:12, padding:'28px 32px', width:480, maxWidth:'90vw' }}>
-            <h2 style={{ fontSize:18, fontWeight:700, margin:'0 0 20px', color:BRAND.ink }}>
+          <div style={{ background:BRAND.white, borderRadius:12, padding: isMobile ? '14px 16px' : '28px 32px', width:480, maxWidth:'90vw' }}>
+            <h2 style={{ fontSize: 20, fontWeight:700, margin:'0 0 20px', color:BRAND.ink }}>
               {editField ? '編輯欄位' : '新增欄位'}
             </h2>
 
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 欄位名稱
                 <input
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder='輸入欄位名稱'
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 />
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 欄位類型
                 <select
                   value={form.type}
                   onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 >
                   {FIELD_TYPES.map(ft => <option key={ft.key} value={ft.key}>{ft.label}（{TYPE_LABEL[ft.key]}）</option>)}
                 </select>
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 套用範圍
                 <select
                   value={form.scope}
                   onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}
-                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 >
                   <option value='task'>任務</option>
                   <option value='project'>專案</option>
                 </select>
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon, display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon, display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
                 <input
                   type='checkbox'
                   checked={form.required}

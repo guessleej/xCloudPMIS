@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const BRAND = '#C70018';
@@ -87,23 +88,23 @@ function KRProgressBar({ kr, onUpdate }) {
     }}>
       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: krStatusCfg.color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--xc-text)', marginBottom: '5px' }}>{kr.title}</div>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--xc-text)', marginBottom: '5px' }}>{kr.title}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ flex: 1, height: '6px', borderRadius: '999px', background: 'var(--xc-border)', overflow: 'hidden' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: pctColor, borderRadius: '999px', transition: 'width .4s ease' }} />
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)', whiteSpace: 'nowrap' }}>
             {kr.currentValue} / {kr.targetValue} {kr.unit}
           </span>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: pctColor }}>{pct}%</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: pctColor }}>{pct}%</span>
         </div>
       </div>
       {onUpdate && (
         <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
           <button onClick={() => onUpdate(kr, Math.max(0, kr.currentValue - 1))}
-            style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text-soft)' }}>-</button>
+            style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '14px', color: 'var(--xc-text-soft)' }}>-</button>
           <button onClick={() => onUpdate(kr, Math.min(kr.targetValue, kr.currentValue + 1))}
-            style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text-soft)' }}>+</button>
+            style={{ width: '22px', height: '22px', borderRadius: '4px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '14px', color: 'var(--xc-text-soft)' }}>+</button>
         </div>
       )}
     </div>
@@ -129,20 +130,20 @@ function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDele
         <ProgressRing pct={goal.progress} size={56} color={pctColor} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>{goal.title}</span>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: statusCfg.bg, color: statusCfg.color, fontWeight: 600 }}>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>{goal.title}</span>
+            <span style={{ fontSize: '13px', padding: '2px 8px', borderRadius: '10px', background: statusCfg.bg, color: statusCfg.color, fontWeight: 600 }}>
               {statusCfg.label}
             </span>
           </div>
           {parent && (
-            <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '3px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginTop: '3px' }}>
               ↑ 上層目標：{parent.title}
             </div>
           )}
           {goal.description && (
-            <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)', marginTop: '4px' }}>{goal.description}</div>
+            <div style={{ fontSize: '14px', color: 'var(--xc-text-muted)', marginTop: '4px' }}>{goal.description}</div>
           )}
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginTop: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <span>{goal.quarter} {goal.year}</span>
             <span>{goal.keyResults?.length || 0} KR</span>
             {children.length > 0 && <span>{children.length} 個子目標</span>}
@@ -150,10 +151,10 @@ function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDele
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-          <button onClick={() => setAddKROpen(v => !v)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>+ KR</button>
-          <button onClick={() => onEdit(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>編輯</button>
-          <button onClick={() => onDelete(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '11px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-danger)' }}>刪除</button>
-          <span style={{ fontSize: '13px', padding: '5px', color: 'var(--xc-text-muted)' }}>{expanded ? '▲' : '▼'}</span>
+          <button onClick={() => setAddKROpen(v => !v)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>+ KR</button>
+          <button onClick={() => onEdit(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>編輯</button>
+          <button onClick={() => onDelete(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-danger)' }}>刪除</button>
+          <span style={{ fontSize: '15px', padding: '5px', color: 'var(--xc-text-muted)' }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
@@ -162,29 +163,29 @@ function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDele
         <div style={{ padding: '0 20px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {addKROpen && (
             <div style={{ padding: '12px 14px', borderRadius: '10px', background: `color-mix(in srgb, ${BRAND} 5%, var(--xc-surface))`, border: `1px dashed ${BRAND}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: BRAND, marginBottom: '4px' }}>新增 Key Result</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: BRAND, marginBottom: '4px' }}>新增 Key Result</div>
               <input value={newKR.title} onChange={e => setNewKR(p => ({ ...p, title: e.target.value }))} placeholder="Key Result 描述…"
-                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '12px', color: 'var(--xc-text)', width: '100%', boxSizing: 'border-box' }} />
+                style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '14px', color: 'var(--xc-text)', width: '100%', boxSizing: 'border-box' }} />
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="number" value={newKR.targetValue} onChange={e => setNewKR(p => ({ ...p, targetValue: parseFloat(e.target.value) || 0 }))} placeholder="目標值"
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '12px', color: 'var(--xc-text)' }} />
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '14px', color: 'var(--xc-text)' }} />
                 <input value={newKR.unit} onChange={e => setNewKR(p => ({ ...p, unit: e.target.value }))} placeholder="單位（%、項…）"
-                  style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '12px', color: 'var(--xc-text)' }} />
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: '6px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', fontSize: '14px', color: 'var(--xc-text)' }} />
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setAddKROpen(false)} style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>取消</button>
+                <button onClick={() => setAddKROpen(false)} style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '14px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>取消</button>
                 <button onClick={() => { if (!newKR.title.trim()) return; onAddKR(goal, newKR); setNewKR({ title: '', targetValue: 100, unit: '%' }); setAddKROpen(false); }}
-                  style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>確認新增</button>
+                  style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '14px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>確認新增</button>
               </div>
             </div>
           )}
           {goal.keyResults?.length === 0 ? (
-            <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)', textAlign: 'center', padding: '12px' }}>尚未新增 Key Result</div>
+            <div style={{ fontSize: '14px', color: 'var(--xc-text-muted)', textAlign: 'center', padding: '12px' }}>尚未新增 Key Result</div>
           ) : (
             goal.keyResults.map(kr => (
               <div key={kr.id} style={{ position: 'relative' }}>
                 <KRProgressBar kr={kr} onUpdate={(kr, newVal) => onUpdateKR(goal, kr, newVal)} />
-                <button onClick={() => onDeleteKR(goal, kr)} style={{ position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', width: '18px', height: '18px', borderRadius: '50%', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '10px', color: 'var(--xc-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <button onClick={() => onDeleteKR(goal, kr)} style={{ position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', width: '18px', height: '18px', borderRadius: '50%', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
               </div>
             ))
           )}
@@ -224,13 +225,13 @@ function GoalModal({ goal, onClose, onSave, currentQuarter, currentYear, allGoal
   const excludeIds = goal ? new Set(getDescendants(goal.id)) : new Set();
   const availableParents = allGoals.filter(g => !excludeIds.has(g.id));
 
-  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface-soft)', fontSize: '13px', color: 'var(--xc-text)', boxSizing: 'border-box' };
-  const labelStyle = { fontSize: '12px', fontWeight: 600, color: 'var(--xc-text-soft)', display: 'block', marginBottom: '5px' };
+  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface-soft)', fontSize: '15px', color: 'var(--xc-text)', boxSizing: 'border-box' };
+  const labelStyle = { fontSize: '14px', fontWeight: 600, color: 'var(--xc-text-soft)', display: 'block', marginBottom: '5px' };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ width: '500px', maxWidth: '95vw', background: 'var(--xc-surface)', borderRadius: '16px', padding: '28px', boxShadow: '0 24px 48px rgba(0,0,0,.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>
+        <h3 style={{ margin: '0 0 20px', fontSize: '17px', fontWeight: 700, color: 'var(--xc-text)' }}>
           {goal ? '編輯目標' : '新增 Objective'}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -280,9 +281,9 @@ function GoalModal({ goal, onClose, onSave, currentQuarter, currentYear, allGoal
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>取消</button>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '15px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>取消</button>
           <button onClick={() => { if (!form.title.trim()) return; onSave(form); }}
-            style={{ padding: '9px 22px', borderRadius: '8px', fontSize: '13px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>
+            style={{ padding: '9px 22px', borderRadius: '8px', fontSize: '15px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>
             {goal ? '儲存' : '新增'}
           </button>
         </div>
@@ -411,10 +412,10 @@ function MapNodeCard({ goal, onEdit, onAddChild }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '2px' }}>
         <ProgressRing pct={pct} size={40} stroke={4} color={pctColor} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--xc-text)', lineHeight: 1.35, marginBottom: '4px', wordBreak: 'break-all' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--xc-text)', lineHeight: 1.35, marginBottom: '4px', wordBreak: 'break-all' }}>
             {goal.title}
           </div>
-          <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '8px', background: statusCfg.bg, color: statusCfg.color, fontWeight: 600 }}>
+          <span style={{ fontSize: '12px', padding: '2px 7px', borderRadius: '8px', background: statusCfg.bg, color: statusCfg.color, fontWeight: 600 }}>
             {statusCfg.label}
           </span>
         </div>
@@ -422,11 +423,11 @@ function MapNodeCard({ goal, onEdit, onAddChild }) {
 
       {/* 底部資訊 */}
       <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>
+        <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
           {goal.quarter} {goal.year} · {goal.keyResults?.length || 0} KR
         </span>
         {goal.owner && (
-          <span style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>{goal.owner}</span>
+          <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>{goal.owner}</span>
         )}
       </div>
 
@@ -440,7 +441,7 @@ function MapNodeCard({ goal, onEdit, onAddChild }) {
             width: '26px', height: '26px', borderRadius: '50%',
             background: BRAND, color: '#fff',
             border: '2px solid var(--xc-surface)',
-            fontSize: '15px', lineHeight: '22px', textAlign: 'center',
+            fontSize: '16px', lineHeight: '22px', textAlign: 'center',
             cursor: 'pointer', zIndex: 10,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -455,9 +456,9 @@ function StrategyMap({ allGoals, onEdit, onAddChild }) {
   if (allGoals.length === 0) {
     return (
       <div style={{ padding: '80px 40px', textAlign: 'center', color: 'var(--xc-text-muted)' }}>
-        <div style={{ fontSize: '40px', marginBottom: '12px' }}>🗺️</div>
-        <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px', color: 'var(--xc-text)' }}>尚無目標資料</div>
-        <div style={{ fontSize: '13px' }}>請先在列表視圖建立目標，即可在此看到策略地圖</div>
+        <div style={{ fontSize: '42px', marginBottom: '12px' }}>🗺️</div>
+        <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px', color: 'var(--xc-text)' }}>尚無目標資料</div>
+        <div style={{ fontSize: '15px' }}>請先在列表視圖建立目標，即可在此看到策略地圖</div>
       </div>
     );
   }
@@ -468,13 +469,13 @@ function StrategyMap({ allGoals, onEdit, onAddChild }) {
     <div style={{ overflowX: 'auto', overflowY: 'auto', border: '1px solid var(--xc-border)', borderRadius: '14px', background: 'var(--xc-surface-soft)', position: 'relative' }}>
       {/* 圖例 */}
       <div style={{ position: 'sticky', top: 0, left: 0, zIndex: 20, background: 'var(--xc-surface)', borderBottom: '1px solid var(--xc-border)', padding: '8px 16px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--xc-text-muted)' }}>圖例：</span>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--xc-text-muted)' }}>圖例：</span>
         {Object.entries(STATUS_CFG).map(([k, v]) => (
-          <span key={k} style={{ fontSize: '11px', color: v.color, display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <span key={k} style={{ fontSize: '13px', color: v.color, display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: v.color, display: 'inline-block' }} />{v.label}
           </span>
         ))}
-        <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
+        <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
           點擊節點可編輯 · 懸停後點 <strong style={{ color: BRAND }}>+</strong> 新增子目標
         </span>
       </div>
@@ -545,6 +546,7 @@ function StrategyMap({ allGoals, onEdit, onAddChild }) {
 // 主頁面
 // ════════════════════════════════════════════════════════════
 export default function GoalsPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
@@ -679,7 +681,7 @@ export default function GoalsPage() {
       {/* ── BRAND 頁首 ─────────────────────────────────── */}
       <div style={{
         background: `linear-gradient(135deg, ${BRAND} 0%, #8B0012 60%, #5C000C 100%)`,
-        padding: '32px 36px 28px',
+        padding: isMobile ? '14px 16px 12px' : '32px 36px 28px',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -691,17 +693,17 @@ export default function GoalsPage() {
           {/* 標題列 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-.3px' }}>
+              <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-.3px' }}>
                 🎯 目標管理 OKR
               </h1>
-              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,.7)', margin: '4px 0 0' }}>
+              <p style={{ fontSize: '15px', color: 'rgba(255,255,255,.7)', margin: '4px 0 0' }}>
                 Objectives & Key Results · 追蹤目標達成進度 + 策略地圖視覺化
               </p>
             </div>
             <button
               onClick={() => setModal({ mode: 'add' })}
               style={{
-                padding: '10px 22px', borderRadius: '10px', fontSize: '13px',
+                padding: '10px 22px', borderRadius: '10px', fontSize: '15px',
                 border: '2px solid rgba(255,255,255,.4)',
                 background: 'rgba(255,255,255,.15)',
                 cursor: 'pointer', color: '#fff', fontWeight: 700,
@@ -714,7 +716,7 @@ export default function GoalsPage() {
           </div>
 
           {/* KPI 卡片列 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '12px' }}>
             {kpiCards.map(c => (
               <div key={c.label} style={{
                 background: 'rgba(255,255,255,.12)',
@@ -723,11 +725,11 @@ export default function GoalsPage() {
                 padding: '14px 18px',
                 border: '1px solid rgba(255,255,255,.15)',
               }}>
-                <div style={{ fontSize: '22px', marginBottom: '4px' }}>{c.icon}</div>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: c.color, lineHeight: 1 }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>{c.icon}</div>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: c.color, lineHeight: 1 }}>
                   {loading ? '—' : c.value}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,.65)', marginTop: '3px' }}>{c.label}</div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,.65)', marginTop: '3px' }}>{c.label}</div>
               </div>
             ))}
           </div>
@@ -735,7 +737,7 @@ export default function GoalsPage() {
       </div>
 
       {/* ── 主內容區 ────────────────────────────────────── */}
-      <div style={{ padding: '28px 36px', maxWidth: '1300px', margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '28px 36px', maxWidth: '1300px', margin: '0 auto' }}>
 
         {/* 視圖切換 + 篩選列 */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -743,7 +745,7 @@ export default function GoalsPage() {
           <div style={{ display: 'flex', border: '1px solid var(--xc-border)', borderRadius: '8px', overflow: 'hidden', marginRight: '4px' }}>
             {[['list', '☰ 列表'], ['map', '🗺️ 策略地圖']].map(([v, lbl]) => (
               <button key={v} onClick={() => setView(v)} style={{
-                padding: '7px 16px', fontSize: '12px', border: 'none', borderRight: '1px solid var(--xc-border)',
+                padding: '7px 16px', fontSize: '14px', border: 'none', borderRight: '1px solid var(--xc-border)',
                 background: view === v ? BRAND : 'var(--xc-surface)',
                 color: view === v ? '#fff' : 'var(--xc-text-soft)',
                 cursor: 'pointer', fontWeight: view === v ? 700 : 400,
@@ -757,46 +759,46 @@ export default function GoalsPage() {
               <div style={{ display: 'flex', border: '1px solid var(--xc-border)', borderRadius: '8px', overflow: 'hidden' }}>
                 {QUARTERS.map(q => (
                   <button key={q} onClick={() => setQuarter(q)} style={{
-                    padding: '6px 14px', fontSize: '12px', border: 'none', borderRight: '1px solid var(--xc-border)',
+                    padding: '6px 14px', fontSize: '14px', border: 'none', borderRight: '1px solid var(--xc-border)',
                     background: quarter === q ? BRAND : 'var(--xc-surface)',
                     color: quarter === q ? '#fff' : 'var(--xc-text-soft)',
                     cursor: 'pointer', fontWeight: quarter === q ? 700 : 400,
                   }}>{q}</button>
                 ))}
               </div>
-              <select value={year} onChange={e => setYear(parseInt(e.target.value, 10))} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', color: 'var(--xc-text)' }}>
+              <select value={year} onChange={e => setYear(parseInt(e.target.value, 10))} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', color: 'var(--xc-text)' }}>
                 {years.map(y => <option key={y} value={y}>{y} 年</option>)}
               </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', color: 'var(--xc-text)' }}>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', color: 'var(--xc-text)' }}>
                 <option value="">所有狀態</option>
                 {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {/* 篩選後統計 */}
-              <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)', marginLeft: '4px' }}>
+              <span style={{ fontSize: '14px', color: 'var(--xc-text-muted)', marginLeft: '4px' }}>
                 {quarter} {year}：共 {meta.total} 個目標，進行中 {meta.active}，已完成 {meta.completed}，均進度 {meta.avgProgress}%
               </span>
             </>
           )}
 
           {view === 'map' && (
-            <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
+            <span style={{ fontSize: '14px', color: 'var(--xc-text-muted)' }}>
               顯示全部 {allGoals.length} 個目標的階層關係 · 可在編輯目標時設定「上層目標」建立策略關聯
             </span>
           )}
 
-          <button onClick={load} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)', marginLeft: 'auto' }}>⟳ 重新整理</button>
+          <button onClick={load} style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '14px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)', marginLeft: 'auto' }}>⟳ 重新整理</button>
         </div>
 
         {/* 錯誤提示 */}
         {error && (
-          <div style={{ padding: '16px', borderRadius: '10px', marginBottom: '16px', background: 'color-mix(in srgb, var(--xc-danger) 8%, var(--xc-surface))', border: '1px solid var(--xc-danger)', color: 'var(--xc-danger)', fontSize: '13px' }}>
+          <div style={{ padding: '16px', borderRadius: '10px', marginBottom: '16px', background: 'color-mix(in srgb, var(--xc-danger) 8%, var(--xc-surface))', border: '1px solid var(--xc-danger)', color: 'var(--xc-danger)', fontSize: '15px' }}>
             ⚠️ {error}
           </div>
         )}
 
         {/* 載入中 */}
         {loading ? (
-          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '14px' }}>載入中…</div>
+          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '16px' }}>載入中…</div>
         ) : view === 'map' ? (
           /* ── 策略地圖視圖 ── */
           <StrategyMap
@@ -808,10 +810,10 @@ export default function GoalsPage() {
           /* ── 列表視圖 ── */
           goals.length === 0 ? (
             <div style={{ padding: '60px 40px', textAlign: 'center', background: 'var(--xc-surface)', border: '2px dashed var(--xc-border)', borderRadius: '16px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🎯</div>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '6px' }}>{quarter} {year} 尚無目標</div>
-              <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginBottom: '18px' }}>設定第一個 OKR，開始追蹤目標進度</div>
-              <button onClick={() => setModal({ mode: 'add' })} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '13px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>+ 新增第一個目標</button>
+              <div style={{ fontSize: '42px', marginBottom: '12px' }}>🎯</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '6px' }}>{quarter} {year} 尚無目標</div>
+              <div style={{ fontSize: '15px', color: 'var(--xc-text-muted)', marginBottom: '18px' }}>設定第一個 OKR，開始追蹤目標進度</div>
+              <button onClick={() => setModal({ mode: 'add' })} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '15px', border: 'none', background: BRAND, cursor: 'pointer', color: '#fff', fontWeight: 700 }}>+ 新增第一個目標</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma');
 const {
   automationRuleService,
   SYSTEM_RULE_KEY,
+  evaluateAndExecute,
 } = require('./automationRuleService');
 const { createNotifications } = require('./notificationCenter');
 
@@ -30,6 +31,7 @@ class TaskRuleEngine extends EventEmitter {
       parentProgress: null,
       notificationsSent: 0,
       notifiedRecipientIds: [],
+      automationResults: null,
     };
 
     await this.emitAsync('task.status.changed', {
@@ -39,7 +41,78 @@ class TaskRuleEngine extends EventEmitter {
       summary,
     });
 
+    // ── 使用者自訂規則評估 ──────────────────────────────
+    try {
+      // 取得 companyId
+      let companyId = null;
+      if (afterTask.projectId) {
+        const proj = await this.prisma.project.findUnique({
+          where: { id: afterTask.projectId },
+          select: { companyId: true },
+        });
+        companyId = proj?.companyId;
+      }
+
+      if (companyId) {
+        // 判斷觸發類型
+        const triggerTypes = [];
+        if (beforeTask?.status !== afterTask.status) {
+          triggerTypes.push('status_changed');
+          if (afterTask.status === 'done') triggerTypes.push('task_completed');
+        }
+        if (beforeTask?.assigneeId !== afterTask.assigneeId) {
+          triggerTypes.push('assignee_changed');
+        }
+        if (triggerTypes.length === 0) {
+          triggerTypes.push('field_changed');
+        }
+
+        for (const triggerType of triggerTypes) {
+          const result = await evaluateAndExecute({
+            companyId,
+            triggerType,
+            task: afterTask,
+            beforeTask,
+            actorId,
+          });
+          if (result.triggered > 0) {
+            summary.automationResults = summary.automationResults || [];
+            summary.automationResults.push(...result.results.filter(r => r.matched));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[taskRuleEngine] 使用者規則評估失敗:', e.message);
+    }
+
     return summary;
+  }
+
+  /**
+   * 處理新任務建立 → 觸發 task_created 規則
+   */
+  async handleTaskCreated({ task, actorId }) {
+    try {
+      let companyId = null;
+      if (task.projectId) {
+        const proj = await this.prisma.project.findUnique({
+          where: { id: task.projectId },
+          select: { companyId: true },
+        });
+        companyId = proj?.companyId;
+      }
+      if (!companyId) return { triggered: 0 };
+
+      return evaluateAndExecute({
+        companyId,
+        triggerType: 'task_created',
+        task,
+        actorId,
+      });
+    } catch (e) {
+      console.warn('[taskRuleEngine] task_created 規則評估失敗:', e.message);
+      return { triggered: 0 };
+    }
   }
 
   async onTaskStatusChanged({ beforeTask, afterTask, actorId, summary }) {
@@ -88,23 +161,8 @@ class TaskRuleEngine extends EventEmitter {
       summary.notifiedRecipientIds = notificationContext.recipientIds;
     }
 
-    await automationRuleService.recordRuleExecution({
-      companyId: notificationContext.companyId,
-      ruleKey: SYSTEM_RULE_KEY,
-      taskId: afterTask.id,
-      projectIds: notificationContext.projectIds,
-      triggeredById: actorId || null,
-      status: 'success',
-      context: {
-        event: 'task.status.changed',
-        toStatus: afterTask.status,
-      },
-      result: {
-        notificationsSent: summary.notificationsSent,
-        parentProgress: summary.parentProgress,
-        projectIds: notificationContext.projectIds,
-      },
-    });
+    // 記錄系統規則執行（僅 log，不寫入 DB 因為沒有對應 ruleId）
+    console.log(`⚡ [taskRuleEngine] 系統規則觸發：任務 #${afterTask.id} 完成 → 更新父任務進度 + 發送通知`);
   }
 
   async updateAncestorTaskProgress(parentTaskId) {

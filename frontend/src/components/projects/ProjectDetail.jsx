@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TaskSidePanel } from '../tasks/TaskKanbanPage';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const API = '/api/projects';
 
@@ -62,11 +63,11 @@ const initials  = (n = '') => n.split(' ').map(w => w[0]).join('').slice(0, 2).t
 // 共用樣式
 const inputSt = {
   width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`,
-  borderRadius: 8, padding: '8px 12px', fontSize: 13.5, color: C.ink,
+  borderRadius: 8, padding: '8px 12px', fontSize: 15, color: C.ink,
   outline: 'none', background: C.white, fontFamily: 'inherit',
 };
-const btnP = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
-const btnO = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 20px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const btnP = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+const btnO = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
 
 // ─────────────────────────────────────────────────────────
 // 小元件
@@ -92,9 +93,9 @@ function StatCard({ label, value, sub, color, bg }) {
       borderRadius: 16, padding: '16px 20px',
       boxShadow: C.shadow,
     }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 900, color: color || C.ink, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.ink3, marginTop: 4 }}>{sub}</div>}
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: color || C.ink, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 13, color: C.ink3, marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -115,6 +116,7 @@ function ProgressBar({ pct, color }) {
 // Modal：新增任務
 // ─────────────────────────────────────────────────────────
 function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClose, authFetch }) {
+  const isMobile = useIsMobile();
   const [form, setForm] = useState({ title: '', status: defaultStatus, priority: 'medium', assigneeId: '', dueDate: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -146,22 +148,22 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 520, maxWidth: '96vw', padding: '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
+      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 520, maxWidth: '96vw', padding: isMobile ? '14px 16px' : '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.ink }}>新增任務</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.ink3 }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>新增任務</h3>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.ink3 }}>✕</button>
         </div>
 
-        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 15 }}>{error}</div>}
 
         <div style={{ display: 'grid', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>任務名稱 *</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>任務名稱 *</label>
             <input style={inputSt} placeholder="輸入任務名稱…" value={form.title} onChange={set('title')} autoFocus />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態</label>
               <select style={inputSt} value={form.status} onChange={set('status')}>
                 {Object.entries(TASK_STATUS).filter(([k]) => k !== 'completed').map(([k, v]) =>
                   <option key={k} value={k}>{v.label}</option>
@@ -169,7 +171,7 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>優先度</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>優先度</label>
               <select style={inputSt} value={form.priority} onChange={set('priority')}>
                 {Object.entries(PRIORITY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
@@ -177,19 +179,19 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>負責人</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>負責人</label>
               <select style={inputSt} value={form.assigneeId} onChange={set('assigneeId')}>
                 <option value="">未指派</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
               <input type="date" style={inputSt} value={form.dueDate} onChange={set('dueDate')} />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>描述（選填）</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>描述（選填）</label>
             <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 80, lineHeight: 1.6 }} placeholder="任務說明…" value={form.description} onChange={set('description')} rows={3} />
           </div>
         </div>
@@ -207,6 +209,7 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
 // Modal：編輯專案
 // ─────────────────────────────────────────────────────────
 function EditProjectModal({ project, onSaved, onClose, authFetch }) {
+  const isMobile = useIsMobile();
   const [form, setForm] = useState({
     name:        project.name        || '',
     description: project.description || '',
@@ -243,36 +246,36 @@ function EditProjectModal({ project, onSaved, onClose, authFetch }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 480, maxWidth: '96vw', padding: '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
+      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 480, maxWidth: '96vw', padding: isMobile ? '14px 16px' : '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.ink }}>編輯專案</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.ink3 }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>編輯專案</h3>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.ink3 }}>✕</button>
         </div>
 
-        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 15 }}>{error}</div>}
 
         <div style={{ display: 'grid', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>專案名稱 *</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>專案名稱 *</label>
             <input style={inputSt} value={form.name} onChange={set('name')} autoFocus />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>描述</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>描述</label>
             <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 80, lineHeight: 1.6 }} value={form.description} onChange={set('description')} rows={3} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態</label>
             <select style={inputSt} value={form.status} onChange={set('status')}>
               {Object.entries(PROJ_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>開始日期</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>開始日期</label>
               <input type="date" style={inputSt} value={form.startDate} onChange={set('startDate')} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
               <input type="date" style={inputSt} value={form.endDate} onChange={set('endDate')} />
             </div>
           </div>
@@ -291,6 +294,7 @@ function EditProjectModal({ project, onSaved, onClose, authFetch }) {
 // Modal：新增 / 編輯里程碑
 // ─────────────────────────────────────────────────────────
 function MilestoneModal({ projectId, milestone, onSaved, onClose, authFetch }) {
+  const isMobile = useIsMobile();
   const isEdit = Boolean(milestone);
   const [form, setForm] = useState({
     name:        milestone?.name        || '',
@@ -331,31 +335,31 @@ function MilestoneModal({ projectId, milestone, onSaved, onClose, authFetch }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(0,0,0,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 460, maxWidth: '96vw', padding: '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
+      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 460, maxWidth: '96vw', padding: isMobile ? '14px 16px' : '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.ink }}>{isEdit ? '編輯里程碑' : '新增里程碑'}</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: C.ink3 }}>✕</button>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>{isEdit ? '編輯里程碑' : '新增里程碑'}</h3>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.ink3 }}>✕</button>
         </div>
-        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 15 }}>{error}</div>}
         <div style={{ display: 'grid', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>里程碑名稱 *</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>里程碑名稱 *</label>
             <input style={inputSt} placeholder="例如：MVP 上線、Beta 測試完成…" value={form.name} onChange={set('name')} autoFocus />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>目標日期</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>目標日期</label>
               <input type="date" style={inputSt} value={form.dueDate} onChange={set('dueDate')} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態顏色</label>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態顏色</label>
               <select style={inputSt} value={form.color} onChange={set('color')}>
                 {COLOR_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>說明（選填）</label>
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>說明（選填）</label>
             <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 70, lineHeight: 1.6 }} placeholder="里程碑說明…" value={form.description} onChange={set('description')} rows={3} />
           </div>
         </div>
@@ -376,14 +380,14 @@ function MilestoneTimeline({ milestones, onEdit, onDelete, onToggleAchieve, onAd
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>
           里程碑 {milestones?.length ? `(${milestones.length})` : ''}
         </span>
-        <button onClick={onAdd} style={{ ...btnP, padding: '7px 16px', fontSize: 12.5 }}>+ 新增里程碑</button>
+        <button onClick={onAdd} style={{ ...btnP, padding: '7px 16px', fontSize: 14 }}>+ 新增里程碑</button>
       </div>
 
       {isEmpty ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: C.ink3, fontSize: 13,
+        <div style={{ textAlign: 'center', padding: '40px 0', color: C.ink3, fontSize: 15,
           border: `2px dashed ${C.line}`, borderRadius: 14 }}>
           尚未設定里程碑，點擊右上角按鈕新增
         </div>
@@ -404,7 +408,7 @@ function MilestoneTimeline({ milestones, onEdit, onDelete, onToggleAchieve, onAd
                       width: 28, height: 28, borderRadius: '50%', border: `2.5px solid ${accentColor}`,
                       background: m.isAchieved ? '#16A34A' : C.white, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: m.isAchieved ? 'white' : accentColor, fontSize: 13, fontWeight: 800,
+                      color: m.isAchieved ? 'white' : accentColor, fontSize: 15, fontWeight: 800,
                       transition: 'all .15s',
                     }}>
                     {m.isAchieved ? '✓' : i + 1}
@@ -421,15 +425,15 @@ function MilestoneTimeline({ milestones, onEdit, onDelete, onToggleAchieve, onAd
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: m.isAchieved ? '#15803D' : isOverdue ? '#B91C1C' : C.ink }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: m.isAchieved ? '#15803D' : isOverdue ? '#B91C1C' : C.ink }}>
                         {m.name}
                       </span>
                       {m.description && (
-                        <div style={{ fontSize: 12, color: C.ink3, marginTop: 4, lineHeight: 1.5 }}>{m.description}</div>
+                        <div style={{ fontSize: 14, color: C.ink3, marginTop: 4, lineHeight: 1.5 }}>{m.description}</div>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: m.isAchieved ? '#15803D' : isOverdue ? '#B91C1C' : C.ink3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: m.isAchieved ? '#15803D' : isOverdue ? '#B91C1C' : C.ink3 }}>
                         {m.dueDate ? fmtDate(m.dueDate) : '無截止日'}
                         {m.dueDate && !m.isAchieved && days !== null && (
                           <span style={{ marginLeft: 6 }}>
@@ -439,10 +443,10 @@ function MilestoneTimeline({ milestones, onEdit, onDelete, onToggleAchieve, onAd
                         {m.isAchieved && ' ✓ 達成'}
                       </span>
                       <button onClick={() => onEdit(m)} title="編輯"
-                        style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
+                        style={{ fontSize: 14, padding: '3px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
                           background: C.white, color: C.ink2, cursor: 'pointer', fontWeight: 600 }}>✏️</button>
                       <button onClick={() => onDelete(m)} title="刪除"
-                        style={{ fontSize: 12, padding: '3px 6px', borderRadius: 6, border: 'none',
+                        style={{ fontSize: 14, padding: '3px 6px', borderRadius: 6, border: 'none',
                           background: 'transparent', color: C.ink3, cursor: 'pointer' }}>✕</button>
                     </div>
                   </div>
@@ -480,7 +484,7 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
       {/* 優先度線 */}
       <div style={{ height: 3, borderRadius: 999, background: pri.color, marginBottom: 10, opacity: .7 }} />
 
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink, lineHeight: 1.45, marginBottom: 8,
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.45, marginBottom: 8,
         textDecoration: (task.status === 'done' || task.status === 'completed') ? 'line-through' : 'none',
         opacity: (task.status === 'done' || task.status === 'completed') ? .58 : 1,
       }}>
@@ -488,7 +492,7 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
       </div>
 
       {task.description && (
-        <div style={{ fontSize: 12, color: C.ink2, lineHeight: 1.5, marginBottom: 8,
+        <div style={{ fontSize: 14, color: C.ink2, lineHeight: 1.5, marginBottom: 8,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {task.description}
         </div>
@@ -498,7 +502,7 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
       {task.tags?.length > 0 && (
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
           {task.tags.map(tag => (
-            <span key={tag.id} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999,
+            <span key={tag.id} style={{ fontSize: 12, padding: '2px 7px', borderRadius: 999,
               background: tag.color || C.surfaceMuted, color: C.ink2, fontWeight: 600 }}>
               #{tag.name}
             </span>
@@ -509,18 +513,18 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {/* 優先度 */}
-          <span style={{ fontSize: 10, padding: '3px 7px', borderRadius: 999, background: pri.bg, color: pri.color, fontWeight: 700 }}>
+          <span style={{ fontSize: 12, padding: '3px 7px', borderRadius: 999, background: pri.bg, color: pri.color, fontWeight: 700 }}>
             {pri.label}
           </span>
           {/* 截止日 */}
           {task.dueDate && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: isOverdue ? '#DC2626' : C.ink3 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: isOverdue ? '#DC2626' : C.ink3 }}>
               {isOverdue ? `逾期 ${Math.abs(days)} 天` : days === 0 ? '今天' : `${fmtDate(task.dueDate)}`}
             </span>
           )}
           {/* 子任務 */}
           {task.numSubtasks > 0 && (
-            <span style={{ fontSize: 10, color: C.ink3 }}>◫ {task.numSubtasks}</span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>◫ {task.numSubtasks}</span>
           )}
         </div>
 
@@ -531,18 +535,18 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
           <button
             onClick={e => { e.stopPropagation(); onMoveNext(task); }}
             title={st.nextLabel}
-            style={{ fontSize: 10, padding: '4px 8px', borderRadius: 999, border: `1px solid ${C.brand}`,
+            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 999, border: `1px solid ${C.brand}`,
               background: (task.status === 'done' || task.status === 'completed') ? C.white : 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)',
               color: (task.status === 'done' || task.status === 'completed') ? C.ink2 : '#ffffff',
               cursor: 'pointer', fontWeight: 700, transition: 'all .14s' }}
           >{st.nextLabel}</button>
           {/* 詳情 */}
           <button onClick={e => { e.stopPropagation(); onTaskClick && onTaskClick(task); }} title="開啟詳情"
-            style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
+            style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
               background: C.white, color: C.ink3, cursor: 'pointer' }}>⋯</button>
           {/* 刪除 */}
           <button onClick={e => { e.stopPropagation(); onDelete(task); }} title="刪除"
-            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: 'none',
+            style={{ fontSize: 14, padding: '4px 6px', borderRadius: 6, border: 'none',
               background: 'transparent', color: C.ink3, cursor: 'pointer' }}>✕</button>
         </div>
       </div>
@@ -555,7 +559,7 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
 // ─────────────────────────────────────────────────────────
 function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
   if (!tasks.length) return (
-    <div style={{ textAlign: 'center', padding: '40px 0', color: C.ink3, fontSize: 13 }}>
+    <div style={{ textAlign: 'center', padding: '40px 0', color: C.ink3, fontSize: 15 }}>
       目前還沒有任務
     </div>
   );
@@ -571,7 +575,7 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 110px 100px 90px 80px', gap: 8,
         padding: '8px 14px', background: C.surfaceSoft, borderRadius: '10px 10px 0 0',
-        borderBottom: `1px solid ${C.line}`, fontSize: 11, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+        borderBottom: `1px solid ${C.line}`, fontSize: 13, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
         <span>任務名稱</span><span>負責人</span><span>狀態</span><span>優先度</span><span>截止日</span><span style={{ textAlign: 'right' }}>操作</span>
       </div>
       {tasks.map((task, i) => {
@@ -586,7 +590,7 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
               display: 'grid', gridTemplateColumns: '1fr 120px 110px 100px 90px 100px',
               gap: 8, padding: '10px 14px', alignItems: 'center',
               background: i % 2 === 0 ? C.white : C.surfaceSoft,
-              borderBottom: `1px solid ${C.line}`, fontSize: 13,
+              borderBottom: `1px solid ${C.line}`, fontSize: 15,
               cursor: onTaskClick ? 'pointer' : 'default',
               transition: 'background .1s',
             }}
@@ -597,35 +601,35 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
               textDecoration: (task.status === 'done' || task.status === 'completed') ? 'line-through' : 'none',
               opacity: (task.status === 'done' || task.status === 'completed') ? .6 : 1 }}>
               {task.title}
-              {task.numSubtasks > 0 && <span style={{ marginLeft: 6, fontSize: 11, color: C.ink3 }}>+{task.numSubtasks} 子任務</span>}
+              {task.numSubtasks > 0 && <span style={{ marginLeft: 6, fontSize: 13, color: C.ink3 }}>+{task.numSubtasks} 子任務</span>}
             </span>
             <span>
               {task.assignee
-                ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Avatar name={task.assignee.name} size={20} url={task.assignee.avatarUrl} /><span style={{ fontSize: 12, color: C.ink2 }}>{task.assignee.name}</span></div>
-                : <span style={{ color: C.ink3, fontSize: 12 }}>未指派</span>}
+                ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Avatar name={task.assignee.name} size={20} url={task.assignee.avatarUrl} /><span style={{ fontSize: 14, color: C.ink2 }}>{task.assignee.name}</span></div>
+                : <span style={{ color: C.ink3, fontSize: 14 }}>未指派</span>}
             </span>
             <span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.color }}>{st.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.color }}>{st.label}</span>
             </span>
             <span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: pri.bg, color: pri.color }}>{pri.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: pri.bg, color: pri.color }}>{pri.label}</span>
             </span>
-            <span style={{ fontSize: 12, color: isOverdue ? '#DC2626' : C.ink3, fontWeight: isOverdue ? 700 : 400 }}>
+            <span style={{ fontSize: 14, color: isOverdue ? '#DC2626' : C.ink3, fontWeight: isOverdue ? 700 : 400 }}>
               {task.dueDate ? (isOverdue ? `逾 ${Math.abs(days)}d` : fmtDate(task.dueDate)) : '—'}
             </span>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 5 }}>
               <button onClick={e => { e.stopPropagation(); onTaskClick && onTaskClick(task); }} title="開啟詳情"
-                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
+                style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
                   background: C.white, color: C.ink3, cursor: 'pointer' }}>⋯</button>
               <button onClick={e => { e.stopPropagation(); onMoveNext(task); }} title={st.nextLabel}
-                style={{ fontSize: 11, padding: '4px 9px', borderRadius: 6, border: `1px solid ${C.brand}`,
+                style={{ fontSize: 13, padding: '4px 9px', borderRadius: 6, border: `1px solid ${C.brand}`,
                   background: (task.status === 'done' || task.status === 'completed') ? C.white : 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)',
                   color: (task.status === 'done' || task.status === 'completed') ? C.ink2 : '#ffffff',
                   cursor: 'pointer', fontWeight: 700 }}>
                 {st.nextLabel}
               </button>
               <button onClick={e => { e.stopPropagation(); onDelete(task); }}
-                style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: C.ink3, cursor: 'pointer' }}>
+                style={{ fontSize: 14, padding: '4px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: C.ink3, cursor: 'pointer' }}>
                 ✕
               </button>
             </div>
@@ -661,14 +665,14 @@ function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick }
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', marginBottom: 2 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: col.accent }} />
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: C.ink }}>{col.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: col.accent,
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{col.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: col.accent,
                   background: `color-mix(in srgb, ${col.accent} 14%, var(--xc-surface))`, padding: '1px 7px', borderRadius: 999 }}>
                   {tasks.length}
                 </span>
               </div>
               <button onClick={() => onAddTask(col.id)}
-                style={{ fontSize: 18, lineHeight: 1, padding: '0 2px', border: 'none',
+                style={{ fontSize: 20, lineHeight: 1, padding: '0 2px', border: 'none',
                   background: 'transparent', color: col.accent, cursor: 'pointer' }}
                 title={`在「${col.label}」新增任務`}>+</button>
             </div>
@@ -678,7 +682,7 @@ function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick }
                 <TaskCard key={task.id} task={task} onMoveNext={onMoveNext} onDelete={onDelete} onTaskClick={onTaskClick} />
               ))}
               {tasks.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: C.ink3, fontSize: 12,
+                <div style={{ textAlign: 'center', padding: '16px 0', color: C.ink3, fontSize: 14,
                   border: `1.5px dashed ${C.line}`, borderRadius: 10 }}>
                   無任務
                 </div>
@@ -817,7 +821,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320, flexDirection: 'column', gap: 16 }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', border: `4px solid ${C.brand}`,
           borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-        <div style={{ color: C.ink3, fontSize: 14 }}>載入專案資料中…</div>
+        <div style={{ color: C.ink3, fontSize: 16 }}>載入專案資料中…</div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -826,7 +830,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
   if (error) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <div style={{ color: '#B91C1C', fontSize: 15, marginBottom: 16 }}>載入失敗：{error}</div>
+        <div style={{ color: '#B91C1C', fontSize: 16, marginBottom: 16 }}>載入失敗：{error}</div>
         <button style={btnO} onClick={load}>重試</button>
         <button style={{ ...btnO, marginLeft: 12 }} onClick={onBack}>返回</button>
       </div>
@@ -850,7 +854,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
         <div style={{
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
           zIndex: 9999, background: '#111', color: 'white',
-          padding: '10px 22px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+          padding: '10px 22px', borderRadius: 999, fontSize: 15, fontWeight: 600,
           boxShadow: '0 8px 28px rgba(0,0,0,.3)', pointerEvents: 'none',
         }}>{toast}</div>
       )}
@@ -860,7 +864,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
         background: isDark
           ? `linear-gradient(135deg, var(--xc-bg) 0%, color-mix(in srgb, var(--xc-brand-soft) 70%, var(--xc-surface)) 55%, var(--xc-surface-muted) 100%)`
           : `linear-gradient(135deg, #13090A 0%, #6E0615 50%, var(--xc-brand) 100%)`,
-        padding: '24px 32px 28px',
+        padding: isMobile ? '14px 16px 12px' : '24px 32px 28px',
         color: isDark ? 'var(--xc-text)' : 'white',
         borderBottom: isDark ? `1px solid var(--xc-border)` : 'none',
       }}>
@@ -870,11 +874,11 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             background: isDark ? 'var(--xc-surface)' : 'rgba(255,255,255,.12)',
             border: isDark ? `1px solid var(--xc-border)` : '1px solid rgba(255,255,255,.2)',
             borderRadius: 8, padding: '6px 14px',
-            color: isDark ? 'var(--xc-text-soft)' : 'white', fontSize: 12.5,
+            color: isDark ? 'var(--xc-text-soft)' : 'white', fontSize: 14,
             fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
           }}>← 返回列表</button>
-          <span style={{ color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.5)', fontSize: 13 }}>／</span>
-          <span style={{ fontSize: 13, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.8)', fontWeight: 600 }}>
+          <span style={{ color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.5)', fontSize: 15 }}>／</span>
+          <span style={{ fontSize: 15, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.8)', fontWeight: 600 }}>
             {projectName || proj?.name}
           </span>
         </div>
@@ -883,18 +887,18 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, letterSpacing: '-.02em', lineHeight: 1.1 }}>
+              <h1 style={{ margin: 0, fontSize: 30, fontWeight: 900, letterSpacing: '-.02em', lineHeight: 1.1 }}>
                 {proj?.name || projectName}
               </h1>
               {proj?.status && (
                 <span style={{ padding: '4px 12px', borderRadius: 999, background: pst.bg, color: pst.color,
-                  fontSize: 11, fontWeight: 800, letterSpacing: '.06em' }}>
+                  fontSize: 13, fontWeight: 800, letterSpacing: '.06em' }}>
                   {pst.label}
                 </span>
               )}
             </div>
             {proj?.description && (
-              <p style={{ margin: 0, fontSize: 14, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.75)', lineHeight: 1.6, maxWidth: 600 }}>
+              <p style={{ margin: 0, fontSize: 16, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.75)', lineHeight: 1.6, maxWidth: 600 }}>
                 {proj.description}
               </p>
             )}
@@ -902,12 +906,12 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
               {proj?.owner && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <Avatar name={proj.owner.name} size={22} url={proj.owner.avatarUrl} />
-                  <span style={{ fontSize: 12, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.8)', fontWeight: 600 }}>{proj.owner.name}</span>
+                  <span style={{ fontSize: 14, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.8)', fontWeight: 600 }}>{proj.owner.name}</span>
                 </div>
               )}
-              {proj?.startDate && <span style={{ fontSize: 12, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>開始 {fmtDate(proj.startDate)}</span>}
-              {proj?.endDate   && <span style={{ fontSize: 12, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>截止 {fmtDate(proj.endDate)}</span>}
-              {proj?.budget    && <span style={{ fontSize: 12, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>預算 NT${proj.budget.toLocaleString()}</span>}
+              {proj?.startDate && <span style={{ fontSize: 14, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>開始 {fmtDate(proj.startDate)}</span>}
+              {proj?.endDate   && <span style={{ fontSize: 14, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>截止 {fmtDate(proj.endDate)}</span>}
+              {proj?.budget    && <span style={{ fontSize: 14, color: isDark ? 'var(--xc-text-muted)' : 'rgba(255,255,255,.65)' }}>預算 NT${proj.budget.toLocaleString()}</span>}
             </div>
           </div>
 
@@ -916,19 +920,19 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             <button onClick={() => setAddStatus('todo')} style={{
               background: isDark ? 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)' : 'rgba(255,255,255,.15)',
               border: isDark ? 'none' : '1px solid rgba(255,255,255,.28)',
-              color: '#ffffff', borderRadius: 10, padding: '9px 18px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+              color: '#ffffff', borderRadius: 10, padding: '9px 18px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
             }}>+ 新增任務</button>
             <button onClick={() => setEditOpen(true)} style={{
               background: isDark ? 'var(--xc-surface)' : 'rgba(255,255,255,.10)',
               border: isDark ? `1px solid var(--xc-border)` : '1px solid rgba(255,255,255,.2)',
               color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.9)',
-              borderRadius: 10, padding: '9px 14px', fontSize: 13.5, cursor: 'pointer',
+              borderRadius: 10, padding: '9px 14px', fontSize: 15, cursor: 'pointer',
             }} title="編輯專案">編輯</button>
           </div>
         </div>
       </div>
 
-      <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
 
         {/* ── 統計卡片 ─────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 28 }}>
@@ -946,10 +950,10 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             color={overdueTasks > 0 ? '#DC2626' : '#16A34A'} bg={overdueTasks > 0 ? C.dangerSoft : C.successSoft} />
           <div style={{ flex: '1 1 160px', minWidth: 140, background: C.white, border: `1px solid ${C.line}`,
             borderRadius: 16, padding: '16px 20px', boxShadow: C.shadow, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>完成進度</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>完成進度</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <ProgressBar pct={stats.completion || 0} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, flexShrink: 0 }}>{stats.completion || 0}%</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, flexShrink: 0 }}>{stats.completion || 0}%</span>
             </div>
           </div>
         </div>
@@ -962,7 +966,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             { key: 'milestones', label: `里程碑 ${proj?.milestones?.length ? `(${proj.milestones.length})` : ''}` },
           ].map(tab => (
             <button key={tab.key} onClick={() => setView(tab.key)} style={{
-              padding: '10px 18px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+              padding: '10px 18px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
               border: 'none', background: 'none',
               color: view === tab.key ? C.brand : C.ink2,
               borderBottom: view === tab.key ? `2.5px solid ${C.brand}` : '2.5px solid transparent',
@@ -971,9 +975,9 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
           ))}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={() => setAddStatus('todo')} style={{
-              ...btnP, padding: '7px 16px', fontSize: 12.5,
+              ...btnP, padding: '7px 16px', fontSize: 14,
             }}>+ 新增任務</button>
-            <button onClick={load} style={{ ...btnO, padding: '7px 12px', fontSize: 12.5 }} title="重新整理">↻</button>
+            <button onClick={load} style={{ ...btnO, padding: '7px 12px', fontSize: 14 }} title="重新整理">↻</button>
           </div>
         </div>
 

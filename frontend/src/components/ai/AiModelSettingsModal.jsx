@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 供應商預設清單 ──────────────────────────────────────────
 const PROVIDERS = [

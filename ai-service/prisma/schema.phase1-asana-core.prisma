@@ -144,7 +144,6 @@ model User {
   email        String    @unique @db.VarChar(255)
   passwordHash String    @map("password_hash")
   role         Role      @default(member)
-  avatarUrl    String?   @map("avatar_url")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")

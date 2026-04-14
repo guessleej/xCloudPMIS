@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const API_BASE = '';
 
@@ -181,7 +182,7 @@ export default function OAuthCallback({ onBack }) {
           {/* 標題 */}
           <h2 style={{
             margin: '0 0 12px',
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: 700,
             color: 'var(--xc-text)',
           }}>
@@ -193,7 +194,7 @@ export default function OAuthCallback({ onBack }) {
           {/* 說明 */}
           <p style={{
             margin: '0 0 28px',
-            fontSize: 14,
+            fontSize: 16,
             lineHeight: 1.6,
             color: status === 'error' ? 'var(--xc-danger)' : 'var(--xc-text-soft)',
           }}>
@@ -205,7 +206,7 @@ export default function OAuthCallback({ onBack }) {
           {/* 錯誤時：倒數重導向 + 手動返回按鈕 */}
           {status === 'error' && (
             <>
-              <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--xc-text-muted)' }}>
+              <p style={{ margin: '0 0 16px', fontSize: 15, color: 'var(--xc-text-muted)' }}>
                 {countdown} 秒後自動返回登入頁...
               </p>
               <button
@@ -216,7 +217,7 @@ export default function OAuthCallback({ onBack }) {
                   border:       '1.5px solid var(--xc-border)',
                   background:   'transparent',
                   color:        'var(--xc-text)',
-                  fontSize:     14,
+                  fontSize: 16,
                   fontWeight:   600,
                   cursor:       'pointer',
                   transition:   'all 0.15s',
@@ -236,7 +237,7 @@ export default function OAuthCallback({ onBack }) {
               alignItems:   'center',
               justifyContent: 'center',
               gap:          8,
-              fontSize:     13,
+              fontSize: 15,
               color:        'var(--xc-text-muted)',
             }}>
               <IconSpinner size={14} />

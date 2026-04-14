@@ -34,7 +34,6 @@ async function main() {
     const u = await prisma.user.create({data:{
       companyId:CID, name:m.name, email:m.email, passwordHash:DEFAULT_PW,
       role:m.role, isActive:true,
-      avatarUrl:`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.seed}`,
     }});
     userMap[m.name]=u.id;
     console.log('  +建立:'+m.name+'(id='+u.id+')');

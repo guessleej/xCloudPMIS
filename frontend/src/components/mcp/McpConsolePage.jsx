@@ -18,6 +18,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const API = '';
 
@@ -116,7 +117,7 @@ function Card({ children, style = {} }) {
 function Badge({ label, color = COLORS.primary }) {
   return (
     <span style={{
-      background: color + '18', color, fontSize: 11, fontWeight: 600,
+      background: color + '18', color, fontSize: 13, fontWeight: 600,
       padding: '2px 8px', borderRadius: 20, border: `1px solid ${color}44`,
     }}>
       {label}
@@ -129,14 +130,14 @@ function StatCard({ icon, label, value, sub, color = COLORS.primary }) {
     <Card style={{ flex: 1, minWidth: 150 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 6 }}>{label}</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: COLORS.text, lineHeight: 1 }}>{value}</div>
-          {sub && <div style={{ fontSize: 12, color: COLORS.textLight, marginTop: 4 }}>{sub}</div>}
+          <div style={{ fontSize: 14, color: COLORS.textLight, marginBottom: 6 }}>{label}</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: COLORS.text, lineHeight: 1 }}>{value}</div>
+          {sub && <div style={{ fontSize: 14, color: COLORS.textLight, marginTop: 4 }}>{sub}</div>}
         </div>
         <div style={{
           width: 44, height: 44, borderRadius: 10,
           background: color + '18', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 20,
+          justifyContent: 'center', fontSize: 22,
         }}>
           {icon}
         </div>
@@ -148,7 +149,7 @@ function StatCard({ icon, label, value, sub, color = COLORS.primary }) {
 function SectionTitle({ children }) {
   return (
     <div style={{
-      fontSize: 16, fontWeight: 700, color: COLORS.text,
+      fontSize: 17, fontWeight: 700, color: COLORS.text,
       marginBottom: 14, paddingBottom: 10,
       borderBottom: `1px solid ${COLORS.border}`,
     }}>
@@ -160,8 +161,8 @@ function SectionTitle({ children }) {
 function Spinner() {
   return (
     <div style={{ textAlign: 'center', padding: '60px 0', color: COLORS.textLight }}>
-      <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
-      <div style={{ fontSize: 14 }}>載入中...</div>
+      <div style={{ fontSize: 30, marginBottom: 10 }}>⏳</div>
+      <div style={{ fontSize: 16 }}>載入中...</div>
     </div>
   );
 }
@@ -169,8 +170,8 @@ function Spinner() {
 function EmptyState({ icon = '📭', text = '暫無資料' }) {
   return (
     <div style={{ textAlign: 'center', padding: '40px 0', color: COLORS.textLight }}>
-      <div style={{ fontSize: 32, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 13 }}>{text}</div>
+      <div style={{ fontSize: 34, marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontSize: 15 }}>{text}</div>
     </div>
   );
 }
@@ -199,7 +200,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div style={{
       background: '#1e293b', color: 'white', borderRadius: 8,
-      padding: '10px 14px', fontSize: 13, boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+      padding: '10px 14px', fontSize: 15, boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
     }}>
       <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
       {payload.map((p, i) => (
@@ -216,6 +217,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 // ════════════════════════════════════════════════════════════
 
 function OverviewTab({ data, chart, loading }) {
+  const isMobile = useIsMobile();
   if (loading) return <Spinner />;
   if (!data) return <EmptyState icon="❌" text="無法載入狀態資料，請確認服務是否正常運行" />;
 
@@ -301,7 +303,7 @@ function OverviewTab({ data, chart, loading }) {
       </Card>
 
       {/* ── 圖表區 ────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
 
         {/* 24 小時呼叫趨勢 */}
         <Card>
@@ -319,9 +321,9 @@ function OverviewTab({ data, chart, loading }) {
                     <stop offset="95%" stopColor={COLORS.danger}   stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: COLORS.textLight }}
+                <XAxis dataKey="label" tick={{ fontSize: 13, fill: COLORS.textLight }}
                   interval={3} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: COLORS.textLight }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 13, fill: COLORS.textLight }} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="success" name="成功" stroke={COLORS.success}
                   fill="url(#gradSuccess)" strokeWidth={2} dot={false} />
@@ -352,7 +354,7 @@ function OverviewTab({ data, chart, loading }) {
               </ResponsiveContainer>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {chart.toolBreakdown.slice(0, 6).map((t, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span style={{ flex: 1, color: COLORS.textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       title={t.name}>{t.name}</span>
@@ -373,9 +375,9 @@ function OverviewTab({ data, chart, loading }) {
           <SectionTitle>⚡ 平均回應延遲（毫秒）</SectionTitle>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={chart.hourly} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: COLORS.textLight }}
+              <XAxis dataKey="label" tick={{ fontSize: 13, fill: COLORS.textLight }}
                 interval={3} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: COLORS.textLight }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: COLORS.textLight }} tickLine={false} axisLine={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="avgMs" name="平均延遲(ms)" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -390,7 +392,7 @@ function OverviewTab({ data, chart, loading }) {
           <EmptyState icon="📭" text="最近 24 小時無呼叫記錄" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
               <thead>
                 <tr style={{ background: COLORS.bg }}>
                   {['工具名稱', '狀態', '延遲', '時間', '決策 #'].map(h => (
@@ -408,7 +410,7 @@ function OverviewTab({ data, chart, loading }) {
                     borderBottom: `1px solid ${COLORS.border}33`,
                   }}>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 14, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {row.tool}
                       </code>
                     </td>
@@ -445,14 +447,14 @@ function ServiceCard({ icon, name, status, meta = [] }) {
       border: `1px solid ${COLORS.border}`, padding: '14px 16px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 22 }}>{icon}</span>
+        <span style={{ fontSize: 24 }}>{icon}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.text }}>{name}</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: COLORS.text }}>{name}</div>
         </div>
         <StatusLabel status={status} />
       </div>
       {meta.map((m, i) => (
-        <div key={i} style={{ fontSize: 12, color: COLORS.textLight, marginTop: 3 }}>
+        <div key={i} style={{ fontSize: 14, color: COLORS.textLight, marginTop: 3 }}>
           {m}
         </div>
       ))}
@@ -477,19 +479,19 @@ function MicrosoftTab({ data, loading }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <StatusDot status={ms?.status || 'offline'} size={14} />
-            <span style={{ fontWeight: 700, fontSize: 16 }}>
+            <span style={{ fontWeight: 700, fontSize: 17 }}>
               {ms?.status === 'online' ? '已連線' : ms?.status === 'disconnected' ? '未連線' : ms?.status}
             </span>
           </div>
           {ms?.tokenExpiry && (
-            <div style={{ fontSize: 13, color: ms.tokenStatus === 'warning' ? COLORS.warning : COLORS.textLight }}>
+            <div style={{ fontSize: 15, color: ms.tokenStatus === 'warning' ? COLORS.warning : COLORS.textLight }}>
               Token 到期時間：{new Date(ms.tokenExpiry).toLocaleString('zh-TW')}
               {ms.tokenStatus === 'warning' && ' ⚠️ 即將過期'}
               {ms.tokenStatus === 'expired'  && ' 🚨 已過期'}
             </div>
           )}
           {ms?.status === 'disconnected' && (
-            <div style={{ fontSize: 13, color: COLORS.danger }}>
+            <div style={{ fontSize: 15, color: COLORS.danger }}>
               請前往「系統設定 → Microsoft 帳戶連線」完成 OAuth 授權
             </div>
           )}
@@ -518,7 +520,7 @@ function MicrosoftTab({ data, loading }) {
                     width: 36, height: 36, borderRadius: 8, flexShrink: 0,
                     background: isActive ? svc.bg : COLORS.border,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 15, fontWeight: 800, color: '#fff',
+                    fontSize: 16, fontWeight: 800, color: '#fff',
                     letterSpacing: '-0.5px',
                     transition: 'background 0.2s',
                   }}>
@@ -527,13 +529,13 @@ function MicrosoftTab({ data, loading }) {
                   {/* 名稱 + Scope（flex: 1 + minWidth: 0 防止文字溢出撐寬） */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontWeight: 700, fontSize: 13, color: COLORS.text,
+                      fontWeight: 700, fontSize: 15, color: COLORS.text,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                       {svc.label}
                     </div>
                     <div style={{
-                      fontSize: 10, color: COLORS.textLight, marginTop: 1,
+                      fontSize: 12, color: COLORS.textLight, marginTop: 1,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
                       {svc.desc}
@@ -556,11 +558,11 @@ function MicrosoftTab({ data, loading }) {
       {/* Scope 需求說明 */}
       <Card>
         <SectionTitle>📋 授權 Scope 需求</SectionTitle>
-        <div style={{ fontSize: 13, color: COLORS.textLight, lineHeight: 1.8 }}>
+        <div style={{ fontSize: 15, color: COLORS.textLight, lineHeight: 1.8 }}>
           <p>若需完整啟用所有 Microsoft 整合，請在 Azure AD 應用程式設定以下 API 權限：</p>
           <div style={{
             background: '#1e293b', color: '#e2e8f0', borderRadius: 8,
-            padding: '14px 18px', fontFamily: 'monospace', fontSize: 12,
+            padding: '14px 18px', fontFamily: 'monospace', fontSize: 14,
             lineHeight: 2, marginTop: 12,
           }}>
             {[
@@ -594,10 +596,10 @@ function MicrosoftToolHints({ service, status }) {
 
   return (
     <div>
-      <div style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 6 }}>MCP 工具功能：</div>
+      <div style={{ fontSize: 13, color: COLORS.textLight, marginBottom: 6 }}>MCP 工具功能：</div>
       {list.map((t, i) => (
         <div key={i} style={{
-          fontSize: 12, color: status === 'online' ? COLORS.text : COLORS.muted,
+          fontSize: 14, color: status === 'online' ? COLORS.text : COLORS.muted,
           marginBottom: 3, paddingLeft: 4,
           opacity: status === 'no_scope' || status === 'disconnected' ? 0.5 : 1,
         }}>
@@ -613,6 +615,7 @@ function MicrosoftToolHints({ service, status }) {
 // ════════════════════════════════════════════════════════════
 
 function NotifyTab({ data, loading, authFetch }) {
+  const isMobile = useIsMobile();
   const [testInput, setTestInput]   = useState({ telegram: { chatId: '' }, line: { userId: '' } });
   const [testResult, setTestResult] = useState({});
   const [testing, setTesting]       = useState({});
@@ -649,7 +652,7 @@ function NotifyTab({ data, loading, authFetch }) {
       {/* ── 整體說明 ─────────────────────────────────────────── */}
       <Card>
         <SectionTitle>🔔 通知整合概覽</SectionTitle>
-        <p style={{ fontSize: 13, color: COLORS.textLight, margin: '0 0 16px', lineHeight: 1.8 }}>
+        <p style={{ fontSize: 15, color: COLORS.textLight, margin: '0 0 16px', lineHeight: 1.8 }}>
           透過 MCP 工具（<code style={{ background: COLORS.surfaceMuted, padding: '1px 6px', borderRadius: 4 }}>notify_telegram</code>、
           <code style={{ background: COLORS.surfaceMuted, padding: '1px 6px', borderRadius: 4 }}>notify_line</code>），
           AI Agent 可在任務狀態變更、截止日提醒、專案風險警示時，自動推播通知至外部渠道。
@@ -667,11 +670,11 @@ function NotifyTab({ data, loading, authFetch }) {
                 border: `1.5px solid ${svcData.configured ? svc.color + '55' : COLORS.border}`,
                 minWidth: 220,
               }}>
-                <span style={{ fontSize: 22 }}>{svc.icon}</span>
+                <span style={{ fontSize: 24 }}>{svc.icon}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.text }}>{svc.label}</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: COLORS.text }}>{svc.label}</div>
                   {svcData.botName && (
-                    <div style={{ fontSize: 11, color: COLORS.textLight }}>@{svcData.botName}</div>
+                    <div style={{ fontSize: 13, color: COLORS.textLight }}>@{svcData.botName}</div>
                   )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -705,29 +708,29 @@ function NotifyTab({ data, loading, authFetch }) {
               <div style={{
                 width: 52, height: 52, borderRadius: 14,
                 background: svc.color, display: 'flex',
-                alignItems: 'center', justifyContent: 'center', fontSize: 26,
+                alignItems: 'center', justifyContent: 'center', fontSize: 28,
                 boxShadow: `0 4px 12px ${svc.color}44`,
               }}>
                 {svc.icon}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 18, color: COLORS.text }}>{svc.label}</div>
-                <div style={{ fontSize: 13, color: COLORS.textLight }}>{svc.desc}</div>
+                <div style={{ fontWeight: 800, fontSize: 20, color: COLORS.text }}>{svc.label}</div>
+                <div style={{ fontSize: 15, color: COLORS.textLight }}>{svc.desc}</div>
               </div>
               <StatusLabel status={svcData.status === 'online' ? 'online' : svcData.status === 'warning' ? 'warning' : 'disconnected'} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 12 : 20 }}>
 
               {/* ── 左欄：功能清單 ──────────────────────────── */}
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   🛠️ 支援功能
                 </div>
                 {svc.features.map((f, i) => (
                   <div key={i} style={{
                     display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 13, color: svcData.configured ? COLORS.text : COLORS.muted,
+                    fontSize: 15, color: svcData.configured ? COLORS.text : COLORS.muted,
                     marginBottom: 7, opacity: svcData.configured ? 1 : 0.6,
                   }}>
                     <span>{f}</span>
@@ -739,10 +742,10 @@ function NotifyTab({ data, loading, authFetch }) {
                   marginTop: 14, padding: '10px 14px',
                   background: COLORS.bg, borderRadius: 8,
                   border: `1px solid ${COLORS.border}`,
-                  fontSize: 12, color: COLORS.textLight,
+                  fontSize: 14, color: COLORS.textLight,
                 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>🤖 MCP 工具呼叫</div>
-                  <code style={{ fontSize: 11 }}>
+                  <code style={{ fontSize: 13 }}>
                     {svc.key === 'telegram'
                       ? 'notify_telegram({ chatId, message })'
                       : 'notify_line({ userId, message })'}
@@ -760,12 +763,12 @@ function NotifyTab({ data, loading, authFetch }) {
 
                     {/* Token 已設定 */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 8 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, marginBottom: 8 }}>
                         🔑 環境變數狀態
                       </div>
                       <div style={{
                         background: COLORS.bg, borderRadius: 8, padding: '10px 14px',
-                        fontFamily: 'monospace', fontSize: 12,
+                        fontFamily: 'monospace', fontSize: 14,
                         border: `1px solid ${svcData.status === 'online' ? COLORS.success + '55' : COLORS.warning + '55'}`,
                       }}>
                         <div style={{ color: COLORS.textLight }}>{svc.envKey}</div>
@@ -778,7 +781,7 @@ function NotifyTab({ data, loading, authFetch }) {
 
                     {/* 測試發送 */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 8 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, marginBottom: 8 }}>
                         🧪 測試發送（可選）
                       </div>
                       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -792,7 +795,7 @@ function NotifyTab({ data, loading, authFetch }) {
                           }))}
                           placeholder={inputPlaceholder}
                           style={{
-                            flex: 1, padding: '7px 10px', borderRadius: 6, fontSize: 12,
+                            flex: 1, padding: '7px 10px', borderRadius: 6, fontSize: 14,
                             border: `1px solid ${COLORS.border}`, outline: 'none',
                           }}
                         />
@@ -805,7 +808,7 @@ function NotifyTab({ data, loading, authFetch }) {
                           background: isTesting ? '#94a3b8' : svc.color,
                           color: 'white', border: 'none', borderRadius: 7,
                           cursor: isTesting ? 'not-allowed' : 'pointer',
-                          fontSize: 13, fontWeight: 600,
+                          fontSize: 15, fontWeight: 600,
                         }}
                       >
                         {isTesting ? '⏳ 測試中...' : (inputVal ? `📤 發送測試訊息` : '🔍 驗證連線')}
@@ -817,7 +820,7 @@ function NotifyTab({ data, loading, authFetch }) {
                           marginTop: 10, padding: '10px 12px', borderRadius: 7,
                           background: result.success ? '#ecfdf5' : '#fff5f5',
                           border: `1px solid ${result.success ? COLORS.success + '55' : COLORS.danger + '55'}`,
-                          fontSize: 12,
+                          fontSize: 14,
                         }}>
                           {result.success ? (
                             <div style={{ color: COLORS.success }}>
@@ -841,16 +844,16 @@ function NotifyTab({ data, loading, authFetch }) {
                 ) : (
                   /* ── 設定指引 ──────────────────────────────── */
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, marginBottom: 10 }}>
                       🚀 快速設定
                     </div>
 
                     {/* Step 1 */}
                     <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: COLORS.text, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 600, fontSize: 15, color: COLORS.text, marginBottom: 6 }}>
                         Step 1：申請 {svc.key === 'telegram' ? 'Bot Token' : 'Channel Access Token'}
                       </div>
-                      <div style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, color: COLORS.textLight, marginBottom: 6 }}>
                         {svc.key === 'telegram'
                           ? '在 Telegram 搜尋 @BotFather，輸入 /newbot，依指示建立 Bot 並取得 Token'
                           : '前往 LINE Developers Console，建立 Messaging API Channel，複製 Channel Access Token'}
@@ -859,7 +862,7 @@ function NotifyTab({ data, loading, authFetch }) {
                         href={svc.setupUrl} target="_blank" rel="noreferrer"
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6,
-                          fontSize: 12, color: svc.color, textDecoration: 'none',
+                          fontSize: 14, color: svc.color, textDecoration: 'none',
                           padding: '5px 10px', border: `1px solid ${svc.color}44`,
                           borderRadius: 6, background: svc.color + '10',
                         }}
@@ -870,18 +873,18 @@ function NotifyTab({ data, loading, authFetch }) {
 
                     {/* Step 2：env var */}
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: COLORS.text, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 600, fontSize: 15, color: COLORS.text, marginBottom: 6 }}>
                         Step 2：設定環境變數
                       </div>
                       <div style={{
                         background: '#1e293b', color: '#86efac',
                         borderRadius: 8, padding: '12px 16px',
-                        fontFamily: 'monospace', fontSize: 12, lineHeight: 1.8,
+                        fontFamily: 'monospace', fontSize: 14, lineHeight: 1.8,
                       }}>
                         <div style={{ color: '#94a3b8' }}># .env</div>
                         <div>{svc.envKey}=your_token_here</div>
                       </div>
-                      <div style={{ fontSize: 11, color: COLORS.textLight, marginTop: 6 }}>
+                      <div style={{ fontSize: 13, color: COLORS.textLight, marginTop: 6 }}>
                         設定後重啟後端服務即可生效
                       </div>
                     </div>
@@ -913,9 +916,9 @@ function NotifyTab({ data, loading, authFetch }) {
               padding: '14px 16px', borderRadius: 10,
               background: COLORS.bg, border: `1px solid ${COLORS.border}`,
             }}>
-              <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: COLORS.text, marginBottom: 4 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: COLORS.textLight }}>{s.desc}</div>
+              <div style={{ fontSize: 24, marginBottom: 6 }}>{s.icon}</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: COLORS.text, marginBottom: 4 }}>{s.title}</div>
+              <div style={{ fontSize: 14, color: COLORS.textLight }}>{s.desc}</div>
             </div>
           ))}
         </div>
@@ -948,14 +951,14 @@ function ExternalTab({ toolsData, loadingTools }) {
           borderRadius: 10,
           padding:      '16px 20px',
           fontFamily:   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          fontSize:     13,
+          fontSize: 15,
           lineHeight:   1.9,
           marginTop:    4,
           border:       '1px solid #1e293b',
           userSelect:   'text',
         }}>
           {/* Banner 標題列 */}
-          <div style={{ color: '#94a3b8', marginBottom: 6, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ color: '#94a3b8', marginBottom: 6, fontSize: 13, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             ╔══ xCloudPMIS MCP External Server &nbsp;
             <span style={{ color: '#38bdf8', fontWeight: 700 }}>v1.0.0</span>
             &nbsp;══╗
@@ -974,11 +977,11 @@ function ExternalTab({ toolsData, loadingTools }) {
                 http://localhost:<span style={{ color: '#f59e0b' }}>3100</span>
                 <span style={{ color: '#a78bfa' }}>{path}</span>
               </span>
-              <span style={{ color: '#475569', marginLeft: 10, fontSize: 11 }}>// {note}</span>
+              <span style={{ color: '#475569', marginLeft: 10, fontSize: 13 }}>// {note}</span>
             </div>
           ))}
 
-          <div style={{ color: '#94a3b8', marginTop: 6, fontSize: 11 }}>
+          <div style={{ color: '#94a3b8', marginTop: 6, fontSize: 13 }}>
             ╚═══════════════════════════════════════════════╝
           </div>
         </div>
@@ -990,7 +993,7 @@ function ExternalTab({ toolsData, loadingTools }) {
           <EmptyState icon="🔌" text="無法取得工具清單，請確認 MCP Server 正在運行" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
               <thead>
                 <tr style={{ background: COLORS.bg }}>
                   {['工具名稱', '說明', '今日呼叫', '平均延遲', '授權範圍', '狀態'].map(h => (
@@ -1008,7 +1011,7 @@ function ExternalTab({ toolsData, loadingTools }) {
                     borderBottom: `1px solid ${COLORS.border}33`,
                   }}>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 14, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {t.name}
                       </code>
                     </td>
@@ -1025,7 +1028,7 @@ function ExternalTab({ toolsData, loadingTools }) {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {t.scopes.map(s => (
                           <span key={s} style={{
-                            fontSize: 10, background: COLORS.primary + '15', color: COLORS.primary,
+                            fontSize: 12, background: COLORS.primary + '15', color: COLORS.primary,
                             padding: '1px 6px', borderRadius: 10, border: `1px solid ${COLORS.primary}33`,
                           }}>{s}</span>
                         ))}
@@ -1131,7 +1134,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <code style={{
               flex: 1, background: COLORS.surfaceStrong, padding: '8px 12px', borderRadius: 6,
-              fontSize: 13, border: `1px solid ${COLORS.success}44`, fontFamily: 'monospace',
+              fontSize: 15, border: `1px solid ${COLORS.success}44`, fontFamily: 'monospace',
             }}>
               {newKey.apiKey}
             </code>
@@ -1139,7 +1142,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
               onClick={() => { navigator.clipboard?.writeText(newKey.apiKey); }}
               style={{
                 padding: '8px 14px', background: COLORS.success, color: 'white',
-                border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
               }}
             >
               📋 複製
@@ -1148,7 +1151,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
               onClick={() => setNewKey(null)}
               style={{
                 padding: '8px 14px', background: COLORS.surfaceMuted, color: COLORS.text,
-                border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15,
               }}
             >
               關閉
@@ -1159,12 +1162,12 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
 
       {/* 標題 + 建立按鈕 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700, fontSize: 16 }}>API 金鑰管理（{keys.length} 個）</div>
+        <div style={{ fontWeight: 700, fontSize: 17 }}>API 金鑰管理（{keys.length} 個）</div>
         <button
           onClick={() => setCreate(v => !v)}
           style={{
             padding: '8px 18px', background: COLORS.primary, color: 'white',
-            border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 600,
           }}
         >
           ＋ 建立新金鑰
@@ -1178,7 +1181,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', gap: 14 }}>
               <div style={{ flex: 2 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 6 }}>
                   系統名稱 *
                 </label>
                 <input
@@ -1186,13 +1189,13 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                   onChange={e => setForm(f => ({ ...f, systemName: e.target.value }))}
                   placeholder="例：Slack Bot、GitHub Webhook"
                   style={{
-                    width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13,
+                    width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 15,
                     border: `1px solid ${COLORS.border}`, outline: 'none', boxSizing: 'border-box',
                   }}
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 6 }}>
                   Company ID
                 </label>
                 <input
@@ -1200,7 +1203,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                   onChange={e => setForm(f => ({ ...f, companyId: e.target.value }))}
                   type="number" min="1"
                   style={{
-                    width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13,
+                    width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 15,
                     border: `1px solid ${COLORS.border}`, outline: 'none', boxSizing: 'border-box',
                   }}
                 />
@@ -1208,7 +1211,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
             </div>
 
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 8 }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: COLORS.textLight, display: 'block', marginBottom: 8 }}>
                 權限範圍（Scopes）
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1217,7 +1220,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                     display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
                     background: form.scopes.includes(s) ? COLORS.primary + '18' : COLORS.bg,
                     border: `1px solid ${form.scopes.includes(s) ? COLORS.primary : COLORS.border}`,
-                    borderRadius: 6, padding: '5px 10px', fontSize: 12,
+                    borderRadius: 6, padding: '5px 10px', fontSize: 14,
                   }}>
                     <input
                       type="checkbox" checked={form.scopes.includes(s)}
@@ -1234,7 +1237,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                 onClick={() => setCreate(false)}
                 style={{
                   padding: '8px 16px', background: COLORS.surfaceMuted, color: COLORS.text,
-                  border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                  border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15,
                 }}
               >
                 取消
@@ -1246,7 +1249,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                   background: creating || !form.systemName ? '#94a3b8' : COLORS.primary,
                   color: 'white', border: 'none', borderRadius: 6,
                   cursor: creating || !form.systemName ? 'not-allowed' : 'pointer',
-                  fontSize: 13, fontWeight: 600,
+                  fontSize: 15, fontWeight: 600,
                 }}
               >
                 {creating ? '建立中...' : '建立 API Key'}
@@ -1262,7 +1265,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
           <EmptyState icon="🔑" text="尚無 API Key，點擊上方按鈕建立第一個" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
               <thead>
                 <tr style={{ background: COLORS.bg }}>
                   {['名稱', 'Key 前綴', '公司 ID', '權限範圍', '最後使用', '狀態', '操作'].map(h => (
@@ -1282,7 +1285,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                   }}>
                     <td style={{ padding: '8px 12px', fontWeight: 600 }}>{k.system_name}</td>
                     <td style={{ padding: '8px 12px' }}>
-                      <code style={{ fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
+                      <code style={{ fontSize: 14, background: COLORS.surfaceMuted, padding: '2px 6px', borderRadius: 4 }}>
                         {k.key_prefix}
                       </code>
                     </td>
@@ -1291,16 +1294,16 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, maxWidth: 280 }}>
                         {(k.scopes || []).slice(0, 3).map(s => (
                           <span key={s} style={{
-                            fontSize: 10, background: COLORS.primary + '15', color: COLORS.primary,
+                            fontSize: 12, background: COLORS.primary + '15', color: COLORS.primary,
                             padding: '1px 6px', borderRadius: 10,
                           }}>{s}</span>
                         ))}
                         {k.scopes?.length > 3 && (
-                          <span style={{ fontSize: 10, color: COLORS.textLight }}>+{k.scopes.length - 3}</span>
+                          <span style={{ fontSize: 12, color: COLORS.textLight }}>+{k.scopes.length - 3}</span>
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '8px 12px', color: COLORS.textLight, fontSize: 12 }}>
+                    <td style={{ padding: '8px 12px', color: COLORS.textLight, fontSize: 14 }}>
                       {k.last_used_at ? new Date(k.last_used_at).toLocaleString('zh-TW') : '從未使用'}
                     </td>
                     <td style={{ padding: '8px 12px' }}>
@@ -1314,7 +1317,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
                           style={{
                             padding: '4px 10px', background: COLORS.danger + '18',
                             color: COLORS.danger, border: `1px solid ${COLORS.danger}44`,
-                            borderRadius: 6, cursor: 'pointer', fontSize: 12,
+                            borderRadius: 6, cursor: 'pointer', fontSize: 14,
                           }}
                         >
                           撤銷
@@ -1337,6 +1340,7 @@ function ApiKeysTab({ authFetch, userCompanyId }) {
 // ════════════════════════════════════════════════════════════
 
 function LogsTab({ authFetch }) {
+  const isMobile = useIsMobile();
   const [logs, setLogs]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -1370,7 +1374,7 @@ function LogsTab({ authFetch }) {
           <select
             value={filter.success}
             onChange={e => { setFilter(f => ({ ...f, success: e.target.value })); setPage(1); }}
-            style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${COLORS.border}`, fontSize: 13 }}
+            style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${COLORS.border}`, fontSize: 15 }}
           >
             <option value="">全部狀態</option>
             <option value="true">✅ 成功</option>
@@ -1382,16 +1386,16 @@ function LogsTab({ authFetch }) {
             placeholder="篩選工具名稱..."
             style={{
               padding: '6px 10px', borderRadius: 6, border: `1px solid ${COLORS.border}`,
-              fontSize: 13, width: 200,
+              fontSize: 15, width: isMobile ? '100%' : 200, minWidth: 0,
             }}
           />
           <button onClick={load} style={{
             padding: '6px 14px', background: COLORS.primary, color: 'white',
-            border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+            border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15,
           }}>
             🔍 查詢
           </button>
-          <span style={{ fontSize: 12, color: COLORS.textLight }}>共 {total} 筆</span>
+          <span style={{ fontSize: 14, color: COLORS.textLight }}>共 {total} 筆</span>
         </div>
       </Card>
 
@@ -1413,24 +1417,24 @@ function LogsTab({ authFetch }) {
                 >
                   <StatusDot status={log.success ? 'online' : 'offline'} />
                   <code style={{
-                    fontSize: 12, background: COLORS.surfaceMuted, padding: '2px 6px',
+                    fontSize: 14, background: COLORS.surfaceMuted, padding: '2px 6px',
                     borderRadius: 4, minWidth: 200,
                   }}>
                     {log.toolName}
                   </code>
-                  <span style={{ fontSize: 12, color: COLORS.textLight, flex: 1 }}>
+                  <span style={{ fontSize: 14, color: COLORS.textLight, flex: 1 }}>
                     {new Date(log.executedAt).toLocaleString('zh-TW')}
                   </span>
                   {log.durationMs && (
-                    <span style={{ fontSize: 12, color: COLORS.textLight }}>{log.durationMs} ms</span>
+                    <span style={{ fontSize: 14, color: COLORS.textLight }}>{log.durationMs} ms</span>
                   )}
                   {!log.success && (
-                    <span style={{ fontSize: 12, color: COLORS.danger, maxWidth: 240,
+                    <span style={{ fontSize: 14, color: COLORS.danger, maxWidth: 240,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       ❌ {log.errorMessage}
                     </span>
                   )}
-                  <span style={{ color: COLORS.textLight, fontSize: 12 }}>
+                  <span style={{ color: COLORS.textLight, fontSize: 14 }}>
                     {expanded === log.id ? '▲' : '▼'}
                   </span>
                 </div>
@@ -1438,7 +1442,7 @@ function LogsTab({ authFetch }) {
                 {expanded === log.id && (
                   <div style={{
                     background: '#1e293b', borderRadius: 6, padding: '12px 16px',
-                    margin: '4px 0 12px', fontSize: 11, fontFamily: 'monospace',
+                    margin: '4px 0 12px', fontSize: 13, fontFamily: 'monospace',
                     color: '#e2e8f0', overflowX: 'auto', maxHeight: 300, overflowY: 'auto',
                   }}>
                     <div style={{ color: '#94a3b8', marginBottom: 8 }}>── Input ──</div>
@@ -1470,15 +1474,15 @@ function LogsTab({ authFetch }) {
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
                 style={{ padding: '6px 14px', borderRadius: 6, border: `1px solid ${COLORS.border}`,
-                  cursor: page === 1 ? 'not-allowed' : 'pointer', background: COLORS.card, fontSize: 13 }}>
+                  cursor: page === 1 ? 'not-allowed' : 'pointer', background: COLORS.card, fontSize: 15 }}>
                 ← 上一頁
               </button>
-              <span style={{ padding: '6px 12px', fontSize: 13, color: COLORS.textLight }}>
+              <span style={{ padding: '6px 12px', fontSize: 15, color: COLORS.textLight }}>
                 第 {page} 頁，共 {Math.ceil(total / 20)} 頁
               </span>
               <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 20)}
                 style={{ padding: '6px 14px', borderRadius: 6, border: `1px solid ${COLORS.border}`,
-                  cursor: page >= Math.ceil(total / 20) ? 'not-allowed' : 'pointer', background: COLORS.card, fontSize: 13 }}>
+                  cursor: page >= Math.ceil(total / 20) ? 'not-allowed' : 'pointer', background: COLORS.card, fontSize: 15 }}>
                 下一頁 →
               </button>
             </div>
@@ -1494,6 +1498,7 @@ function LogsTab({ authFetch }) {
 // ════════════════════════════════════════════════════════════
 
 export default function McpConsolePage() {
+  const isMobile = useIsMobile();
   const { authFetch, user } = useAuth();
   const [activeTab,   setActiveTab]   = useState('overview');
   const [status,      setStatus]      = useState(null);
@@ -1538,21 +1543,21 @@ export default function McpConsolePage() {
   }, [loadStatus, loadTools]);
 
   return (
-    <div style={{ padding: '24px 28px', background: COLORS.bg, minHeight: '100vh' }}>
+    <div style={{ padding: isMobile ? '14px 16px' : '24px 28px', background: COLORS.bg, minHeight: '100vh' }}>
 
       {/* ── 頁面標題 ────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: COLORS.text }}>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: COLORS.text }}>
             🌐 MCP 統一控制台
           </h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: COLORS.textLight }}>
+          <p style={{ margin: '4px 0 0', fontSize: 15, color: COLORS.textLight }}>
             管理 Microsoft 365 整合、外部開放平台、API 金鑰、Telegram / LINE 通知
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {lastRefresh && (
-            <span style={{ fontSize: 12, color: COLORS.textLight }}>
+            <span style={{ fontSize: 14, color: COLORS.textLight }}>
               最後更新：{lastRefresh.toLocaleTimeString('zh-TW')}
             </span>
           )}
@@ -1561,7 +1566,7 @@ export default function McpConsolePage() {
             style={{
               padding: '7px 14px', background: COLORS.card, color: COLORS.text,
               border: `1px solid ${COLORS.border}`, borderRadius: 8,
-              cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontSize: 15, fontWeight: 600,
             }}
           >
             🔄 刷新
@@ -1588,7 +1593,7 @@ export default function McpConsolePage() {
             { label: 'Telegram',  s: status.services?.notify?.telegram?.status },
             { label: 'LINE',      s: status.services?.notify?.line?.status },
           ].map(({ label, s }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}>
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 15 }}>
               <StatusDot status={s || 'offline'} />
               <span style={{ color: COLORS.textLight }}>{label}</span>
             </div>
@@ -1607,7 +1612,7 @@ export default function McpConsolePage() {
             onClick={() => setActiveTab(tab.id)}
             style={{
               padding: '10px 18px', border: 'none', background: 'transparent',
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+              cursor: 'pointer', fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap',
               color:       activeTab === tab.id ? COLORS.primary : COLORS.textLight,
               borderBottom: activeTab === tab.id ? `2px solid ${COLORS.primary}` : '2px solid transparent',
               marginBottom: -2,

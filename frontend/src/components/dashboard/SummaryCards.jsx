@@ -115,11 +115,11 @@ export default function SummaryCards({ summary, loading }) {
             }} />
 
             {/* Icon */}
-            <div style={{ fontSize: '22px', lineHeight: 1 }}>{kpi.icon}</div>
+            <div style={{ fontSize: '24px', lineHeight: 1 }}>{kpi.icon}</div>
 
             {/* Label */}
             <div style={{
-              fontSize:   '12px',
+              fontSize: '14px',
               fontWeight: 600,
               color:      'var(--xc-text-soft)',
               letterSpacing: '0.04em',
@@ -131,7 +131,7 @@ export default function SummaryCards({ summary, loading }) {
             {/* Value */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
               <span style={{
-                fontSize:   '32px',
+                fontSize: '34px',
                 fontWeight: 700,
                 color:      colors.text,
                 lineHeight: 1,
@@ -139,13 +139,13 @@ export default function SummaryCards({ summary, loading }) {
               }}>
                 {value.toLocaleString()}
               </span>
-              <span style={{ fontSize: '14px', color: colors.text, opacity: 0.7 }}>
+              <span style={{ fontSize: '16px', color: colors.text, opacity: 0.7 }}>
                 {kpi.unit}
               </span>
             </div>
 
             {/* Hint */}
-            <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
               {hintTxt}
             </div>
 

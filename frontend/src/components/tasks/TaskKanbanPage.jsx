@@ -23,6 +23,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyb
 import { CSS } from '@dnd-kit/utilities';
 import TaskDetailPanel from './TaskDetailPanel';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const API      = '/api/projects';
@@ -98,12 +99,12 @@ function avatarColor(name) {
 const inputStyle = {
   width: '100%', padding: '7px 10px',
   border: `1px solid ${BRAND.silver}`, borderRadius: 8,
-  fontSize: '13px', boxSizing: 'border-box',
+  fontSize: '15px', boxSizing: 'border-box',
   outline: 'none', background: BRAND.white,
   color: BRAND.ink,
 };
 const labelStyle = {
-  fontSize: '12px', fontWeight: 600,
+  fontSize: '14px', fontWeight: 600,
   color: BRAND.carbon, marginBottom: 4, display: 'block',
 };
 // ── 工具函式 ─────────────────────────────────────────────────
@@ -139,7 +140,7 @@ function HealthBadge({ status }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '3px 8px', borderRadius: 999,
-      fontSize: 10, fontWeight: 700,
+      fontSize: 12, fontWeight: 700,
       color: m.color, background: m.bg,
       letterSpacing: '0.02em',
     }}>
@@ -507,7 +508,7 @@ function TaskCard({
       <div style={{ padding: '14px 16px 16px', minHeight: 202, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 10 }}>
           <span style={{
-            fontSize: '10px',
+            fontSize: '12px',
             fontWeight: 800,
             background: BRAND.accentSoft,
             color: 'var(--xc-brand)',
@@ -521,7 +522,7 @@ function TaskCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {dueDateLabel && (
               <span style={{
-                fontSize: '11px',
+                fontSize: '13px',
                 fontWeight: 700,
                 color: isOverdue ? 'var(--xc-danger)' : days !== null && days <= 3 ? BRAND.warning : BRAND.carbon,
                 background: isOverdue ? BRAND.dangerSoft : BRAND.surfaceSoft,
@@ -532,20 +533,20 @@ function TaskCard({
               </span>
             )}
             <span style={{
-              fontSize: '10px',
+              fontSize: '12px',
               fontWeight: 700,
               color: BRAND.muted,
               display: 'flex',
               alignItems: 'center',
               gap: 4,
             }}>
-              <span style={{ fontSize: 12 }}>⋮⋮</span> 拖曳
+              <span style={{ fontSize: 14 }}>⋮⋮</span> 拖曳
             </span>
           </div>
         </div>
 
         <div style={{
-          fontSize: '15px',
+          fontSize: '16px',
           fontWeight: 700,
           color: BRAND.ink,
           marginBottom: 8,
@@ -558,7 +559,7 @@ function TaskCard({
 
         {hasSummary && (
           <div style={{
-            fontSize: '12px',
+            fontSize: '14px',
             lineHeight: 1.55,
             color: BRAND.carbon,
             marginBottom: 12,
@@ -574,7 +575,7 @@ function TaskCard({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{
-            fontSize: '11px',
+            fontSize: '13px',
             padding: '4px 8px',
             borderRadius: 999,
             background: pri.bg,
@@ -595,7 +596,7 @@ function TaskCard({
           </span>
           {days !== null && (
             <span style={{
-              fontSize: '11px',
+              fontSize: '13px',
               fontWeight: 700,
               color: isOverdue ? BRAND.crimson : days <= 3 ? BRAND.warning : BRAND.carbon,
             }}>
@@ -607,7 +608,7 @@ function TaskCard({
           )}
           {task.status === 'done' && (
             <span style={{
-              fontSize: '11px',
+              fontSize: '13px',
               fontWeight: 700,
               color: BRAND.success,
               background: BRAND.successSoft,
@@ -624,7 +625,7 @@ function TaskCard({
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
             {task.tags.map(tag => (
               <span key={tag.id} style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 padding: '3px 7px',
                 borderRadius: 999,
                 background: tag.color || BRAND.surfaceMuted,
@@ -640,8 +641,8 @@ function TaskCard({
         {numSubtasks > 0 && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: BRAND.carbon }}>子任務進度</span>
-              <span style={{ fontSize: '11px', color: BRAND.muted }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: BRAND.carbon }}>子任務進度</span>
+              <span style={{ fontSize: '13px', color: BRAND.muted }}>
                 {progressPercent}% / {numSubtasks} 子任務
               </span>
             </div>
@@ -665,7 +666,7 @@ function TaskCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minHeight: 26 }}>
             {dueDateLabel && (
               <span style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 padding: '4px 8px',
                 borderRadius: 999,
                 background: BRAND.surfaceSoft,
@@ -678,7 +679,7 @@ function TaskCard({
 
             {depCount > 0 && (
               <span style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 padding: '3px 7px',
                 borderRadius: 999,
                 background: BRAND.dangerSoft,
@@ -690,7 +691,7 @@ function TaskCard({
             )}
             {commentCount > 0 && (
               <span style={{
-                fontSize: '10px',
+                fontSize: '12px',
                 padding: '3px 7px',
                 borderRadius: 999,
                 background: BRAND.surfaceMuted,
@@ -707,7 +708,7 @@ function TaskCard({
               <button
                 onClick={e => { e.stopPropagation(); onMoveNext(task); }}
                 style={{
-                  fontSize: '11px',
+                  fontSize: '13px',
                   padding: '7px 10px',
                   borderRadius: 999,
                   border: `1px solid ${task.status === 'done' ? BRAND.silver : BRAND.crimson}`,
@@ -753,7 +754,7 @@ function TaskCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 15,
+                fontSize: 16,
                 background: BRAND.surfaceSoft,
               }} title="未指派">
                 +
@@ -862,12 +863,12 @@ function KanbanColumn({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 800,
           }}>{col.emoji}</span>
-          <span style={{ fontSize: '13px', fontWeight: 800, color: BRAND.ink, letterSpacing: '.04em' }}>{col.label}</span>
+          <span style={{ fontSize: '15px', fontWeight: 800, color: BRAND.ink, letterSpacing: '.04em' }}>{col.label}</span>
           <span style={{
-            fontSize: '11px',
+            fontSize: '13px',
             fontWeight: 800,
             background: col.accent,
             color: col.color,
@@ -878,7 +879,7 @@ function KanbanColumn({
           </span>
           {col.id === 'done' && (
             <span style={{
-              fontSize: '10px',
+              fontSize: '12px',
               fontWeight: 800,
               background: BRAND.surfaceMuted,
               color: BRAND.ink,
@@ -896,7 +897,7 @@ function KanbanColumn({
             width: 30, height: 30, borderRadius: 999,
             border: `1px dashed ${col.color}`,
             background: BRAND.panelStrong, cursor: 'pointer',
-            fontSize: 18, color: col.color,
+            fontSize: 20, color: col.color,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
           title={`新增${col.label}任務`}
@@ -921,12 +922,12 @@ function KanbanColumn({
             textAlign: 'center',
             padding: '36px 12px',
             color: BRAND.muted,
-            fontSize: '12px',
+            fontSize: '14px',
             borderRadius: 18,
             border: `1px dashed ${BRAND.silver}`,
             background: BRAND.panelStrong,
           }}>
-            <div style={{ fontSize: 28, marginBottom: 8, opacity: .9, color: col.color }}>{col.emoji}</div>
+            <div style={{ fontSize: 30, marginBottom: 8, opacity: .9, color: col.color }}>{col.emoji}</div>
             <div style={{ fontWeight: 700, color: BRAND.carbon, marginBottom: 4 }}>目前沒有任務</div>
             <div>{col.id === 'done' ? '把卡片拖進來，系統會自動結案並通知成員' : '把任務拖到這裡改變工作階段'}</div>
           </div>
@@ -1006,7 +1007,7 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
         overflow: 'auto', padding: 28,
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
       }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ margin: '0 0 20px', fontSize: '16px', color: BRAND.ink }}>✏️ 新增任務</h2>
+        <h2 style={{ margin: '0 0 20px', fontSize: '17px', color: BRAND.ink }}>✏️ 新增任務</h2>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
@@ -1067,12 +1068,12 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
             <button type="button" onClick={onClose} style={{
               padding: '9px 18px', borderRadius: 8,
               border: `1px solid ${BRAND.silver}`, background: BRAND.white,
-              fontSize: '13px', cursor: 'pointer', color: BRAND.carbon,
+              fontSize: '15px', cursor: 'pointer', color: BRAND.carbon,
             }}>取消</button>
             <button type="submit" disabled={saving} style={{
               padding: '9px 18px', borderRadius: 8,
               border: 'none', background: BRAND.crimson, color: '#fff',
-              fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              fontSize: '15px', fontWeight: 600, cursor: 'pointer',
               opacity: saving ? .7 : 1,
             }}>
               {saving ? '建立中...' : '✅ 建立任務'}
@@ -1118,9 +1119,9 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
         <div style={{
           width: 56, height: 56, borderRadius: '50%',
           background: BRAND.dangerSoft, margin: '0 auto 14px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
         }}>🗑️</div>
-        <h2 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 700, color: BRAND.ink }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: BRAND.ink }}>
           確認刪除任務？
         </h2>
         <div style={{
@@ -1128,39 +1129,39 @@ function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
           borderRadius: 10, padding: '12px 16px',
           margin: '12px 0 16px', textAlign: 'left',
         }}>
-          <div style={{ fontSize: '11px', color: 'var(--xc-brand)', fontWeight: 600, marginBottom: 4 }}>
+          <div style={{ fontSize: '13px', color: 'var(--xc-brand)', fontWeight: 600, marginBottom: 4 }}>
             📁 {task.project?.name || '未知專案'}
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: BRAND.ink, marginBottom: 6 }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: BRAND.ink, marginBottom: 6 }}>
             {task.title}
           </div>
           <span style={{
-            fontSize: '11px', padding: '2px 7px', borderRadius: 4,
+            fontSize: '13px', padding: '2px 7px', borderRadius: 4,
             background: pri.bg, color: pri.color, fontWeight: 600,
           }}>
             {pri.label}
           </span>
         </div>
-        <p style={{ margin: '0 0 18px', fontSize: '13px', color: BRAND.muted }}>
+        <p style={{ margin: '0 0 18px', fontSize: '15px', color: BRAND.muted }}>
           此操作為軟刪除，資料不會永久消失。
         </p>
         {error && (
           <div style={{
             background: BRAND.dangerSoft, color: '#b91c1c',
             borderRadius: 8, padding: '8px 12px',
-            fontSize: '12px', marginBottom: 14,
+            fontSize: '14px', marginBottom: 14,
           }}>❌ {error}</div>
         )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button onClick={onClose} disabled={deleting} style={{
             padding: '9px 20px', borderRadius: 8,
             border: `1px solid ${BRAND.silver}`, background: BRAND.white,
-            fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: BRAND.carbon,
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer', color: BRAND.carbon,
           }}>取消</button>
           <button onClick={handleDelete} disabled={deleting} style={{
             padding: '9px 20px', borderRadius: 8,
             border: 'none', background: deleting ? '#fca5a5' : '#ef4444',
-            color: '#fff', fontSize: '13px', fontWeight: 600,
+            color: '#fff', fontSize: '15px', fontWeight: 600,
             cursor: deleting ? 'not-allowed' : 'pointer',
           }}>
             {deleting ? '刪除中...' : '確認刪除'}
@@ -1413,6 +1414,7 @@ export function TaskSidePanel({
 // 任務看板主頁面
 // ════════════════════════════════════════════════════════════
 export default function TaskKanbanPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
   const currentUser = user
@@ -1725,7 +1727,7 @@ export default function TaskKanbanPage() {
             color: toast.tone === 'neutral' ? BRAND.ink : '#fff',
             padding: '14px 18px',
             borderRadius: 16,
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 700,
             border: toast.tone === 'neutral' ? `1px solid ${BRAND.mist}` : 'none',
             boxShadow: '0 18px 36px rgba(18,18,18,.18)',
@@ -1773,7 +1775,7 @@ export default function TaskKanbanPage() {
                     borderRadius: 999,
                     background: 'rgba(255,255,255,.12)',
                     border: '1px solid rgba(255,255,255,.18)',
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 800,
                     letterSpacing: '.08em',
                     textTransform: 'uppercase',
@@ -1795,7 +1797,7 @@ export default function TaskKanbanPage() {
               </h1>
               <p style={{
                 margin: '14px 0 0',
-                fontSize: 15,
+                fontSize: 16,
                 lineHeight: 1.7,
                 color: 'rgba(255,255,255,.82)',
                 maxWidth: 760,
@@ -1812,7 +1814,7 @@ export default function TaskKanbanPage() {
                     border: 'none',
                     background: 'rgba(255,255,255,.92)',
                     color: BRAND.crimsonDeep,
-                    fontSize: '13px',
+                    fontSize: '15px',
                     fontWeight: 800,
                     cursor: 'pointer',
                   }}
@@ -1827,7 +1829,7 @@ export default function TaskKanbanPage() {
                     border: '1px solid rgba(255,255,255,.2)',
                     background: 'rgba(255,255,255,.08)',
                     color: '#fff',
-                    fontSize: '13px',
+                    fontSize: '15px',
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
@@ -1847,10 +1849,10 @@ export default function TaskKanbanPage() {
               backdropFilter: 'blur(10px)',
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,.12)',
             }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.72)' }}>
+              <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.72)' }}>
                 內建規則
               </div>
-              <div style={{ marginTop: 8, fontSize: 20, fontWeight: 800, lineHeight: 1.25 }}>
+              <div style={{ marginTop: 8, fontSize: 22, fontWeight: 800, lineHeight: 1.25 }}>
                 拖曳到已完成欄位
               </div>
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
@@ -1863,7 +1865,7 @@ export default function TaskKanbanPage() {
                     display: 'flex',
                     gap: 8,
                     alignItems: 'flex-start',
-                    fontSize: 13,
+                    fontSize: 15,
                     color: 'rgba(255,255,255,.84)',
                   }}>
                     <span style={{ color: '#FFD9DE', fontWeight: 800 }}>•</span>
@@ -1879,20 +1881,20 @@ export default function TaskKanbanPage() {
                 background: 'rgba(18,18,18,.18)',
                 border: '1px solid rgba(255,255,255,.12)',
               }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.72)', marginBottom: 6 }}>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,.72)', marginBottom: 6 }}>
                   {automationFeed ? '最近一次自動化' : '規則待命中'}
                 </div>
                 {automationFeed ? (
                   <>
-                    <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.35 }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.35 }}>
                       {automationFeed.taskTitle}
                     </div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: 'rgba(255,255,255,.8)' }}>
+                    <div style={{ marginTop: 6, fontSize: 15, color: 'rgba(255,255,255,.8)' }}>
                       更新 {automationDepth || 0} 層父任務，通知 {automationFeed.notificationsSent || 0} 位成員
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,.78)', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 15, color: 'rgba(255,255,255,.78)', lineHeight: 1.6 }}>
                     從任一欄位把卡片拖進「已完成」，這裡就會顯示規則實際執行的結果。
                   </div>
                 )}
@@ -1915,10 +1917,10 @@ export default function TaskKanbanPage() {
                 background: 'rgba(255,255,255,.07)',
                 border: '1px solid rgba(255,255,255,.12)',
               }}>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.68)', marginBottom: 8, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,.68)', marginBottom: 8, letterSpacing: '.08em', textTransform: 'uppercase' }}>
                   {stat.label}
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: stat.accent }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: stat.accent }}>
                   {stat.value}
                 </div>
               </div>
@@ -1936,10 +1938,10 @@ export default function TaskKanbanPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: BRAND.muted }}>
+              <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: BRAND.muted }}>
                 Board Filters
               </div>
-              <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color: BRAND.ink }}>
+              <div style={{ marginTop: 4, fontSize: 20, fontWeight: 800, color: BRAND.ink }}>
                 依專案、負責人與優先度切換工作視角
               </div>
             </div>
@@ -1949,7 +1951,7 @@ export default function TaskKanbanPage() {
               background: automationFeed ? BRAND.accentSoft : BRAND.surfaceMuted,
               border: `1px solid ${automationFeed ? BRAND.accentBorder : BRAND.mist}`,
               color: automationFeed ? 'var(--xc-brand)' : BRAND.carbon,
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: 700,
             }}>
               {automationFeed
@@ -2005,7 +2007,7 @@ export default function TaskKanbanPage() {
                   background: BRAND.dangerSoft,
                   color: BRAND.crimson,
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   fontWeight: 700,
                 }}
               >
@@ -2019,7 +2021,7 @@ export default function TaskKanbanPage() {
               borderRadius: 14,
               background: BRAND.surfaceMuted,
               color: BRAND.ink,
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: 700,
               letterSpacing: '.04em',
             }}>
@@ -2038,8 +2040,8 @@ export default function TaskKanbanPage() {
               borderRadius: 24,
               border: `1px solid ${BRAND.mist}`,
             }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>×</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{error}</div>
+              <div style={{ fontSize: 50, marginBottom: 12 }}>×</div>
+              <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{error}</div>
               <button onClick={fetchData} style={{
                 padding: '10px 18px',
                 borderRadius: 999,
@@ -2047,7 +2049,7 @@ export default function TaskKanbanPage() {
                 background: BRAND.panelStrong,
                 color: BRAND.crimson,
                 cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '15px',
                 fontWeight: 700,
               }}>重新載入</button>
             </div>

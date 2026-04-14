@@ -29,8 +29,6 @@ const ROUTE_SMOKES = [
   { id: 'time', label: '工時記錄', checks: ['人員工時統計'] },
   { id: 'team', label: '團隊', checks: ['成員與角色設定'] },
   { id: 'settings', label: '設定', checks: ['偏好與整合設定'] },
-  { id: 'ai-center', label: 'AI 決策中心', checks: ['智慧分析與建議'] },
-  { id: 'mcp-console', label: 'MCP 控制台', checks: ['Model Context Protocol'] },
   { id: 'profile', label: '個人資料', checks: ['帳戶設定'] },
 ];
 

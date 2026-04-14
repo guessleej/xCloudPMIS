@@ -1,6 +1,7 @@
 import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import './MyTasksWorkspacePage.css';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const C = {
   accent: 'var(--xc-brand)',
@@ -1343,6 +1344,7 @@ function TaskPanel({
 }
 
 export default function MyTasksWorkspacePage() {
+  const isMobile = useIsMobile();
   const { user, token, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('list');
   const [lists, setLists] = useState([]);

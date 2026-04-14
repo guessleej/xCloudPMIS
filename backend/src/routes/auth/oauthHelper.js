@@ -14,7 +14,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3838';
  * 根據 email 找到現有使用者，或以 OAuth 資料建立新帳號
  * OAuth 帳號不使用密碼登入，故產生隨機 passwordHash
  */
-async function findOrCreateOAuthUser({ email, name, avatarUrl }) {
+async function findOrCreateOAuthUser({ email, name }) {
   const normalizedEmail = email.toLowerCase().trim();
 
   let user = await prisma.user.findFirst({
@@ -56,7 +56,6 @@ async function findOrCreateOAuthUser({ email, name, avatarUrl }) {
       email:        normalizedEmail,
       passwordHash,
       role:         'member',
-      avatarUrl:    avatarUrl || null,
       isActive:     true,
       lastLoginAt:  new Date(),
     },

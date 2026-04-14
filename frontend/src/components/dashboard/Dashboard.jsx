@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Dashboard — xCloudPMIS 主框架
  *
  * UI v6：完整對齊 Asana 介面架構
@@ -12,6 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDashboard } from './useDashboard';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import SummaryCards          from './SummaryCards';
 import HealthPieChart        from './HealthPieChart';
 import ProjectHealthList     from './ProjectHealthList';
@@ -29,9 +30,7 @@ import TimeTrackingPage      from '../timetracking/TimeTrackingPage';
 import ReportsPage           from '../reports/ReportsPage';
 import TeamPage              from '../team/TeamPage';
 import SettingsPage          from '../settings/SettingsPage';
-import AiDecisionCenter      from '../ai/AiDecisionCenter';
-import McpConsolePage        from '../mcp/McpConsolePage';
-import WorkflowDiagramPage   from '../workflow/WorkflowDiagramPage';
+// AI 決策中心、MCP 控制台、工作流程圖 已移除
 import FormsPage             from '../forms/FormsPage';
 import CustomFieldsPage      from '../customfields/CustomFieldsPage';
 import MyTasksPage           from '../mytasks/MyTasksPage';
@@ -95,12 +94,9 @@ const PAGE_TITLES = {
   rules:           { title: '自動化規則',  sub: '觸發條件 → 動作 · 工作流程自動化' },
   forms:           { title: '表單',        sub: '標準化請求入口 · 提交即建任務' },
   'custom-fields': { title: '自訂欄位',    sub: '追蹤優先度 · 階段 · 工時等資料' },
-  workflow:        { title: '工作流程圖',  sub: '泳道圖 · 視覺化流程設計' },
   time:            { title: '工時記錄',    sub: '人員工時統計' },
   team:            { title: '團隊',        sub: '成員與角色設定' },
   settings:        { title: '設定',        sub: '偏好與整合設定' },
-  'ai-center':     { title: 'AI 決策中心', sub: '智慧分析與建議' },
-  'mcp-console':   { title: 'MCP 控制台',  sub: 'Model Context Protocol' },
   'user-management':{ title: '使用者管理',  sub: '帳號 · 角色 · 權限設定' },
   profile:         { title: '個人資料',    sub: '帳戶設定' },
 };
@@ -122,8 +118,8 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 const ALL_NAV_IDS = [
   'home','inbox','my-tasks','projects','tasks','gantt',
   'analytics','reports','portfolios','goals','workload',
-  'rules','forms','custom-fields','workflow',
-  'time','team','settings','ai-center','mcp-console','user-management','profile',
+  'rules','forms','custom-fields',
+  'time','team','settings','user-management','profile',
 ];
 
 function readHashNav() {
@@ -303,7 +299,7 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCo
         border: `1px solid ${isActive ? T.borderStrong : 'transparent'}`,
         background: isActive ? T.sbActive : hov ? T.sbHover : 'transparent',
         color: isActive ? T.accent2 : hov ? T.t1 : T.t2,
-        fontSize: '13.5px', fontWeight: isActive ? '700' : '500',
+        fontSize: '15px', fontWeight: isActive ? '700' : '500',
         cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
         transition: 'background 0.12s, color 0.12s, border-color 0.12s', position: 'relative',
         boxSizing: 'border-box',
@@ -324,7 +320,7 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCo
       {!sbCollapsed && badge != null && badge > 0 && (
         <span style={{
           background: T.accent, color: 'white',
-          fontSize: '10px', fontWeight: '700',
+          fontSize: '12px', fontWeight: '700',
           padding: '1px 6px', borderRadius: '99px', flexShrink: 0,
         }}>{badge}</span>
       )}
@@ -332,7 +328,7 @@ function NavItem({ id, icon, label, active, onClick, badge, indent = false, sbCo
         <span style={{
           position: 'absolute', top: '4px', right: '4px',
           background: T.accent, color: 'white',
-          fontSize: '9px', fontWeight: '700',
+          fontSize: '11px', fontWeight: '700',
           width: '14px', height: '14px', borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>{badge > 9 ? '9+' : badge}</span>
@@ -358,7 +354,7 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
         style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: '4px',
           background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '11px', fontWeight: '700', color: T.t3,
+          fontSize: '13px', fontWeight: '700', color: T.t3,
           letterSpacing: '0.03em',
           padding: 0, fontFamily: 'inherit', textAlign: 'left',
         }}
@@ -388,17 +384,19 @@ function SectionHeader({ label, onAdd, collapsed, onToggle }) {
   );
 }
 
+
 // ════════════════════════════════════════════════════════════
-// Asana 風格側邊欄（支援收縮）
+// 頂部導航列 — Desktop: 水平選單 + hover 下拉  Mobile: 漢堡 + 側抽屜
 // ════════════════════════════════════════════════════════════
-function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse, authFetch, inboxCount }) {
-  const [collapsed, setCollapsed] = useState({ insights: false, projects: false, workflow: false, tools: false });
+function TopNavBar({
+  active, onNavigate, currentUser, authFetch, inboxCount,
+  onTogglePanel, panelOpen, panelMode, onHelp,
+  isMobile, mobileOpen, onMobileToggle, onMobileClose,
+}) {
+  const [openDrop, setOpenDrop] = useState(null);
   const [apiProjects, setApiProjects] = useState([]);
+  const dropTimer = useRef(null);
 
-  // 展開/收合 section
-  const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
-
-  // 從 API 取得專案清單
   useEffect(() => {
     if (!currentUser?.companyId) return;
     authFetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}`)
@@ -410,286 +408,14 @@ function Sidebar({ active, onChange, currentUser, isCollapsed, onToggleCollapse,
       .catch(() => {});
   }, [authFetch, currentUser?.companyId]);
 
-  // 專案顏色
   const PROJECT_COLORS = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
   const projColor = (p) => PROJECT_COLORS[(p.id || 0) % PROJECT_COLORS.length];
 
-  const SB_W = isCollapsed ? '56px' : '220px';
+  const handleNav = (id) => { onNavigate(id); setOpenDrop(null); };
+  const enterDrop = (id) => { clearTimeout(dropTimer.current); setOpenDrop(id); };
+  const leaveDrop = () => { dropTimer.current = setTimeout(() => setOpenDrop(null), 150); };
 
-  return (
-    <aside style={{
-      width: SB_W, minWidth: SB_W, height: '100vh',
-      background: T.sbBg, display: 'flex', flexDirection: 'column',
-      position: 'sticky', top: 0, overflow: 'hidden', flexShrink: 0,
-      transition: 'width 0.22s ease, min-width 0.22s ease',
-      borderRight: `1px solid ${T.div}`,
-      boxShadow: T.shadow,
-    }}>
-
-      {/* ── Logo 區 + 收縮按鈕 ───────────────────────────── */}
-      <div style={{
-        padding: isCollapsed ? '14px 0' : '16px 14px 12px',
-        display: 'flex', alignItems: 'center',
-        gap: isCollapsed ? '0' : '10px',
-        justifyContent: isCollapsed ? 'center' : 'space-between',
-        borderBottom: `1px solid ${T.div}`, flexShrink: 0,
-        position: 'relative',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-          <LogoIcon size={28} />
-          {!isCollapsed && (
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1, letterSpacing: '-0.3px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                xCloudPMIS
-              </div>
-              <div style={{ fontSize: '10.5px', color: T.t3, marginTop: '1px', whiteSpace: 'nowrap' }}>企業級專案管理</div>
-            </div>
-          )}
-        </div>
-
-        {/* 收縮切換按鈕 */}
-        <button
-          onClick={onToggleCollapse}
-          title={isCollapsed ? '展開側邊欄' : '收合側邊欄'}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: T.t3, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '4px', borderRadius: '5px', flexShrink: 0,
-            transition: 'color 0.15s, background 0.15s',
-            position: isCollapsed ? 'absolute' : 'relative',
-            right: isCollapsed ? '0' : 'auto',
-            opacity: 0.6,
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = T.t1; e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = T.sbHover; }}
-          onMouseLeave={e => { e.currentTarget.style.color = T.t3; e.currentTarget.style.opacity = '0.6'; e.currentTarget.style.background = 'none'; }}
-        >
-          {isCollapsed ? Ic.sidebarOpen : Ic.sidebarClose}
-        </button>
-      </div>
-
-      {/* ── 建立按鈕 ─────────────────────────────────────── */}
-      <div style={{ padding: isCollapsed ? '10px 8px 4px' : '12px 12px 4px', flexShrink: 0 }}>
-        <button
-          onClick={() => onChange('projects')}
-          title={isCollapsed ? '建立' : undefined}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center',
-            justifyContent: 'center',
-            gap: isCollapsed ? '0' : '7px',
-            padding: isCollapsed ? '9px 0' : '8px 0',
-            background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff',
-            border: 'none', borderRadius: '8px',
-            fontSize: '13.5px', fontWeight: '700', cursor: 'pointer',
-            fontFamily: 'inherit', transition: 'background 0.15s',
-            boxShadow: T.accentShadow,
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--xc-brand) 65%, #000000 35%)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)'}
-        >
-          {Ic.plus}
-          {!isCollapsed && '新增項目'}
-        </button>
-      </div>
-
-      {/* ── 導覽項目（可捲動）─────────────────────────────── */}
-      <nav style={{
-        flex: 1, overflowY: 'auto', padding: isCollapsed ? '4px 4px 8px' : '4px 8px 8px',
-        scrollbarWidth: 'thin', scrollbarColor: `${T.div} transparent`,
-      }}>
-
-        {/* 主要導覽 */}
-        <div style={{ marginBottom: '4px' }}>
-          <NavItem id="home"     icon={Ic.home}    label="首頁"   active={active} onClick={onChange} sbCollapsed={isCollapsed} />
-          <NavItem id="my-tasks" icon={Ic.myTasks} label="我的任務" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
-          <NavItem id="inbox"    icon={Ic.inbox}   label="收件匣" active={active} onClick={onChange} badge={inboxCount} sbCollapsed={isCollapsed} />
-        </div>
-
-        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
-
-        {/* 深入解析 */}
-        {!isCollapsed && (
-          <SectionHeader
-            label="深入解析"
-            collapsed={collapsed.insights}
-            onToggle={() => toggleSection('insights')}
-          />
-        )}
-        {(!isCollapsed && !collapsed.insights || isCollapsed) && (
-          <div style={{ marginBottom: '4px' }}>
-            <NavItem id="analytics"  icon={Ic.analytics}  label="分析總覽" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="reports"    icon={Ic.reports}    label="報告"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="goals"      icon={Ic.goals}      label="目標"    active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-          </div>
-        )}
-
-        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
-
-        {/* 專案 */}
-        {!isCollapsed && (
-          <SectionHeader
-            label="專案"
-            onAdd={() => onChange('projects')}
-            collapsed={collapsed.projects}
-            onToggle={() => toggleSection('projects')}
-          />
-        )}
-        {(!isCollapsed && !collapsed.projects || isCollapsed) && (
-          <div style={{ marginBottom: '4px' }}>
-            <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃"  active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            {/* 來自 API 的真實專案（收合時隱藏） */}
-            {!isCollapsed && apiProjects.map(p => (
-              <button
-                key={p.id}
-                onClick={() => onChange('projects')}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '5px 10px 5px 28px', borderRadius: '6px', border: 'none',
-                  background: 'transparent', color: T.t2,
-                  fontSize: '13px', cursor: 'pointer', textAlign: 'left',
-                  fontFamily: 'inherit', transition: 'background 0.1s',
-                  boxSizing: 'border-box',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; }}
-              >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: projColor(p), flexShrink: 0 }} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {p.name}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
-
-        {/* 工作流程 */}
-        {!isCollapsed && (
-          <SectionHeader
-            label="工作流程"
-            collapsed={collapsed.workflow}
-            onToggle={() => toggleSection('workflow')}
-          />
-        )}
-        {(!isCollapsed && !collapsed.workflow || isCollapsed) && (
-          <div style={{ marginBottom: '4px' }}>
-            <NavItem id="rules"         icon={Ic.rules}        label="自動化規則" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="forms"         icon={Ic.forms}        label="表單"       active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="custom-fields" icon={Ic.customFields} label="自訂欄位"   active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="workflow"      icon={Ic.workflow}     label="工作流程圖" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-          </div>
-        )}
-
-        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
-
-        {/* 工具 */}
-        {!isCollapsed && (
-          <SectionHeader
-            label="工具"
-            collapsed={collapsed.tools}
-            onToggle={() => toggleSection('tools')}
-          />
-        )}
-        {(!isCollapsed && !collapsed.tools || isCollapsed) && (
-          <div style={{ marginBottom: '4px' }}>
-            <NavItem id="time"        icon={Ic.time}     label="工時記錄"   active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="ai-center"   icon={Ic.ai}       label="AI 決策中心" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-            <NavItem id="mcp-console" icon={Ic.mcp}      label="MCP 控制台" active={active} onClick={onChange} indent={!isCollapsed} sbCollapsed={isCollapsed} />
-          </div>
-        )}
-
-        <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
-
-        {/* 我的工作空間（Team）*/}
-        <button
-          onClick={() => onChange('team')}
-          title={isCollapsed ? '我的工作空間' : undefined}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center',
-            gap: isCollapsed ? '0' : '9px',
-            padding: isCollapsed ? '8px 0' : '6px 10px',
-            justifyContent: isCollapsed ? 'center' : 'flex-start',
-            borderRadius: '10px', border: `1px solid ${active === 'team' ? T.borderStrong : 'transparent'}`,
-            background: active === 'team' ? T.sbActive : 'transparent',
-            color: active === 'team' ? T.accent2 : T.t2,
-            fontSize: '13.5px', fontWeight: active === 'team' ? '700' : '500',
-            cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-            transition: 'background 0.12s', boxSizing: 'border-box',
-          }}
-          onMouseEnter={e => {
-            if (active !== 'team') { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }
-          }}
-          onMouseLeave={e => {
-            if (active !== 'team') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; }
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', opacity: 0.75 }}>{Ic.team}</span>
-          {!isCollapsed && <><span style={{ flex: 1 }}>我的工作空間</span><span style={{ opacity: 0.4 }}>{Ic.chevRight}</span></>}
-        </button>
-
-      </nav>
-
-      {/* ── 底部：設定 + 管理員 + 使用者 ───────────────────── */}
-      <div style={{ padding: isCollapsed ? '8px 4px 12px' : '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
-        <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
-        {currentUser?.role === 'admin' && (
-          <NavItem id="user-management" icon={Ic.userMgmt} label="使用者管理" active={active} onClick={onChange} sbCollapsed={isCollapsed} />
-        )}
-
-        {/* 使用者資料列 */}
-        <button
-          onClick={() => onChange('profile')}
-          title={isCollapsed ? (currentUser?.name ?? '個人資料') : undefined}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center',
-            gap: isCollapsed ? '0' : '9px',
-            justifyContent: isCollapsed ? 'center' : 'flex-start',
-            padding: isCollapsed ? '9px 0' : '8px 10px',
-            marginTop: '4px', borderRadius: '8px',
-            border: `1px solid ${active === 'profile' ? T.borderStrong : 'transparent'}`,
-            background: active === 'profile' ? T.sbActive : 'transparent',
-            cursor: 'pointer', transition: 'background 0.12s', fontFamily: 'inherit',
-            boxSizing: 'border-box',
-          }}
-          onMouseEnter={e => { if (active !== 'profile') e.currentTarget.style.background = T.sbHover; }}
-          onMouseLeave={e => { if (active !== 'profile') e.currentTarget.style.background = 'transparent'; }}
-        >
-          <div style={{
-            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg,#C94A5D,#9E1830)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', fontWeight: '700', fontSize: '12px',
-          }}>
-            {currentUser ? currentUser.name.slice(0, 1) : '?'}
-          </div>
-          {!isCollapsed && (
-            <>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: T.t1, fontSize: '12.5px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {currentUser?.name ?? '載入中⋯'}
-                </div>
-                <div style={{ color: T.t3, fontSize: '10.5px' }}>
-                  {currentUser?.role === 'admin' ? '系統管理員' : currentUser?.role === 'pm' ? '專案經理' : '一般成員'}
-                </div>
-              </div>
-              <span style={{ color: T.t3, display: 'flex', alignItems: 'center' }}>{Ic.dots}</span>
-            </>
-          )}
-        </button>
-      </div>
-    </aside>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-// 頂部搜尋列（Asana 風格）
-// ════════════════════════════════════════════════════════════
-function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOpen = false, panelMode = 'dark', onHelp }) {
-  const page = PAGE_TITLES[activeNav] || { title: activeNav, sub: '' };
+  // panel 按鈕樣式
   const isLightPanel = panelMode === 'light';
   const panelIcon = isLightPanel ? Ic.sun : Ic.moon;
   const panelLabel = isLightPanel ? '開燈' : '關燈';
@@ -700,112 +426,244 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOp
     : isLightPanel
       ? { bg: '#FFF7F0', border: '#E6D6C8', color: '#7A5A47' }
       : { bg: T.cardBg, border: T.border, color: T.t2 };
-  const panelButtonHover = isLightPanel
-    ? { bg: '#F8ECDF', border: '#D9BDA0', color: '#6C4930' }
-    : { bg: '#161C27', border: '#2A3342', color: '#F4F7FB' };
 
-  return (
-    <header style={{
-      background: T.topbarBg, borderBottom: `1px solid ${T.border}`,
-      padding: '0 20px 0 18px', minHeight: '64px',
-      display: 'flex', alignItems: 'center', gap: '14px',
-      flexShrink: 0, position: 'sticky', top: 0, zIndex: 100,
-      backdropFilter: 'blur(16px)',
-    }}>
+  // ── 導覽群組定義 ─────────────────────────────────────────
+  const NAV_DROPS = [
+    { groupId: 'insights', label: '解析', icon: Ic.analytics, items: [
+      { navId: 'analytics',  label: '分析總覽', icon: Ic.analytics },
+      { navId: 'reports',    label: '報告',     icon: Ic.reports },
+      { navId: 'portfolios', label: '專案集',   icon: Ic.portfolios },
+      { navId: 'goals',      label: '目標',     icon: Ic.goals },
+      { navId: 'workload',   label: '工作負載', icon: Ic.workload },
+    ]},
+    { groupId: 'projects', label: '專案', icon: Ic.projects, items: [
+      { navId: 'projects', label: '所有專案', icon: Ic.projects },
+      { navId: 'tasks',    label: '任務看板', icon: Ic.tasks },
+      { navId: 'gantt',    label: '時程規劃', icon: Ic.gantt },
+    ], showProjects: true },
+    { groupId: 'wf', label: '流程', icon: Ic.workflow, items: [
+      { navId: 'rules',         label: '自動化規則', icon: Ic.rules },
+      { navId: 'forms',         label: '表單',       icon: Ic.forms },
+      { navId: 'custom-fields', label: '自訂欄位',   icon: Ic.customFields },
+    ]},
+    { groupId: 'tools', label: '工具', icon: Ic.time, items: [
+      { navId: 'time',        label: '工時記錄',    icon: Ic.time },
+    ]},
+  ];
 
-      {/* 漢堡選單（sidebar toggle）*/}
+  const isGroupActive = (g) => g.items.some(it => it.navId === active);
+
+  // ── 小型頂部按鈕 ─────────────────────────────────────────
+  const TopBtn = ({ id, icon, label, badge }) => {
+    const act = active === id;
+    return (
       <button
-        onClick={onToggleSidebar}
-        title="切換側邊欄"
+        onClick={() => handleNav(id)}
+        title={label}
         style={{
-          width: '36px', height: '36px', borderRadius: '10px',
-          border: `1px solid ${T.border}`, background: T.cardBg,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: T.t2, flexShrink: 0, transition: 'all 0.15s',
+          display: 'flex', alignItems: 'center', gap: '5px',
+          padding: '5px 10px', borderRadius: '8px', border: 'none',
+          background: act ? T.sbActive : 'transparent',
+          color: act ? T.accent2 : T.t2,
+          fontSize: '14px', fontWeight: act ? '700' : '500',
+          cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+          transition: 'background 0.12s, color 0.12s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = T.mutedBg; e.currentTarget.style.color = T.t1; }}
-        onMouseLeave={e => { e.currentTarget.style.background = T.cardBg; e.currentTarget.style.color = T.t2; }}
+        onMouseEnter={e => { if (!act) { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; } }}
+        onMouseLeave={e => { if (!act) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; } }}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
+        <span style={{ display: 'flex', opacity: act ? 1 : 0.7 }}>{icon}</span>
+        <span>{label}</span>
+        {badge > 0 && (
+          <span style={{
+            background: T.accent, color: 'white', fontSize: '11px', fontWeight: '700',
+            padding: '1px 5px', borderRadius: '99px',
+          }}>{badge}</span>
+        )}
       </button>
+    );
+  };
 
-      {/* 頁面標題 */}
-      <div style={{ flex: '0 1 auto', minWidth: 0 }}>
-        <div style={{ fontSize: '11px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>
-          WORKSPACE
-        </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
-          <span style={{ fontSize: '18px', fontWeight: '800', color: T.t1, whiteSpace: 'nowrap' }}>
-            {page.title}
-          </span>
-          {page.sub && (
-            <span style={{ fontSize: '12px', color: T.t3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {page.sub}
-            </span>
-          )}
-        </div>
+  // ── 下拉選單群組 ─────────────────────────────────────────
+  const DropGroup = ({ group }) => {
+    const gActive = isGroupActive(group);
+    const isOpen = openDrop === group.groupId;
+    return (
+      <div
+        onMouseEnter={() => enterDrop(group.groupId)}
+        onMouseLeave={leaveDrop}
+        style={{ position: 'relative' }}
+      >
+        <button
+          style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '5px 8px', borderRadius: '8px', border: 'none',
+            background: isOpen ? T.sbHover : gActive ? T.sbActive : 'transparent',
+            color: gActive ? T.accent2 : T.t2,
+            fontSize: '14px', fontWeight: gActive ? '700' : '500',
+            cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+            transition: 'background 0.12s, color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = isOpen ? T.sbHover : gActive ? T.sbActive : 'transparent';
+            e.currentTarget.style.color = gActive ? T.accent2 : T.t2;
+          }}
+        >
+          <span style={{ display: 'flex', opacity: gActive ? 1 : 0.7 }}>{group.icon}</span>
+          <span>{group.label}</span>
+          <span style={{ opacity: 0.4, display: 'flex', transition: 'transform 0.15s', transform: isOpen ? 'rotate(180deg)' : 'none' }}>{Ic.chevDown}</span>
+        </button>
+
+        {/* 下拉面板 */}
+        {isOpen && (
+          <div
+            onMouseEnter={() => enterDrop(group.groupId)}
+            onMouseLeave={leaveDrop}
+            style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0,
+              minWidth: '210px', background: T.cardBgStrong,
+              border: `1px solid ${T.border}`, borderRadius: '10px',
+              boxShadow: T.shadow, padding: '4px', zIndex: 200,
+            }}
+          >
+            {group.items.map(it => {
+              const itActive = active === it.navId;
+              return (
+                <button
+                  key={it.navId}
+                  onClick={() => handleNav(it.navId)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 12px', borderRadius: '7px', border: 'none',
+                    background: itActive ? T.sbActive : 'transparent',
+                    color: itActive ? T.accent2 : T.t2,
+                    fontSize: '14px', fontWeight: itActive ? '700' : '500',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                    transition: 'background 0.1s, color 0.1s',
+                  }}
+                  onMouseEnter={e => { if (!itActive) { e.currentTarget.style.background = T.sbHover; e.currentTarget.style.color = T.t1; } }}
+                  onMouseLeave={e => { if (!itActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.t2; } }}
+                >
+                  <span style={{ display: 'flex', opacity: 0.7 }}>{it.icon}</span>
+                  {it.label}
+                </button>
+              );
+            })}
+            {/* 動態專案清單 */}
+            {group.showProjects && apiProjects.length > 0 && (
+              <>
+                <div style={{ height: '1px', background: T.div, margin: '4px 8px' }} />
+                <div style={{ padding: '4px 12px 2px', fontSize: '11px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>
+                  近期專案
+                </div>
+                {apiProjects.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleNav('projects')}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '6px 12px', borderRadius: '7px', border: 'none',
+                      background: 'transparent', color: T.t2,
+                      fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.sbHover}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: projColor(p), flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
+    );
+  };
 
-      {/* 右側操作列──推到最右 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: 'auto' }}>
+  // ════════════════════════════════════════════════════════
+  //  Desktop 頂部列
+  // ════════════════════════════════════════════════════════
+  if (!isMobile) {
+    return (
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: T.topbarBg, backdropFilter: 'blur(16px)',
+        borderBottom: `1px solid ${T.border}`,
+        display: 'flex', alignItems: 'center',
+        padding: '0 14px', height: '52px', gap: '2px',
+        flexShrink: 0,
+      }}>
+        {/* Logo */}
+        <div
+          onClick={() => handleNav('home')}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px', flexShrink: 0, cursor: 'pointer' }}
+        >
+          <LogoIcon size={24} />
+          <span style={{ fontSize: '15px', fontWeight: '800', color: T.t1, letterSpacing: '-0.3px' }}>xCloudPMIS</span>
+        </div>
+
+        <div style={{ width: '1px', height: '24px', background: T.div, margin: '0 4px', flexShrink: 0 }} />
+
+        {/* Main nav items */}
+        <TopBtn id="home"     icon={Ic.home}    label="首頁" />
+        <TopBtn id="my-tasks" icon={Ic.myTasks} label="我的任務" />
+        <TopBtn id="inbox"    icon={Ic.inbox}   label="收件匣" badge={inboxCount} />
+
+        <div style={{ width: '1px', height: '24px', background: T.div, margin: '0 4px', flexShrink: 0 }} />
+
+        {/* Dropdown groups */}
+        {NAV_DROPS.map(g => <DropGroup key={g.groupId} group={g} />)}
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* 右側功能 */}
+        <TopBtn id="team"     icon={Ic.team}     label="團隊" />
+        {currentUser?.role === 'admin' && (
+          <TopBtn id="user-management" icon={Ic.userMgmt} label="管理" />
+        )}
+        <TopBtn id="settings" icon={Ic.settings} label="設定" />
+
+        <div style={{ width: '1px', height: '24px', background: T.div, margin: '0 6px', flexShrink: 0 }} />
+
+        {/* 工作面板 */}
         <button
           onClick={onTogglePanel}
           title="工作面板"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            height: '36px',
-            borderRadius: '10px',
-            border: `1px solid ${panelButtonState.border}`,
-            background: panelButtonState.bg,
-            cursor: 'pointer',
-            padding: '0 12px',
-            fontSize: '12.5px',
-            color: panelButtonState.color,
-            fontWeight: '700',
+            display: 'flex', alignItems: 'center', gap: '5px', height: '34px',
+            borderRadius: '8px', border: `1px solid ${panelButtonState.border}`,
+            background: panelButtonState.bg, cursor: 'pointer', padding: '0 10px',
+            fontSize: '13px', color: panelButtonState.color, fontWeight: '700',
             transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.background = panelButtonHover.bg;
-            e.currentTarget.style.color = panelButtonHover.color;
-            e.currentTarget.style.borderColor = panelButtonHover.border;
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = panelButtonState.bg;
-            e.currentTarget.style.color = panelButtonState.color;
-            e.currentTarget.style.borderColor = panelButtonState.border;
           }}
         >
           {panelIcon}
-          工作面板
           <span style={{
-            padding: '2px 7px',
-            borderRadius: '999px',
+            padding: '2px 6px', borderRadius: '999px', fontSize: '11px', fontWeight: '800',
             background: panelOpen
               ? isLightPanel ? 'rgba(255,255,255,0.68)' : 'rgba(255,255,255,0.12)'
               : isLightPanel ? '#F6E8DB' : T.mutedBg,
             color: panelOpen
               ? isLightPanel ? '#7A5A47' : '#F4F7FB'
               : isLightPanel ? '#7A5A47' : T.t3,
-            fontSize: '10px',
-            fontWeight: '800',
-            letterSpacing: '0.04em',
           }}>
             {panelLabel}
           </span>
         </button>
 
+        {/* 說明 */}
         <button
-          title="說明"
           onClick={onHelp}
+          title="說明"
           style={{
-            height: '36px', borderRadius: '10px', border: `1px solid ${T.border}`,
+            height: '34px', borderRadius: '8px', border: `1px solid ${T.border}`,
             background: T.cardBg, cursor: 'pointer', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: '0 12px',
-            fontSize: '12.5px', color: T.t2, fontWeight: '700',
+            alignItems: 'center', justifyContent: 'center', padding: '0 10px',
+            fontSize: '13px', color: T.t2, fontWeight: '700',
           }}
           onMouseEnter={e => e.currentTarget.style.background = T.mutedBg}
           onMouseLeave={e => e.currentTarget.style.background = T.cardBg}
@@ -813,27 +671,257 @@ function Topbar({ activeNav, onNavigate, onToggleSidebar, onTogglePanel, panelOp
           說明
         </button>
 
+        {/* 通知鈴鐺 */}
         <button
-          onClick={() => onNavigate('inbox')}
-          title="收件匣"
+          onClick={() => handleNav('inbox')}
+          title="通知"
           style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            border: `1px solid ${activeNav === 'inbox' ? T.accent : T.border}`,
-            background: activeNav === 'inbox' ? T.brandSoftStrong : T.cardBg,
+            width: '34px', height: '34px', borderRadius: '8px',
+            border: `1px solid ${active === 'inbox' ? T.accent : T.border}`,
+            background: active === 'inbox' ? T.brandSoftStrong : T.cardBg,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: activeNav === 'inbox' ? T.accent : T.t2,
-            transition: 'all 0.15s',
+            color: active === 'inbox' ? T.accent : T.t2,
+            transition: 'all 0.15s', position: 'relative',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = T.brandSoftStrong; e.currentTarget.style.color = T.accent; }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = activeNav === 'inbox' ? T.brandSoftStrong : T.cardBg;
-            e.currentTarget.style.color = activeNav === 'inbox' ? T.accent : T.t2;
+            e.currentTarget.style.background = active === 'inbox' ? T.brandSoftStrong : T.cardBg;
+            e.currentTarget.style.color = active === 'inbox' ? T.accent : T.t2;
           }}
         >
           {Ic.bell}
+          {inboxCount > 0 && (
+            <span style={{
+              position: 'absolute', top: '-4px', right: '-4px',
+              background: T.accent, color: 'white', fontSize: '10px', fontWeight: '700',
+              width: '16px', height: '16px', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{inboxCount > 9 ? '9+' : inboxCount}</span>
+          )}
         </button>
-      </div>
-    </header>
+
+        {/* 使用者頭像 */}
+        <button
+          onClick={() => handleNav('profile')}
+          title={currentUser?.name || '個人資料'}
+          style={{
+            width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+            background: active === 'profile'
+              ? 'linear-gradient(135deg,#E85D73,#C41230)'
+              : 'linear-gradient(135deg,#C94A5D,#9E1830)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontWeight: '700', fontSize: '14px',
+            border: active === 'profile' ? `2px solid ${T.accent}` : '2px solid transparent',
+            cursor: 'pointer', transition: 'border-color 0.15s',
+          }}
+        >
+          {currentUser ? currentUser.name.slice(0, 1) : '?'}
+        </button>
+      </header>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  Mobile：漢堡列 + 側邊抽屜
+  // ════════════════════════════════════════════════════════
+  const page = PAGE_TITLES[active] || { title: active };
+
+  // 手機版 drawer 中的 nav click
+  const mobileNav = (id) => { handleNav(id); if (onMobileClose) onMobileClose(); };
+
+  return (
+    <>
+      {/* ── 頂部列 ───────────────────────────────────── */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: T.topbarBg, backdropFilter: 'blur(16px)',
+        borderBottom: `1px solid ${T.border}`,
+        display: 'flex', alignItems: 'center',
+        padding: '0 12px', height: '50px', gap: '8px',
+        flexShrink: 0,
+      }}>
+        <button
+          onClick={onMobileToggle}
+          style={{
+            width: '36px', height: '36px', borderRadius: '8px',
+            border: `1px solid ${T.border}`, background: T.cardBg,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: T.t2, flexShrink: 0,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <LogoIcon size={22} />
+        <span style={{
+          fontSize: '16px', fontWeight: '700', color: T.t1,
+          flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {page.title}
+        </span>
+        {/* 通知 */}
+        <button
+          onClick={() => mobileNav('inbox')}
+          style={{
+            width: '34px', height: '34px', borderRadius: '8px',
+            border: `1px solid ${T.border}`, background: T.cardBg,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: T.t2, position: 'relative',
+          }}
+        >
+          {Ic.bell}
+          {inboxCount > 0 && (
+            <span style={{
+              position: 'absolute', top: '-3px', right: '-3px',
+              background: T.accent, color: 'white', fontSize: '10px', fontWeight: '700',
+              width: '15px', height: '15px', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{inboxCount > 9 ? '9+' : inboxCount}</span>
+          )}
+        </button>
+        {/* 面板 */}
+        <button
+          onClick={onTogglePanel}
+          style={{
+            height: '34px', borderRadius: '8px',
+            border: `1px solid ${panelButtonState.border}`,
+            background: panelButtonState.bg, cursor: 'pointer', padding: '0 8px',
+            display: 'flex', alignItems: 'center', gap: '3px',
+            color: panelButtonState.color, fontSize: '13px', fontWeight: '700',
+          }}
+        >
+          {panelIcon}
+        </button>
+      </header>
+
+      {/* ── 遮罩 ─────────────────────────────────────── */}
+      {mobileOpen && (
+        <div
+          onClick={onMobileClose}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(0,0,0,0.45)', transition: 'opacity 0.25s',
+          }}
+        />
+      )}
+
+      {/* ── 側邊抽屜 ─────────────────────────────────── */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, bottom: 0,
+        width: '280px', background: T.sbBg,
+        display: 'flex', flexDirection: 'column',
+        transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s ease',
+        zIndex: 9999, borderRight: `1px solid ${T.div}`,
+        boxShadow: T.shadow,
+      }}>
+        {/* Logo */}
+        <div style={{
+          padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: '10px',
+          borderBottom: `1px solid ${T.div}`, flexShrink: 0,
+        }}>
+          <LogoIcon size={26} />
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: T.t1 }}>xCloudPMIS</div>
+            <div style={{ fontSize: '11px', color: T.t3 }}>企業級專案管理</div>
+          </div>
+        </div>
+
+        {/* Nav 項目 */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
+          <NavItem id="home"     icon={Ic.home}    label="首頁"     active={active} onClick={mobileNav} />
+          <NavItem id="my-tasks" icon={Ic.myTasks} label="我的任務" active={active} onClick={mobileNav} />
+          <NavItem id="inbox"    icon={Ic.inbox}   label="收件匣"   active={active} onClick={mobileNav} badge={inboxCount} />
+
+          <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+          <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>深入解析</div>
+          <NavItem id="analytics"  icon={Ic.analytics}  label="分析總覽" active={active} onClick={mobileNav} indent />
+          <NavItem id="reports"    icon={Ic.reports}    label="報告"     active={active} onClick={mobileNav} indent />
+          <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"   active={active} onClick={mobileNav} indent />
+          <NavItem id="goals"      icon={Ic.goals}      label="目標"     active={active} onClick={mobileNav} indent />
+          <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={mobileNav} indent />
+
+          <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+          <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>專案</div>
+          <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={mobileNav} indent />
+          <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板" active={active} onClick={mobileNav} indent />
+          <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃" active={active} onClick={mobileNav} indent />
+          {apiProjects.map(p => (
+            <button
+              key={p.id}
+              onClick={() => mobileNav('projects')}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '5px 10px 5px 28px', borderRadius: '6px', border: 'none',
+                background: 'transparent', color: T.t2,
+                fontSize: '14px', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = T.sbHover}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: projColor(p), flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.name}</span>
+            </button>
+          ))}
+
+          <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+          <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>工作流程</div>
+          <NavItem id="rules"         icon={Ic.rules}        label="自動化規則" active={active} onClick={mobileNav} indent />
+          <NavItem id="forms"         icon={Ic.forms}        label="表單"       active={active} onClick={mobileNav} indent />
+          <NavItem id="custom-fields" icon={Ic.customFields} label="自訂欄位"   active={active} onClick={mobileNav} indent />
+
+          <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+          <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>工具</div>
+          <NavItem id="time"        icon={Ic.time} label="工時記錄"    active={active} onClick={mobileNav} indent />
+
+          <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
+          <NavItem id="team" icon={Ic.team} label="團隊" active={active} onClick={mobileNav} />
+        </div>
+
+        {/* 底部 */}
+        <div style={{ padding: '8px 8px 12px', borderTop: `1px solid ${T.div}`, flexShrink: 0 }}>
+          <NavItem id="settings" icon={Ic.settings} label="設定" active={active} onClick={mobileNav} />
+          {currentUser?.role === 'admin' && (
+            <NavItem id="user-management" icon={Ic.userMgmt} label="使用者管理" active={active} onClick={mobileNav} />
+          )}
+          <button
+            onClick={() => mobileNav('profile')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: '9px',
+              padding: '8px 10px', marginTop: '4px', borderRadius: '8px',
+              border: `1px solid ${active === 'profile' ? T.borderStrong : 'transparent'}`,
+              background: active === 'profile' ? T.sbActive : 'transparent',
+              cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.12s',
+              boxSizing: 'border-box',
+            }}
+            onMouseEnter={e => { if (active !== 'profile') e.currentTarget.style.background = T.sbHover; }}
+            onMouseLeave={e => { if (active !== 'profile') e.currentTarget.style.background = 'transparent'; }}
+          >
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg,#C94A5D,#9E1830)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: '700', fontSize: '14px',
+            }}>
+              {currentUser ? currentUser.name.slice(0, 1) : '?'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                color: T.t1, fontSize: '14px', fontWeight: '500',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {currentUser?.name ?? '載入中⋯'}
+              </div>
+              <div style={{ color: T.t3, fontSize: '12px' }}>
+                {currentUser?.role === 'admin' ? '系統管理員' : currentUser?.role === 'pm' ? '專案經理' : '一般成員'}
+              </div>
+            </div>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }
 
@@ -958,14 +1046,14 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
         <div style={{ padding: '24px 24px 20px', borderBottom: `1px solid ${panelTheme.line}` }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: panelTheme.eyebrowBg, border: `1px solid ${panelTheme.eyebrowBorder}`, color: panelTheme.eyebrowText, fontSize: '11px', fontWeight: '800', letterSpacing: '0.08em' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '999px', background: panelTheme.eyebrowBg, border: `1px solid ${panelTheme.eyebrowBorder}`, color: panelTheme.eyebrowText, fontSize: '13px', fontWeight: '800', letterSpacing: '0.08em' }}>
                 {panelIcon}
                 WORK PANEL
               </div>
-              <div style={{ marginTop: '14px', fontSize: '28px', fontWeight: '900', letterSpacing: '-0.05em' }}>
+              <div style={{ marginTop: '14px', fontSize: '30px', fontWeight: '900', letterSpacing: '-0.05em' }}>
                 工作面板
               </div>
-              <div style={{ marginTop: '8px', fontSize: '13px', lineHeight: 1.7, color: panelTheme.textSoft }}>
+              <div style={{ marginTop: '8px', fontSize: '15px', lineHeight: 1.7, color: panelTheme.textSoft }}>
                 {currentUser?.name || '團隊成員'}，這裡整理了目前最值得先處理的風險、通知與快速入口。
               </div>
             </div>
@@ -980,7 +1068,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                 background: panelTheme.closeBg,
                 color: panelTheme.closeText,
                 cursor: 'pointer',
-                fontSize: '18px',
+                fontSize: '20px',
               }}
             >
               ×
@@ -988,7 +1076,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           </div>
 
           <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-            <div style={{ fontSize: '12px', color: panelTheme.textMuted }}>
+            <div style={{ fontSize: '14px', color: panelTheme.textMuted }}>
               最後整理時間 {timeLabel}
             </div>
             <button
@@ -1002,7 +1090,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                 color: panelTheme.refreshText,
                 borderRadius: '999px',
                 padding: '8px 12px',
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: '700',
                 cursor: 'pointer',
               }}
@@ -1039,18 +1127,18 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                       fontFamily: 'inherit',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '800' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '800' }}>
                       {item.id === 'light' ? Ic.sun : Ic.moon}
                       {item.label}
                     </div>
-                    <div style={{ marginTop: '4px', fontSize: '11px', color: active ? panelTheme.modeButtonActiveText : panelTheme.modeHintText }}>
+                    <div style={{ marginTop: '4px', fontSize: '13px', color: active ? panelTheme.modeButtonActiveText : panelTheme.modeHintText }}>
                       {item.desc}
                     </div>
                   </button>
                 );
               })}
             </div>
-            <div style={{ marginTop: '8px', fontSize: '12px', color: panelTheme.textMuted }}>
+            <div style={{ marginTop: '8px', fontSize: '14px', color: panelTheme.textMuted }}>
               目前為 {modeTitle}，可依環境亮度快速切換。
             </div>
           </div>
@@ -1064,7 +1152,7 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
               borderRadius: '16px',
               background: panelTheme.errorBg,
               border: `1px solid ${panelTheme.errorBorder}`,
-              fontSize: '12px',
+              fontSize: '14px',
               color: panelTheme.errorText,
               lineHeight: 1.7,
             }}>
@@ -1083,13 +1171,13 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                   border: `1px solid ${panelTheme.statBorder}`,
                 }}
               >
-                <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.statLabel }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.statLabel }}>
                   {item.label}
                 </div>
-                <div style={{ marginTop: '10px', fontSize: '28px', fontWeight: '900', color: item.accent }}>
+                <div style={{ marginTop: '10px', fontSize: '30px', fontWeight: '900', color: item.accent }}>
                   {item.value}
                 </div>
-                <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.6, color: panelTheme.statHint }}>
+                <div style={{ marginTop: '8px', fontSize: '14px', lineHeight: 1.6, color: panelTheme.statHint }}>
                   {item.hint}
                 </div>
               </div>
@@ -1097,8 +1185,8 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           </div>
 
           <div style={{ marginTop: '20px', borderRadius: '22px', padding: '18px', background: panelTheme.sectionBg, border: `1px solid ${panelTheme.sectionBorder}` }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>快捷入口</div>
-            <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: '800' }}>快速處理今晚的工作節點</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>快捷入口</div>
+            <div style={{ marginTop: '6px', fontSize: '20px', fontWeight: '800' }}>快速處理今晚的工作節點</div>
             <div style={{ display: 'grid', gap: '10px', marginTop: '16px' }}>
               {actionCards.map((item) => (
                 <button
@@ -1118,22 +1206,22 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                     cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.label}</div>
-                  <div style={{ marginTop: '6px', fontSize: '12px', color: panelTheme.sectionHint }}>{item.desc}</div>
+                  <div style={{ fontSize: '15px', fontWeight: '800' }}>{item.label}</div>
+                  <div style={{ marginTop: '6px', fontSize: '14px', color: panelTheme.sectionHint }}>{item.desc}</div>
                 </button>
               ))}
             </div>
           </div>
 
           <div style={{ marginTop: '20px', display: 'grid', gap: '12px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>風險專案</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>風險專案</div>
             {spotlightProjects.length === 0 ? (
               <div style={{
                 borderRadius: '18px',
                 padding: '18px',
                 background: panelTheme.sectionMutedBg,
                 border: `1px solid ${panelTheme.sectionBorder}`,
-                fontSize: '13px',
+                fontSize: '15px',
                 color: panelTheme.emptyText,
               }}>
                 目前沒有需要額外關注的專案，節奏維持得不錯。
@@ -1168,14 +1256,14 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {project.project_name ?? project.name}
                         </div>
-                        <div style={{ marginTop: '6px', fontSize: '11px', color: panelTheme.sectionHint }}>
+                        <div style={{ marginTop: '6px', fontSize: '13px', color: panelTheme.sectionHint }}>
                           {overdue > 0 ? `${overdue} 項逾期` : '目前無逾期項目'}
                         </div>
                       </div>
-                      <div style={{ fontSize: '12px', fontWeight: '900', color: tone }}>
+                      <div style={{ fontSize: '14px', fontWeight: '900', color: tone }}>
                         {progress}%
                       </div>
                     </div>
@@ -1189,14 +1277,14 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
           </div>
 
           <div style={{ marginTop: '20px', display: 'grid', gap: '10px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>行動建議</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', letterSpacing: '0.06em', color: panelTheme.sectionLabel }}>行動建議</div>
             {insightCards.length === 0 ? (
               <div style={{
                 borderRadius: '18px',
                 padding: '18px',
                 background: panelTheme.sectionMutedBg,
                 border: `1px solid ${panelTheme.sectionBorder}`,
-                fontSize: '13px',
+                fontSize: '15px',
                 color: panelTheme.emptyText,
               }}>
                 系統目前沒有額外建議，可維持當前節奏。
@@ -1212,8 +1300,8 @@ function DarkPanel({ open, onClose, onNavigate, currentUser, inboxCount, dashDat
                     border: `1px solid ${panelTheme.sectionBorder}`,
                   }}
                 >
-                  <div style={{ fontSize: '13px', fontWeight: '800' }}>{item.title}</div>
-                  <div style={{ marginTop: '8px', fontSize: '12px', lineHeight: 1.7, color: panelTheme.sectionBody }}>
+                  <div style={{ fontSize: '15px', fontWeight: '800' }}>{item.title}</div>
+                  <div style={{ marginTop: '8px', fontSize: '14px', lineHeight: 1.7, color: panelTheme.sectionBody }}>
                     {item.body}
                   </div>
                 </div>
@@ -1254,6 +1342,7 @@ function loadWidgetPrefs() {
 // ════════════════════════════════════════════════════════════
 function AnalyticsPage({ dashData }) {
   const { summary, projects, workload, insights, loading, error, refresh } = dashData;
+  const { isMobile } = useResponsive();
   const monthlyTrend = dashData.monthlyTrend || [];
   const urgency      = useUrgency(14);
   const { authFetch } = useAuth();
@@ -1301,7 +1390,7 @@ function AnalyticsPage({ dashData }) {
   };
 
   const sectionTitle = {
-    fontSize:      '13px',
+    fontSize: '15px',
     fontWeight:    600,
     color:         'var(--xc-text-soft)',
     marginBottom:  '16px',
@@ -1313,7 +1402,7 @@ function AnalyticsPage({ dashData }) {
   if (error) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--xc-danger)' }}>
-        <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚠️</div>
+        <div style={{ fontSize: '34px', marginBottom: '12px' }}>⚠️</div>
         <div>資料載入失敗：{error}</div>
         <button onClick={refresh} style={{ marginTop: '12px', padding: '8px 16px',
           borderRadius: '6px', border: '1px solid var(--xc-border)',
@@ -1326,20 +1415,20 @@ function AnalyticsPage({ dashData }) {
 
   return (
     <div style={{
-      padding:   '28px 32px',
+      padding:   isMobile ? '16px 14px' : '28px 32px',
       maxWidth:  '1280px',
       margin:    '0 auto',
       display:   'flex',
       flexDirection: 'column',
-      gap:       '24px',
+      gap:       isMobile ? '16px' : '24px',
     }}>
       {/* 頁頭 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
             分析總覽
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--xc-text-muted)', margin: '4px 0 0' }}>
+          <p style={{ fontSize: '15px', color: 'var(--xc-text-muted)', margin: '4px 0 0' }}>
             即時 KPI · 專案健康 · 工作負載 · 月度趨勢
           </p>
         </div>
@@ -1352,7 +1441,7 @@ function AnalyticsPage({ dashData }) {
               padding: '7px 14px', borderRadius: '8px',
               border: showPalette ? '1px solid var(--xc-brand)' : '1px solid var(--xc-border)',
               background: showPalette ? 'color-mix(in srgb, var(--xc-brand) 10%, var(--xc-surface))' : 'var(--xc-surface)',
-              cursor: 'pointer', fontSize: '12px',
+              cursor: 'pointer', fontSize: '14px',
               color: showPalette ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
               fontWeight: showPalette ? 700 : 400,
             }}
@@ -1367,7 +1456,7 @@ function AnalyticsPage({ dashData }) {
               padding: '7px 14px', borderRadius: '8px',
               border: '1px solid var(--xc-border)',
               background: 'var(--xc-surface)', cursor: 'pointer',
-              fontSize: '12px', color: 'var(--xc-text-soft)',
+              fontSize: '14px', color: 'var(--xc-text-soft)',
               opacity: (loading || urgency.loading) ? 0.5 : 1,
             }}
           >
@@ -1386,7 +1475,7 @@ function AnalyticsPage({ dashData }) {
           padding:      '20px 24px',
           boxShadow:    '0 4px 20px rgba(0,0,0,.1)',
         }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '14px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)', marginBottom: '14px' }}>
             📐 選擇要顯示的小工具
           </div>
           <div style={{
@@ -1406,12 +1495,12 @@ function AnalyticsPage({ dashData }) {
                   cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
                 }}
               >
-                <span style={{ fontSize: '18px', lineHeight: 1.2 }}>{w.icon}</span>
+                <span style={{ fontSize: '20px', lineHeight: 1.2 }}>{w.icon}</span>
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: on(w.id) ? 'var(--xc-brand)' : 'var(--xc-text)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: on(w.id) ? 'var(--xc-brand)' : 'var(--xc-text)' }}>
                     {w.title}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
                     {w.desc}
                   </div>
                 </div>
@@ -1421,12 +1510,12 @@ function AnalyticsPage({ dashData }) {
                   background: on(w.id) ? 'var(--xc-brand)' : 'var(--xc-border)',
                   flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {on(w.id) && <span style={{ color: '#fff', fontSize: '9px', fontWeight: 900 }}>✓</span>}
+                  {on(w.id) && <span style={{ color: '#fff', fontSize: '11px', fontWeight: 900 }}>✓</span>}
                 </span>
               </button>
             ))}
           </div>
-          <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+          <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
             偏好設定會自動儲存至本機，下次登入仍會保留。
           </div>
         </div>
@@ -1437,7 +1526,7 @@ function AnalyticsPage({ dashData }) {
 
       {/* 中間行：環形圖 + 專案長條圖 */}
       {(on('healthPie') || on('projectHealth')) && (
-        <div style={{ display: 'grid', gridTemplateColumns: on('healthPie') && on('projectHealth') ? '1fr 1.4fr' : '1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (on('healthPie') && on('projectHealth') ? '1fr 1.4fr' : '1fr'), gap: isMobile ? '14px' : '20px' }}>
           {on('healthPie') && (
             <div style={cardStyle}>
               <div style={sectionTitle}>🟢 專案健康狀態分布</div>
@@ -1455,7 +1544,7 @@ function AnalyticsPage({ dashData }) {
 
       {/* 工作負載 + 洞察 */}
       {(on('workload') || on('insights')) && (
-        <div style={{ display: 'grid', gridTemplateColumns: on('workload') && on('insights') ? '1.2fr 1fr' : '1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (on('workload') && on('insights') ? '1.2fr 1fr' : '1fr'), gap: isMobile ? '14px' : '20px' }}>
           {on('workload') && (
             <div style={cardStyle}>
               <div style={sectionTitle}>👥 成員工作負載</div>
@@ -1476,7 +1565,7 @@ function AnalyticsPage({ dashData }) {
         <div style={cardStyle}>
           <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
             <span>📉 按月完成趨勢（12 個月）</span>
-            <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', fontWeight: 400 }}>
+            <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)', fontWeight: 400 }}>
               管理層關鍵指標
             </span>
           </div>
@@ -1496,14 +1585,14 @@ function AnalyticsPage({ dashData }) {
       {(on('overdue') || on('upcoming')) && (
         <div style={{ borderTop: '2px solid var(--xc-border)', paddingTop: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>⚡ 管理焦點</span>
-            <span style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>— 最需要立即關注的任務</span>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>⚡ 管理焦點</span>
+            <span style={{ fontSize: '14px', color: 'var(--xc-text-muted)' }}>— 最需要立即關注的任務</span>
             {urgency.loading && (
-              <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>載入中…</span>
+              <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>載入中…</span>
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: on('overdue') && on('upcoming') ? '1fr 1fr' : '1fr', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (on('overdue') && on('upcoming') ? '1fr 1fr' : '1fr'), gap: isMobile ? '14px' : '20px' }}>
             {on('overdue') && (
               <div style={{
                 ...cardStyle,
@@ -1512,7 +1601,7 @@ function AnalyticsPage({ dashData }) {
                 <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
                   <span>⏰ 逾期任務</span>
                   {urgency.overdue.length > 0 && (
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(239,68,68,.12)', color: '#ef4444', fontWeight: 700 }}>
+                    <span style={{ fontSize: '13px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(239,68,68,.12)', color: '#ef4444', fontWeight: 700 }}>
                       {urgency.overdue.length} 個
                     </span>
                   )}
@@ -1528,7 +1617,7 @@ function AnalyticsPage({ dashData }) {
                 <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
                   <span>📅 即將截止</span>
                   {urgency.upcoming.length > 0 && (
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(234,179,8,.12)', color: '#ca8a04', fontWeight: 700 }}>
+                    <span style={{ fontSize: '13px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(234,179,8,.12)', color: '#ca8a04', fontWeight: 700 }}>
                       14 天內 {urgency.upcoming.length} 個
                     </span>
                   )}
@@ -1549,6 +1638,7 @@ function AnalyticsPage({ dashData }) {
 function HomePage({ currentUser, onNavigate, dashData }) {
   const { isDark } = useTheme();
   const { authFetch } = useAuth();
+  const { isMobile } = useResponsive();
   const { projects, workload, insights, monthlyTrend, loading, error, refresh } = dashData;
   const [myTasksTab,    setMyTasksTab]    = useState('upcoming');
   const [myTasks,       setMyTasks]       = useState([]);
@@ -1689,14 +1779,14 @@ function HomePage({ currentUser, onNavigate, dashData }) {
     <div style={{
       minHeight: '100%',
       background: pageBg,
-      padding: '32px 36px 40px',
+      padding: isMobile ? '16px 14px 24px' : '32px 36px 40px',
       boxSizing: 'border-box',
     }}>
       <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '18px',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: isMobile ? '14px' : '18px',
           marginBottom: '18px',
         }}>
           <section style={{
@@ -1712,7 +1802,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               borderRadius: '999px',
               background: heroBadgeBg,
               color: heroBadgeText,
-              fontSize: '11px',
+              fontSize: '13px',
               fontWeight: '800',
               letterSpacing: '0.05em',
             }}>
@@ -1720,11 +1810,11 @@ function HomePage({ currentUser, onNavigate, dashData }) {
               PERSONAL WORKSPACE
             </div>
 
-            <div style={{ marginTop: '18px', fontSize: '13px', color: T.t3 }}>{dateStr}</div>
-            <h1 style={{ margin: '8px 0 0', fontSize: '30px', fontWeight: '900', color: T.t1, letterSpacing: '-0.04em' }}>
+            <div style={{ marginTop: '18px', fontSize: '15px', color: T.t3 }}>{dateStr}</div>
+            <h1 style={{ margin: '8px 0 0', fontSize: '32px', fontWeight: '900', color: T.t1, letterSpacing: '-0.04em' }}>
               {currentUser ? `${currentUser.name}，${greeting}` : greeting}
             </h1>
-            <p style={{ margin: '14px 0 0', maxWidth: '42rem', fontSize: '14px', lineHeight: 1.8, color: T.t2 }}>
+            <p style={{ margin: '14px 0 0', maxWidth: '42rem', fontSize: '16px', lineHeight: 1.8, color: T.t2 }}>
               首頁整理了今天最需要注意的任務、專案與協作狀態。先看即將到期的工作，再檢查進度異常的專案，日常節奏會更穩。
             </p>
 
@@ -1737,7 +1827,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   border: 'none',
                   background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)',
                   color: '#ffffff',
-                  fontSize: '13px',
+                  fontSize: '15px',
                   fontWeight: '700',
                   cursor: 'pointer',
                   boxShadow: T.accentShadow,
@@ -1753,7 +1843,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   border: `1px solid ${T.border}`,
                   background: T.cardBg,
                   color: T.t2,
-                  fontSize: '13px',
+                  fontSize: '15px',
                   fontWeight: '700',
                   cursor: 'pointer',
                 }}
@@ -1771,36 +1861,36 @@ function HomePage({ currentUser, onNavigate, dashData }) {
             justifyContent: 'space-between',
           }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>
                 今日重點
               </div>
               <div style={{ marginTop: '14px', display: 'grid', gap: '12px' }}>
                 <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${T.div}` }}>
-                  <div style={{ fontSize: '12px', color: T.t3 }}>下一個截止</div>
-                  <div style={{ marginTop: '5px', fontSize: '15px', fontWeight: '800', color: T.t1 }}>
+                  <div style={{ fontSize: '14px', color: T.t3 }}>下一個截止</div>
+                  <div style={{ marginTop: '5px', fontSize: '16px', fontWeight: '800', color: T.t1 }}>
                     {nextDueTask ? (nextDueTask.title || nextDueTask.name) : '目前沒有本週截止項目'}
                   </div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: T.t2 }}>
+                  <div style={{ marginTop: '4px', fontSize: '14px', color: T.t2 }}>
                     {nextDueTask?.dueDate
                       ? `截止於 ${new Date(nextDueTask.dueDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}`
                       : '可以安排整理待辦或補充資料'}
                   </div>
                 </div>
                 <div style={{ paddingBottom: '12px', borderBottom: `1px solid ${T.div}` }}>
-                  <div style={{ fontSize: '12px', color: T.t3 }}>逾期關注</div>
-                  <div style={{ marginTop: '5px', fontSize: '22px', fontWeight: '900', color: tabTasks.overdue.length > 0 ? T.accent : T.t1 }}>
+                  <div style={{ fontSize: '14px', color: T.t3 }}>逾期關注</div>
+                  <div style={{ marginTop: '5px', fontSize: '24px', fontWeight: '900', color: tabTasks.overdue.length > 0 ? T.accent : T.t1 }}>
                     {tabTasks.overdue.length}
                   </div>
-                  <div style={{ marginTop: '2px', fontSize: '12px', color: T.t2 }}>
+                  <div style={{ marginTop: '2px', fontSize: '14px', color: T.t2 }}>
                     {tabTasks.overdue.length > 0 ? '建議先確認責任人與阻塞原因' : '目前沒有逾期任務'}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: T.t3 }}>同步狀態</div>
-                  <div style={{ marginTop: '5px', fontSize: '14px', fontWeight: '700', color: T.t1 }}>
+                  <div style={{ fontSize: '14px', color: T.t3 }}>同步狀態</div>
+                  <div style={{ marginTop: '5px', fontSize: '16px', fontWeight: '700', color: T.t1 }}>
                     {loading ? '正在更新首頁資料' : error ? '資料更新時發生問題' : '首頁資料已同步'}
                   </div>
-                  <div style={{ marginTop: '4px', fontSize: '12px', color: T.t2 }}>
+                  <div style={{ marginTop: '4px', fontSize: '14px', color: T.t2 }}>
                     {error ? '可稍後重新整理，或檢查後端服務狀態。' : '任務、專案與工作負載會在這裡彙整顯示。'}
                   </div>
                 </div>
@@ -1811,8 +1901,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '14px',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: isMobile ? '10px' : '14px',
           marginBottom: '20px',
         }}>
           {homeStats.map((item) => (
@@ -1827,12 +1917,12 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 textAlign: 'left',
               }}
             >
-              <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.04em' }}>{item.label}</div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: T.t3, letterSpacing: '0.04em' }}>{item.label}</div>
               <div style={{ marginTop: '8px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                <span style={{ fontSize: '28px', fontWeight: '900', color: item.accent, letterSpacing: '-0.05em' }}>{item.value}</span>
-                <span style={{ fontSize: '13px', color: T.t2 }}>{item.unit}</span>
+                <span style={{ fontSize: '30px', fontWeight: '900', color: item.accent, letterSpacing: '-0.05em' }}>{item.value}</span>
+                <span style={{ fontSize: '15px', color: T.t2 }}>{item.unit}</span>
               </div>
-              <div style={{ marginTop: '10px', fontSize: '12px', color: T.t2, lineHeight: 1.7 }}>
+              <div style={{ marginTop: '10px', fontSize: '14px', color: T.t2, lineHeight: 1.7 }}>
                 {item.detail}
               </div>
             </button>
@@ -1848,8 +1938,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
           marginBottom: '14px',
         }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>首頁配置</div>
-            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1 }}>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>首頁配置</div>
+            <div style={{ marginTop: '4px', fontSize: '20px', fontWeight: '800', color: T.t1 }}>
               工作概覽
             </div>
           </div>
@@ -1863,7 +1953,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 border: `1px solid ${T.border}`,
                 background: T.cardBg,
                 color: T.t2,
-                fontSize: '13px',
+                fontSize: '15px',
                 fontWeight: '700',
                 cursor: 'pointer',
               }}
@@ -1881,7 +1971,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 background: showCustomize ? customizeActiveBg : T.cardBg,
                 borderRadius: '10px',
                 border: `1px solid ${showCustomize ? T.borderStrong : T.border}`,
-                fontSize: '13px',
+                fontSize: '15px',
                 color: showCustomize ? T.accent2 : T.t2,
                 cursor: 'pointer',
                 fontWeight: '700',
@@ -1904,7 +1994,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 minWidth: '250px',
                 padding: '16px',
               }}>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: T.t1, marginBottom: '12px' }}>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: T.t1, marginBottom: '12px' }}>
                   顯示項目
                 </div>
                 {[
@@ -1921,7 +2011,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                     cursor: 'pointer',
                     userSelect: 'none',
                   }}>
-                    <span style={{ fontSize: '13px', color: T.t1 }}>{w.label}</span>
+                    <span style={{ fontSize: '15px', color: T.t1 }}>{w.label}</span>
                     <div
                       onClick={() => {
                         const next = { ...homeWidgets, [w.key]: !homeWidgets[w.key] };
@@ -1963,7 +2053,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                     border: 'none',
                     borderRadius: '10px',
                     padding: '10px 0',
-                    fontSize: '13px',
+                    fontSize: '15px',
                     fontWeight: '700',
                     cursor: 'pointer',
                     boxShadow: T.accentShadow,
@@ -1978,8 +2068,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '18px',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: isMobile ? '14px' : '18px',
           marginBottom: '18px',
         }}>
           <div style={{
@@ -2009,13 +2099,13 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   {Ic.myTasks}
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>個人工作台</div>
-                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>我的任務</div>
+                  <div style={{ fontSize: '13px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>個人工作台</div>
+                  <div style={{ fontSize: '17px', fontWeight: '800', color: T.t1 }}>我的任務</div>
                 </div>
               </div>
               <button
                 onClick={() => onNavigate('my-tasks')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '12px', fontWeight: '700', padding: 0 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '14px', fontWeight: '700', padding: 0 }}
               >
                 查看全部
               </button>
@@ -2039,7 +2129,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                     onClick={() => setMyTasksTab(tab.key)}
                     style={{
                       padding: '8px 12px',
-                      fontSize: '12.5px',
+                      fontSize: '14px',
                       border: 'none',
                       borderRadius: '10px',
                       background: myTasksTab === tab.key ? T.cardBg : 'transparent',
@@ -2061,7 +2151,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         borderRadius: '999px',
                         background: myTasksTab === tab.key ? tabCountActiveBg : tabCountInactiveBg,
                         color: myTasksTab === tab.key ? T.accent2 : T.t3,
-                        fontSize: '10.5px',
+                        fontSize: '12px',
                         fontWeight: '800',
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -2077,14 +2167,14 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
             <div style={{ padding: '12px 0 8px', minHeight: '220px', maxHeight: '360px', overflowY: 'auto' }}>
               {tasksLoading ? (
-                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '13px' }}>正在整理任務資料…</div>
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '15px' }}>正在整理任務資料…</div>
               ) : displayTasks.length === 0 ? (
                 <div style={{ padding: '40px 22px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1 }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>
                     {myTasksTab === 'upcoming' ? '目前沒有本週截止項目' :
                      myTasksTab === 'overdue' ? '沒有逾期任務' : '最近七天尚未完成任務'}
                   </div>
-                  <div style={{ marginTop: '6px', fontSize: '12px', color: T.t2, lineHeight: 1.7 }}>
+                  <div style={{ marginTop: '6px', fontSize: '14px', color: T.t2, lineHeight: 1.7 }}>
                     {myTasksTab === 'completed'
                       ? '完成後的任務會整理在這裡，方便快速回顧。'
                       : '可前往任務工作台新增或重新安排優先順序。'}
@@ -2124,13 +2214,13 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#fff',
-                        fontSize: '10px',
+                        fontSize: '12px',
                       }}>
                         {isDone ? '✓' : ''}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontSize: '13px',
+                          fontSize: '15px',
                           color: isDone ? T.t3 : T.t1,
                           textDecoration: isDone ? 'line-through' : 'none',
                           fontWeight: '600',
@@ -2141,12 +2231,12 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                           {task.title || task.name}
                         </div>
                         <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '11px', color: T.t3 }}>
+                          <span style={{ fontSize: '13px', color: T.t3 }}>
                             {task.project?.name || '未指定專案'}
                           </span>
                           {task.dueDate && (
                             <span style={{
-                              fontSize: '11px',
+                              fontSize: '13px',
                               color: isOverdue ? T.accent : T.t2,
                               fontWeight: isOverdue ? '700' : '600',
                             }}>
@@ -2189,8 +2279,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   {Ic.projects}
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>專案概覽</div>
-                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>重點專案</div>
+                  <div style={{ fontSize: '13px', color: T.t3, fontWeight: '800', letterSpacing: '0.04em' }}>專案概覽</div>
+                  <div style={{ fontSize: '17px', fontWeight: '800', color: T.t1 }}>重點專案</div>
                 </div>
               </div>
 
@@ -2198,13 +2288,13 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                 <button
                   onClick={() => refresh()}
                   title="更新專案資料"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.t2, fontSize: '12px', fontWeight: '700', padding: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.t2, fontSize: '14px', fontWeight: '700', padding: 0 }}
                 >
                   更新資料
                 </button>
                 <button
                   onClick={() => onNavigate('projects')}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '12px', fontWeight: '700', padding: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent2, fontSize: '14px', fontWeight: '700', padding: 0 }}
                 >
                   查看全部
                 </button>
@@ -2213,11 +2303,11 @@ function HomePage({ currentUser, onNavigate, dashData }) {
 
             <div style={{ padding: '12px 0 8px', minHeight: '220px', maxHeight: '360px', overflowY: 'auto' }}>
               {loading ? (
-                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '13px' }}>正在同步專案資料…</div>
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: T.t3, fontSize: '15px' }}>正在同步專案資料…</div>
               ) : recentProjects.length === 0 ? (
                 <div style={{ padding: '40px 22px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '800', color: T.t1 }}>目前沒有可顯示的專案</div>
-                  <div style={{ marginTop: '6px', fontSize: '12px', color: T.t2 }}>建立專案後，首頁會自動整理進度與風險。</div>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: T.t1 }}>目前沒有可顯示的專案</div>
+                  <div style={{ marginTop: '6px', fontSize: '14px', color: T.t2 }}>建立專案後，首頁會自動整理進度與風險。</div>
                 </div>
               ) : (
                 recentProjects.map((p, i) => {
@@ -2265,10 +2355,10 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13.5px', fontWeight: '700', color: T.t1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '700', color: T.t1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {p.project_name ?? p.name}
                         </div>
-                        <div style={{ marginTop: '4px', fontSize: '11.5px', color: overdue > 0 ? T.accent : T.t2, fontWeight: overdue > 0 ? '700' : '600' }}>
+                        <div style={{ marginTop: '4px', fontSize: '13px', color: overdue > 0 ? T.accent : T.t2, fontWeight: overdue > 0 ? '700' : '600' }}>
                           {statusText}
                         </div>
                         {total > 0 && (
@@ -2282,7 +2372,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                                 transition: 'width 0.4s ease',
                               }} />
                             </div>
-                            <span style={{ fontSize: '11px', fontWeight: '800', color: overdue > 0 ? T.accent : color }}>{pct}%</span>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: overdue > 0 ? T.accent : color }}>{pct}%</span>
                           </div>
                         )}
                       </div>
@@ -2297,8 +2387,8 @@ function HomePage({ currentUser, onNavigate, dashData }) {
         {/* 月度趨勢與洞察 */}
         {homeWidgets.insights && (
           <div style={{ ...cardShell, padding: '20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>數據洞察</div>
-            <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: '800', color: T.t1, marginBottom: '16px' }}>📈 月度趨勢與洞察</div>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>數據洞察</div>
+            <div style={{ marginTop: '4px', fontSize: '20px', fontWeight: '800', color: T.t1, marginBottom: '16px' }}>📈 月度趨勢與洞察</div>
             <ActionableInsights insights={insights} monthlyTrend={monthlyTrend} loading={loading} />
           </div>
         )}
@@ -2331,7 +2421,7 @@ function ProfilePage({ onBack, currentUser, onLogout, onNavigate }) {
     <div style={{ maxWidth: '680px', margin: '32px auto', padding: '0 28px' }}>
       <button
         onClick={onBack}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', color: T.t2, fontSize: '13.5px', marginBottom: '22px', padding: 0, fontFamily: 'inherit' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', color: T.t2, fontSize: '15px', marginBottom: '22px', padding: 0, fontFamily: 'inherit' }}
         onMouseOver={e => e.currentTarget.style.color = T.t1}
         onMouseOut={e => e.currentTarget.style.color = T.t2}
       >
@@ -2339,14 +2429,14 @@ function ProfilePage({ onBack, currentUser, onLogout, onNavigate }) {
       </button>
 
       <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, padding: '30px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '22px', boxShadow: T.shadow }}>
-        <div style={{ width: '70px', height: '70px', flexShrink: 0, borderRadius: '50%', background: 'linear-gradient(135deg,#C94A5D,#9E1830)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '26px', boxShadow: '0 10px 18px rgba(180, 35, 60, 0.18)' }}>
+        <div style={{ width: '70px', height: '70px', flexShrink: 0, borderRadius: '50%', background: 'linear-gradient(135deg,#C94A5D,#9E1830)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '28px', boxShadow: '0 10px 18px rgba(180, 35, 60, 0.18)' }}>
           {currentUser ? currentUser.name.slice(0, 1) : '?'}
         </div>
         <div>
-          <div style={{ fontSize: '12px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>帳戶資訊</div>
-          <div style={{ fontSize: '22px', fontWeight: '900', color: T.t1, marginTop: '6px' }}>{currentUser?.name ?? '—'}</div>
-          <div style={{ fontSize: '13.5px', color: T.t2, marginTop: '4px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '4px 10px', background: statusBadgeBg, color: T.info, borderRadius: '999px', fontSize: '11.5px', fontWeight: '700' }}>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: T.t3, letterSpacing: '0.05em' }}>帳戶資訊</div>
+          <div style={{ fontSize: '24px', fontWeight: '900', color: T.t1, marginTop: '6px' }}>{currentUser?.name ?? '—'}</div>
+          <div style={{ fontSize: '15px', color: T.t2, marginTop: '4px' }}>{ROLE_LABEL[currentUser?.role] ?? '—'} · {currentUser?.company?.name ?? '—'}</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '10px', padding: '4px 10px', background: statusBadgeBg, color: T.info, borderRadius: '999px', fontSize: '13px', fontWeight: '700' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: T.info, display: 'inline-block' }} />
             帳戶已啟用
           </div>
@@ -2356,14 +2446,14 @@ function ProfilePage({ onBack, currentUser, onLogout, onNavigate }) {
       <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, overflow: 'hidden', marginBottom: '16px', boxShadow: T.shadow }}>
         {INFO_ROWS.map((row, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < INFO_ROWS.length - 1 ? `1px solid ${T.div}` : 'none' }}>
-            <div style={{ width: '96px', fontSize: '12.5px', color: T.t3, flexShrink: 0 }}>{row.label}</div>
-            <div style={{ fontSize: '13px', color: T.t1, fontWeight: '600' }}>{row.value}</div>
+            <div style={{ width: '96px', fontSize: '14px', color: T.t3, flexShrink: 0 }}>{row.label}</div>
+            <div style={{ fontSize: '15px', color: T.t1, fontWeight: '600' }}>{row.value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ background: T.cardBg, borderRadius: '18px', border: `1px solid ${T.border}`, overflow: 'hidden', boxShadow: T.shadow }}>
-        <div style={{ padding: '15px 20px', borderBottom: `1px solid ${T.div}`, fontSize: '13px', fontWeight: '800', color: T.t1 }}>帳戶設定</div>
+        <div style={{ padding: '15px 20px', borderBottom: `1px solid ${T.div}`, fontSize: '15px', fontWeight: '800', color: T.t1 }}>帳戶設定</div>
         {[
           { label: '修改密碼', desc: '定期更換密碼以保護帳戶安全', onClick: () => onNavigate?.('settings', { initialTab: 'profile' }) },
           { label: '通知偏好', desc: '設定 Email / App 通知類型', onClick: () => onNavigate?.('settings', { initialTab: 'notifications' }) },
@@ -2376,10 +2466,10 @@ function ProfilePage({ onBack, currentUser, onLogout, onNavigate }) {
             onMouseOver={e => e.currentTarget.style.background = item.danger ? dangerHoverBg : hoverBg}
             onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: item.danger ? T.accent : T.t1 }}>{item.label}</div>
-              <div style={{ fontSize: '11.5px', color: T.t3, marginTop: '2px' }}>{item.desc}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: item.danger ? T.accent : T.t1 }}>{item.label}</div>
+              <div style={{ fontSize: '13px', color: T.t3, marginTop: '2px' }}>{item.desc}</div>
             </div>
-            <span style={{ color: T.t3, fontSize: '18px' }}>›</span>
+            <span style={{ color: T.t3, fontSize: '20px' }}>›</span>
           </button>
         ))}
       </div>
@@ -2395,15 +2485,14 @@ export default function Dashboard() {
   const { user: currentUser, logout, authFetch } = useAuth();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const isDark = themeMode === 'dark';
+  const { isMobile } = useResponsive();
 
   const [activeNav,       setActiveNav]       = useState(readHashNav);
   const [settingsState,   setSettingsState]   = useState(null);
   const [inboxCount,      setInboxCount]      = useState(0);
   const [showDarkPanel,   setShowDarkPanel]   = useState(false);
   const [showHelp,        setShowHelp]        = useState(false);
-  const [sbCollapsed,     setSbCollapsed]     = useState(() => {
-    try { return localStorage.getItem('xcloud-sb-collapsed') === '1'; } catch { return false; }
-  });
+  const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
   const dashData = useDashboard();
   const latestNotificationIdRef = useRef(0);
 
@@ -2456,11 +2545,7 @@ export default function Dashboard() {
   }, []);
 
   const toggleSidebar = useCallback(() => {
-    setSbCollapsed(prev => {
-      const next = !prev;
-      try { localStorage.setItem('xcloud-sb-collapsed', next ? '1' : '0'); } catch {}
-      return next;
-    });
+    setMobileMenuOpen(prev => !prev);
   }, []);
 
   const changePanelMode = useCallback((nextMode) => {
@@ -2480,6 +2565,7 @@ export default function Dashboard() {
   const navigate = useCallback((id) => {
     setActiveNav(id);
     setShowDarkPanel(false);
+    setMobileMenuOpen(false);
     writeHashNav(id);
   }, []);
 
@@ -2574,7 +2660,6 @@ export default function Dashboard() {
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
-    if (activeNav === 'workflow')      return <WorkflowDiagramPage onNavigate={navigate} />;
     if (activeNav === 'rules')         return <RulesPage />;
     if (activeNav === 'time')          return <TimeTrackingPage />;
     if (activeNav === 'goals')         return <GoalsPage />;
@@ -2583,8 +2668,7 @@ export default function Dashboard() {
     if (activeNav === 'reports')       return <ReportsPage />;
     if (activeNav === 'team')          return <TeamPage />;
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;
-    if (activeNav === 'ai-center')     return <AiDecisionCenter />;
-    if (activeNav === 'mcp-console')   return <McpConsolePage />;
+
     if (activeNav === 'user-management') return <UserManagementPage />;
     if (activeNav === 'forms')         return <FormsPage />;
     if (activeNav === 'custom-fields') return <CustomFieldsPage onNavigate={navigate} />;
@@ -2592,57 +2676,51 @@ export default function Dashboard() {
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ width: '60px', height: '60px', borderRadius: '14px', background: T.brandSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>🚧</div>
-        <div style={{ fontSize: '18px', fontWeight: '700', color: T.t1 }}>開發中</div>
-        <div style={{ fontSize: '13.5px', color: T.t3 }}>此功能即將上線，敬請期待</div>
+        <div style={{ width: '60px', height: '60px', borderRadius: '14px', background: T.brandSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>🚧</div>
+        <div style={{ fontSize: '20px', fontWeight: '700', color: T.t1 }}>開發中</div>
+        <div style={{ fontSize: '15px', color: T.t3 }}>此功能即將上線，敬請期待</div>
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: T.pageBg, color: isDark ? T.t1 : undefined }}>
-      <Sidebar
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: T.pageBg, color: isDark ? T.t1 : undefined }}>
+      <TopNavBar
         active={activeNav}
-        onChange={navigate}
+        onNavigate={navigate}
         currentUser={currentUser}
-        isCollapsed={sbCollapsed}
-        onToggleCollapse={toggleSidebar}
         authFetch={authFetch}
         inboxCount={inboxCount}
+        onTogglePanel={() => setShowDarkPanel((current) => !current)}
+        panelOpen={showDarkPanel}
+        panelMode={themeMode}
+        onHelp={() => setShowHelp(true)}
+        isMobile={isMobile}
+        mobileOpen={mobileMenuOpen}
+        onMobileToggle={toggleSidebar}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
-        <Topbar
-          activeNav={activeNav}
-          onNavigate={navigate}
-          onToggleSidebar={toggleSidebar}
-          onTogglePanel={() => setShowDarkPanel((current) => !current)}
-          panelOpen={showDarkPanel}
-          panelMode={themeMode}
-          onHelp={() => setShowHelp(true)}
-        />
+      <DarkPanel
+        open={showDarkPanel}
+        onClose={() => setShowDarkPanel(false)}
+        onNavigate={navigate}
+        currentUser={currentUser}
+        inboxCount={inboxCount}
+        dashData={dashData}
+        mode={themeMode}
+        onModeChange={changePanelMode}
+      />
 
-        <DarkPanel
-          open={showDarkPanel}
-          onClose={() => setShowDarkPanel(false)}
-          onNavigate={navigate}
-          currentUser={currentUser}
-          inboxCount={inboxCount}
-          dashData={dashData}
-          mode={themeMode}
-          onModeChange={changePanelMode}
-        />
+      <HelpPanel
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        currentPage={activeNav}
+      />
 
-        <HelpPanel
-          open={showHelp}
-          onClose={() => setShowHelp(false)}
-          currentPage={activeNav}
-        />
-
-        <main style={{ flex: 1, minWidth: 0 }}>
-          {renderPage()}
-        </main>
-      </div>
+      <main style={{ flex: 1, minWidth: 0 }}>
+        {renderPage()}
+      </main>
     </div>
   );
 }

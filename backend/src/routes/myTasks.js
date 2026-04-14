@@ -102,12 +102,12 @@ router.get('/:id', async (req, res) => {
     const task = await prisma.task.findFirst({
       where: { id, deletedAt: null },
       include: {
-        assignee:       { select: { id: true, name: true, avatarUrl: true } },
+        assignee:       { select: { id: true, name: true } },
         project:        { select: { id: true, name: true } },
         comments:       {
           where:   { deletedAt: null },
           orderBy: { createdAt: 'asc' },
-          include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+          include: { author: { select: { id: true, name: true } } },
         },
         checklistItems: { orderBy: { position: 'asc' } },
       },

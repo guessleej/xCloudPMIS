@@ -27,6 +27,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const T = {
   pageBg: 'var(--xc-bg)',
@@ -201,7 +202,7 @@ function getWeekendBgStyle(rangeStartStr, dayW) {
 const btnSt = (bg, fg, extra = {}) => ({
   background: bg, color: fg,
   border: 'none', borderRadius: 6,
-  padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+  padding: '5px 12px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
   ...extra,
 });
 
@@ -233,7 +234,7 @@ const inputSt = {
   padding:      '8px 10px',
   border:       `1px solid ${T.borderStrong}`,
   borderRadius: 6,
-  fontSize:     13,
+  fontSize: 15,
   outline:      'none',
   boxSizing:    'border-box',
   fontFamily:   'inherit',
@@ -244,7 +245,7 @@ const inputSt = {
 // ── 共用欄位標籤樣式 ────────────────────────────────────────
 const LabelRow = ({ label, required, children }) => (
   <div style={{ marginBottom: 14 }}>
-    <div style={{ fontSize: 12, fontWeight: 600, color: T.textSoft, marginBottom: 5 }}>
+    <div style={{ fontSize: 14, fontWeight: 600, color: T.textSoft, marginBottom: 5 }}>
       {label}{required && <span style={{ color: '#ef4444', marginLeft: 3 }}>*</span>}
     </div>
     {children}
@@ -321,8 +322,8 @@ function EditProjectModal({ project, users, onClose, onSaved, authFetch }) {
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
         {/* 標題列 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.text }}>✏️ 編輯專案</h3>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: T.textMuted }}>×</button>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text }}>✏️ 編輯專案</h3>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: T.textMuted }}>×</button>
         </div>
 
         {loading ? (
@@ -376,7 +377,7 @@ function EditProjectModal({ project, users, onClose, onSaved, authFetch }) {
             </LabelRow>
 
             {error && (
-              <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+              <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 15, marginBottom: 14 }}>
                 ⚠️ {error}
               </div>
             )}
@@ -424,32 +425,32 @@ function DeleteProjectModal({ project, onClose, onDeleted, authFetch }) {
     <div style={overlayStyle} onClick={onClose}>
       <div style={{ ...modalStyle, width: 420 }} onClick={e => e.stopPropagation()}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 44, marginBottom: 8 }}>🗑️</div>
-          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: T.text }}>刪除專案</h3>
-          <p style={{ margin: 0, fontSize: 13, color: T.textSoft }}>確定要刪除以下專案嗎？</p>
+          <div style={{ fontSize: 46, marginBottom: 8 }}>🗑️</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: T.text }}>刪除專案</h3>
+          <p style={{ margin: 0, fontSize: 15, color: T.textSoft }}>確定要刪除以下專案嗎？</p>
         </div>
 
         {/* 專案資訊卡 */}
         <div style={{ background: T.surfaceSoft, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, color: T.text, fontSize: 14, marginBottom: 4 }}>{project.name}</div>
-          <div style={{ fontSize: 12, color: T.textSoft }}>
+          <div style={{ fontWeight: 700, color: T.text, fontSize: 16, marginBottom: 4 }}>{project.name}</div>
+          <div style={{ fontSize: 14, color: T.textSoft }}>
             狀態：{PROJECT_STATUS_LABEL[project.status] || project.status}
             {taskCount > 0 && <span style={{ marginLeft: 12 }}>任務：{taskCount} 個</span>}
           </div>
         </div>
 
         {taskCount > 0 && (
-          <div style={{ background: 'var(--xc-warning-soft)', border: '1px solid #fed7aa', borderRadius: 6, padding: '8px 12px', color: '#c2410c', fontSize: 12, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-warning-soft)', border: '1px solid #fed7aa', borderRadius: 6, padding: '8px 12px', color: '#c2410c', fontSize: 14, marginBottom: 14 }}>
             ⚠️ 此專案包含 {taskCount} 個任務，刪除後將一併隱藏。
           </div>
         )}
 
-        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 13, marginBottom: 16 }}>
           ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
         </div>
 
         {error && (
-          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 15, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -517,10 +518,10 @@ function EditTaskModal({ task, project, users, onClose, onSaved, authFetch }) {
         {/* 標題列 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <h3 style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: T.text }}>✏️ 編輯任務</h3>
-            <div style={{ fontSize: 11, color: T.textMuted }}>專案：{project.name}</div>
+            <h3 style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 700, color: T.text }}>✏️ 編輯任務</h3>
+            <div style={{ fontSize: 13, color: T.textMuted }}>專案：{project.name}</div>
           </div>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: T.textMuted }}>×</button>
+          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: T.textMuted }}>×</button>
         </div>
 
         <LabelRow label="任務標題" required>
@@ -565,7 +566,7 @@ function EditTaskModal({ task, project, users, onClose, onSaved, authFetch }) {
         </div>
 
         {error && (
-          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 15, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -611,16 +612,16 @@ function DeleteTaskModal({ task, project, onClose, onDeleted, authFetch }) {
     <div style={overlayStyle} onClick={onClose}>
       <div style={{ ...modalStyle, width: 400 }} onClick={e => e.stopPropagation()}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>🗑️</div>
-          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: T.text }}>刪除任務</h3>
-          <p style={{ margin: 0, fontSize: 13, color: T.textSoft }}>確定要刪除以下任務嗎？</p>
+          <div style={{ fontSize: 42, marginBottom: 8 }}>🗑️</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: T.text }}>刪除任務</h3>
+          <p style={{ margin: 0, fontSize: 15, color: T.textSoft }}>確定要刪除以下任務嗎？</p>
         </div>
 
         {/* 任務資訊卡 */}
         <div style={{ background: T.surfaceSoft, border: `1px solid ${T.border}`, borderRadius: 8, padding: 14, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>專案：{project.name}</div>
-          <div style={{ fontWeight: 700, color: T.text, fontSize: 14, marginBottom: 6 }}>{task.title}</div>
-          <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+          <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 4 }}>專案：{project.name}</div>
+          <div style={{ fontWeight: 700, color: T.text, fontSize: 16, marginBottom: 6 }}>{task.title}</div>
+          <div style={{ display: 'flex', gap: 8, fontSize: 13 }}>
             <span style={{ background: `${pc}20`, color: pc, borderRadius: 4, padding: '2px 7px', fontWeight: 600 }}>
               {PRIORITY_LABEL[task.priority] || task.priority}
             </span>
@@ -632,12 +633,12 @@ function DeleteTaskModal({ task, project, onClose, onDeleted, authFetch }) {
           </div>
         </div>
 
-        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 11, marginBottom: 16 }}>
+        <div style={{ background: 'var(--xc-success-soft)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '7px 12px', color: '#166534', fontSize: 13, marginBottom: 16 }}>
           ✅ 資料採軟刪除，不會永久移除，如有需要可由系統管理員復原。
         </div>
 
         {error && (
-          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 13, marginBottom: 14 }}>
+          <div style={{ background: 'var(--xc-danger-soft)', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 15, marginBottom: 14 }}>
             ⚠️ {error}
           </div>
         )}
@@ -658,6 +659,8 @@ function DeleteTaskModal({ task, project, onClose, onDeleted, authFetch }) {
 // 主元件：GanttPage
 // ════════════════════════════════════════════════════════════
 export default function GanttPage() {
+  const isMobile = useIsMobile();
+  const LEFT_W = isMobile ? 140 : LEFT_COL;
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
@@ -719,7 +722,7 @@ export default function GanttPage() {
     const opt = ZOOM_OPTS.find(o => o.id === zoom);
     if (opt.dayW !== null) return opt.dayW;
     // 'all' 模式：根據容器寬度自動計算
-    const avail = (containerRef.current?.clientWidth || 1000) - LEFT_COL - 4;
+    const avail = (containerRef.current?.clientWidth || 1000) - LEFT_W - 4;
     return Math.max(2, avail / data.range.totalDays);
   }, [data, zoom]);
 
@@ -774,17 +777,17 @@ export default function GanttPage() {
   // ── 載入中 ──────────────────────────────────────────────
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16, color: T.textMuted }}>
-      <div style={{ fontSize: 40 }}>⏳</div>
-      <div style={{ fontSize: 14 }}>甘特圖資料載入中...</div>
+      <div style={{ fontSize: 42 }}>⏳</div>
+      <div style={{ fontSize: 16 }}>甘特圖資料載入中...</div>
     </div>
   );
 
   // ── 錯誤畫面 ────────────────────────────────────────────
   if (error) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 40 }}>😢</div>
+      <div style={{ fontSize: 42 }}>😢</div>
       <div style={{ fontWeight: 600, color: T.text }}>載入失敗：{error}</div>
-      <button onClick={load} style={{ ...btnSt('#2563eb', 'white'), padding: '8px 20px', fontSize: 14 }}>重試</button>
+      <button onClick={load} style={{ ...btnSt('#2563eb', 'white'), padding: '8px 20px', fontSize: 16 }}>重試</button>
     </div>
   );
 
@@ -810,10 +813,10 @@ export default function GanttPage() {
         flexShrink:    0,
         flexWrap:      'wrap',
       }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: T.text }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: T.text }}>
           📅 甘特圖
         </h2>
-        <span style={{ color: T.textMuted, fontSize: 13 }}>
+        <span style={{ color: T.textMuted, fontSize: 15 }}>
           {data.projects.length} 個專案
         </span>
 
@@ -834,7 +837,7 @@ export default function GanttPage() {
                 borderRadius: 5,
                 border:     'none',
                 cursor:     'pointer',
-                fontSize:   11,
+                fontSize: 13,
                 fontWeight: 600,
                 background: zoom === o.id ? T.surfaceStrong : 'transparent',
                 color:      zoom === o.id ? T.text : T.textMuted,
@@ -855,7 +858,7 @@ export default function GanttPage() {
         style={{ flex: 1, overflow: 'auto', minHeight: 0, position: 'relative' }}
       >
         {/* 最小寬度 = 左欄 + 時間軸總寬 */}
-        <div style={{ minWidth: LEFT_COL + totalW }}>
+        <div style={{ minWidth: LEFT_W + totalW }}>
 
           {/* ── 月份標頭（上下 sticky） ────────────────────── */}
           <div style={{
@@ -869,7 +872,7 @@ export default function GanttPage() {
           }}>
             {/* 左上角凍結格 */}
             <div style={{
-              width:          LEFT_COL,
+              width:          LEFT_W,
               flexShrink:     0,
               position:       'sticky',
               left:           0,
@@ -882,7 +885,7 @@ export default function GanttPage() {
               borderRight:    '2px solid #334155',
               borderBottom:   '2px solid #334155',
             }}>
-              <span style={{ fontWeight: 700, fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 專案 / 任務
               </span>
             </div>
@@ -898,7 +901,7 @@ export default function GanttPage() {
                   display:    'flex',
                   alignItems: 'center',
                   padding:    '0 8px',
-                  fontSize:   12,
+                  fontSize: 14,
                   fontWeight: 600,
                   color:      T.text,
                   borderRight: `1px solid ${T.borderStrong}`,
@@ -954,7 +957,7 @@ export default function GanttPage() {
                 >
                   {/* 左欄：專案名稱（水平 sticky） */}
                   <div style={{
-                    width:       LEFT_COL,
+                    width:       LEFT_W,
                     flexShrink:  0,
                     position:    'sticky',
                     left:        0,
@@ -984,7 +987,7 @@ export default function GanttPage() {
                         justifyContent: 'center',
                         color:       hasTasks ? T.textMuted : 'transparent',
                         flexShrink:  0,
-                        fontSize:    9,
+                        fontSize: 11,
                         transform:   isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
                         transition:  'transform 0.15s',
                         borderRadius: 3,
@@ -1002,7 +1005,7 @@ export default function GanttPage() {
 
                     {/* 專案名稱 */}
                     <span style={{
-                      fontSize:   13,
+                      fontSize: 15,
                       fontWeight: 700,
                       color:      T.text,
                       overflow:   'hidden',
@@ -1025,7 +1028,7 @@ export default function GanttPage() {
                             border:       'none',
                             borderRadius: 4,
                             padding:      '2px 6px',
-                            fontSize:     11,
+                            fontSize: 13,
                             cursor:       'pointer',
                             fontWeight:   600,
                           }}
@@ -1039,14 +1042,14 @@ export default function GanttPage() {
                             border:       'none',
                             borderRadius: 4,
                             padding:      '2px 6px',
-                            fontSize:     11,
+                            fontSize: 13,
                             cursor:       'pointer',
                             fontWeight:   600,
                           }}
                         >🗑️</button>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 10, color: T.textMuted, flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, color: T.textMuted, flexShrink: 0 }}>
                         {project.doneCount}/{project.taskCount}
                       </span>
                     )}
@@ -1088,7 +1091,7 @@ export default function GanttPage() {
                           padding:  '0 7px',
                         }}>
                           <span style={{
-                            fontSize:   10,
+                            fontSize: 12,
                             fontWeight: 700,
                             color:      pColor,
                             whiteSpace: 'nowrap',
@@ -1165,7 +1168,7 @@ export default function GanttPage() {
                     >
                       {/* 左欄：任務名稱（水平 sticky） */}
                       <div style={{
-                        width:       LEFT_COL,
+                        width:       LEFT_W,
                         flexShrink:  0,
                         position:    'sticky',
                         left:        0,
@@ -1191,7 +1194,7 @@ export default function GanttPage() {
 
                         {/* 任務標題 */}
                         <span style={{
-                          fontSize:        12,
+                          fontSize: 14,
                           color:           isDone ? T.textMuted : T.textSoft,
                           textDecoration:  isDone ? 'line-through' : 'none',
                           overflow:        'hidden',
@@ -1214,7 +1217,7 @@ export default function GanttPage() {
                                 border:       'none',
                                 borderRadius: 4,
                                 padding:      '2px 6px',
-                                fontSize:     11,
+                                fontSize: 13,
                                 cursor:       'pointer',
                                 fontWeight:   600,
                               }}
@@ -1228,7 +1231,7 @@ export default function GanttPage() {
                                 border:       'none',
                                 borderRadius: 4,
                                 padding:      '2px 6px',
-                                fontSize:     11,
+                                fontSize: 13,
                                 cursor:       'pointer',
                                 fontWeight:   600,
                               }}
@@ -1237,7 +1240,7 @@ export default function GanttPage() {
                         ) : (
                           task.assignee && (
                             <span style={{
-                              fontSize:     10,
+                              fontSize: 12,
                               color:        T.textMuted,
                               background:   T.surfaceMuted,
                               borderRadius: 4,
@@ -1271,7 +1274,7 @@ export default function GanttPage() {
                             overflow:     'hidden',
                           }}>
                             <span style={{
-                              fontSize:   9,
+                              fontSize: 11,
                               color:      'white',
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
@@ -1318,7 +1321,7 @@ export default function GanttPage() {
         gap:          16,
         alignItems:   'center',
         flexShrink:   0,
-        fontSize:     11,
+        fontSize: 13,
         color:        T.textMuted,
         flexWrap:     'wrap',
       }}>
@@ -1354,7 +1357,7 @@ export default function GanttPage() {
         </div>
 
         {/* 更新時間 */}
-        <span style={{ marginLeft: 'auto', color: T.textMuted, fontSize: 10 }}>
+        <span style={{ marginLeft: 'auto', color: T.textMuted, fontSize: 12 }}>
           更新：{data.generatedAt
             ? new Date(data.generatedAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
             : '—'}
@@ -1409,7 +1412,7 @@ export default function GanttPage() {
           color:        'white',
           borderRadius: 8,
           padding:      '10px 18px',
-          fontSize:     13,
+          fontSize: 15,
           fontWeight:   600,
           boxShadow:    '0 4px 20px rgba(0,0,0,0.25)',
           zIndex:       99999,

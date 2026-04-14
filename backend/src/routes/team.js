@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
       orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
       select: {
         id: true, name: true, email: true, role: true,
-        department: true, jobTitle: true, avatarUrl: true,
+        department: true, jobTitle: true,
         isActive: true, lastLoginAt: true, joinedAt: true, createdAt: true,
         assignedTasks: {
           select: { id: true, status: true, priority: true },
@@ -40,7 +40,6 @@ router.get('/', async (req, res) => {
         role:        u.role,
         department:  u.department  || '未分配',
         jobTitle:    u.jobTitle    || '成員',
-        avatarUrl:   u.avatarUrl   || null,
         isActive:    u.isActive,
         lastLoginAt: u.lastLoginAt,
         joinedAt:    u.joinedAt    || u.createdAt,
@@ -80,7 +79,7 @@ router.get('/:id', async (req, res) => {
       where: { id },
       select: {
         id: true, name: true, email: true, role: true,
-        department: true, jobTitle: true, phone: true, avatarUrl: true,
+        department: true, jobTitle: true, phone: true,
         isActive: true, lastLoginAt: true, joinedAt: true, createdAt: true,
         assignedTasks: { select: { id: true, status: true, priority: true, title: true, dueDate: true } },
       },

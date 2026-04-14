@@ -11,6 +11,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 function formatMonth(ym) {
   if (!ym) return '';
@@ -58,19 +59,19 @@ export default function MyImpactWidget() {
   useEffect(() => { load(); }, [load]);
 
   if (loading) return (
-    <div style={{ padding: '32px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '13px' }}>
+    <div style={{ padding: '32px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '15px' }}>
       載入個人資料…
     </div>
   );
 
   if (error) return (
-    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--xc-danger)', fontSize: '13px' }}>
+    <div style={{ padding: '24px', textAlign: 'center', color: 'var(--xc-danger)', fontSize: '15px' }}>
       無法載入：{error}
       <button onClick={load} style={{
         marginTop: '8px', display: 'block', margin: '8px auto 0',
         padding: '6px 12px', borderRadius: '6px',
         border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-        cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text)',
+        cursor: 'pointer', fontSize: '14px', color: 'var(--xc-text)',
       }}>重試</button>
     </div>
   );
@@ -101,23 +102,23 @@ export default function MyImpactWidget() {
         }}>
           {u?.avatarUrl
             ? <img src={u.avatarUrl} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <span style={{ color: '#fff', fontWeight: 700, fontSize: '18px' }}>
+            : <span style={{ color: '#fff', fontWeight: 700, fontSize: '20px' }}>
                 {u?.name?.[0]?.toUpperCase() || '?'}
               </span>
           }
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--xc-text)' }}>{u?.name}</div>
-          <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
+          <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--xc-text)' }}>{u?.name}</div>
+          <div style={{ fontSize: '14px', color: 'var(--xc-text-muted)' }}>
             {u?.department} · {u?.jobTitle || '成員'}
           </div>
         </div>
         <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>累計完成</div>
-          <div style={{ fontWeight: 800, fontSize: '20px', color: 'var(--xc-brand)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>累計完成</div>
+          <div style={{ fontWeight: 800, fontSize: '22px', color: 'var(--xc-brand)' }}>
             {stats.totalCompleted ?? 0}
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>項任務</div>
+          <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>項任務</div>
         </div>
       </div>
 
@@ -131,9 +132,9 @@ export default function MyImpactWidget() {
             padding:      '10px 12px',
             textAlign:    'center',
           }}>
-            <div style={{ fontSize: '16px', marginBottom: '4px' }}>{k.icon}</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: k.color }}>{k.value}</div>
-            <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>{k.label}</div>
+            <div style={{ fontSize: '17px', marginBottom: '4px' }}>{k.icon}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>{k.label}</div>
           </div>
         ))}
       </div>
@@ -147,7 +148,7 @@ export default function MyImpactWidget() {
             ? 'color-mix(in srgb, var(--xc-success) 8%, var(--xc-surface))'
             : 'color-mix(in srgb, var(--xc-danger) 8%, var(--xc-surface))',
           border: '1px solid var(--xc-border)',
-          fontSize: '12px',
+          fontSize: '14px',
         }}>
           <span style={{ fontWeight: 700, color: momPos ? 'var(--xc-success)' : 'var(--xc-danger)' }}>
             {momPos ? '▲' : '▼'} {Math.abs(momPct)}%
@@ -161,7 +162,7 @@ export default function MyImpactWidget() {
       {/* 6 個月貢獻趨勢 */}
       {contributionTrend.length > 0 && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--xc-text-soft)', marginBottom: '10px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--xc-text-soft)', marginBottom: '10px' }}>
             📈 個人完成趨勢（近 6 個月）
           </div>
           <ResponsiveContainer width="100%" height={100}>
@@ -173,12 +174,12 @@ export default function MyImpactWidget() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--xc-border)" vertical={false} />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 10, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 12, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip
                 formatter={(v) => [v, '完成']}
                 labelFormatter={formatMonth}
-                contentStyle={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: '8px', fontSize: '11px' }}
+                contentStyle={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: '8px', fontSize: '13px' }}
               />
               <Area type="monotone" dataKey="completed" stroke="var(--xc-brand)" strokeWidth={2} fill="url(#myImpactGrad)" dot={{ r: 3, fill: 'var(--xc-brand)' }} />
             </AreaChart>
@@ -189,7 +190,7 @@ export default function MyImpactWidget() {
       {/* 近期完成任務 */}
       {recentCompleted.length > 0 && (
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--xc-text-soft)', marginBottom: '8px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--xc-text-soft)', marginBottom: '8px' }}>
             ✅ 近 7 天完成
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
@@ -206,15 +207,15 @@ export default function MyImpactWidget() {
                   flexShrink: 0,
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {t.title}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--xc-text-muted)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)' }}>
                     {t.projectName}
                   </div>
                 </div>
                 <span style={{
-                  fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                  fontSize: '12px', padding: '2px 6px', borderRadius: '4px',
                   background: 'color-mix(in srgb, var(--xc-success) 12%, transparent)',
                   color: 'var(--xc-success)', fontWeight: 600,
                 }}>

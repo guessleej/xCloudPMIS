@@ -156,4 +156,106 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+// GET /api/time-tracking/my-tasks?companyId=N&userId=N
+// 取得使用者被指派的任務，依專案分組，並附上各任務今日/本週已登錄工時
+// ════════════════════════════════════════════════════════════
+router.get('/my-tasks', async (req, res) => {
+  try {
+    const companyId = parseInt(req.query.companyId);
+    const userId    = parseInt(req.query.userId);
+    if (!companyId || !userId) return err(res, 'companyId 和 userId 為必填', 400);
+
+    // 取得使用者被指派的、未完成的任務（含專案資訊）
+    const tasks = await prisma.task.findMany({
+      where: {
+        assigneeId: userId,
+        deletedAt:  null,
+        status:     { not: 'done' },
+        project:    { companyId, deletedAt: null },
+      },
+      include: {
+        project: { select: { id: true, name: true, status: true } },
+      },
+      orderBy: [
+        { project: { name: 'asc' } },
+        { priority: 'desc' },
+        { position: 'asc' },
+      ],
+    });
+
+    // 取得該使用者最近 7 天的工時記錄
+    const now   = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
+    const mondayStr = monday.toISOString().slice(0, 10);
+
+    const recentLogs = await prisma.workTimeLog.findMany({
+      where: {
+        companyId,
+        userId,
+        date: { gte: mondayStr },
+      },
+    });
+
+    // 建立 task → 工時對照表（key = "projectName::taskTitle"）
+    const logMap = {};
+    for (const log of recentLogs) {
+      const key = `${log.project}::${log.task}`;
+      if (!logMap[key]) logMap[key] = { today: 0, week: 0, entries: [] };
+      if (log.date === today) logMap[key].today += (log.hours || 0);
+      logMap[key].week += (log.hours || 0);
+      logMap[key].entries.push(log);
+    }
+
+    // 依專案分組
+    const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
+    const PRIORITY_LABEL = { urgent: '緊急', high: '高', medium: '中', low: '低' };
+    const STATUS_LABEL   = { todo: '待處理', in_progress: '進行中', review: '審查中', done: '已完成' };
+
+    const projectMap = new Map();
+    for (const t of tasks) {
+      const pid = t.project.id;
+      if (!projectMap.has(pid)) {
+        projectMap.set(pid, {
+          projectId:   pid,
+          projectName: t.project.name,
+          projectStatus: t.project.status,
+          tasks: [],
+        });
+      }
+
+      const logKey = `${t.project.name}::${t.title}`;
+      const logged = logMap[logKey] || { today: 0, week: 0, entries: [] };
+
+      projectMap.get(pid).tasks.push({
+        id:             t.id,
+        title:          t.title,
+        status:         t.status,
+        statusLabel:    STATUS_LABEL[t.status] || t.status,
+        priority:       t.priority,
+        priorityLabel:  PRIORITY_LABEL[t.priority] || t.priority,
+        priorityOrder:  PRIORITY_ORDER[t.priority] ?? 9,
+        estimatedHours: t.estimatedHours ? Number(t.estimatedHours) : null,
+        actualHours:    t.actualHours ? Number(t.actualHours) : null,
+        dueDate:        t.dueDate ? t.dueDate.toISOString().slice(0, 10) : null,
+        todayHours:     Math.round(logged.today * 10) / 10,
+        weekHours:      Math.round(logged.week * 10) / 10,
+        recentEntries:  logged.entries,
+      });
+    }
+
+    const projects = Array.from(projectMap.values());
+    projects.forEach(p => p.tasks.sort((a, b) => a.priorityOrder - b.priorityOrder));
+
+    return ok(res, { projects });
+  } catch (e) {
+    console.error('[time-tracking my-tasks]', e);
+    return err(res, e.message);
+  }
+});
+
 module.exports = router;

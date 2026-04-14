@@ -11,6 +11,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const INSIGHT_STYLES = {
   success: { icon: '✅', bg: 'color-mix(in srgb, var(--xc-success) 10%, var(--xc-surface))', border: 'color-mix(in srgb, var(--xc-success) 30%, transparent)', color: 'var(--xc-success)' },
@@ -35,7 +36,7 @@ function CustomTooltip({ active, payload, label }) {
       borderRadius: '8px',
       padding:      '10px 14px',
       boxShadow:    '0 4px 12px rgba(0,0,0,.12)',
-      fontSize:     '12px',
+      fontSize: '14px',
       minWidth:     '140px',
     }}>
       <div style={{ fontWeight: 600, color: 'var(--xc-text)', marginBottom: '6px' }}>
@@ -86,7 +87,7 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
       {/* 折線圖：月度趨勢 */}
       {hasData ? (
         <div>
-          <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)', marginBottom: '8px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--xc-text-muted)', marginBottom: '8px' }}>
             過去 6 個月任務趨勢
           </div>
           <ResponsiveContainer width="100%" height={140}>
@@ -105,13 +106,13 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
               <XAxis
                 dataKey="month"
                 tickFormatter={formatMonth}
-                tick={{ fontSize: 10, fill: 'var(--xc-text-muted)' }}
+                tick={{ fontSize: 12, fill: 'var(--xc-text-muted)' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fontSize: 10, fill: 'var(--xc-text-muted)' }}
+                tick={{ fontSize: 12, fill: 'var(--xc-text-muted)' }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -120,7 +121,7 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
                 iconType="circle"
                 iconSize={6}
                 formatter={(v) => (
-                  <span style={{ fontSize: '11px', color: 'var(--xc-text-soft)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--xc-text-soft)' }}>
                     {v === 'completed' ? '已完成' : '新建立'}
                   </span>
                 )}
@@ -147,7 +148,7 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
           </ResponsiveContainer>
         </div>
       ) : (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--xc-text-muted)', fontSize: '12px',
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--xc-text-muted)', fontSize: '14px',
           background: 'var(--xc-surface-soft)', borderRadius: '8px' }}>
           尚無月度趨勢資料
         </div>
@@ -155,7 +156,7 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
 
       {/* 洞察卡片 */}
       {insights.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '12px', color: 'var(--xc-text-muted)', fontSize: '12px',
+        <div style={{ textAlign: 'center', padding: '12px', color: 'var(--xc-text-muted)', fontSize: '14px',
           background: 'var(--xc-surface-soft)', borderRadius: '8px' }}>
           目前無特別提醒 🎉
         </div>
@@ -172,12 +173,12 @@ export default function ActionableInsights({ insights = [], monthlyTrend = [], l
                 background:   style.bg,
                 border:       `1px solid ${style.border}`,
               }}>
-                <span style={{ fontSize: '16px', flexShrink: 0 }}>{style.icon}</span>
+                <span style={{ fontSize: '17px', flexShrink: 0 }}>{style.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: style.color, marginBottom: '2px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: style.color, marginBottom: '2px' }}>
                     {item.title}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--xc-text-soft)', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: '13px', color: 'var(--xc-text-soft)', lineHeight: 1.5 }}>
                     {item.body}
                   </div>
                 </div>

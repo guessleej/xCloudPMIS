@@ -3,7 +3,7 @@
  *
  * GET /api/dashboard/summary?companyId=N
  *   回傳：summary KPI、projects 健康狀態、workload 工作負載、
- *         monthlyTrend 月度趨勢、insights 洞察提醒
+ *         monthlyTrend 月度趨勢
  */
 
 const express      = require('express');
@@ -133,7 +133,7 @@ router.get('/summary', async (req, res) => {
     if (userIds.length > 0) {
       usersInfo = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, avatarUrl: true },
+        select: { id: true, name: true },
       });
     }
     const userInfoMap = {};
@@ -145,7 +145,6 @@ router.get('/summary', async (req, res) => {
       return {
         userId:    u.userId,
         name:      info.name || `成員 ${u.userId}`,
-        avatarUrl: info.avatarUrl || null,
         totalTasks: total,
         taskCounts: { todo: u.todo, in_progress: u.in_progress, review: u.review, done: u.done },
         overdueTasks: u.overdue,
@@ -191,124 +190,7 @@ router.get('/summary', async (req, res) => {
     }
     const monthlyTrend = Object.values(monthlyMap).sort((a, b) => a.month.localeCompare(b.month));
 
-    // ── 6. 自動洞察 insights ──────────────────────────────
-    const insights = [];
-
-    if (overdueTasks > 0) {
-      insights.push({
-        type:  'warning',
-        title: `${overdueTasks} 個任務已逾期`,
-        body:  '請優先安排逾期任務，避免影響整體進度。',
-      });
-    }
-    if (redProjects > 0) {
-      insights.push({
-        type:  'danger',
-        title: `${redProjects} 個專案處於高風險`,
-        body:  '紅燈專案逾期任務過多或已超過截止日，建議立即跟進。',
-      });
-    }
-    if (completionRate >= 80) {
-      insights.push({
-        type:  'success',
-        title: `整體完成率達 ${completionRate}%`,
-        body:  '團隊整體表現優異，繼續保持！',
-      });
-    }
-    if (dueThisMonth > 0) {
-      insights.push({
-        type:  'info',
-        title: `本月尚有 ${dueThisMonth} 個任務待完成`,
-        body:  '本月截止任務需要提前安排，避免月底衝刺。',
-      });
-    }
-    if (workloadUsers.length > 0) {
-      const topUser = workloadUsers[0];
-      if (topUser.totalTasks > 10) {
-        insights.push({
-          type:  'info',
-          title: `${topUser.name} 工作負載較重（${topUser.totalTasks} 項任務）`,
-          body:  '考慮重新分配部分任務，平衡團隊工作負載。',
-        });
-      }
-    }
-
-    // ── 6b. 里程碑風險偵測 ─────────────────────────────────
-    try {
-      const msWeekLater = new Date(now);
-      msWeekLater.setDate(msWeekLater.getDate() + 7);
-
-      const atRiskMilestones = await prisma.milestone.findMany({
-        where: {
-          isAchieved: false,
-          dueDate: { lte: msWeekLater },
-          project: { companyId, deletedAt: null },
-        },
-        select: { id: true, name: true, dueDate: true, color: true },
-        orderBy: { dueDate: 'asc' },
-        take: 5,
-      });
-
-      const overdueMilestones = atRiskMilestones.filter(m => new Date(m.dueDate) < now);
-      const upcomingMilestones = atRiskMilestones.filter(m => new Date(m.dueDate) >= now);
-
-      if (overdueMilestones.length > 0) {
-        insights.push({
-          type:  'danger',
-          title: `${overdueMilestones.length} 個里程碑已逾期`,
-          body:  `「${overdueMilestones[0].name}」等里程碑已過預定日期，建議立即確認進度。`,
-        });
-      }
-      if (upcomingMilestones.length > 0) {
-        insights.push({
-          type:  'warning',
-          title: `${upcomingMilestones.length} 個里程碑即將到期（7 天內）`,
-          body:  `「${upcomingMilestones[0].name}」將於 ${new Date(upcomingMilestones[0].dueDate).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })} 到期，請提前準備。`,
-        });
-      }
-    } catch (msErr) {
-      console.warn('[dashboard] milestone insight skipped:', msErr.message);
-    }
-
-    // ── 6c. 週完成率趨勢比較 ──────────────────────────────
-    {
-      const thisWeekStart = new Date(now);
-      thisWeekStart.setDate(thisWeekStart.getDate() - 7);
-      const lastWeekStart = new Date(thisWeekStart);
-      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-
-      const thisWeekDone = allTasks.filter(
-        t => t.completedAt && new Date(t.completedAt) >= thisWeekStart && new Date(t.completedAt) < now
-      ).length;
-      const lastWeekDone = allTasks.filter(
-        t => t.completedAt && new Date(t.completedAt) >= lastWeekStart && new Date(t.completedAt) < thisWeekStart
-      ).length;
-
-      if (lastWeekDone > 0) {
-        const change = Math.round(((thisWeekDone - lastWeekDone) / lastWeekDone) * 100);
-        if (change >= 20) {
-          insights.push({
-            type:  'success',
-            title: `本週完成量較上週增加 ${change}%`,
-            body:  `本週完成 ${thisWeekDone} 項（上週 ${lastWeekDone} 項），團隊產出明顯提升。`,
-          });
-        } else if (change <= -20) {
-          insights.push({
-            type:  'warning',
-            title: `本週完成量較上週減少 ${Math.abs(change)}%`,
-            body:  `本週完成 ${thisWeekDone} 項（上週 ${lastWeekDone} 項），建議檢視是否有阻塞。`,
-          });
-        }
-      } else if (thisWeekDone > 0) {
-        insights.push({
-          type:  'info',
-          title: `本週已完成 ${thisWeekDone} 項任務`,
-          body:  '上週無完成記錄，本週已開始推進。',
-        });
-      }
-    }
-
-    // ── 7. 組合回傳 ───────────────────────────────────────
+    // ── 6. 組合回傳 ───────────────────────────────────────
     return ok(res, {
       summary: {
         totalTasks,
@@ -325,7 +207,6 @@ router.get('/summary', async (req, res) => {
       projects:     projectsData,
       workload:     { users: workloadUsers },
       monthlyTrend,
-      insights,
     });
   } catch (e) {
     console.error('[dashboard/summary]', e);
@@ -360,7 +241,7 @@ router.get('/my-impact', async (req, res) => {
       }),
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, avatarUrl: true, department: true, jobTitle: true, createdAt: true },
+        select: { id: true, name: true, department: true, jobTitle: true, createdAt: true },
       }),
     ]);
 
@@ -445,7 +326,7 @@ router.get('/urgency', async (req, res) => {
         select: {
           id: true, title: true, status: true, priority: true, dueDate: true,
           project:  { select: { id: true, name: true } },
-          assignee: { select: { id: true, name: true, avatarUrl: true } },
+          assignee: { select: { id: true, name: true } },
         },
         orderBy: { dueDate: 'asc' },   // 最舊的排前面
         take: 50,
@@ -461,7 +342,7 @@ router.get('/urgency', async (req, res) => {
         select: {
           id: true, title: true, status: true, priority: true, dueDate: true,
           project:  { select: { id: true, name: true } },
-          assignee: { select: { id: true, name: true, avatarUrl: true } },
+          assignee: { select: { id: true, name: true } },
         },
         orderBy: { dueDate: 'asc' },
         take: 50,
@@ -482,7 +363,7 @@ router.get('/urgency', async (req, res) => {
       projectId:   t.project?.id,
       projectName: t.project?.name || '未知專案',
       assignee:    t.assignee
-        ? { id: t.assignee.id, name: t.assignee.name, avatarUrl: t.assignee.avatarUrl }
+        ? { id: t.assignee.id, name: t.assignee.name }
         : null,
     }));
 
@@ -505,7 +386,7 @@ router.get('/urgency', async (req, res) => {
         projectId:    t.project?.id,
         projectName:  t.project?.name || '未知專案',
         assignee:     t.assignee
-          ? { id: t.assignee.id, name: t.assignee.name, avatarUrl: t.assignee.avatarUrl }
+          ? { id: t.assignee.id, name: t.assignee.name }
           : null,
       };
     });

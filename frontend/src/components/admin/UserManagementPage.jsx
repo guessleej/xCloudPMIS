@@ -15,6 +15,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const API_BASE = '';
 
@@ -49,13 +50,13 @@ function StatCard({ label, value, sub, accent }) {
       flex:         '1 1 140px',
       minWidth:     0,
     }}>
-      <div style={{ fontSize: 24, fontWeight: 800, color: accent || 'var(--xc-brand)' }}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: accent || 'var(--xc-brand)' }}>
         {value ?? '—'}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--xc-text)', marginTop: 2 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--xc-text)', marginTop: 2 }}>
         {label}
       </div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 13, color: 'var(--xc-text-muted)', marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -67,7 +68,7 @@ function RoleBadge({ role }) {
     <span style={{
       padding:      '2px 8px',
       borderRadius: 6,
-      fontSize:     11,
+      fontSize: 13,
       fontWeight:   600,
       background:   c.bg,
       color:        c.color,
@@ -84,7 +85,7 @@ function StatusBadge({ isActive }) {
     <span style={{
       padding:      '2px 8px',
       borderRadius: 6,
-      fontSize:     11,
+      fontSize: 13,
       fontWeight:   600,
       background:   isActive ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
       color:        isActive ? '#16a34a' : '#dc2626',
@@ -100,7 +101,7 @@ function Field({ label, required, error, children }) {
     <div style={{ marginBottom: 16 }}>
       <label style={{
         display:    'block',
-        fontSize:   13,
+        fontSize: 15,
         fontWeight: 600,
         color:      error ? 'var(--xc-danger)' : 'var(--xc-text-soft)',
         marginBottom: 6,
@@ -109,7 +110,7 @@ function Field({ label, required, error, children }) {
       </label>
       {children}
       {error && (
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--xc-danger)' }}>⚠️ {error}</p>
+        <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--xc-danger)' }}>⚠️ {error}</p>
       )}
     </div>
   );
@@ -132,7 +133,7 @@ function Input({ value, onChange, placeholder, type = 'text', disabled }) {
         boxSizing:    'border-box',
         border:       `1.5px solid ${focused ? 'var(--xc-brand)' : 'var(--xc-border)'}`,
         borderRadius: 8,
-        fontSize:     14,
+        fontSize: 16,
         color:        'var(--xc-text)',
         background:   disabled ? 'var(--xc-surface-soft)' : 'var(--xc-surface-strong)',
         outline:      'none',
@@ -155,7 +156,7 @@ function Select({ value, onChange, options, disabled }) {
         boxSizing:    'border-box',
         border:       '1.5px solid var(--xc-border)',
         borderRadius: 8,
-        fontSize:     14,
+        fontSize: 16,
         color:        'var(--xc-text)',
         background:   'var(--xc-surface-strong)',
         outline:      'none',
@@ -199,7 +200,7 @@ function Modal({ title, onClose, children, width = 520 }) {
           position:     'sticky', top: 0,
           background:   'var(--xc-surface-strong)', zIndex: 1,
         }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--xc-text)' }}>
             {title}
           </h3>
           <button
@@ -207,7 +208,7 @@ function Modal({ title, onClose, children, width = 520 }) {
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: 6, borderRadius: 8, color: 'var(--xc-text-muted)',
-              fontSize: 18, lineHeight: 1,
+              fontSize: 20, lineHeight: 1,
             }}
           >✕</button>
         </div>
@@ -311,7 +312,7 @@ function CreateUserModal({ onClose, onCreated, authFetch }) {
       {apiError && (
         <div style={{
           padding: '10px 14px', borderRadius: 8, marginBottom: 16,
-          background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontSize: 13,
+          background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontSize: 15,
         }}>⛔ {apiError}</div>
       )}
 
@@ -451,7 +452,7 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
   return (
     <Modal title={`編輯使用者：${user.name}`} onClose={onClose}>
       {apiError && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontSize: 13 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, background: 'rgba(220,38,38,0.08)', color: '#dc2626', fontSize: 15 }}>
           ⛔ {apiError}
         </div>
       )}
@@ -490,7 +491,7 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: adProfile ? 10 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>🔷</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text-muted)' }}>Azure AD 組織資料</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text-muted)' }}>Azure AD 組織資料</span>
             </div>
             <button
               type="button"
@@ -502,7 +503,7 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
                 border:     '1px solid var(--xc-border)',
                 borderRadius: 6,
                 padding:    '3px 10px',
-                fontSize:   11,
+                fontSize: 13,
                 fontWeight: 600,
                 cursor:     adSyncing ? 'not-allowed' : 'pointer',
                 opacity:    adSyncing ? 0.6 : 1,
@@ -512,7 +513,7 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
             </button>
           </div>
           {adProfile && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 14 }}>
               {adProfile.displayName    && <div><span style={{ color: 'var(--xc-text-muted)' }}>顯示名稱：</span>{adProfile.displayName}</div>}
               {adProfile.email          && <div><span style={{ color: 'var(--xc-text-muted)' }}>Email：</span>{adProfile.email}</div>}
               {adProfile.jobTitle       && <div><span style={{ color: 'var(--xc-text-muted)' }}>職稱：</span>{adProfile.jobTitle}</div>}
@@ -527,13 +528,13 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
       {/* OAuth 連結清單 */}
       {user.oauthAccounts?.length > 0 && (
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--xc-bg-soft)', borderRadius: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text-muted)', marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text-muted)', marginBottom: 8 }}>
             已連結的社群帳號
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {user.oauthAccounts.map(acc => (
               <span key={acc.id} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                padding: '4px 10px', borderRadius: 6, fontSize: 14, fontWeight: 600,
                 background: 'var(--xc-surface-strong)', border: '1px solid var(--xc-border)',
                 color: 'var(--xc-text)',
               }}>
@@ -556,6 +557,7 @@ function EditUserModal({ user, onClose, onUpdated, authFetch }) {
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
 export default function UserManagementPage() {
+  const isMobile = useIsMobile();
   const { authFetch, isAdmin } = useAuth();
 
   const [users,    setUsers]    = useState([]);
@@ -686,10 +688,10 @@ export default function UserManagementPage() {
         {/* ── 標題列 ─────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: 'var(--xc-text)' }}>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--xc-text)' }}>
               👥 使用者管理
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--xc-text-muted)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 15, color: 'var(--xc-text-muted)' }}>
               管理公司成員帳號、角色與 OAuth 社群登入連結
             </p>
           </div>
@@ -724,7 +726,7 @@ export default function UserManagementPage() {
             style={{
               flex: '1 1 200px', padding: '8px 12px',
               border: '1.5px solid var(--xc-border)', borderRadius: 8,
-              fontSize: 13, color: 'var(--xc-text)', background: 'var(--xc-bg)',
+              fontSize: 15, color: 'var(--xc-text)', background: 'var(--xc-bg)',
               outline: 'none',
             }}
           />
@@ -734,7 +736,7 @@ export default function UserManagementPage() {
             onChange={e => handleFilter('role', e.target.value)}
             style={{
               padding: '8px 12px', border: '1.5px solid var(--xc-border)',
-              borderRadius: 8, fontSize: 13, color: 'var(--xc-text)',
+              borderRadius: 8, fontSize: 15, color: 'var(--xc-text)',
               background: 'var(--xc-bg)', outline: 'none', cursor: 'pointer',
             }}
           >
@@ -749,7 +751,7 @@ export default function UserManagementPage() {
             onChange={e => handleFilter('active', e.target.value)}
             style={{
               padding: '8px 12px', border: '1.5px solid var(--xc-border)',
-              borderRadius: 8, fontSize: 13, color: 'var(--xc-text)',
+              borderRadius: 8, fontSize: 15, color: 'var(--xc-text)',
               background: 'var(--xc-bg)', outline: 'none', cursor: 'pointer',
             }}
           >
@@ -772,7 +774,7 @@ export default function UserManagementPage() {
             border:       '1px solid rgba(220,38,38,0.25)',
             borderRadius: 10,
             color:        '#dc2626',
-            fontSize:     13,
+            fontSize: 15,
             display:      'flex',
             alignItems:   'center',
             gap:          10,
@@ -796,7 +798,7 @@ export default function UserManagementPage() {
             padding:         '10px 16px',
             borderBottom:    '1px solid var(--xc-border)',
             background:      'var(--xc-bg-soft)',
-            fontSize:        11,
+            fontSize: 13,
             fontWeight:      700,
             color:           'var(--xc-text-muted)',
             textTransform:   'uppercase',
@@ -845,18 +847,18 @@ export default function UserManagementPage() {
                       width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                       background: 'var(--xc-brand)', color: '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 13, fontWeight: 700,
+                      fontSize: 15, fontWeight: 700,
                     }}>
                       {user.name?.[0] || '?'}
                     </div>
                   )}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--xc-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+                    <div style={{ fontSize: 13, color: 'var(--xc-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
                   </div>
                 </div>
                 {/* 部門 / 職稱 */}
-                <div style={{ fontSize: 12, color: 'var(--xc-text-soft)' }}>
+                <div style={{ fontSize: 14, color: 'var(--xc-text-soft)' }}>
                   {user.department && <div style={{ fontWeight: 500 }}>{user.department}</div>}
                   {user.jobTitle   && <div style={{ color: 'var(--xc-text-muted)' }}>{user.jobTitle}</div>}
                   {!user.department && !user.jobTitle && <span style={{ color: 'var(--xc-text-muted)' }}>—</span>}
@@ -868,14 +870,14 @@ export default function UserManagementPage() {
                 {/* 社群連結 */}
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {(user.oauthProviders || []).map(p => (
-                    <span key={p} title={p} style={{ fontSize: 16 }}>{PROVIDER_ICON[p] || '🔗'}</span>
+                    <span key={p} title={p} style={{ fontSize: 17 }}>{PROVIDER_ICON[p] || '🔗'}</span>
                   ))}
                   {(!user.oauthProviders || user.oauthProviders.length === 0) && (
-                    <span style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>—</span>
+                    <span style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>—</span>
                   )}
                 </div>
                 {/* 最後登入 */}
-                <div style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>
+                <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
                   {fmtDate(user.lastLoginAt)}
                 </div>
                 {/* 操作按鈕 */}
@@ -900,7 +902,7 @@ export default function UserManagementPage() {
             <Btn variant="secondary" disabled={page <= 1} onClick={() => { setPage(p => p - 1); loadUsers({ page: page - 1 }); }}>
               上一頁
             </Btn>
-            <span style={{ padding: '8px 16px', fontSize: 13, color: 'var(--xc-text-muted)' }}>
+            <span style={{ padding: '8px 16px', fontSize: 15, color: 'var(--xc-text-muted)' }}>
               第 {meta.page} / {meta.pages} 頁（共 {meta.total} 筆）
             </span>
             <Btn variant="secondary" disabled={page >= meta.pages} onClick={() => { setPage(p => p + 1); loadUsers({ page: page + 1 }); }}>
@@ -941,7 +943,7 @@ export default function UserManagementPage() {
           position:   'fixed', bottom: 24, right: 24, zIndex: 9999,
           padding:    '12px 20px', borderRadius: 10,
           background: toast.type === 'error' ? '#dc2626' : 'var(--xc-success)',
-          color:      '#fff', fontSize: 13, fontWeight: 600,
+          color:      '#fff', fontSize: 15, fontWeight: 600,
           boxShadow:  '0 4px 20px rgba(0,0,0,0.2)',
           animation:  'fadeIn 0.2s ease',
         }}>

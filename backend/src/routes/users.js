@@ -1,6 +1,6 @@
 /**
  * /api/users — 使用者列表路由
- * GET  /api/users?companyId=N   取得公司成員清單（含 role / avatarUrl）
+ * GET  /api/users?companyId=N   取得公司成員清單（含 role）
  * GET  /api/users/:id           取得單一使用者
  * PATCH /api/users/:id          更新使用者基本資訊（placeholder，由 settings 頁面負責實際更新）
  * DELETE /api/users/:id         停用使用者（placeholder）
@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where:   { companyId, isActive: true },
-      select:  { id: true, name: true, email: true, role: true, avatarUrl: true, isActive: true },
+      select:  { id: true, name: true, email: true, role: true, isActive: true },
       orderBy: { name: 'asc' },
     });
     ok(res, users, { total: users.length });
@@ -41,7 +41,7 @@ router.get('/:id', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where:  { id },
-      select: { id: true, name: true, email: true, role: true, avatarUrl: true, isActive: true, companyId: true },
+      select: { id: true, name: true, email: true, role: true, isActive: true, companyId: true },
     });
     if (!user) return err(res, `找不到使用者 #${id}`, 404);
     ok(res, user);
@@ -56,15 +56,14 @@ router.patch('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的使用者 ID', 400);
 
-  const { name, avatarUrl, role } = req.body;
+  const { name, role } = req.body;
   const data = {};
   if (name      !== undefined) data.name      = name.trim();
-  if (avatarUrl !== undefined) data.avatarUrl = avatarUrl;
   if (role      !== undefined) data.role      = role;
 
   try {
     const user = await prisma.user.update({ where: { id }, data,
-      select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+      select: { id: true, name: true, email: true, role: true },
     });
     ok(res, user);
   } catch (e) {

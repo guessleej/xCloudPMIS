@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -25,8 +26,8 @@ const BRAND = {
   info:    'var(--xc-info)',
 };
 
-const btnPrimary = { padding: '7px 16px', borderRadius: 7, border: 'none', background: BRAND.crimson, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-const btnGhost   = { padding: '7px 16px', borderRadius: 7, border: `1px solid ${BRAND.silver}`, background: 'transparent', color: BRAND.carbon, fontSize: 13, cursor: 'pointer' };
+const btnPrimary = { padding: '7px 16px', borderRadius: 7, border: 'none', background: BRAND.crimson, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+const btnGhost   = { padding: '7px 16px', borderRadius: 7, border: `1px solid ${BRAND.silver}`, background: 'transparent', color: BRAND.carbon, fontSize: 15, cursor: 'pointer' };
 
 const FILTERS = [
   { key:'all',      label:'全部' },
@@ -45,17 +46,17 @@ function StatusDot({ status }) {
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
       <span style={{ width:6, height:6, borderRadius:'50%', background:s.dot, display:'inline-block', flexShrink:0 }} />
-      <span style={{ fontSize:12, color: BRAND.carbon }}>{s.label}</span>
+      <span style={{ fontSize: 14, color: BRAND.carbon }}>{s.label}</span>
     </span>
   );
 }
 
 function ConfidenceText({ value }) {
   const color = value >= 85 ? BRAND.crimson : value >= 70 ? '#C97415' : BRAND.carbon;
-  return <span style={{ fontSize:13, fontWeight:700, color }}>{value}%</span>;
+  return <span style={{ fontSize: 15, fontWeight:700, color }}>{value}%</span>;
 }
 
-const TH_STYLE = { fontSize:11, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
+const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
 
 export default function AiDecisionCenter() {
   const { user, authFetch } = useAuth();
@@ -112,24 +113,24 @@ export default function AiDecisionCenter() {
   return (
     <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit' }}>
       {/* Hero */}
-      <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff' }}>
-        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
+      <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff' }}>
+        <div style={{ fontSize: 13, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
           ai decision review
         </div>
-        <h1 style={{ fontSize:26, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>決策審核</h1>
-        <p style={{ fontSize:13, opacity:0.7, margin:0 }}>審核 AI 生成的行動建議，批准後系統自動執行</p>
+        <h1 style={{ fontSize: 28, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>決策審核</h1>
+        <p style={{ fontSize: 15, opacity:0.7, margin:0 }}>審核 AI 生成的行動建議，批准後系統自動執行</p>
         <div style={{ display:'flex', gap:32, marginTop:20 }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize:24, fontWeight:800, lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight:800, lineHeight:1 }}>{k.value}</div>
+              <div style={{ fontSize: 13, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ padding:'24px 32px' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '24px 32px' }}>
         {/* Filter bar */}
         <div style={{ display:'flex', gap:4, marginBottom:20 }}>
           {FILTERS.map(f => (
@@ -137,7 +138,7 @@ export default function AiDecisionCenter() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               style={{
-                padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:13,
+                padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize: 15,
                 background: filter === f.key ? BRAND.crimson : BRAND.surfaceSoft,
                 color:      filter === f.key ? '#fff' : BRAND.carbon,
                 fontWeight: filter === f.key ? 600 : 400,
@@ -150,7 +151,7 @@ export default function AiDecisionCenter() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>載入中…</div>
+          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>載入中…</div>
         )}
 
         {/* Table */}
@@ -168,7 +169,7 @@ export default function AiDecisionCenter() {
             </div>
 
             {filtered.length === 0 && (
-              <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>
+              <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>
                 目前沒有符合條件的決策紀錄
               </div>
             )}
@@ -188,11 +189,11 @@ export default function AiDecisionCenter() {
                   onMouseEnter={e => { if (expanded !== d.id) e.currentTarget.style.background = BRAND.surfaceSoft; }}
                   onMouseLeave={e => { if (expanded !== d.id) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span style={{ fontSize:12, color:BRAND.carbon, fontWeight:500 }}>{d.type}</span>
-                  <span style={{ fontSize:13, color:BRAND.ink, fontWeight:500 }}>{d.title}</span>
-                  <span style={{ fontSize:12, color:BRAND.carbon }}>{d.scope}</span>
+                  <span style={{ fontSize: 14, color:BRAND.carbon, fontWeight:500 }}>{d.type}</span>
+                  <span style={{ fontSize: 15, color:BRAND.ink, fontWeight:500 }}>{d.title}</span>
+                  <span style={{ fontSize: 14, color:BRAND.carbon }}>{d.scope}</span>
                   <ConfidenceText value={d.confidence} />
-                  <span style={{ fontSize:12, color:BRAND.muted }}>
+                  <span style={{ fontSize: 14, color:BRAND.muted }}>
                     {d.createdAt ? new Date(d.createdAt).toLocaleString('zh-TW', { timeZone:'Asia/Taipei', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—'}
                   </span>
                   <StatusDot status={d.status} />
@@ -201,15 +202,15 @@ export default function AiDecisionCenter() {
                       <span style={{ display:'flex', gap:10 }}>
                         <button
                           onClick={() => changeStatus(d.id, 'approved')}
-                          style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#16824B', fontWeight:600, padding:0 }}
+                          style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:'#16824B', fontWeight:600, padding:0 }}
                         >批准</button>
                         <button
                           onClick={() => changeStatus(d.id, 'rejected')}
-                          style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:BRAND.muted, fontWeight:500, padding:0 }}
+                          style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, fontWeight:500, padding:0 }}
                         >拒絕</button>
                       </span>
                     ) : (
-                      <span style={{ color:BRAND.muted, fontSize:13 }}>—</span>
+                      <span style={{ color:BRAND.muted, fontSize: 15 }}>—</span>
                     )}
                   </span>
                 </div>
@@ -222,10 +223,10 @@ export default function AiDecisionCenter() {
                     borderBottom:`1px solid ${BRAND.accentBorder}`,
                     borderLeft:`3px solid ${BRAND.crimson}`,
                   }}>
-                    <div style={{ fontSize:11, fontWeight:600, color:BRAND.crimson, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>
+                    <div style={{ fontSize: 13, fontWeight:600, color:BRAND.crimson, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>
                       AI 分析說明
                     </div>
-                    <p style={{ fontSize:13, color:BRAND.ink, lineHeight:1.75, margin:0 }}>{d.detail}</p>
+                    <p style={{ fontSize: 15, color:BRAND.ink, lineHeight:1.75, margin:0 }}>{d.detail}</p>
                   </div>
                 )}
               </div>

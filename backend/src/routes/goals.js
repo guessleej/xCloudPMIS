@@ -68,53 +68,7 @@ function formatGoal(g) {
   };
 }
 
-/** 首次使用時注入示範 OKR 資料（僅在該公司無任何目標時執行） */
-async function seedIfEmpty(companyId) {
-  try {
-    const count = await prisma.goal.count({ where: { companyId } });
-    if (count > 0) return;
 
-    const year    = new Date().getFullYear();
-    const quarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
-
-    // 使用 createMany + nested create 建立示範目標
-    await prisma.goal.create({
-      data: {
-        companyId, title: '提升產品開發效率', quarter, year, status: 'active', owner: 'Admin',
-        description: '透過流程優化與工具整合，提升整體開發速度與品質。',
-        keyResults: { create: [
-          { title: '將平均任務完成週期縮短至 5 天以內', targetValue: 5,  currentValue: 6.5, unit: '天', status: 'in_progress', position: 0 },
-          { title: '新增自動化測試覆蓋率達 80%',        targetValue: 80, currentValue: 42,  unit: '%',  status: 'in_progress', position: 1 },
-          { title: 'Sprint 完成率維持 90% 以上',        targetValue: 90, currentValue: 78,  unit: '%',  status: 'in_progress', position: 2 },
-        ]},
-      },
-    });
-    await prisma.goal.create({
-      data: {
-        companyId, title: '強化客戶滿意度', quarter, year, status: 'active', owner: 'Admin',
-        description: '透過需求回應速度與品質改善，提升 NPS 分數。',
-        keyResults: { create: [
-          { title: 'NPS 分數達到 45 分',                    targetValue: 45, currentValue: 38, unit: '分', status: 'in_progress', position: 0 },
-          { title: '客戶反映問題 24h 內回應率達 95%', targetValue: 95, currentValue: 82, unit: '%',  status: 'in_progress', position: 1 },
-        ]},
-      },
-    });
-    await prisma.goal.create({
-      data: {
-        companyId, title: '建立團隊知識共享文化', quarter, year, status: 'completed', owner: 'Admin',
-        description: '定期分享會 + 內部文件庫，降低知識孤島問題。',
-        keyResults: { create: [
-          { title: '每月 Knowledge Sharing 場次 ≥ 2',  targetValue: 2,   currentValue: 2,   unit: '場', status: 'done', position: 0 },
-          { title: '內部文件數量達 50 篇',              targetValue: 50,  currentValue: 50,  unit: '篇', status: 'done', position: 1 },
-          { title: '新進成員 Onboarding 評分 ≥ 4.5',  targetValue: 4.5, currentValue: 4.7, unit: '分', status: 'done', position: 2 },
-        ]},
-      },
-    });
-  } catch (e) {
-    // seed 失敗不影響主流程
-    console.warn('[goals seed]', e.message);
-  }
-}
 
 // ════════════════════════════════════════════════════════════
 // GET /api/goals?companyId=N[&quarter=Q1&year=2024&status=active]
@@ -125,8 +79,6 @@ router.get('/', async (req, res) => {
   if (!companyId) return err(res, 'companyId 為必填');
 
   try {
-    await seedIfEmpty(companyId);
-
     // 選用的伺服器端篩選（前端通常不傳這些參數，靠 client-side 過濾）
     const where = { companyId };
     if (req.query.quarter) where.quarter = req.query.quarter;

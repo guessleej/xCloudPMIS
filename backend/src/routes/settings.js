@@ -135,7 +135,6 @@ router.get('/profile', async (req, res) => {
         email:       true,
         role:        true,
         isActive:    true,
-        avatarUrl:   true,
         department:  true,
         phone:       true,
         jobTitle:    true,

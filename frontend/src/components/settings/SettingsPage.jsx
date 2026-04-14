@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ──────────────────────────────────────────────────────
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
@@ -72,7 +73,7 @@ function Card({ title, children, extra }) {
           marginBottom: 18,
         }}>
           {title && (
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: T.text }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: T.text }}>
               {title}
             </h3>
           )}
@@ -90,7 +91,7 @@ function Field({ label, required, children, hint, error }) {
     <div style={{ marginBottom: 16 }}>
       <label style={{
         display:    'block',
-        fontSize:   13,
+        fontSize: 15,
         fontWeight: 500,
         color:      T.textSoft,
         marginBottom: 6,
@@ -100,10 +101,10 @@ function Field({ label, required, children, hint, error }) {
       </label>
       {children}
       {hint && !error && (
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: T.textMuted }}>{hint}</p>
+        <p style={{ margin: '4px 0 0', fontSize: 14, color: T.textMuted }}>{hint}</p>
       )}
       {error && (
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: T.danger }}>{error}</p>
+        <p style={{ margin: '4px 0 0', fontSize: 14, color: T.danger }}>{error}</p>
       )}
     </div>
   );
@@ -123,7 +124,7 @@ function Input({ value, onChange, placeholder, type = 'text', disabled }) {
         padding:      '8px 12px',
         border:       `1px solid ${T.borderStrong}`,
         borderRadius: 8,
-        fontSize:     14,
+        fontSize: 16,
         color:        T.text,
         background:   disabled ? T.surfaceSoft : T.surface,
         cursor:       disabled ? 'not-allowed' : 'text',
@@ -146,7 +147,7 @@ function PrimaryBtn({ onClick, disabled, loading, children }) {
         color:         T.surfaceStrong,
         border:        'none',
         borderRadius:  8,
-        fontSize:      14,
+        fontSize: 16,
         fontWeight:    500,
         cursor:        (disabled || loading) ? 'not-allowed' : 'pointer',
         display:       'inline-flex',
@@ -184,14 +185,14 @@ function Banner({ type, message, onClose }) {
       background:   isSuccess ? T.successSoft : T.dangerSoft,
       border:       `1px solid ${isSuccess ? T.success : T.danger}`,
       color:        isSuccess ? T.success : T.danger,
-      fontSize:     13,
+      fontSize: 15,
     }}>
       <span>{isSuccess ? '✅ ' : '❌ '}{message}</span>
       <button
         onClick={onClose}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'inherit', fontSize: 16, padding: 0, lineHeight: 1,
+          color: 'inherit', fontSize: 17, padding: 0, lineHeight: 1,
         }}
       >×</button>
     </div>
@@ -208,7 +209,7 @@ function StatusBadge({ status }) {
       gap:        5,
       padding:    '3px 10px',
       borderRadius: 20,
-      fontSize:   12,
+      fontSize: 14,
       fontWeight: 600,
       background: ok ? T.successSoft : T.dangerSoft,
       color:      ok ? T.success : T.danger,
@@ -229,6 +230,7 @@ function StatusBadge({ status }) {
 // ════════════════════════════════════════════════════════════
 function CompanyTab() {
   const { user, authFetch } = useAuth();
+  const isMobile = useIsMobile();
   const companyId = user?.companyId;
 
   const [company,  setCompany]  = useState(null);
@@ -300,14 +302,14 @@ function CompanyTab() {
     setSlugErr('');
   };
 
-  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入中…</p>;
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入中…</p>;
 
   return (
     <div>
       <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
 
       <Card title="公司基本資訊">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
           {/* 公司名稱 */}
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label="公司名稱" required>
@@ -323,7 +325,7 @@ function CompanyTab() {
                   background:   T.surfaceSoft,
                   border:       `1px solid ${T.border}`,
                   borderRadius: 8,
-                  fontSize:     14,
+                  fontSize: 16,
                   color:        T.text,
                 }}>
                   {company.name}
@@ -346,7 +348,7 @@ function CompanyTab() {
                   style={{
                     width: '100%', padding: '8px 12px',
                     border: `1px solid ${slugErr ? T.danger : T.borderStrong}`,
-                    borderRadius: 8, fontSize: 14,
+                    borderRadius: 8, fontSize: 16,
                     fontFamily: 'monospace', outline: 'none',
                     boxSizing: 'border-box',
                     color: T.text,
@@ -354,7 +356,7 @@ function CompanyTab() {
                   }}
                 />
                 {slugErr && (
-                  <div style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>{slugErr}</div>
+                  <div style={{ fontSize: 14, color: T.danger, marginTop: 4 }}>{slugErr}</div>
                 )}
               </div>
             ) : (
@@ -363,7 +365,7 @@ function CompanyTab() {
                 background:   T.surfaceMuted,
                 border:       `1px solid ${T.border}`,
                 borderRadius: 8,
-                fontSize:     14,
+                fontSize: 16,
                 color:        T.textSoft,
                 fontFamily:   'monospace',
                 display:      'flex',
@@ -371,7 +373,7 @@ function CompanyTab() {
                 gap:          8,
               }}>
                 <span>{company.slug}</span>
-                <span style={{ fontSize: 11, color: T.textMuted, fontFamily: 'sans-serif' }}>（點「編輯」可修改）</span>
+                <span style={{ fontSize: 13, color: T.textMuted, fontFamily: 'sans-serif' }}>（點「編輯」可修改）</span>
               </div>
             )}
           </Field>
@@ -382,7 +384,7 @@ function CompanyTab() {
               <span style={{
                 padding:    '4px 12px',
                 borderRadius: 20,
-                fontSize:   13,
+                fontSize: 15,
                 fontWeight: 500,
                 background: company.isActive ? T.successSoft : T.dangerSoft,
                 color:      company.isActive ? T.success : T.danger,
@@ -399,7 +401,7 @@ function CompanyTab() {
               background:   T.surfaceSoft,
               border:       `1px solid ${T.border}`,
               borderRadius: 8,
-              fontSize:     14,
+              fontSize: 16,
               color:        T.textMuted,
             }}>
               {new Date(company.createdAt).toLocaleString('zh-TW')}
@@ -421,7 +423,7 @@ function CompanyTab() {
                   background:   T.surface,
                   border:       `1px solid ${T.borderStrong}`,
                   borderRadius: 8,
-                  fontSize:     14,
+                  fontSize: 16,
                   cursor:       'pointer',
                   color:        T.textSoft,
                 }}
@@ -439,7 +441,7 @@ function CompanyTab() {
 
       {/* 更新記錄 */}
       <Card title="最後更新">
-        <p style={{ margin: 0, fontSize: 14, color: T.textMuted }}>
+        <p style={{ margin: 0, fontSize: 16, color: T.textMuted }}>
           {new Date(company.updatedAt).toLocaleString('zh-TW')}
         </p>
       </Card>
@@ -452,6 +454,7 @@ function CompanyTab() {
 // ════════════════════════════════════════════════════════════
 function ProfileTab({ onGoToCompany }) {
   const { user, updateUser, logout, authFetch } = useAuth();
+  const isMobile = useIsMobile();
   const userId = user?.id;
 
   const [profile,  setProfile]  = useState(null);
@@ -573,7 +576,7 @@ function ProfileTab({ onGoToCompany }) {
     }
   };
 
-  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入中…</p>;
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入中…</p>;
 
   return (
     <div>
@@ -588,7 +591,7 @@ function ProfileTab({ onGoToCompany }) {
             borderRadius: '50%',
             background:   T.info,
             color:        T.surfaceStrong,
-            fontSize:     28,
+            fontSize: 30,
             fontWeight:   700,
             display:      'flex',
             alignItems:   'center',
@@ -598,17 +601,17 @@ function ProfileTab({ onGoToCompany }) {
             {profile.name.slice(0, 1)}
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>
+            <div style={{ fontWeight: 700, fontSize: 20, color: T.text }}>
               {profile.name}
             </div>
-            <div style={{ fontSize: 13, color: T.textMuted, marginTop: 3 }}>
+            <div style={{ fontSize: 15, color: T.textMuted, marginTop: 3 }}>
               {profile.email}
             </div>
             <div style={{ marginTop: 6 }}>
               <span style={{
                 padding:      '3px 10px',
                 borderRadius: 20,
-                fontSize:     12,
+                fontSize: 14,
                 fontWeight:   600,
                 background:   profile.role === 'admin' ? T.warningSoft
                             : profile.role === 'pm'    ? T.infoSoft
@@ -622,14 +625,14 @@ function ProfileTab({ onGoToCompany }) {
             </div>
           </div>
           <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: T.textMuted }}>上次登入</div>
-            <div style={{ fontSize: 13, color: T.textMuted }}>
+            <div style={{ fontSize: 14, color: T.textMuted }}>上次登入</div>
+            <div style={{ fontSize: 15, color: T.textMuted }}>
               {profile.lastLoginAt
                 ? new Date(profile.lastLoginAt).toLocaleString('zh-TW')
                 : '尚未記錄'}
             </div>
-            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 6 }}>帳號建立</div>
-            <div style={{ fontSize: 13, color: T.textMuted }}>
+            <div style={{ fontSize: 14, color: T.textMuted, marginTop: 6 }}>帳號建立</div>
+            <div style={{ fontSize: 15, color: T.textMuted }}>
               {new Date(profile.createdAt).toLocaleDateString('zh-TW')}
             </div>
           </div>
@@ -657,7 +660,7 @@ function ProfileTab({ onGoToCompany }) {
           {/* 所屬公司：唯讀資訊卡，公司名稱在「公司資訊」分頁管理 */}
           <div style={{ marginBottom: 20 }}>
             <label style={{
-              display: 'block', fontSize: 13, fontWeight: 500,
+              display: 'block', fontSize: 15, fontWeight: 500,
               color: T.textSoft, marginBottom: 6,
             }}>
               所屬公司
@@ -673,8 +676,8 @@ function ProfileTab({ onGoToCompany }) {
               gap:          12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>🏢</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
+                <span style={{ fontSize: 20 }}>🏢</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: T.text }}>
                   {profile?.company?.name || user?.company?.name || '—'}
                 </span>
               </div>
@@ -687,7 +690,7 @@ function ProfileTab({ onGoToCompany }) {
                   border:       `1px solid ${T.border}`,
                   borderRadius: 7,
                   padding:      '5px 12px',
-                  fontSize:     12,
+                  fontSize: 14,
                   fontWeight:   600,
                   cursor:       'pointer',
                   whiteSpace:   'nowrap',
@@ -699,7 +702,7 @@ function ProfileTab({ onGoToCompany }) {
                 修改公司名稱 →
               </button>
             </div>
-            <p style={{ margin: '5px 0 0', fontSize: 12, color: T.textMuted }}>
+            <p style={{ margin: '5px 0 0', fontSize: 14, color: T.textMuted }}>
               公司名稱由組織統一管理，請至「🏢 公司資訊」分頁修改
             </p>
           </div>
@@ -716,12 +719,12 @@ function ProfileTab({ onGoToCompany }) {
             marginBottom: 20,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 18 }}>🔷</span>
+              <span style={{ fontSize: 20 }}>🔷</span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: T.text }}>
                   從 Azure AD 同步
                 </div>
-                <div style={{ fontSize: 11, color: T.textMuted }}>
+                <div style={{ fontSize: 13, color: T.textMuted }}>
                   自動填入職稱、部門、電話等組織資料
                 </div>
               </div>
@@ -736,7 +739,7 @@ function ProfileTab({ onGoToCompany }) {
                 border:       `1px solid ${T.border}`,
                 borderRadius: 7,
                 padding:      '5px 14px',
-                fontSize:     12,
+                fontSize: 14,
                 fontWeight:   600,
                 cursor:       adSyncing ? 'not-allowed' : 'pointer',
                 whiteSpace:   'nowrap',
@@ -752,16 +755,16 @@ function ProfileTab({ onGoToCompany }) {
           {adProfile && (adProfile.jobTitle || adProfile.department || adProfile.officeLocation || adProfile.mobilePhone) && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: 10,
               padding: '12px 14px',
               background: T.surfaceSoft,
               border: `1px solid ${T.border}`,
               borderRadius: 10,
               marginBottom: 20,
-              fontSize: 12,
+              fontSize: 14,
             }}>
-              <div style={{ gridColumn: 'span 2', fontSize: 11, fontWeight: 600, color: T.textMuted, marginBottom: 2 }}>
+              <div style={{ gridColumn: 'span 2', fontSize: 13, fontWeight: 600, color: T.textMuted, marginBottom: 2 }}>
                 📇 Azure AD 組織資料
               </div>
               {adProfile.jobTitle       && <InfoRow label="職稱"     value={adProfile.jobTitle} />}
@@ -821,10 +824,10 @@ function ProfileTab({ onGoToCompany }) {
       <Card title="帳號操作">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 4 }}>
               登出系統
             </div>
-            <div style={{ fontSize: 13, color: T.textMuted }}>
+            <div style={{ fontSize: 15, color: T.textMuted }}>
               登出後需重新透過 Microsoft 帳號登入才能使用系統
             </div>
           </div>
@@ -836,7 +839,7 @@ function ProfileTab({ onGoToCompany }) {
               color:        T.danger,
               border:       `1px solid ${T.danger}`,
               borderRadius: 8,
-              fontSize:     14,
+              fontSize: 16,
               fontWeight:   600,
               cursor:       'pointer',
               whiteSpace:   'nowrap',
@@ -880,18 +883,18 @@ function HealthCard({ icon, title, status, version, latency, extra }) {
       <div style={{ paddingLeft: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 22 }}>{icon}</span>
-            <span style={{ fontWeight: 600, fontSize: 15, color: T.text }}>{title}</span>
+            <span style={{ fontSize: 24 }}>{icon}</span>
+            <span style={{ fontWeight: 600, fontSize: 16, color: T.text }}>{title}</span>
           </div>
           <StatusBadge status={status} />
         </div>
         {version && (
-          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, color: T.textMuted, marginBottom: 4 }}>
             版本：<span style={{ fontFamily: 'monospace', color: T.textSoft }}>{version}</span>
           </div>
         )}
         {latency !== undefined && (
-          <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, color: T.textMuted, marginBottom: 4 }}>
             延遲：
             <span style={{
               fontFamily: 'monospace',
@@ -902,7 +905,7 @@ function HealthCard({ icon, title, status, version, latency, extra }) {
           </div>
         )}
         {extra && extra.map((item, i) => (
-          <div key={i} style={{ fontSize: 12, color: T.textMuted, marginBottom: 2 }}>
+          <div key={i} style={{ fontSize: 14, color: T.textMuted, marginBottom: 2 }}>
             {item.label}：<span style={{ color: T.textSoft }}>{item.value}</span>
           </div>
         ))}
@@ -921,13 +924,13 @@ function StatCard({ icon, label, value, sub, color = 'var(--xc-info)' }) {
       padding:      18,
       textAlign:    'center',
     }}>
-      <div style={{ fontSize: 26, marginBottom: 6 }}>{icon}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color, marginBottom: 2 }}>
+      <div style={{ fontSize: 28, marginBottom: 6 }}>{icon}</div>
+      <div style={{ fontSize: 30, fontWeight: 700, color, marginBottom: 2 }}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div style={{ fontSize: 13, color: T.textMuted, fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: 15, color: T.textMuted, fontWeight: 500 }}>{label}</div>
       {sub && (
-        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>{sub}</div>
+        <div style={{ fontSize: 13, color: T.textMuted, marginTop: 4 }}>{sub}</div>
       )}
     </div>
   );
@@ -961,7 +964,7 @@ function SystemStatsTab({ activeTab }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入中…</p>;
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入中…</p>;
   if (error)   return (
     <div>
       <Banner type="error" message={error} onClose={() => setError('')} />
@@ -977,7 +980,7 @@ function SystemStatsTab({ activeTab }) {
       <div>
         {/* 重新整理 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <p style={{ margin: 0, fontSize: 13, color: T.textMuted }}>
+          <p style={{ margin: 0, fontSize: 15, color: T.textMuted }}>
             查詢時間：{lastFetch?.toLocaleString('zh-TW') || '-'}
           </p>
           <button
@@ -988,7 +991,7 @@ function SystemStatsTab({ activeTab }) {
               background:   T.surface,
               border:       `1px solid ${T.borderStrong}`,
               borderRadius: 8,
-              fontSize:     13,
+              fontSize: 15,
               cursor:       'pointer',
               color:        T.textSoft,
               display:      'flex',
@@ -1036,8 +1039,8 @@ function SystemStatsTab({ activeTab }) {
                 borderRadius: 8,
                 border: `1px solid ${T.border}`,
               }}>
-                <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 4 }}>{item.label}</div>
-                <div style={{ fontSize: 13, color: T.textSoft, fontWeight: 500 }}>
+                <div style={{ fontSize: 14, color: T.textMuted, marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 15, color: T.textSoft, fontWeight: 500 }}>
                   {item.value ? new Date(item.value).toLocaleString('zh-TW') : '—'}
                 </div>
               </div>
@@ -1045,7 +1048,7 @@ function SystemStatsTab({ activeTab }) {
           </div>
         </Card>
 
-        <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'right', margin: 0 }}>
+        <p style={{ fontSize: 14, color: T.textMuted, textAlign: 'right', margin: 0 }}>
           資料產生時間：{new Date(generatedAt).toLocaleString('zh-TW')}
         </p>
       </div>
@@ -1056,7 +1059,7 @@ function SystemStatsTab({ activeTab }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <p style={{ margin: 0, fontSize: 13, color: T.textMuted }}>
+        <p style={{ margin: 0, fontSize: 15, color: T.textMuted }}>
           公司 ID：{companyId} 的完整資料統計
         </p>
         <button
@@ -1066,7 +1069,7 @@ function SystemStatsTab({ activeTab }) {
             background:   T.surface,
             border:       `1px solid ${T.borderStrong}`,
             borderRadius: 8,
-            fontSize:     13,
+            fontSize: 15,
             cursor:       'pointer',
             color:        T.textSoft,
           }}
@@ -1077,7 +1080,7 @@ function SystemStatsTab({ activeTab }) {
 
       {/* 使用者 */}
       <div style={{ marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 12px', fontSize: 13, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
           👥 使用者
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -1090,7 +1093,7 @@ function SystemStatsTab({ activeTab }) {
 
       {/* 專案 & 任務 */}
       <div style={{ marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 12px', fontSize: 13, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
           📁 專案 & 任務
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -1104,7 +1107,7 @@ function SystemStatsTab({ activeTab }) {
 
       {/* 里程碑 */}
       <div style={{ marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 12px', fontSize: 13, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
           🏁 里程碑
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -1117,7 +1120,7 @@ function SystemStatsTab({ activeTab }) {
 
       {/* 工時記錄 */}
       <div style={{ marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 12px', fontSize: 13, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
           ⏱️ 工時記錄
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -1129,7 +1132,7 @@ function SystemStatsTab({ activeTab }) {
 
       {/* 其他 */}
       <div style={{ marginBottom: 8 }}>
-        <h4 style={{ margin: '0 0 12px', fontSize: 13, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
           🗂️ 其他資料
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
@@ -1139,7 +1142,7 @@ function SystemStatsTab({ activeTab }) {
         </div>
       </div>
 
-      <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'right', margin: '12px 0 0' }}>
+      <p style={{ fontSize: 14, color: T.textMuted, textAlign: 'right', margin: '12px 0 0' }}>
         資料產生時間：{new Date(generatedAt).toLocaleString('zh-TW')}
       </p>
     </div>
@@ -1256,8 +1259,8 @@ function NotificationsTab() {
     await handleToggle('digestFrequency', freq);
   };
 
-  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入中…</p>;
-  if (!settings) return <p style={{ color: T.danger, fontSize: 14 }}>無法載入通知設定</p>;
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入中…</p>;
+  if (!settings) return <p style={{ color: T.danger, fontSize: 16 }}>無法載入通知設定</p>;
 
   return (
     <div>
@@ -1265,7 +1268,7 @@ function NotificationsTab() {
 
       {/* 通知類型開關 */}
       <Card title="事件通知">
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: T.textMuted }}>
+        <p style={{ margin: '0 0 16px', fontSize: 15, color: T.textMuted }}>
           選擇哪些事件要觸發系統內通知（收件匣）
         </p>
         {NOTIFICATION_TYPES.map((nt, i) => (
@@ -1276,10 +1279,10 @@ function NotificationsTab() {
             padding:      '12px 0',
             borderBottom: i < NOTIFICATION_TYPES.length - 1 ? `1px solid ${T.border}` : 'none',
           }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>{nt.icon}</span>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>{nt.icon}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{nt.label}</div>
-              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{nt.desc}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>{nt.label}</div>
+              <div style={{ fontSize: 14, color: T.textMuted, marginTop: 2 }}>{nt.desc}</div>
             </div>
             <ToggleSwitch
               checked={!!settings[nt.key]}
@@ -1292,7 +1295,7 @@ function NotificationsTab() {
 
       {/* 通知管道 */}
       <Card title="通知管道">
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: T.textMuted }}>
+        <p style={{ margin: '0 0 16px', fontSize: 15, color: T.textMuted }}>
           設定透過哪些管道接收通知
         </p>
 
@@ -1303,10 +1306,10 @@ function NotificationsTab() {
           padding:      '12px 0',
           borderBottom: `1px solid ${T.border}`,
         }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>🔔</span>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🔔</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>應用程式通知</div>
-            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>在系統內收件匣中顯示通知</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>應用程式通知</div>
+            <div style={{ fontSize: 14, color: T.textMuted, marginTop: 2 }}>在系統內收件匣中顯示通知</div>
           </div>
           <ToggleSwitch
             checked={!!settings.pushNotifications}
@@ -1321,10 +1324,10 @@ function NotificationsTab() {
           gap:          14,
           padding:      '12px 0',
         }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>📧</span>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>📧</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Email 通知</div>
-            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>將通知副本寄到你的電子郵件</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>Email 通知</div>
+            <div style={{ fontSize: 14, color: T.textMuted, marginTop: 2 }}>將通知副本寄到你的電子郵件</div>
           </div>
           <ToggleSwitch
             checked={!!settings.emailNotifications}
@@ -1343,10 +1346,10 @@ function NotificationsTab() {
           padding:      '12px 0',
           borderBottom: `1px solid ${T.border}`,
         }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>📊</span>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>📊</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>定期摘要</div>
-            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>接收專案進度與待辦事項的定期彙整</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>定期摘要</div>
+            <div style={{ fontSize: 14, color: T.textMuted, marginTop: 2 }}>接收專案進度與待辦事項的定期彙整</div>
           </div>
           <ToggleSwitch
             checked={!!settings.weeklyDigest}
@@ -1357,7 +1360,7 @@ function NotificationsTab() {
 
         {settings.weeklyDigest && (
           <div style={{ padding: '12px 0', paddingLeft: 34 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: T.textSoft, marginBottom: 8 }}>摘要頻率</div>
+            <div style={{ fontSize: 15, fontWeight: 500, color: T.textSoft, marginBottom: 8 }}>摘要頻率</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {DIGEST_OPTIONS.map(opt => (
                 <button
@@ -1370,7 +1373,7 @@ function NotificationsTab() {
                     border:        `1px solid ${settings.digestFrequency === opt.value ? T.info : T.borderStrong}`,
                     background:    settings.digestFrequency === opt.value ? T.infoSoft : 'transparent',
                     color:         settings.digestFrequency === opt.value ? T.info : T.textSoft,
-                    fontSize:      13,
+                    fontSize: 15,
                     fontWeight:    settings.digestFrequency === opt.value ? 600 : 400,
                     cursor:        saving ? 'not-allowed' : 'pointer',
                   }}
@@ -1384,7 +1387,7 @@ function NotificationsTab() {
       </Card>
 
       {saving && (
-        <p style={{ fontSize: 12, color: T.textMuted, textAlign: 'center' }}>儲存中…</p>
+        <p style={{ fontSize: 14, color: T.textMuted, textAlign: 'center' }}>儲存中…</p>
       )}
     </div>
   );
@@ -1398,8 +1401,8 @@ function NotificationsTab() {
 function InfoRow({ label, value }) {
   return (
     <div>
-      <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, color: T.text, wordBreak: 'break-all' }}>{value}</div>
+      <div style={{ fontSize: 14, color: T.textMuted, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 500, color: T.text, wordBreak: 'break-all' }}>{value}</div>
     </div>
   );
 }
@@ -1419,6 +1422,7 @@ function Spinner({ color = '#fff' }) {
 }
 
 function IntegrationsTab({ callbackState, authToken }) {
+  const isMobile = useIsMobile();
   const [msStatus,    setMsStatus]    = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [connecting,  setConnecting]  = useState(false);
@@ -1579,7 +1583,7 @@ function IntegrationsTab({ callbackState, authToken }) {
     }
   };
 
-  if (loading) return <p style={{ color: T.textMuted, fontSize: 14 }}>載入連線狀態中…</p>;
+  if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入連線狀態中…</p>;
 
   const connected     = msStatus?.connected === true;
   const isConfigured  = msStatus?.configured !== false;
@@ -1599,7 +1603,7 @@ function IntegrationsTab({ callbackState, authToken }) {
           <span style={{
             padding:    '3px 10px',
             borderRadius: 20,
-            fontSize:   12,
+            fontSize: 14,
             fontWeight: 600,
             background: connected ? T.successSoft : T.surfaceSoft,
             color:      connected ? T.success : T.textMuted,
@@ -1622,7 +1626,7 @@ function IntegrationsTab({ callbackState, authToken }) {
           <div>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: 14,
               background: T.successSoft,
               border: `1px solid ${T.success}`,
@@ -1648,7 +1652,7 @@ function IntegrationsTab({ callbackState, authToken }) {
             {(msStatus.jobTitle || msStatus.department || msStatus.officeLocation || msStatus.mobilePhone) && (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
                 gap: 14,
                 background: T.surfaceSoft,
                 border: `1px solid ${T.border}`,
@@ -1656,7 +1660,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                 padding: '16px 20px',
                 marginBottom: 20,
               }}>
-                <div style={{ gridColumn: 'span 2', fontSize: 13, fontWeight: 600, color: T.textSoft, marginBottom: 2 }}>
+                <div style={{ gridColumn: 'span 2', fontSize: 15, fontWeight: 600, color: T.textSoft, marginBottom: 2 }}>
                   📇 Azure AD 組織資料
                 </div>
                 {msStatus.jobTitle       && <InfoRow label="職稱"   value={msStatus.jobTitle} />}
@@ -1678,7 +1682,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                   border:       '1px solid',
                   borderColor:  revoking ? T.border : T.danger,
                   borderRadius: 8,
-                  fontSize:     14,
+                  fontSize: 16,
                   fontWeight:   500,
                   cursor:       revoking ? 'not-allowed' : 'pointer',
                   display:      'inline-flex',
@@ -1689,7 +1693,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                 {revoking && <Spinner color="var(--xc-danger)" />}
                 {revoking ? '解除中…' : '🔓 解除授權'}
               </button>
-              <span style={{ fontSize: 12, color: T.textMuted }}>
+              <span style={{ fontSize: 14, color: T.textMuted }}>
                 解除後 AI Agent 將無法存取 Email 和行事曆
               </span>
             </div>
@@ -1697,10 +1701,10 @@ function IntegrationsTab({ callbackState, authToken }) {
         ) : (
           /* 未連線 */
           <div>
-            <p style={{ margin: '0 0 12px', fontSize: 14, color: T.textSoft, lineHeight: 1.7 }}>
+            <p style={{ margin: '0 0 12px', fontSize: 16, color: T.textSoft, lineHeight: 1.7 }}>
               連接 Microsoft 帳號後，AI Agent 可以代您：
             </p>
-            <ul style={{ margin: '0 0 20px 0', paddingLeft: 22, fontSize: 14, color: T.textSoft, lineHeight: 2 }}>
+            <ul style={{ margin: '0 0 20px 0', paddingLeft: 22, fontSize: 16, color: T.textSoft, lineHeight: 2 }}>
               <li>📬 讀取並摘要 Outlook 郵件（含附件分析）</li>
               <li>📅 查詢 / 建立 Teams 行事曆邀請</li>
               <li>📁 讀取 SharePoint / OneDrive 文件</li>
@@ -1716,7 +1720,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                   border:       `1px solid ${T.warning}`,
                   borderRadius: 8,
                   marginBottom: 14,
-                  fontSize:     13,
+                  fontSize: 15,
                   color:        T.warning,
                   lineHeight:   1.6,
                 }}>
@@ -1733,7 +1737,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                   padding:      '16px 18px',
                   marginBottom: 16,
                 }}>
-                  <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600, color: T.text }}>
+                  <p style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 600, color: T.text }}>
                     🔑 填入 Azure 應用程式憑證
                   </p>
 
@@ -1769,7 +1773,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                       💾 儲存並立即套用
                     </PrimaryBtn>
 
-                    <p style={{ margin: '10px 0 0', fontSize: 12, color: T.textMuted }}>
+                    <p style={{ margin: '10px 0 0', fontSize: 14, color: T.textMuted }}>
                       💡 設定儲存後立即生效，無需重啟後端服務。
                     </p>
                   </div>
@@ -1794,7 +1798,7 @@ function IntegrationsTab({ callbackState, authToken }) {
           background:   T.surfaceSoft,
           border:       `1px solid ${T.border}`,
           borderRadius: 8,
-          fontSize:     12,
+          fontSize: 14,
           color:        T.textMuted,
         }}>
           <strong>所需授權範圍（Scopes）：</strong>
@@ -1811,6 +1815,7 @@ function IntegrationsTab({ callbackState, authToken }) {
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
 export default function SettingsPage({ initialTab, callbackState }) {
+  const isMobile = useIsMobile();
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab || 'company');
 
@@ -1828,13 +1833,13 @@ export default function SettingsPage({ initialTab, callbackState }) {
       `}</style>
 
       {/* 頁面標題 */}
-      <div style={{ padding: '20px 28px 0', background: T.surface, borderBottom: `1px solid ${T.border}` }}>
-        <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: T.text }}>
+      <div style={{ padding: isMobile ? '14px 16px 0' : '20px 28px 0', background: T.surface, borderBottom: `1px solid ${T.border}` }}>
+        <h2 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 700, color: T.text }}>
           ⚙️ 系統設定
         </h2>
 
         {/* 分頁標籤 */}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: isMobile ? 'nowrap' : undefined, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
@@ -1845,7 +1850,7 @@ export default function SettingsPage({ initialTab, callbackState }) {
                 borderBottom:  activeTab === tab.id ? `2px solid ${T.info}` : '2px solid transparent',
                 background:    'none',
                 cursor:        'pointer',
-                fontSize:      14,
+                fontSize: 16,
                 fontWeight:    activeTab === tab.id ? 600 : 400,
                 color:         activeTab === tab.id ? T.info : T.textMuted,
                 borderRadius:  '6px 6px 0 0',
@@ -1863,7 +1868,7 @@ export default function SettingsPage({ initialTab, callbackState }) {
       </div>
 
       {/* 內容區域 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '24px 28px' }}>
         <div style={{ maxWidth: 720 }}>
           {activeTab === 'company'       && <CompanyTab />}
           {activeTab === 'profile'       && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}

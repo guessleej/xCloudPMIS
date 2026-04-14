@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -25,12 +26,13 @@ const BRAND = {
   info:    'var(--xc-info)',
 };
 
-const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' };
-const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize:13, cursor:'pointer' };
+const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize: 15, fontWeight:600, cursor:'pointer' };
+const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize: 15, cursor:'pointer' };
 
-const TH_STYLE = { fontSize:11, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
+const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
 
 export default function WorkflowDiagramPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
 
   const [workflows,     setWorkflows]     = useState([]);
@@ -77,10 +79,10 @@ export default function WorkflowDiagramPage() {
   if (loading) {
     return (
       <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit' }}>
-        <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff' }}>
-          <h1 style={{ fontSize:26, fontWeight:800, margin:0 }}>工作流程</h1>
+        <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff' }}>
+          <h1 style={{ fontSize: 28, fontWeight:800, margin:0 }}>工作流程</h1>
         </div>
-        <div style={{ padding:'40px 32px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>載入中…</div>
+        <div style={{ padding:'40px 32px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>載入中…</div>
       </div>
     );
   }
@@ -88,31 +90,31 @@ export default function WorkflowDiagramPage() {
   return (
     <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit' }}>
       {/* Hero */}
-      <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff' }}>
-        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
+      <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff' }}>
+        <div style={{ fontSize: 13, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
           workflow
         </div>
-        <h1 style={{ fontSize:26, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>工作流程</h1>
-        <p style={{ fontSize:13, opacity:0.7, margin:0 }}>定義任務狀態流轉規則，確保流程標準化與可追蹤</p>
+        <h1 style={{ fontSize: 28, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>工作流程</h1>
+        <p style={{ fontSize: 15, opacity:0.7, margin:0 }}>定義任務狀態流轉規則，確保流程標準化與可追蹤</p>
         <div style={{ display:'flex', gap:32, marginTop:20 }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize:24, fontWeight:800, lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight:800, lineHeight:1 }}>{k.value}</div>
+              <div style={{ fontSize: 13, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ padding:'24px 32px' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '24px 32px' }}>
         {/* Flow selector */}
         {workflows.length > 0 && (
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
-            <span style={{ fontSize:13, color:BRAND.carbon, fontWeight:500 }}>選擇流程：</span>
+            <span style={{ fontSize: 15, color:BRAND.carbon, fontWeight:500 }}>選擇流程：</span>
             <select
               value={activeWorkflow?.id || ''}
               onChange={e => selectFlow(e.target.value)}
-              style={{ padding:'8px 12px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.white, color:BRAND.ink, cursor:'pointer' }}
+              style={{ padding:'8px 12px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.white, color:BRAND.ink, cursor:'pointer' }}
             >
               {workflows.map(w => (
                 <option key={w.id} value={w.id}>{w.name}</option>
@@ -122,14 +124,14 @@ export default function WorkflowDiagramPage() {
         )}
 
         {!activeWorkflow && (
-          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>尚無工作流程資料</div>
+          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>尚無工作流程資料</div>
         )}
 
         {activeWorkflow && (
           <>
             {/* Flow diagram */}
             <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, padding:'24px 20px', marginBottom:20 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:20 }}>
+              <div style={{ fontSize: 14, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:20 }}>
                 {activeWorkflow.name} — 狀態節點
               </div>
               <div style={{ display:'flex', alignItems:'stretch', gap:0, overflowX:'auto' }}>
@@ -151,12 +153,12 @@ export default function WorkflowDiagramPage() {
                         boxShadow: selectedNode === node.id ? `0 2px 8px color-mix(in srgb, ${node.color} 20%, transparent)` : 'none',
                       }}
                     >
-                      <div style={{ fontSize:13, fontWeight:700, color:BRAND.ink, marginBottom:4 }}>{node.label}</div>
-                      <div style={{ fontSize:11, color:BRAND.muted, marginBottom:10, lineHeight:1.4 }}>{node.desc}</div>
+                      <div style={{ fontSize: 15, fontWeight:700, color:BRAND.ink, marginBottom:4 }}>{node.label}</div>
+                      <div style={{ fontSize: 13, color:BRAND.muted, marginBottom:10, lineHeight:1.4 }}>{node.desc}</div>
                       <div style={{
                         display:'inline-block', padding:'2px 8px', borderRadius:4,
                         background:`color-mix(in srgb, ${node.color} 12%, var(--xc-surface-soft))`,
-                        fontSize:11, fontWeight:600, color:node.color,
+                        fontSize: 13, fontWeight:600, color:node.color,
                       }}>
                         {node.count} 項
                       </div>
@@ -164,7 +166,7 @@ export default function WorkflowDiagramPage() {
 
                     {/* Arrow between nodes */}
                     {idx < (activeWorkflow.nodes || []).length - 1 && (
-                      <div style={{ display:'flex', alignItems:'center', padding:'0 6px', color:BRAND.silver, fontSize:16, flexShrink:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', padding:'0 6px', color:BRAND.silver, fontSize: 17, flexShrink:0 }}>
                         →
                       </div>
                     )}
@@ -178,11 +180,11 @@ export default function WorkflowDiagramPage() {
               const node = (activeWorkflow.nodes || []).find(n => n.id === selectedNode);
               return node ? (
                 <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.accentBorder}`, padding:'16px 20px', marginBottom:20, borderLeft:`3px solid ${node.color}` }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>
+                  <div style={{ fontSize: 14, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>
                     {node.label} — 節點資訊
                   </div>
-                  <div style={{ fontSize:13, color:BRAND.ink }}>{node.desc}</div>
-                  <div style={{ marginTop:8, fontSize:13, color:BRAND.carbon }}>
+                  <div style={{ fontSize: 15, color:BRAND.ink }}>{node.desc}</div>
+                  <div style={{ marginTop:8, fontSize: 15, color:BRAND.carbon }}>
                     目前項目數：<span style={{ fontWeight:700, color:node.color }}>{node.count}</span>
                   </div>
                 </div>
@@ -192,7 +194,7 @@ export default function WorkflowDiagramPage() {
             {/* Rules table */}
             <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, overflow:'hidden' }}>
               <div style={{ padding:'14px 20px', borderBottom:`1px solid ${BRAND.mist}`, background:BRAND.surfaceSoft }}>
-                <div style={{ fontSize:13, fontWeight:600, color:BRAND.ink }}>流程規則</div>
+                <div style={{ fontSize: 15, fontWeight:600, color:BRAND.ink }}>流程規則</div>
               </div>
               <div style={{
                 display:'grid', gridTemplateColumns:'1fr 1fr 80px',
@@ -215,18 +217,18 @@ export default function WorkflowDiagramPage() {
                   onMouseEnter={e => e.currentTarget.style.background = BRAND.surfaceSoft}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <span style={{ fontSize:13, color:BRAND.ink }}>{r.trigger}</span>
-                  <span style={{ fontSize:13, color:BRAND.carbon }}>{r.action}</span>
+                  <span style={{ fontSize: 15, color:BRAND.ink }}>{r.trigger}</span>
+                  <span style={{ fontSize: 15, color:BRAND.carbon }}>{r.action}</span>
                   <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
                     <span style={{ width:6, height:6, borderRadius:'50%', background: r.enabled ? '#16824B' : BRAND.silver, display:'inline-block' }} />
-                    <span style={{ fontSize:12, color: r.enabled ? '#16824B' : BRAND.muted }}>
+                    <span style={{ fontSize: 14, color: r.enabled ? '#16824B' : BRAND.muted }}>
                       {r.enabled ? '啟用' : '停用'}
                     </span>
                   </span>
                 </div>
               ))}
               {(activeWorkflow.rules || []).length === 0 && (
-                <div style={{ padding:'20px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>尚無流程規則</div>
+                <div style={{ padding:'20px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>尚無流程規則</div>
               )}
             </div>
           </>

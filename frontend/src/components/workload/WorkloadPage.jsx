@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const API_BASE = '';
 
@@ -163,22 +164,22 @@ function TaskDrawer({ open, title, tasks, onClose }) {
           display:      'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--xc-text)' }}>{title}</div>
-            <div style={{ fontSize: '12px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>{title}</div>
+            <div style={{ fontSize: '14px', color: 'var(--xc-text-muted)', marginTop: '2px' }}>
               共 {tasks.length} 個任務
             </div>
           </div>
           <button onClick={onClose} style={{
             width: '28px', height: '28px', borderRadius: '6px',
             border: 'none', background: 'var(--xc-surface-strong)',
-            cursor: 'pointer', fontSize: '14px', color: 'var(--xc-text-soft)',
+            cursor: 'pointer', fontSize: '16px', color: 'var(--xc-text-soft)',
           }}>✕</button>
         </div>
 
         {/* 任務列表 */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
           {tasks.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--xc-text-muted)', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--xc-text-muted)', fontSize: '15px' }}>
               此分類無任務
             </div>
           ) : (
@@ -195,30 +196,30 @@ function TaskDrawer({ open, title, tasks, onClose }) {
                     {/* 任務標題 + 優先度 */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '5px' }}>
                       <span style={{
-                        fontSize: '10px', padding: '2px 5px', borderRadius: '4px', flexShrink: 0,
+                        fontSize: '12px', padding: '2px 5px', borderRadius: '4px', flexShrink: 0,
                         background: pcfg.bg, color: pcfg.color, fontWeight: 700, marginTop: '1px',
                       }}>
                         {pcfg.label}
                       </span>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)', lineHeight: 1.4 }}>
+                      <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--xc-text)', lineHeight: 1.4 }}>
                         {t.title}
                       </span>
                     </div>
                     {/* 元資訊列 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                         📁 {t.projectName}
                       </span>
                       {t.dueDate && (
                         <span style={{
-                          fontSize: '11px', fontWeight: 600,
+                          fontSize: '13px', fontWeight: 600,
                           color: t.isOverdue ? '#ef4444' : 'var(--xc-text-soft)',
                         }}>
                           {t.isOverdue ? `⏰ 逾期 ${t.daysOverdue} 天` : `📅 ${formatDate(t.dueDate)}`}
                         </span>
                       )}
                       {t.progressPercent > 0 && (
-                        <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                           {t.progressPercent}%
                         </span>
                       )}
@@ -251,7 +252,7 @@ function FilterBar({ projects, filters, onChange }) {
         style={{
           padding: '6px 12px', borderRadius: '8px',
           border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          color: 'var(--xc-text)', fontSize: '13px', cursor: 'pointer',
+          color: 'var(--xc-text)', fontSize: '15px', cursor: 'pointer',
         }}
       >
         <option value="">所有專案</option>
@@ -265,7 +266,7 @@ function FilterBar({ projects, filters, onChange }) {
         style={{
           padding: '6px 12px', borderRadius: '8px',
           border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          color: 'var(--xc-text)', fontSize: '13px', cursor: 'pointer',
+          color: 'var(--xc-text)', fontSize: '15px', cursor: 'pointer',
         }}
       >
         <option value="">所有優先度</option>
@@ -282,7 +283,7 @@ function FilterBar({ projects, filters, onChange }) {
         style={{
           padding: '6px 12px', borderRadius: '8px',
           border: '1px solid var(--xc-border)', background: 'var(--xc-surface)',
-          color: 'var(--xc-text)', fontSize: '13px', cursor: 'pointer',
+          color: 'var(--xc-text)', fontSize: '15px', cursor: 'pointer',
         }}
       >
         <option value="">所有截止時間</option>
@@ -299,7 +300,7 @@ function FilterBar({ projects, filters, onChange }) {
           style={{
             padding: '6px 12px', borderRadius: '8px',
             border: '1px dashed var(--xc-border)', background: 'transparent',
-            color: 'var(--xc-text-muted)', fontSize: '12px', cursor: 'pointer',
+            color: 'var(--xc-text-muted)', fontSize: '14px', cursor: 'pointer',
           }}
         >
           ✕ 清除篩選
@@ -311,6 +312,7 @@ function FilterBar({ projects, filters, onChange }) {
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function WorkloadPage({ onNavigate }) {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
@@ -371,8 +373,8 @@ export default function WorkloadPage({ onNavigate }) {
   if (error) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: 'var(--xc-danger)' }}>
-        <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
-        <div style={{ fontSize: '14px' }}>資料載入失敗：{error}</div>
+        <div style={{ fontSize: '38px', marginBottom: '12px' }}>⚠️</div>
+        <div style={{ fontSize: '16px' }}>資料載入失敗：{error}</div>
         <button onClick={load} style={{ marginTop: '16px', padding: '8px 20px', borderRadius: '8px',
           border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text)' }}>
           重試
@@ -398,10 +400,10 @@ export default function WorkloadPage({ onNavigate }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '14px' }}>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--xc-text)', margin: 0 }}>
               資源分配
             </h1>
-            <p style={{ fontSize: '12px', color: 'var(--xc-text-muted)', margin: '3px 0 0' }}>
+            <p style={{ fontSize: '14px', color: 'var(--xc-text-muted)', margin: '3px 0 0' }}>
               指派對象 × 任務狀態 · 即時工作負載總覽
             </p>
           </div>
@@ -415,7 +417,7 @@ export default function WorkloadPage({ onNavigate }) {
                   padding: '5px 14px', borderRadius: '6px', border: '1px solid var(--xc-border)',
                   background: viewMode === m ? 'var(--xc-brand)' : 'var(--xc-surface)',
                   color: viewMode === m ? '#fff' : 'var(--xc-text-soft)',
-                  fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 {m === 'matrix' ? '⊞ 矩陣' : '☰ 卡片'}
@@ -428,7 +430,7 @@ export default function WorkloadPage({ onNavigate }) {
                 padding: '5px 12px', borderRadius: '6px',
                 border: '1px solid var(--xc-border)',
                 background: 'var(--xc-surface)',
-                color: 'var(--xc-text-muted)', fontSize: '12px', cursor: 'pointer',
+                color: 'var(--xc-text-muted)', fontSize: '14px', cursor: 'pointer',
                 opacity: loading ? 0.5 : 1,
               }}
             >
@@ -454,19 +456,19 @@ export default function WorkloadPage({ onNavigate }) {
             background: 'var(--xc-surface)',
             display: 'flex', alignItems: 'center', gap: '10px',
           }}>
-            <span style={{ fontSize: '18px' }}>{k.icon}</span>
+            <span style={{ fontSize: '20px' }}>{k.icon}</span>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: k.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {loading ? '—' : k.value}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '1px' }}>{k.label}</div>
+              <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginTop: '1px' }}>{k.label}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* ── 主體區域 ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '24px 28px' }}>
 
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -526,7 +528,7 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
               {/* 成員欄位標頭 */}
               <th style={{
                 padding:   '12px 20px',
-                textAlign: 'left', fontSize: '12px', fontWeight: 700,
+                textAlign: 'left', fontSize: '14px', fontWeight: 700,
                 color:     'var(--xc-text-muted)', letterSpacing: '0.04em',
                 minWidth:  '200px',
               }}>
@@ -535,14 +537,14 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
               {STATUSES.map(s => (
                 <th key={s.key} style={{
                   width: '80px', textAlign: 'center', padding: '12px 6px',
-                  fontSize: '12px', fontWeight: 700, color: s.color, letterSpacing: '0.02em',
+                  fontSize: '14px', fontWeight: 700, color: s.color, letterSpacing: '0.02em',
                 }}>
                   <div>{s.label}</div>
                 </th>
               ))}
               <th style={{
                 width: '70px', textAlign: 'center', padding: '12px 6px',
-                fontSize: '12px', fontWeight: 700, color: 'var(--xc-text-muted)',
+                fontSize: '14px', fontWeight: 700, color: 'var(--xc-text-muted)',
               }}>
                 合計
               </th>
@@ -552,7 +554,7 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
           <tbody>
             {members.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '13px' }}>
+                <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: '15px' }}>
                   目前無任務資料
                 </td>
               </tr>
@@ -567,18 +569,18 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <Avatar name={m.name} url={m.avatarUrl} size={32} />
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--xc-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {m.name}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                           {m.department && (
-                            <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                            <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                               {m.department}
                             </span>
                           )}
                           <CapacityBars capacity={m.capacity} />
                           <span style={{
-                            fontSize: '10px', color: CAPACITY_CFG[m.capacity]?.color || '#94a3b8',
+                            fontSize: '12px', color: CAPACITY_CFG[m.capacity]?.color || '#94a3b8',
                             fontWeight: 600,
                           }}>
                             {CAPACITY_CFG[m.capacity]?.label}
@@ -601,7 +603,7 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
 
                   {/* 合計 */}
                   <td style={{ textAlign: 'center', padding: '0 6px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--xc-text)' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>
                       {m.counts.total}
                     </span>
                   </td>
@@ -618,11 +620,11 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
                       width: 32, height: 32, borderRadius: '50%',
                       background: 'rgba(249,115,22,.15)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '16px', flexShrink: 0,
+                      fontSize: '17px', flexShrink: 0,
                     }}>❓</span>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#f97316' }}>未指派</div>
-                      <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>需要指派負責人</div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: '#f97316' }}>未指派</div>
+                      <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>需要指派負責人</div>
                     </div>
                   </div>
                 </td>
@@ -636,7 +638,7 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
                   />
                 ))}
                 <td style={{ textAlign: 'center', padding: '0 6px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#f97316' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 700, color: '#f97316' }}>
                     {unassigned.count}
                   </span>
                 </td>
@@ -649,18 +651,18 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
               background: 'var(--xc-surface-soft)',
               fontWeight: 700,
             }}>
-              <td style={{ padding: '10px 20px', fontSize: '12px', color: 'var(--xc-text-muted)', fontWeight: 700 }}>
+              <td style={{ padding: '10px 20px', fontSize: '14px', color: 'var(--xc-text-muted)', fontWeight: 700 }}>
                 合計
               </td>
               {STATUSES.map(s => (
                 <td key={s.key} style={{ textAlign: 'center', padding: '0 6px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: STATUSES.find(st => st.key === s.key)?.color }}>
+                  <span style={{ fontSize: '16px', fontWeight: 700, color: STATUSES.find(st => st.key === s.key)?.color }}>
                     {totals[s.key] || 0}
                   </span>
                 </td>
               ))}
               <td style={{ textAlign: 'center', padding: '0 6px' }}>
-                <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--xc-text)' }}>
+                <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--xc-text)' }}>
                   {totals.total || 0}
                 </span>
               </td>
@@ -675,14 +677,14 @@ function MatrixView({ members, totals, maxPS, unassigned, onCellClick }) {
         display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
         background: 'var(--xc-surface-soft)',
       }}>
-        <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>色深 = 任務量越多</span>
+        <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>色深 = 任務量越多</span>
         {STATUSES.map(s => (
-          <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+          <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: s.color, display: 'inline-block' }} />
             {s.label}
           </span>
         ))}
-        <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+        <span style={{ marginLeft: 'auto', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
           點擊格子查看任務明細
         </span>
       </div>
@@ -713,14 +715,14 @@ function CardsView({ members, onCellClick }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Avatar name={m.name} url={m.avatarUrl} size={36} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--xc-text)' }}>{m.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--xc-text)' }}>{m.name}</div>
+                <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                   {m.department || m.jobTitle || '成員'}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
                 <CapacityBars capacity={m.capacity} />
-                <span style={{ fontSize: '10px', color: CAPACITY_CFG[m.capacity]?.color, fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: CAPACITY_CFG[m.capacity]?.color, fontWeight: 600 }}>
                   {CAPACITY_CFG[m.capacity]?.label}
                 </span>
               </div>
@@ -754,10 +756,10 @@ function CardsView({ members, onCellClick }) {
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
                     }}
                   >
-                    <span style={{ fontSize: '15px', fontWeight: 800, color: cnt > 0 ? s.color : 'var(--xc-text-muted)' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: cnt > 0 ? s.color : 'var(--xc-text-muted)' }}>
                       {cnt}
                     </span>
-                    <span style={{ fontSize: '9px', color: 'var(--xc-text-muted)', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)', whiteSpace: 'nowrap' }}>
                       {s.label}
                     </span>
                   </button>
@@ -766,7 +768,7 @@ function CardsView({ members, onCellClick }) {
             </div>
 
             {/* 完成率列 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
               <span>合計 {total} 項任務</span>
               <span style={{ fontWeight: 600, color: 'var(--xc-success)' }}>完成 {doneRate}%</span>
             </div>

@@ -14,6 +14,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useState } from 'react';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 function formatMonth(ym) {
   if (!ym) return '';
@@ -31,10 +32,10 @@ function CustomTooltip({ active, payload, label }) {
       borderRadius: '10px',
       padding:      '12px 16px',
       boxShadow:    '0 8px 24px rgba(0,0,0,.14)',
-      fontSize:     '12px',
+      fontSize: '14px',
       minWidth:     '160px',
     }}>
-      <div style={{ fontWeight: 700, color: 'var(--xc-text)', marginBottom: '8px', fontSize: '13px' }}>
+      <div style={{ fontWeight: 700, color: 'var(--xc-text)', marginBottom: '8px', fontSize: '15px' }}>
         {formatMonth(label)}
       </div>
       {payload.map((entry) => {
@@ -123,10 +124,10 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
             padding:      '12px 14px',
             textAlign:    'center',
           }}>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: p.color }}>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: p.color }}>
               {loading ? '—' : p.value}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginTop: '3px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginTop: '3px' }}>
               {p.label}
             </div>
           </div>
@@ -145,7 +146,7 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
             key={k}
             onClick={() => setMode(k)}
             style={{
-              padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
+              padding: '4px 10px', borderRadius: '6px', fontSize: '13px',
               border: '1px solid var(--xc-border)', cursor: 'pointer',
               background: mode === k ? 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)' : 'var(--xc-surface)',
               color: mode === k ? '#ffffff' : 'var(--xc-text-soft)',
@@ -162,14 +163,14 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
       {loading ? (
         <div style={{
           height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--xc-text-muted)', fontSize: '13px',
+          color: 'var(--xc-text-muted)', fontSize: '15px',
         }}>
           載入中…
         </div>
       ) : data.length === 0 ? (
         <div style={{
           height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--xc-text-muted)', fontSize: '13px',
+          color: 'var(--xc-text-muted)', fontSize: '15px',
         }}>
           尚無月度趨勢資料
         </div>
@@ -184,10 +185,10 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--xc-border)" vertical={false} />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 11, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 13, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 13, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine y={avgCompleted > 0 ? Math.round((avgCompleted / maxVal) * 100) : 50} stroke="var(--xc-text-muted)" strokeDasharray="4 4" label={{ value: '平均', position: 'insideTopRight', fontSize: 10, fill: 'var(--xc-text-muted)' }} />
+              <ReferenceLine y={avgCompleted > 0 ? Math.round((avgCompleted / maxVal) * 100) : 50} stroke="var(--xc-text-muted)" strokeDasharray="4 4" label={{ value: '平均', position: 'insideTopRight', fontSize: 12, fill: 'var(--xc-text-muted)' }} />
               <Area type="monotone" dataKey="completionRate" stroke="var(--xc-brand)" strokeWidth={2.5} fill="url(#rateGrad)" dot={false} activeDot={{ r: 5 }} name="完成率" />
             </ComposedChart>
           ) : (
@@ -203,12 +204,12 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--xc-border)" vertical={false} />
-              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 11, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <XAxis dataKey="month" tickFormatter={formatMonth} tick={{ fontSize: 13, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 13, fill: 'var(--xc-text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 formatter={(v) => ({ completed: '已完成', created: '新建立', completionRate: '完成率' }[v] || v)}
-                wrapperStyle={{ fontSize: '11px', color: 'var(--xc-text-soft)' }}
+                wrapperStyle={{ fontSize: '13px', color: 'var(--xc-text-soft)' }}
               />
               <Area type="monotone" dataKey="created"   stroke="var(--xc-info)"    strokeWidth={1.5} fill="url(#createdGrad)"   dot={false} activeDot={{ r: 4 }} />
               <Area type="monotone" dataKey="completed" stroke="var(--xc-success)" strokeWidth={2.5} fill="url(#completedGrad)" dot={{ r: 3, fill: 'var(--xc-success)' }} activeDot={{ r: 5 }} />
@@ -229,7 +230,7 @@ export default function MonthlyTrendWidget({ monthlyTrend = [], loading = false 
               ? 'color-mix(in srgb, var(--xc-danger) 8%, var(--xc-surface))'
               : 'var(--xc-surface-soft)',
           border: '1px solid var(--xc-border)',
-          fontSize: '12px',
+          fontSize: '14px',
           color: 'var(--xc-text-soft)',
           display: 'flex', alignItems: 'center', gap: '6px',
         }}>

@@ -60,7 +60,7 @@ router.get('/matrix', async (req, res) => {
         dueDate: true, assigneeId: true, projectId: true,
         estimatedHours: true, progressPercent: true,
         project:  { select: { id: true, name: true } },
-        assignee: { select: { id: true, name: true, avatarUrl: true, department: true } },
+        assignee: { select: { id: true, name: true, department: true } },
       },
       orderBy: [{ priority: 'desc' }, { dueDate: 'asc' }],
     });
@@ -68,7 +68,7 @@ router.get('/matrix', async (req, res) => {
     // ── 取公司所有活躍成員（有任務 or 全員，看需求）──────
     const members = await prisma.user.findMany({
       where:   { companyId, isActive: true },
-      select:  { id: true, name: true, avatarUrl: true, department: true, jobTitle: true },
+      select:  { id: true, name: true, department: true, jobTitle: true },
       orderBy: { name: 'asc' },
     });
 
@@ -101,7 +101,6 @@ router.get('/matrix', async (req, res) => {
       memberMap[m.id] = {
         userId:    m.id,
         name:      m.name,
-        avatarUrl: m.avatarUrl,
         department: m.department,
         jobTitle:  m.jobTitle,
         counts:    { todo: 0, in_progress: 0, review: 0, done: 0, overdue: 0, total: 0 },
@@ -122,7 +121,6 @@ router.get('/matrix', async (req, res) => {
         memberMap[t.assigneeId] = {
           userId:     t.assignee.id,
           name:       t.assignee.name,
-          avatarUrl:  t.assignee.avatarUrl,
           department: t.assignee.department,
           jobTitle:   null,
           counts:     { todo: 0, in_progress: 0, review: 0, done: 0, overdue: 0, total: 0 },

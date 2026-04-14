@@ -47,6 +47,7 @@ model Company {
   goals         Goal[]          // ← Phase 5 新增：OKR 目標管理
   workflows     Workflow[]      // ← Phase 6 新增：工作流程
   forms         Form[]          // ← Phase 6 新增：表單管理
+  formSubmissions FormSubmission[] // ← 表單提交紀錄
   portfolios    Portfolio[]     // ← 專案組合
   customFields  CustomFieldDefinition[] @relation("CompanyCustomFields") // ← Phase 6
   workTimeLogs  WorkTimeLog[]           // ← 手動工時記錄（每日時間表）
@@ -62,7 +63,6 @@ model User {
   email        String    @unique @db.VarChar(255)
   passwordHash String    @map("password_hash")
   role         Role      @default(member)
-  avatarUrl    String?   @map("avatar_url")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -918,6 +918,7 @@ enum NotificationType {
   task_completed       // 你建立的任務完成了
   milestone_achieved   // 里程碑達成
   system_digest        // 定期摘要報告
+  automation_rule      // 自動化規則觸發的通知
 }
 
 // ── 表格 13：activity_logs（任務變更歷史）───────────────────
@@ -1286,17 +1287,38 @@ model Form {
   description String    @default("") @db.Text
   /// active | inactive
   status      String    @default("active") @db.VarChar(20)
+  /// 欄位定義陣列，如 [{id, type, label, required, options, placeholder, order}]
+  fields      Json      @default("[]")
   /// 累計提交次數
   submissions Int       @default(0)
   lastSubmit  DateTime? @map("last_submit")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt      @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  formSubmissions FormSubmission[]
 
   @@index([companyId])
   @@index([companyId, status])
   @@map("forms")
+}
+
+/// 表單提交紀錄
+model FormSubmission {
+  id          Int      @id @default(autoincrement())
+  formId      Int      @map("form_id")
+  companyId   Int      @map("company_id")
+  /// 提交資料 JSON，如 { fieldId: value, ... }
+  data        Json     @default("{}")
+  submittedBy String?  @default("") @map("submitted_by") @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  form    Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([companyId])
+  @@map("form_submissions")
 }
 
 // ════════════════════════════════════════════════════════════

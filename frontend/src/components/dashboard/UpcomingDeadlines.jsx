@@ -13,6 +13,7 @@
  */
 
 import { useState } from 'react';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 時間分組設定 ───────────────────────────────────────────
 const GROUP_CFG = {
@@ -49,7 +50,7 @@ function CountdownBadge({ daysLeft, urgencyGroup }) {
         {daysLeft === 0 ? '今天' : daysLeft}
       </span>
       {daysLeft !== 0 && (
-        <span style={{ fontSize: '9px', color: cfg.color, opacity: 0.7, lineHeight: 1, marginTop: '1px' }}>天後</span>
+        <span style={{ fontSize: '11px', color: cfg.color, opacity: 0.7, lineHeight: 1, marginTop: '1px' }}>天後</span>
       )}
     </div>
   );
@@ -75,7 +76,7 @@ function DistributionBar({ upcoming }) {
       </div>
       <div style={{ display: 'flex', gap: '10px', marginTop: '5px', flexWrap: 'wrap' }}>
         {GROUP_ORDER.map(g => counts[g] > 0 && (
-          <span key={g} style={{ fontSize: '10px', color: 'var(--xc-text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <span key={g} style={{ fontSize: '12px', color: 'var(--xc-text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
             <span style={{ width: '7px', height: '7px', borderRadius: '2px', background: GROUP_CFG[g].color, display: 'inline-block' }} />
             {GROUP_CFG[g].label} {counts[g]}
           </span>
@@ -118,13 +119,13 @@ function TaskRow({ task }) {
             background: PRIORITY_COLOR[task.priority] || '#94a3b8',
           }} />
           <span style={{
-            fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)',
+            fontSize: '15px', fontWeight: 600, color: 'var(--xc-text)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {task.title}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
           <span>📁 {task.projectName}</span>
           {task.assignee && <span>👤 {task.assignee.name}</span>}
           <span style={{ color: 'var(--xc-text-muted)', opacity: 0.7 }}>
@@ -136,12 +137,12 @@ function TaskRow({ task }) {
       {/* 截止日期 + 優先度標籤 */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
         <span style={{
-          fontSize: '11px', fontWeight: 600, color: 'var(--xc-text-soft)',
+          fontSize: '13px', fontWeight: 600, color: 'var(--xc-text-soft)',
         }}>
           {formatDate(task.dueDate)}
         </span>
         <span style={{
-          fontSize: '10px', padding: '1px 5px', borderRadius: '4px',
+          fontSize: '12px', padding: '1px 5px', borderRadius: '4px',
           background: `${PRIORITY_COLOR[task.priority]}18`,
           color: PRIORITY_COLOR[task.priority],
           fontWeight: 700,
@@ -174,17 +175,17 @@ function GroupSection({ groupKey, tasks }) {
           cursor: 'pointer', textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: '13px' }}>{cfg.icon}</span>
-        <span style={{ flex: 1, fontSize: '12px', fontWeight: 700, color: cfg.color }}>
+        <span style={{ fontSize: '15px' }}>{cfg.icon}</span>
+        <span style={{ flex: 1, fontSize: '14px', fontWeight: 700, color: cfg.color }}>
           {cfg.label}
         </span>
         <span style={{
-          fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+          fontSize: '13px', fontWeight: 700, padding: '2px 8px',
           borderRadius: '10px', background: cfg.color + '22', color: cfg.color,
         }}>
           {tasks.length}
         </span>
-        <span style={{ fontSize: '11px', color: cfg.color, opacity: 0.6 }}>
+        <span style={{ fontSize: '13px', color: cfg.color, opacity: 0.6 }}>
           {collapsed ? '▸' : '▾'}
         </span>
       </button>
@@ -225,10 +226,10 @@ export default function UpcomingDeadlines({ upcoming = [], loading }) {
     return (
       <div style={{
         textAlign: 'center', padding: '32px 16px',
-        color: 'var(--xc-text-muted)', fontSize: '13px',
+        color: 'var(--xc-text-muted)', fontSize: '15px',
         background: 'var(--xc-surface-soft)', borderRadius: '10px',
       }}>
-        <div style={{ fontSize: '28px', marginBottom: '8px' }}>📅</div>
+        <div style={{ fontSize: '30px', marginBottom: '8px' }}>📅</div>
         未來 14 天內沒有即將截止的任務
       </div>
     );
@@ -261,7 +262,7 @@ export default function UpcomingDeadlines({ upcoming = [], loading }) {
 
       {/* 總數摘要 */}
       <div style={{
-        fontSize: '11px', color: 'var(--xc-text-muted)', textAlign: 'right',
+        fontSize: '13px', color: 'var(--xc-text-muted)', textAlign: 'right',
         borderTop: '1px solid var(--xc-border)', paddingTop: '8px',
       }}>
         共 {upcoming.length} 個任務在未來 14 天內截止

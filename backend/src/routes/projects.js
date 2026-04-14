@@ -2,9 +2,13 @@
  * 專案管理 API 路由
  *
  * GET    /api/projects              取得專案列表（含任務統計）
+ *        ?includeDeleted=true       包含已封存（軟刪除）的專案
+ *        ?onlyDeleted=true          僅回傳已封存的專案
  * POST   /api/projects              建立新專案
  * GET    /api/projects/:id          取得單一專案詳情（含任務列表）
  * PATCH  /api/projects/:id          更新專案資訊
+ * PATCH  /api/projects/:id/restore  復原已封存的專案（清除 deletedAt）
+ * DELETE /api/projects/:id/permanent 永久刪除專案（不可復原）
  * GET    /api/projects/:id/tasks    取得專案任務列表
  * POST   /api/projects/:id/tasks    在專案下建立任務
  * PATCH  /api/tasks/:taskId         更新任務（狀態、指派人等）
@@ -72,6 +76,89 @@ const normalizeTaskStatus = (status, fallback = 'todo') => {
   return status === 'completed' ? 'done' : status;
 };
 
+// ── 自訂欄位值寫入 helper ──────────────────────────────────
+// customFieldValues = { definitionId: value, ... }
+async function saveProjectCustomFieldValues(projectId, customFieldValues) {
+  if (!customFieldValues || typeof customFieldValues !== 'object') return;
+
+  for (const [defIdStr, val] of Object.entries(customFieldValues)) {
+    const definitionId = parseInt(defIdStr);
+    if (isNaN(definitionId)) continue;
+
+    // 取得欄位定義
+    const def = await prisma.customFieldDefinition.findUnique({
+      where: { id: definitionId },
+      include: { options: true },
+    });
+    if (!def) continue;
+
+    // 根據 fieldType 建構 data
+    const data = { definitionId, projectId };
+    switch (def.fieldType) {
+      case 'text':
+        data.textValue = val ? String(val) : null;
+        break;
+      case 'number': case 'currency': case 'percent':
+        data.numberValue = val !== '' && val != null ? parseFloat(val) : null;
+        break;
+      case 'checkbox':
+        data.booleanValue = !!val;
+        break;
+      case 'date':
+        data.dateValue = val ? new Date(val) : null;
+        break;
+      case 'datetime':
+        data.dateTimeValue = val ? new Date(val) : null;
+        break;
+      case 'people':
+        data.userValueId = val ? parseInt(val) : null;
+        break;
+      case 'single_select': {
+        const opt = def.options.find(o => o.name === val);
+        data.optionValueId = opt ? opt.id : null;
+        break;
+      }
+      case 'multi_select':
+        // multi_select 透過 join table 處理，先建 value row
+        break;
+      default:
+        data.textValue = val ? String(val) : null;
+    }
+
+    // upsert value row
+    const existing = await prisma.customFieldValue.findUnique({
+      where: { definitionId_projectId: { definitionId, projectId } },
+    });
+
+    let cfValueId;
+    if (existing) {
+      const updated = await prisma.customFieldValue.update({
+        where: { id: existing.id },
+        data,
+      });
+      cfValueId = updated.id;
+    } else {
+      const created = await prisma.customFieldValue.create({ data });
+      cfValueId = created.id;
+    }
+
+    // multi_select: 同步 join table
+    if (def.fieldType === 'multi_select') {
+      // 先清除舊的
+      await prisma.customFieldValueOption.deleteMany({ where: { valueId: cfValueId } });
+      const selectedNames = Array.isArray(val) ? val : [];
+      for (const name of selectedNames) {
+        const opt = def.options.find(o => o.name === name);
+        if (opt) {
+          await prisma.customFieldValueOption.create({
+            data: { valueId: cfValueId, optionId: opt.id },
+          });
+        }
+      }
+    }
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 // GET /api/projects?companyId=2
 // 取得所有專案，含任務統計數字
@@ -80,11 +167,16 @@ router.get('/', async (req, res) => {
   const companyId = req.user?.companyId || parseInt(req.query.companyId);
 
   try {
+    // 支援 ?onlyDeleted=true（僅封存）或 ?includeDeleted=true（全部含封存）
+    const onlyDeleted    = req.query.onlyDeleted === 'true';
+    const includeDeleted = req.query.includeDeleted === 'true';
+    const deletedFilter  = onlyDeleted ? { not: null } : includeDeleted ? undefined : null;
+
     const projects = await prisma.project.findMany({
-      where:   { companyId, deletedAt: null },
+      where:   { companyId, ...(deletedFilter !== undefined ? { deletedAt: deletedFilter } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
-        owner: { select: { id: true, name: true, avatarUrl: true } },
+        owner: { select: { id: true, name: true } },
         tasks: {
           where:  { deletedAt: null },
           select: { id: true, status: true },
@@ -121,6 +213,7 @@ router.get('/', async (req, res) => {
         milestoneCount: p.milestones.length,
         nextMilestone:  p.milestones.find(m => !m.isAchieved) || null,
         createdAt:    p.createdAt,
+        deletedAt:    p.deletedAt,
       };
     });
 
@@ -164,6 +257,12 @@ router.post('/', async (req, res) => {
     });
 
     ok(res, project);
+
+    // 儲存自訂欄位值
+    if (req.body.customFieldValues) {
+      saveProjectCustomFieldValues(project.id, req.body.customFieldValues)
+        .catch(e => console.warn(`[projects] 自訂欄位儲存失敗: ${e.message}`));
+    }
 
     // 專案負責人指派通知
     if (ownerId) {
@@ -282,7 +381,7 @@ router.get('/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where:   { companyId, isActive: true },
-      select:  { id: true, name: true, email: true, role: true, avatarUrl: true },
+      select:  { id: true, name: true, email: true, role: true },
       orderBy: { name: 'asc' },
     });
     ok(res, users, { total: users.length });
@@ -303,13 +402,20 @@ router.get('/:id', async (req, res) => {
     const project = await prisma.project.findFirst({
       where: { id, deletedAt: null },
       include: {
-        owner: { select: { id: true, name: true, avatarUrl: true } },
+        owner: { select: { id: true, name: true } },
         milestones: { orderBy: { dueDate: 'asc' } },
+        customFieldValues: {
+          include: {
+            definition: { select: { id: true, name: true, fieldType: true } },
+            optionValue: { select: { id: true, name: true } },
+            multiSelectOptions: { include: { option: { select: { id: true, name: true } } } },
+          },
+        },
         tasks: {
           where:   { deletedAt: null },
           orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
           include: {
-            assignee: { select: { id: true, name: true, avatarUrl: true } },
+            assignee: { select: { id: true, name: true } },
             _count:   { select: { subtasks: true } },
             taskTags: {
               include: { tag: { select: { id: true, name: true, color: true } } },
@@ -349,6 +455,21 @@ router.get('/:id', async (req, res) => {
       done:        topLevelTasks.filter(t => t.status === 'done'),
     };
 
+    // 格式化自訂欄位值
+    const customFieldValues = (project.customFieldValues || []).map(cfv => ({
+      definitionId: cfv.definitionId,
+      name:         cfv.definition?.name,
+      fieldType:    cfv.definition?.fieldType,
+      textValue:    cfv.textValue,
+      numberValue:  cfv.numberValue != null ? parseFloat(cfv.numberValue.toString()) : null,
+      booleanValue: cfv.booleanValue,
+      dateValue:    cfv.dateValue,
+      dateTimeValue: cfv.dateTimeValue,
+      userValueId:  cfv.userValueId,
+      optionValue:  cfv.optionValue,
+      multiSelectOptions: (cfv.multiSelectOptions || []).map(ms => ms.option),
+    }));
+
     ok(res, {
       id:          project.id,
       name:        project.name,
@@ -360,6 +481,7 @@ router.get('/:id', async (req, res) => {
       endDate:     project.endDate,
       owner:       project.owner,
       milestones:  project.milestones,
+      customFieldValues,
       tasks,
       kanban,
       stats: {
@@ -399,7 +521,7 @@ router.patch('/:id', async (req, res) => {
     if (endDate     !== undefined) data.endDate     = endDate   ? new Date(endDate)   : null;
     if (ownerId     !== undefined) data.ownerId     = ownerId   ? parseInt(ownerId)   : null;
 
-    if (Object.keys(data).length === 0) return err(res, '沒有要更新的欄位', 400);
+    if (Object.keys(data).length === 0 && !req.body.customFieldValues) return err(res, '沒有要更新的欄位', 400);
 
     // 查詢舊的 ownerId 以便偵測是否變更
     const oldProject = data.ownerId !== undefined
@@ -408,11 +530,17 @@ router.patch('/:id', async (req, res) => {
 
     const project = await prisma.project.update({
       where: { id },
-      data,
+      data:  Object.keys(data).length > 0 ? data : { updatedAt: new Date() },
       include: { owner: { select: { id: true, name: true } } },
     });
 
     ok(res, project);
+
+    // 儲存自訂欄位值
+    if (req.body.customFieldValues) {
+      saveProjectCustomFieldValues(id, req.body.customFieldValues)
+        .catch(e => console.warn(`[projects] 自訂欄位儲存失敗: ${e.message}`));
+    }
 
     // 專案狀態變更通知（通知專案負責人 + 成員）
     if (data.status) {
@@ -488,6 +616,72 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// PATCH /api/projects/:id/restore
+// 復原已封存的專案（清除 deletedAt）
+// ════════════════════════════════════════════════════════════
+router.patch('/:id/restore', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    const existing = await prisma.project.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!existing) return err(res, `找不到已封存的專案 #${id}`, 404);
+
+    // 復原專案
+    await prisma.project.update({
+      where: { id },
+      data:  { deletedAt: null },
+    });
+
+    // 一併復原該專案下的任務
+    await prisma.task.updateMany({
+      where: { projectId: id, deletedAt: { not: null } },
+      data:  { deletedAt: null },
+    });
+
+    res.json({ success: true, message: `專案「${existing.name}」已復原` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/:id/permanent
+// 永久刪除專案（不可復原，真正從資料庫移除）
+// ════════════════════════════════════════════════════════════
+router.delete('/:id/permanent', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    const existing = await prisma.project.findFirst({ where: { id } });
+    if (!existing) return err(res, `找不到專案 #${id}`, 404);
+
+    // 級聯刪除：先刪子任務相關資料，再刪任務，最後刪專案
+    const taskIds = (await prisma.task.findMany({ where: { projectId: id }, select: { id: true } })).map(t => t.id);
+    if (taskIds.length > 0) {
+      // 先解除子任務的 parentTaskId 關聯
+      await prisma.task.updateMany({ where: { parentTaskId: { in: taskIds } }, data: { parentTaskId: null } });
+      await prisma.comment.deleteMany({ where: { taskId: { in: taskIds } } });
+      await prisma.taskTag.deleteMany({ where: { taskId: { in: taskIds } } });
+      await prisma.taskProject.deleteMany({ where: { taskId: { in: taskIds } } });
+      await prisma.customFieldValue.deleteMany({ where: { taskId: { in: taskIds } } });
+      await prisma.task.deleteMany({ where: { id: { in: taskIds } } });
+    }
+    await prisma.milestone.deleteMany({ where: { projectId: id } });
+    await prisma.project.delete({ where: { id } });
+
+    res.json({ success: true, message: `專案「${existing.name}」已永久刪除` });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
 // GET /api/projects/:id/tasks
 // 取得專案的任務列表
 // ════════════════════════════════════════════════════════════
@@ -500,7 +694,7 @@ router.get('/:id/tasks', async (req, res) => {
       where: { projectId, deletedAt: null },
       orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
       include: {
-        assignee: { select: { id: true, name: true, avatarUrl: true } },
+        assignee: { select: { id: true, name: true } },
         _count:   { select: { subtasks: true, comments: true } },
         taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
       },
@@ -658,6 +852,19 @@ router.post('/:id/tasks', async (req, res) => {
       progressPercent: task.progressPercent || 0,
       numSubtasks: task._count?.subtasks || 0,
     });
+
+    // 觸發 task_created 自動化規則
+    taskRuleEngine.handleTaskCreated({
+      task: {
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        projectId,
+        assigneeId: normalizedAssigneeId,
+      },
+      actorId,
+    }).catch(e => console.warn('[projects] task_created 規則觸發失敗:', e.message));
 
     if (normalizedAssigneeId) {
       createTaskAssignmentNotifications(prisma, {
@@ -915,7 +1122,6 @@ router.get('/tasks/:taskId/comments', async (req, res) => {
           select: {
             id: true,
             name: true,
-            avatarUrl: true,
           },
         },
       },
@@ -998,7 +1204,7 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
       },
       include: {
         user: {
-          select: { id: true, name: true, avatarUrl: true },
+          select: { id: true, name: true },
         },
       },
     });

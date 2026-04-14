@@ -1,5 +1,5 @@
 /**
- * /api/forms — 表單管理路由
+ * /api/forms — 表單管理路由（含欄位定義 + 提交紀錄）
  * 使用 Prisma + PostgreSQL 持久化儲存
  */
 const express = require('express');
@@ -16,57 +16,14 @@ function formatForm(f) {
     name:        f.name,
     description: f.description,
     status:      f.status,
+    fields:      Array.isArray(f.fields) ? f.fields : [],
     submissions: f.submissions,
     createdAt:   f.createdAt instanceof Date ? f.createdAt.toISOString() : f.createdAt,
     lastSubmit:  f.lastSubmit ? (f.lastSubmit instanceof Date ? f.lastSubmit.toISOString() : f.lastSubmit) : null,
   };
 }
 
-async function seedIfEmpty(companyId) {
-  const count = await prisma.form.count({ where: { companyId } });
-  if (count > 0) return;
-
-  await prisma.form.createMany({
-    data: [
-      {
-        companyId,
-        name:        '新任務申請表',
-        description: '用於跨部門新任務需求提交',
-        status:      'active',
-        submissions: 24,
-        createdAt:   new Date('2026-01-10T00:00:00.000Z'),
-        lastSubmit:  new Date('2026-03-26T14:30:00.000Z'),
-      },
-      {
-        companyId,
-        name:        'Bug 回報表單',
-        description: '產品缺陷快速回報入口',
-        status:      'active',
-        submissions: 51,
-        createdAt:   new Date('2026-01-20T00:00:00.000Z'),
-        lastSubmit:  new Date('2026-03-27T09:15:00.000Z'),
-      },
-      {
-        companyId,
-        name:        '使用者回饋調查',
-        description: '蒐集系統使用者意見',
-        status:      'active',
-        submissions: 13,
-        createdAt:   new Date('2026-02-05T00:00:00.000Z'),
-        lastSubmit:  new Date('2026-03-22T11:00:00.000Z'),
-      },
-      {
-        companyId,
-        name:        '出差申請表',
-        description: '員工出差費用申請',
-        status:      'inactive',
-        submissions: 8,
-        createdAt:   new Date('2026-02-14T00:00:00.000Z'),
-        lastSubmit:  new Date('2026-03-15T09:00:00.000Z'),
-      },
-    ],
-  });
-}
+// ── 表單 CRUD ─────────────────────────────────
 
 // GET /api/forms?companyId=N
 router.get('/', async (req, res) => {
@@ -74,7 +31,6 @@ router.get('/', async (req, res) => {
   if (!companyId) return err(res, 'companyId 為必填', 400);
 
   try {
-    await seedIfEmpty(companyId);
     const forms = await prisma.form.findMany({
       where:   { companyId },
       orderBy: { createdAt: 'asc' },
@@ -96,7 +52,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/forms
 router.post('/', async (req, res) => {
-  const { companyId, name, description } = req.body;
+  const { companyId, name, description, fields } = req.body;
   if (!companyId || !name) return err(res, 'companyId, name 為必填', 400);
 
   try {
@@ -105,6 +61,7 @@ router.post('/', async (req, res) => {
         companyId:   parseInt(companyId),
         name,
         description: description || '',
+        fields:      Array.isArray(fields) ? fields : [],
         status:      'active',
         submissions: 0,
       },
@@ -116,7 +73,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH /api/forms/:id — 更新（含 status toggle）
+// PATCH /api/forms/:id — 更新（含 status toggle、fields 更新）
 router.patch('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 ID', 400);
@@ -126,6 +83,7 @@ router.patch('/:id', async (req, res) => {
     if (req.body.name        !== undefined) data.name        = req.body.name;
     if (req.body.description !== undefined) data.description = req.body.description;
     if (req.body.status      !== undefined) data.status      = req.body.status;
+    if (req.body.fields      !== undefined) data.fields      = Array.isArray(req.body.fields) ? req.body.fields : [];
 
     const form = await prisma.form.update({ where: { id }, data });
     return ok(res, formatForm(form));
@@ -147,6 +105,97 @@ router.delete('/:id', async (req, res) => {
   } catch (e) {
     if (e.code === 'P2025') return err(res, '找不到此表單', 404);
     console.error('[forms DELETE]', e);
+    return err(res, '伺服器錯誤');
+  }
+});
+
+// ── 表單提交 ─────────────────────────────────
+
+// GET /api/forms/:id/submissions — 取得某表單所有提交
+router.get('/:id/submissions', async (req, res) => {
+  const formId = parseInt(req.params.id);
+  if (!formId) return err(res, '無效的表單 ID', 400);
+
+  try {
+    const submissions = await prisma.formSubmission.findMany({
+      where:   { formId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return ok(res, submissions.map(s => ({
+      id:          s.id,
+      formId:      s.formId,
+      companyId:   s.companyId,
+      data:        s.data || {},
+      submittedBy: s.submittedBy || '',
+      createdAt:   s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
+    })), { total: submissions.length });
+  } catch (e) {
+    console.error('[forms submissions GET]', e);
+    return err(res, '伺服器錯誤');
+  }
+});
+
+// POST /api/forms/:id/submissions — 新增提交
+router.post('/:id/submissions', async (req, res) => {
+  const formId = parseInt(req.params.id);
+  if (!formId) return err(res, '無效的表單 ID', 400);
+
+  const { companyId, data, submittedBy } = req.body;
+  if (!companyId) return err(res, 'companyId 為必填', 400);
+
+  try {
+    const form = await prisma.form.findUnique({ where: { id: formId } });
+    if (!form) return err(res, '找不到此表單', 404);
+    if (form.status !== 'active') return err(res, '此表單已停用', 400);
+
+    const submission = await prisma.formSubmission.create({
+      data: {
+        formId,
+        companyId: parseInt(companyId),
+        data:      data || {},
+        submittedBy: submittedBy || '',
+      },
+    });
+
+    await prisma.form.update({
+      where: { id: formId },
+      data: {
+        submissions: { increment: 1 },
+        lastSubmit:  new Date(),
+      },
+    });
+
+    return ok(res, {
+      id:          submission.id,
+      formId:      submission.formId,
+      companyId:   submission.companyId,
+      data:        submission.data,
+      submittedBy: submission.submittedBy,
+      createdAt:   submission.createdAt instanceof Date ? submission.createdAt.toISOString() : submission.createdAt,
+    });
+  } catch (e) {
+    console.error('[forms submissions POST]', e);
+    return err(res, '伺服器錯誤');
+  }
+});
+
+// DELETE /api/forms/:formId/submissions/:subId — 刪除單筆提交
+router.delete('/:formId/submissions/:subId', async (req, res) => {
+  const formId = parseInt(req.params.formId);
+  const subId  = parseInt(req.params.subId);
+  if (!formId || !subId) return err(res, '無效的 ID', 400);
+
+  try {
+    await prisma.formSubmission.delete({ where: { id: subId } });
+    await prisma.form.update({
+      where: { id: formId },
+      data:  { submissions: { decrement: 1 } },
+    });
+    return ok(res, { id: subId });
+  } catch (e) {
+    if (e.code === 'P2025') return err(res, '找不到此提交', 404);
+    console.error('[forms submissions DELETE]', e);
     return err(res, '伺服器錯誤');
   }
 });

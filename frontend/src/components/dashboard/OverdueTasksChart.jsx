@@ -15,6 +15,7 @@ import { useState, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList,
 } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const PRIORITY_CFG = {
@@ -40,7 +41,7 @@ function OverdueBadge({ days }) {
       display:      'inline-flex', alignItems: 'center', gap: '2px',
       padding:      '2px 7px', borderRadius: '10px',
       background:   c.bg, border: `1px solid ${c.border}`,
-      color:        c.text, fontSize: '11px', fontWeight: 600,
+      color:        c.text, fontSize: '13px', fontWeight: 600,
       flexShrink:   0, whiteSpace: 'nowrap',
     }}>
       ⏰ 逾 {days} 天
@@ -53,7 +54,7 @@ function PriorityChip({ priority }) {
   return (
     <span style={{
       display:      'inline-block', padding: '1px 6px',
-      borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+      borderRadius: '4px', fontSize: '12px', fontWeight: 700,
       background:   cfg.bg, color: cfg.textColor,
       flexShrink:   0,
     }}>
@@ -85,7 +86,7 @@ function CustomBarTooltip({ active, payload }) {
   return (
     <div style={{
       background: 'var(--xc-surface)', border: '1px solid var(--xc-border)',
-      borderRadius: '8px', padding: '8px 12px', fontSize: '12px',
+      borderRadius: '8px', padding: '8px 12px', fontSize: '14px',
       boxShadow: '0 4px 12px rgba(0,0,0,.12)',
     }}>
       <span style={{ fontWeight: 600, color: cfg.color }}>{cfg.label}優先度</span>
@@ -126,17 +127,17 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
       {/* 總覽數字 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span style={{
-          fontSize: '28px', fontWeight: 800, lineHeight: 1,
+          fontSize: '30px', fontWeight: 800, lineHeight: 1,
           color: totalOverdue > 0 ? '#ef4444' : 'var(--xc-success)',
           fontVariantNumeric: 'tabular-nums',
         }}>
           {totalOverdue}
         </span>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)' }}>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--xc-text)' }}>
             {totalOverdue === 0 ? '無逾期任務 🎉' : '個任務逾期中'}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
             {totalOverdue > 0 ? '需要優先處理，避免影響專案進度' : '所有任務均在截止日期內'}
           </div>
         </div>
@@ -145,7 +146,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
       {/* 優先度分組長條圖 */}
       {chartData.length > 0 && (
         <div style={{ background: 'var(--xc-surface-soft)', borderRadius: '8px', padding: '12px 12px 4px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', marginBottom: '8px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', marginBottom: '8px' }}>
             依優先度分組
           </div>
           <ResponsiveContainer width="100%" height={Math.max(60, chartData.length * 32)}>
@@ -161,7 +162,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
                 dataKey="priority"
                 width={30}
                 tickFormatter={p => PRIORITY_CFG[p]?.label || p}
-                tick={{ fontSize: 11, fill: 'var(--xc-text-soft)' }}
+                tick={{ fontSize: 13, fill: 'var(--xc-text-soft)' }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -171,7 +172,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
                   <Cell key={i} fill={PRIORITY_CFG[entry.priority]?.color || '#94a3b8'} />
                 ))}
                 <LabelList dataKey="count" position="right"
-                  style={{ fontSize: 11, fill: 'var(--xc-text-soft)', fontWeight: 600 }} />
+                  style={{ fontSize: 13, fill: 'var(--xc-text-soft)', fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -184,7 +185,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
           textAlign: 'center', padding: '24px', borderRadius: '10px',
           background: 'color-mix(in srgb, var(--xc-success) 8%, var(--xc-surface))',
           border: '1px solid color-mix(in srgb, var(--xc-success) 20%, transparent)',
-          color: 'var(--xc-success)', fontSize: '13px',
+          color: 'var(--xc-success)', fontSize: '15px',
         }}>
           ✅ 沒有逾期任務，進度控制良好！
         </div>
@@ -221,7 +222,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
                   <span style={{
-                    fontSize: '13px', fontWeight: 600, color: 'var(--xc-text)',
+                    fontSize: '15px', fontWeight: 600, color: 'var(--xc-text)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     maxWidth: '200px',
                   }}>
@@ -230,16 +231,16 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
                   <PriorityChip priority={task.priority} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                     📁 {task.projectName}
                   </span>
                   {task.assignee && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                       <AvatarBubble name={task.assignee.name} url={task.assignee.avatarUrl} size={14} />
                       {task.assignee.name}
                     </span>
                   )}
-                  <span style={{ fontSize: '11px', color: 'var(--xc-text-muted)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--xc-text-muted)' }}>
                     {STATUS_LABEL[task.status] || task.status}
                   </span>
                 </div>
@@ -254,7 +255,7 @@ export default function OverdueTasksChart({ overdue = [], overdueByPriority = []
                     style={{
                       padding: '3px 8px', borderRadius: '5px', border: 'none',
                       background: 'var(--xc-success)', color: '#fff',
-                      fontSize: '10px', fontWeight: 600, cursor: 'pointer',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
                     }}
                   >
                     ✓ 完成

@@ -7,13 +7,15 @@
  *   GET /api/reports/timelog     → 工時統計報表
  *   GET /api/reports/milestones  → 里程碑報表
  *
- * 所有端點支援 ?format=csv 參數，直接回傳 CSV 下載
+ * 所有端點支援 ?format=csv|pdf 參數，直接回傳 CSV 或 PDF 下載
  * 預設回傳 JSON（含 columns、rows、summary）
  */
 
-const express = require('express');
-const router  = express.Router();
-const prisma  = require('../lib/prisma');
+const express     = require('express');
+const router      = express.Router();
+const prisma      = require('../lib/prisma');
+const PDFDocument = require('pdfkit');
+const fs          = require('fs');
 
 // ════════════════════════════════════════════════════════════
 // 工具函式
@@ -48,6 +50,123 @@ function sendCSV(res, filename, headers, rows) {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}.csv"`);
   res.send(csv);
+}
+
+/**
+ * 偵測系統中可用的 CJK 字型（中文 PDF 需要）
+ */
+function findCJKFont() {
+  const candidates = [
+    // 單一 TTF 優先（相容性最佳）
+    { path: 'C:\\Windows\\Fonts\\kaiu.ttf' },          // 標楷體
+    { path: 'C:\\Windows\\Fonts\\mingliu.ttf' },       // 細明體（部分系統有 TTF 版）
+    // TTC 集合檔（需指定 postscriptName）
+    { path: 'C:\\Windows\\Fonts\\msjh.ttc', family: 'MicrosoftJhengHeiRegular' },
+    { path: 'C:\\Windows\\Fonts\\msjh.ttc', family: 'Microsoft JhengHei' },
+    { path: 'C:\\Windows\\Fonts\\msyh.ttc', family: 'MicrosoftYaHeiRegular' },
+    { path: 'C:\\Windows\\Fonts\\msyh.ttc', family: 'Microsoft YaHei' },
+    // Linux
+    { path: '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', family: 'NotoSansCJKtc-Regular' },
+    { path: '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc', family: 'NotoSansCJKtc-Regular' },
+    { path: '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf' },
+    // macOS
+    { path: '/System/Library/Fonts/PingFang.ttc', family: 'PingFangTC-Regular' },
+  ];
+  for (const c of candidates) {
+    try { if (fs.existsSync(c.path)) return c; } catch (_) {}
+  }
+  return null;
+}
+
+/**
+ * 產生 PDF 表格並送出下載回應
+ */
+function sendPDF(res, filename, title, headers, rows) {
+  const doc = new PDFDocument({
+    layout: 'landscape',
+    size: 'A4',
+    margin: 30,
+    info: { Title: title, Author: 'xCloud PMIS' },
+  });
+
+  // 註冊中文字型（必須在 pipe 前測試，避免串流寫入失敗）
+  const cjkInfo = findCJKFont();
+  let F  = 'Helvetica';
+  let FB = 'Helvetica-Bold';
+  if (cjkInfo) {
+    try {
+      if (cjkInfo.family) {
+        doc.registerFont('CJK', cjkInfo.path, cjkInfo.family);
+      } else {
+        doc.registerFont('CJK', cjkInfo.path);
+      }
+      // 實際載入字型以驗證能否使用（registerFont 只儲存路徑）
+      doc.font('CJK');
+      F  = 'CJK';
+      FB = 'CJK';
+    } catch (e) {
+      console.warn('⚠️ CJK 字型載入失敗，使用預設字型:', e.message);
+      doc.font('Helvetica');
+    }
+  }
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}.pdf"`);
+  doc.pipe(res);
+
+  const pageW   = doc.page.width  - doc.page.margins.left - doc.page.margins.right;
+  const marginL = doc.page.margins.left;
+  const colCount = headers.length;
+  const colW    = pageW / colCount;
+  const txtSize = colCount > 12 ? 8.5 : colCount > 8 ? 9.5 : 11;
+  const rowH    = txtSize * 2.6;
+  const pad     = 3;
+
+  // 標題
+  doc.font(FB).fontSize(16).fillColor('#1a202c')
+     .text(title, { align: 'center' });
+  doc.moveDown(0.2);
+  doc.font(F).fontSize(9).fillColor('#718096')
+     .text(`產生日期：${fmtDate(new Date())}　｜　資料筆數：${rows.length}`, { align: 'center' });
+  doc.moveDown(0.6);
+
+  let y = doc.y;
+
+  const drawHeader = () => {
+    doc.rect(marginL, y, pageW, rowH).fill('#334155');
+    doc.font(FB).fontSize(txtSize).fillColor('#ffffff');
+    headers.forEach((h, i) => {
+      doc.text(String(h), marginL + i * colW + pad, y + pad, {
+        width: colW - pad * 2, height: rowH - pad, ellipsis: true, lineBreak: false,
+      });
+    });
+    y += rowH;
+  };
+  drawHeader();
+
+  // 資料列
+  rows.forEach((row, ri) => {
+    if (y + rowH > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+      y = doc.page.margins.top;
+      drawHeader();
+    }
+    doc.rect(marginL, y, pageW, rowH).fill(ri % 2 === 0 ? '#f8fafc' : '#ffffff');
+    doc.moveTo(marginL, y + rowH).lineTo(marginL + pageW, y + rowH)
+       .lineWidth(0.3).strokeColor('#e2e8f0').stroke();
+
+    const cells = Array.isArray(row) ? row : Object.values(row);
+    doc.font(F).fontSize(txtSize).fillColor('#334155');
+    cells.forEach((cell, i) => {
+      const val = (cell === null || cell === undefined) ? '' : String(cell);
+      doc.text(val, marginL + i * colW + pad, y + pad, {
+        width: colW - pad * 2, height: rowH - pad, ellipsis: true, lineBreak: false,
+      });
+    });
+    y += rowH;
+  });
+
+  doc.end();
 }
 
 /**
@@ -182,6 +301,21 @@ router.get('/projects', async (req, res) => {
       return sendCSV(res, `專案進度報表_${fmtDate(new Date())}`, headers, csvRows);
     }
 
+    if (format === 'pdf') {
+      const pdfHeaders = [
+        '專案名稱', '狀態', '負責人', '開始日期', '結束日期',
+        '預算', '任務數', '已完成', '進行中', '審查中', '待處理',
+        '完成率', '預估工時', '實隞工時', '里程碑', '已達成',
+      ];
+      const pdfRows = rows.map(r => [
+        r.name, r.status, r.owner, r.startDate, r.endDate,
+        r.budget ?? '', r.total, r.done, r.inProg, r.review, r.todo,
+        r.doneRate + '%', r.totalEstHours, r.totalActHours,
+        r.milestones, r.achieved,
+      ]);
+      return sendPDF(res, `專案進度報表_${fmtDate(new Date())}`, '專案進度報表', pdfHeaders, pdfRows);
+    }
+
     // JSON 回應
     const columns = [
       { key: 'name',          label: '專案名稱' },
@@ -283,6 +417,19 @@ router.get('/tasks', async (req, res) => {
         r.dueDate, r.startedAt, r.completedAt, r.createdAt,
       ]);
       return sendCSV(res, `任務統計報表_${fmtDate(new Date())}`, headers, csvRows);
+    }
+
+    if (format === 'pdf') {
+      const pdfHeaders = [
+        '任務名稱', '所屬專案', '負責人', '狀態', '優先度',
+        '預估工時', '實隞工時', '到期日', '開始日期', '完成日期', '建立日期',
+      ];
+      const pdfRows = rows.map(r => [
+        r.title, r.projectName, r.assignee, r.status, r.priority,
+        r.estimatedHours ?? '', r.actualHours ?? '',
+        r.dueDate, r.startedAt, r.completedAt, r.createdAt,
+      ]);
+      return sendPDF(res, `任務統計報表_${fmtDate(new Date())}`, '任務統計報表', pdfHeaders, pdfRows);
     }
 
     // 統計摘要
@@ -468,6 +615,22 @@ router.get('/timelog', async (req, res) => {
       return sendCSV(res, `工時統計報表（${label}）_${fmtDate(new Date())}`, headers, csvRows);
     }
 
+    if (format === 'pdf') {
+      let pdfHeaders, pdfRows;
+      if (groupBy === 'project') {
+        pdfHeaders = ['專案名稱', '記錄筆數', '參與人數', '參與成員', '總工時（分）', '總工時'];
+        pdfRows = rows.map(r => [r.name, r.count, r.userCount, r.users, r.minutes, r.display]);
+      } else if (groupBy === 'user') {
+        pdfHeaders = ['成員名稱', '記錄筆數', '參與專案數', '參與專案', '總工時（分）', '總工時'];
+        pdfRows = rows.map(r => [r.name, r.count, r.projectCount, r.projects, r.minutes, r.display]);
+      } else {
+        pdfHeaders = ['任務名稱', '所屬專案', '記錄筆數', '參與成員', '總工時（分）', '總工時'];
+        pdfRows = rows.map(r => [r.name, r.subName, r.count, r.users, r.minutes, r.display]);
+      }
+      const label2 = { project: '依專案', user: '依成員', task: '依任務' }[groupBy];
+      return sendPDF(res, `工時統計報表（${label2}）_${fmtDate(new Date())}`, '工時統計報表', pdfHeaders, pdfRows);
+    }
+
     // JSON 欄位定義（依 groupBy 不同）
     let columns;
     if (groupBy === 'project') {
@@ -578,6 +741,19 @@ router.get('/milestones', async (req, res) => {
         r.achievedAt, r.color, r.description,
       ]);
       return sendCSV(res, `里程碑報表_${fmtDate(new Date())}`, headers, csvRows);
+    }
+
+    if (format === 'pdf') {
+      const pdfHeaders = [
+        '里程碑名稱', '所屬專案', '預計達成日期', '狀態', '是否達成',
+        '實隞達成日期', '風險等級', '說明',
+      ];
+      const pdfRows = rows.map(r => [
+        r.name, r.projectName, r.dueDate, r.statusLabel,
+        r.isAchieved ? '是' : '否',
+        r.achievedAt, r.color, r.description,
+      ]);
+      return sendPDF(res, `里程碑報表_${fmtDate(new Date())}`, '里程碑報表', pdfHeaders, pdfRows);
     }
 
     const columns = [

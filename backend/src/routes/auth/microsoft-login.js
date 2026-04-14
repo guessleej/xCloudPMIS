@@ -162,7 +162,6 @@ router.get('/callback', async (req, res) => {
       providerId: msUser.id,
       email:      email.toLowerCase(),
       name:       msUser.displayName || email.split('@')[0],
-      avatarUrl:  null, // Graph API 的照片需要另外呼叫，此處略過
     });
 
   } catch (err) {

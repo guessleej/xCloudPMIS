@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── Design tokens ────────────────────────────────────────────
 const BRAND = {
@@ -117,7 +118,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
         title={task.status === 'done' ? '點擊標記為待處理' : '點擊標記為完成'}
         onClick={e => { e.stopPropagation(); onToggleDone(task); }}
         style={{
-          fontSize: 14, color: sm.color, flexShrink: 0, width: 16, textAlign: 'center',
+          fontSize: 16, color: sm.color, flexShrink: 0, width: 16, textAlign: 'center',
           cursor: 'pointer', transition: 'transform .1s',
         }}
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.3)'; }}
@@ -131,7 +132,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
 
       {/* 標題 */}
       <span style={{
-        flex: 1, fontSize: 13, color: task.status === 'done' ? BRAND.muted : BRAND.ink,
+        flex: 1, fontSize: 15, color: task.status === 'done' ? BRAND.muted : BRAND.ink,
 
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
@@ -141,7 +142,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
       {/* 專案標籤 */}
       {task.project?.name && (
         <span style={{
-          fontSize: 10, padding: '2px 7px', borderRadius: 10,
+          fontSize: 12, padding: '2px 7px', borderRadius: 10,
           background: BRAND.surfaceSoft, color: BRAND.muted,
           border: `1px solid ${BRAND.mist}`, whiteSpace: 'nowrap', flexShrink: 0,
         }}>
@@ -155,7 +156,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
       {/* 到期日 */}
       {task.dueDate && (
         <span style={{
-          fontSize: 11, flexShrink: 0, fontWeight: overdue ? 700 : 400,
+          fontSize: 13, flexShrink: 0, fontWeight: overdue ? 700 : 400,
           color: overdue ? BRAND.danger : isToday(task.dueDate) ? BRAND.warning : BRAND.muted,
         }}>
           {fmtDate(task.dueDate)}
@@ -199,12 +200,12 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
   }
 
   const selectStyle = {
-    padding: '6px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+    padding: '6px 10px', borderRadius: 8, fontSize: 15, cursor: 'pointer',
     border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
     color: BRAND.carbon, width: '100%', outline: 'none',
   };
   const labelStyle = {
-    fontSize: 11, color: BRAND.muted, marginBottom: 5, fontWeight: 600,
+    fontSize: 13, color: BRAND.muted, marginBottom: 5, fontWeight: 600,
     textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block',
   };
 
@@ -248,7 +249,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
               disabled={saving}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                padding: '5px 12px', borderRadius: 8, fontSize: 14, fontWeight: 700,
                 cursor: saving ? 'not-allowed' : 'pointer',
                 border: `1px solid ${isDone ? BRAND.success : BRAND.silver}`,
                 background: isDone
@@ -260,13 +261,13 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
             >
               {isDone ? '✓ 已完成' : '⊙ 標記完成'}
             </button>
-            {saving && <span style={{ fontSize: 11, color: BRAND.muted }}>儲存中…</span>}
+            {saving && <span style={{ fontSize: 13, color: BRAND.muted }}>儲存中…</span>}
           </div>
           <button
             onClick={onClose}
             style={{
               background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
-              cursor: 'pointer', color: BRAND.muted, fontSize: 14,
+              cursor: 'pointer', color: BRAND.muted, fontSize: 16,
               width: 28, height: 28, borderRadius: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
@@ -286,7 +287,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
             }}
             onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
             style={{
-              width: '100%', fontSize: 18, fontWeight: 800, color: BRAND.ink,
+              width: '100%', fontSize: 20, fontWeight: 800, color: BRAND.ink,
               lineHeight: 1.4, margin: '0 0 20px', padding: '4px 0',
               border: 'none', borderBottom: '2px solid transparent',
               background: 'transparent', outline: 'none',
@@ -300,7 +301,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
           />
 
           {/* ── 可編輯欄位（雙欄佈局）── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: 16 }}>
             {/* 截止日期 */}
             <div>
               <label style={labelStyle}>截止日期</label>
@@ -319,7 +320,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
                 disabled={saving}
               />
               {overdue && (
-                <span style={{ fontSize: 10, color: BRAND.danger, marginTop: 3, display: 'block' }}>⚠ 已逾期</span>
+                <span style={{ fontSize: 12, color: BRAND.danger, marginTop: 3, display: 'block' }}>⚠ 已逾期</span>
               )}
             </div>
 
@@ -340,17 +341,17 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
           </div>
 
           {/* 唯讀資訊（雙欄）*/}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: 16 }}>
             {task.project?.name && (
               <div>
                 <span style={labelStyle}>所屬專案</span>
-                <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.project.name}</span>
+                <span style={{ fontSize: 15, color: BRAND.carbon }}>{task.project.name}</span>
               </div>
             )}
             {task.assignee?.name && (
               <div>
                 <span style={labelStyle}>負責人</span>
-                <span style={{ fontSize: 13, color: BRAND.carbon }}>{task.assignee.name}</span>
+                <span style={{ fontSize: 15, color: BRAND.carbon }}>{task.assignee.name}</span>
               </div>
             )}
             <div>
@@ -374,7 +375,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
               placeholder="輸入任務說明…"
               rows={4}
               style={{
-                width: '100%', fontSize: 13, color: BRAND.carbon, lineHeight: 1.7,
+                width: '100%', fontSize: 15, color: BRAND.carbon, lineHeight: 1.7,
                 padding: '8px 10px', borderRadius: 8, resize: 'vertical',
                 border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
                 outline: 'none', fontFamily: 'inherit',
@@ -398,7 +399,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
             onClick={handleDelete}
             disabled={deleting}
             style={{
-              padding: '7px 16px', borderRadius: 8, fontSize: 12, cursor: deleting ? 'not-allowed' : 'pointer',
+              padding: '7px 16px', borderRadius: 8, fontSize: 14, cursor: deleting ? 'not-allowed' : 'pointer',
               border: `1px solid ${BRAND.danger}`, background: 'transparent',
               color: BRAND.danger, opacity: deleting ? 0.5 : 1, fontWeight: 600,
             }}
@@ -408,7 +409,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
           <button
             onClick={onClose}
             style={{
-              padding: '7px 20px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+              padding: '7px 20px', borderRadius: 8, fontSize: 14, cursor: 'pointer',
               border: `1px solid ${BRAND.mist}`, background: BRAND.surfaceSoft,
               color: BRAND.carbon, fontWeight: 600,
             }}
@@ -423,6 +424,7 @@ function DetailModal({ task, onClose, onUpdate, onDelete }) {
 
 // ── Main ──────────────────────────────────────────────────────
 export default function MyTasksPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const [tasks,      setTasks]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -586,17 +588,17 @@ export default function MyTasksPage() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: BRAND.paper, fontFamily: 'inherit', overflow: 'hidden' }}>
 
       {/* ── Hero ── */}
-      <div style={{ background: BRAND.heroBg, padding: '24px 32px 20px', color: '#fff', flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', opacity: 0.6, textTransform: 'uppercase', marginBottom: 6 }}>
+      <div style={{ background: BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '24px 32px 20px', color: '#fff', flexShrink: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.1em', opacity: 0.6, textTransform: 'uppercase', marginBottom: 6 }}>
           my tasks
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 3px', letterSpacing: '-0.02em' }}>我的任務</h1>
-        <p style={{ fontSize: 12, opacity: 0.7, margin: 0 }}>跨專案個人任務總覽，掌握進度一目瞭然</p>
-        <div style={{ display: 'flex', gap: 28, marginTop: 16 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 3px', letterSpacing: '-0.02em' }}>我的任務</h1>
+        <p style={{ fontSize: 14, opacity: 0.7, margin: 0 }}>跨專案個人任務總覽，掌握進度一目瞭然</p>
+        <div style={{ display: 'flex', gap: isMobile ? 14 : 28, marginTop: 16 }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{loading ? '—' : k.value}</div>
-              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>{k.label}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>{loading ? '—' : k.value}</div>
+              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>{k.label}</div>
             </div>
           ))}
         </div>
@@ -611,7 +613,7 @@ export default function MyTasksPage() {
         <div style={{ position: 'relative', flexShrink: 0, width: 220 }}>
           <span style={{
             position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-            fontSize: 12, color: BRAND.muted, pointerEvents: 'none',
+            fontSize: 14, color: BRAND.muted, pointerEvents: 'none',
           }}>🔍</span>
           <input
             value={search}
@@ -620,7 +622,7 @@ export default function MyTasksPage() {
             style={{
               padding: '6px 12px 6px 28px', borderRadius: 6,
               border: `1px solid ${isSearching ? BRAND.crimson : BRAND.silver}`,
-              background: BRAND.surfaceSoft, color: BRAND.ink, fontSize: 12,
+              background: BRAND.surfaceSoft, color: BRAND.ink, fontSize: 14,
               outline: 'none', width: '100%',
               transition: 'border-color .15s',
             }}
@@ -631,7 +633,7 @@ export default function MyTasksPage() {
               style={{
                 position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: BRAND.muted, fontSize: 13, padding: '0 2px', lineHeight: 1,
+                color: BRAND.muted, fontSize: 15, padding: '0 2px', lineHeight: 1,
               }}
               title="清除搜尋"
             >✕</button>
@@ -645,7 +647,7 @@ export default function MyTasksPage() {
             { k: 'done',   label: '已完成' },
           ].map(({ k, label }) => (
             <button key={k} onClick={() => setFilterStatus(k)} style={{
-              padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+              padding: '5px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
               border: `1px solid ${filterStatus === k ? BRAND.crimson : BRAND.silver}`,
               background: filterStatus === k ? BRAND.accentSurface : 'transparent',
               color: filterStatus === k ? BRAND.crimson : BRAND.carbon,
@@ -660,7 +662,7 @@ export default function MyTasksPage() {
           onChange={e => setFilterPri(e.target.value)}
           style={{
             padding: '5px 10px', borderRadius: 6, border: `1px solid ${BRAND.silver}`,
-            background: BRAND.surfaceSoft, color: BRAND.carbon, fontSize: 11, cursor: 'pointer',
+            background: BRAND.surfaceSoft, color: BRAND.carbon, fontSize: 13, cursor: 'pointer',
           }}
         >
           <option value="all">所有優先序</option>
@@ -675,7 +677,7 @@ export default function MyTasksPage() {
           onChange={e => setSortBy(e.target.value)}
           style={{
             padding: '5px 10px', borderRadius: 6, border: `1px solid ${BRAND.silver}`,
-            background: BRAND.surfaceSoft, color: BRAND.carbon, fontSize: 11, cursor: 'pointer',
+            background: BRAND.surfaceSoft, color: BRAND.carbon, fontSize: 13, cursor: 'pointer',
           }}
         >
           <option value="dueDate">依截止日期排序</option>
@@ -686,14 +688,14 @@ export default function MyTasksPage() {
 
         {/* 分組 */}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-          <span style={{ fontSize: 11, color: BRAND.muted, alignSelf: 'center' }}>分組：</span>
+          <span style={{ fontSize: 13, color: BRAND.muted, alignSelf: 'center' }}>分組：</span>
           {[
             { k: 'status',   label: '狀態' },
             { k: 'project',  label: '專案' },
             { k: 'priority', label: '優先序' },
           ].map(({ k, label }) => (
             <button key={k} onClick={() => setGroupBy(k)} style={{
-              padding: '5px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+              padding: '5px 10px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
               border: `1px solid ${groupBy === k ? BRAND.crimson : BRAND.silver}`,
               background: groupBy === k ? BRAND.accentSurface : 'transparent',
               color: groupBy === k ? BRAND.crimson : BRAND.carbon,
@@ -702,7 +704,7 @@ export default function MyTasksPage() {
           ))}
         </div>
 
-        <div style={{ fontSize: 11, color: isSearching ? BRAND.crimson : BRAND.muted, flexShrink: 0, fontWeight: isSearching ? 600 : 400 }}>
+        <div style={{ fontSize: 13, color: isSearching ? BRAND.crimson : BRAND.muted, flexShrink: 0, fontWeight: isSearching ? 600 : 400 }}>
           {isSearching ? `搜尋到 ${filtered.length} 筆` : `${filtered.length} 筆`}
         </div>
       </div>
@@ -713,11 +715,11 @@ export default function MyTasksPage() {
         {/* 任務列表 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ padding: 60, textAlign: 'center', color: BRAND.muted, fontSize: 13 }}>載入中…</div>
+            <div style={{ padding: 60, textAlign: 'center', color: BRAND.muted, fontSize: 15 }}>載入中…</div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: 60, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>{isSearching ? '🔍' : '✓'}</div>
-              <div style={{ fontSize: 14, color: BRAND.muted }}>
+              <div style={{ fontSize: 34, marginBottom: 12 }}>{isSearching ? '🔍' : '✓'}</div>
+              <div style={{ fontSize: 16, color: BRAND.muted }}>
                 {isSearching
                   ? `找不到「${search.trim()}」的相關任務`
                   : filterStatus === 'active' ? '沒有進行中的任務' : '找不到符合的任務'
@@ -729,7 +731,7 @@ export default function MyTasksPage() {
                   style={{
                     marginTop: 12, padding: '6px 16px', borderRadius: 6,
                     border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
-                    color: BRAND.carbon, fontSize: 12, cursor: 'pointer',
+                    color: BRAND.carbon, fontSize: 14, cursor: 'pointer',
                   }}
                 >清除搜尋</button>
               )}
@@ -749,11 +751,11 @@ export default function MyTasksPage() {
                     width: 9, height: 9, borderRadius: '50%',
                     background: group.color, flexShrink: 0,
                   }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.carbon }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: BRAND.carbon }}>
                     {group.label}
                   </span>
                   <span style={{
-                    fontSize: 10, padding: '1px 7px', borderRadius: 10,
+                    fontSize: 12, padding: '1px 7px', borderRadius: 10,
                     background: `color-mix(in srgb, ${group.color} 14%, transparent)`,
                     color: group.color, fontWeight: 700,
                   }}>

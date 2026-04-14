@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const HEALTH_CFG = {
@@ -39,10 +40,10 @@ function StatCard({ icon, label, value, color, loading }) {
       borderRadius: 12, padding: '16px 18px',
       display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 140,
     }}>
-      <span style={{ fontSize: 22 }}>{icon}</span>
+      <span style={{ fontSize: 24 }}>{icon}</span>
       <div>
-        <div style={{ fontSize: 24, fontWeight: 800, color }}>{loading ? '—' : value}</div>
-        <div style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>{label}</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color }}>{loading ? '—' : value}</div>
+        <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>{label}</div>
       </div>
     </div>
   );
@@ -67,7 +68,7 @@ function StatusDropdown({ value, onChange }) {
         display: 'inline-flex', alignItems: 'center', gap: 4,
         padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
         background: `${cfg.color}14`, color: cfg.color,
-        fontSize: 12, fontWeight: 600, border: `1px solid ${cfg.color}30`,
+        fontSize: 14, fontWeight: 600, border: `1px solid ${cfg.color}30`,
       }}>
         {cfg.label} ▾
       </button>
@@ -82,7 +83,7 @@ function StatusDropdown({ value, onChange }) {
             <button key={o.value} onClick={() => { onChange(o.value); setOpen(false); }} style={{
               width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer',
               background: o.value === value ? `${o.color}14` : 'transparent',
-              color: o.color, fontSize: 12, fontWeight: 600, textAlign: 'left',
+              color: o.color, fontSize: 14, fontWeight: 600, textAlign: 'left',
             }}>
               ● {o.label}
             </button>
@@ -101,7 +102,7 @@ function HealthBadge({ health, onClick }) {
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '4px 10px', borderRadius: 8,
       background: `${cfg.color}14`, color: cfg.color,
-      fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+      fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
     }}>
       {cfg.icon} {cfg.label}
     </button>
@@ -125,7 +126,7 @@ function InlineNotes({ value, onSave }) {
   if (!editing) {
     return (
       <span onClick={() => setEditing(true)} title="點擊編輯備註" style={{
-        fontSize: 12, color: value ? 'var(--xc-text-soft)' : 'var(--xc-text-muted)',
+        fontSize: 14, color: value ? 'var(--xc-text-soft)' : 'var(--xc-text-muted)',
         cursor: 'pointer', fontStyle: value ? 'normal' : 'italic',
         maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         display: 'inline-block',
@@ -139,7 +140,7 @@ function InlineNotes({ value, onSave }) {
     <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
       onBlur={save} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setDraft(value || ''); setEditing(false); } }}
       style={{
-        fontSize: 12, padding: '3px 6px', borderRadius: 4, width: 180,
+        fontSize: 14, padding: '3px 6px', borderRadius: 4, width: 180,
         border: '1px solid var(--xc-brand)', outline: 'none',
         background: 'var(--xc-surface)', color: 'var(--xc-text)',
       }}
@@ -164,7 +165,7 @@ function MoreMenu({ onWeeklyReport, onRemove }) {
       <button onClick={() => setOpen(v => !v)} style={{
         width: 28, height: 28, borderRadius: 6, border: 'none',
         background: open ? 'var(--xc-surface-strong)' : 'transparent',
-        cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)',
+        cursor: 'pointer', fontSize: 16, color: 'var(--xc-text-soft)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>···</button>
       {open && (
@@ -176,12 +177,12 @@ function MoreMenu({ onWeeklyReport, onRemove }) {
         }}>
           <button onClick={() => { onWeeklyReport(); setOpen(false); }} style={{
             width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
-            background: 'transparent', textAlign: 'left', fontSize: 12,
+            background: 'transparent', textAlign: 'left', fontSize: 14,
             color: 'var(--xc-text)',
           }}>📝 填寫週報</button>
           <button onClick={() => { onRemove(); setOpen(false); }} style={{
             width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
-            background: 'transparent', textAlign: 'left', fontSize: 12,
+            background: 'transparent', textAlign: 'left', fontSize: 14,
             color: '#ef4444',
           }}>✕ 從組合移除</button>
         </div>
@@ -208,10 +209,10 @@ function WeeklyReportModal({ project, onClose, onSave }) {
         <style>{`@keyframes modalIn { from { opacity:0; transform: translate(-50%,-50%) scale(.95); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }`}</style>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>📝 本週狀態更新</div>
-            <div style={{ fontSize: 12, color: 'var(--xc-text-muted)', marginTop: 2 }}>{project.name}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>📝 本週狀態更新</div>
+            <div style={{ fontSize: 14, color: 'var(--xc-text-muted)', marginTop: 2 }}>{project.name}</div>
           </div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>✕</button>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 16, color: 'var(--xc-text-soft)' }}>✕</button>
         </div>
         <div style={{ padding: 20 }}>
           <textarea
@@ -220,13 +221,13 @@ function WeeklyReportModal({ project, onClose, onSave }) {
             rows={6}
             style={{
               width: '100%', borderRadius: 8, border: '1px solid var(--xc-border)',
-              padding: 12, fontSize: 13, background: 'var(--xc-surface)',
+              padding: 12, fontSize: 15, background: 'var(--xc-surface)',
               color: 'var(--xc-text)', resize: 'vertical', outline: 'none', boxSizing: 'border-box',
             }}
           />
         </div>
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--xc-border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12, color: 'var(--xc-text-soft)' }}>取消</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>取消</button>
           <button
             disabled={saving || !report.trim()}
             onClick={async () => {
@@ -238,7 +239,7 @@ function WeeklyReportModal({ project, onClose, onSave }) {
             style={{
               padding: '8px 20px', borderRadius: 8, border: 'none',
               background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
-              fontSize: 12, fontWeight: 700, opacity: !report.trim() ? 0.5 : 1,
+              fontSize: 14, fontWeight: 700, opacity: !report.trim() ? 0.5 : 1,
             }}
           >
             {saving ? '儲存中…' : '儲存週報'}
@@ -279,30 +280,30 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
         animation: 'modalIn .2s ease',
       }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>➕ 新增組合</div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>✕</button>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>➕ 新增組合</div>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 16, color: 'var(--xc-text-soft)' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* 名稱 */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>組合名稱 *</label>
+            <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>組合名稱 *</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="如：2026 Q2 重點專案"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 13, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 15, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
 
           {/* 說明 */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>說明</label>
+            <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>說明</label>
             <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="簡要描述此組合目的…" rows={3}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 13, background: 'var(--xc-surface)', color: 'var(--xc-text)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 15, background: 'var(--xc-surface)', color: 'var(--xc-text)', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
 
           {/* 顏色 */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>顏色</label>
+            <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>顏色</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {PALETTE.map(c => (
                 <button key={c} onClick={() => setColor(c)} style={{
@@ -315,15 +316,15 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
 
           {/* 選擇專案 */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>
+            <label style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)', display: 'block', marginBottom: 6 }}>
               納入專案 {selectedIds.size > 0 && <span style={{ color: 'var(--xc-brand)', fontWeight: 700 }}>（已選 {selectedIds.size}）</span>}
             </label>
             <input value={searchProject} onChange={e => setSearchProject(e.target.value)} placeholder="🔍 搜尋專案…"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 12, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--xc-border)', fontSize: 14, background: 'var(--xc-surface)', color: 'var(--xc-text)', outline: 'none', marginBottom: 8, boxSizing: 'border-box' }}
             />
             <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--xc-border)', borderRadius: 8, background: 'var(--xc-surface-soft)' }}>
               {filteredProjects.length === 0 ? (
-                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--xc-text-muted)' }}>無符合的專案</div>
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 14, color: 'var(--xc-text-muted)' }}>無符合的專案</div>
               ) : filteredProjects.map(p => (
                 <label key={p.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
@@ -331,8 +332,8 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
                   background: selectedIds.has(p.id) ? 'color-mix(in srgb, var(--xc-brand) 8%, var(--xc-surface))' : 'transparent',
                 }}>
                   <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggle(p.id)} style={{ accentColor: 'var(--xc-brand)' }} />
-                  <span style={{ fontSize: 13, color: 'var(--xc-text)' }}>{p.name}</span>
-                  <span style={{ fontSize: 10, color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: 15, color: 'var(--xc-text)' }}>{p.name}</span>
+                  <span style={{ fontSize: 12, color: 'var(--xc-text-muted)', marginLeft: 'auto' }}>
                     {(STATUS_OPTIONS.find(o => o.value === p.status) || STATUS_OPTIONS[0]).label}
                   </span>
                 </label>
@@ -342,7 +343,7 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
         </div>
 
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--xc-border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12, color: 'var(--xc-text-soft)' }}>取消</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 14, color: 'var(--xc-text-soft)' }}>取消</button>
           <button
             disabled={creating || !name.trim()}
             onClick={async () => {
@@ -353,7 +354,7 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
             style={{
               padding: '8px 20px', borderRadius: 8, border: 'none',
               background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
-              fontSize: 12, fontWeight: 700, opacity: !name.trim() ? 0.5 : 1,
+              fontSize: 14, fontWeight: 700, opacity: !name.trim() ? 0.5 : 1,
             }}
           >
             {creating ? '建立中…' : '建立組合'}
@@ -369,6 +370,7 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
 // 主頁面
 // ════════════════════════════════════════════════════════════
 export default function PortfoliosPage({ onNavigate }) {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
 
@@ -527,18 +529,23 @@ export default function PortfoliosPage({ onNavigate }) {
   const projects = active?.projects || [];
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', overflow: 'hidden' }}>
 
       {/* ═══ 左側：組合列表 ═══ */}
       <div style={{
-        width: 240, minWidth: 240, borderRight: '1px solid var(--xc-border)',
-        display: 'flex', flexDirection: 'column', background: 'var(--xc-surface-soft)',
+        width: isMobile ? '100%' : 240, minWidth: isMobile ? 0 : 240,
+        borderRight: isMobile ? 'none' : '1px solid var(--xc-border)',
+        borderBottom: isMobile ? '1px solid var(--xc-border)' : 'none',
+        display: 'flex', flexDirection: isMobile ? 'row' : 'column',
+        background: 'var(--xc-surface-soft)',
+        overflowX: isMobile ? 'auto' : 'visible',
+        flexShrink: 0,
       }}>
         <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid var(--xc-border)' }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--xc-text)', marginBottom: 12 }}>專案組合</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--xc-text)', marginBottom: 12 }}>專案組合</div>
           <button onClick={() => setShowCreate(true)} style={{
             width: '100%', padding: '9px 0', borderRadius: 8, border: '1px dashed var(--xc-border)',
-            background: 'transparent', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+            background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 600,
             color: 'var(--xc-brand)', transition: 'background .1s',
           }}>
             ＋ 新增組合
@@ -547,9 +554,9 @@ export default function PortfoliosPage({ onNavigate }) {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
           {loading && portfolios.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 12 }}>載入中…</div>
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 14 }}>載入中…</div>
           ) : portfolios.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 12 }}>
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 14 }}>
               尚無組合<br />點擊上方按鈕建立
             </div>
           ) : portfolios.map(pf => (
@@ -562,11 +569,11 @@ export default function PortfoliosPage({ onNavigate }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 3, background: pf.color, flexShrink: 0 }} />
                 <span style={{
-                  fontSize: 13, fontWeight: pf.id === activeId ? 700 : 500,
+                  fontSize: 15, fontWeight: pf.id === activeId ? 700 : 500,
                   color: pf.id === activeId ? 'var(--xc-brand)' : 'var(--xc-text)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{pf.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginLeft: 'auto', flexShrink: 0 }}>
+                <span style={{ fontSize: 13, color: 'var(--xc-text-muted)', marginLeft: 'auto', flexShrink: 0 }}>
                   {pf.summary.totalProjects}
                 </span>
               </div>
@@ -576,21 +583,21 @@ export default function PortfoliosPage({ onNavigate }) {
       </div>
 
       {/* ═══ 右側：組合內容 ═══ */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '28px 32px' }}>
         {!active ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
-            <div style={{ fontSize: 48 }}>📁</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>
+            <div style={{ fontSize: 50 }}>📁</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>
               {portfolios.length === 0 ? '建立你的第一個組合' : '選擇一個組合'}
             </div>
-            <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
+            <div style={{ fontSize: 15, color: 'var(--xc-text-muted)' }}>
               從左側選擇或新增組合來管理多專案
             </div>
             {portfolios.length === 0 && (
               <button onClick={() => setShowCreate(true)} style={{
                 marginTop: 8, padding: '10px 24px', borderRadius: 8, border: 'none',
                 background: 'var(--xc-brand)', color: '#fff', cursor: 'pointer',
-                fontSize: 13, fontWeight: 700,
+                fontSize: 15, fontWeight: 700,
               }}>＋ 新增組合</button>
             )}
           </div>
@@ -601,15 +608,15 @@ export default function PortfoliosPage({ onNavigate }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 14, height: 14, borderRadius: 4, background: active.color }} />
-                  <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--xc-text)', margin: 0 }}>{active.name}</h1>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--xc-text)', margin: 0 }}>{active.name}</h1>
                 </div>
                 {active.description && (
-                  <p style={{ fontSize: 13, color: 'var(--xc-text-muted)', margin: '6px 0 0 24px' }}>{active.description}</p>
+                  <p style={{ fontSize: 15, color: 'var(--xc-text-muted)', margin: '6px 0 0 24px' }}>{active.description}</p>
                 )}
               </div>
               <button onClick={() => deletePortfolio(active.id)} style={{
                 padding: '6px 14px', borderRadius: 8, border: '1px solid var(--xc-border)',
-                background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 12,
+                background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 14,
                 color: '#ef4444',
               }}>🗑 刪除組合</button>
             </div>
@@ -624,7 +631,7 @@ export default function PortfoliosPage({ onNavigate }) {
 
             {/* 錯誤 */}
             {error && (
-              <div style={{ padding: 14, borderRadius: 10, marginBottom: 16, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#ef4444', fontSize: 13 }}>
+              <div style={{ padding: 14, borderRadius: 10, marginBottom: 16, background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', color: '#ef4444', fontSize: 15 }}>
                 ⚠️ {error}
               </div>
             )}
@@ -632,21 +639,22 @@ export default function PortfoliosPage({ onNavigate }) {
             {/* 10.2 專案列表 */}
             {projects.length === 0 ? (
               <div style={{ padding: '60px 40px', textAlign: 'center', background: 'var(--xc-surface)', border: '2px dashed var(--xc-border)', borderRadius: 16 }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 6 }}>此組合尚無專案</div>
-                <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>編輯組合以新增專案</div>
+                <div style={{ fontSize: 42, marginBottom: 12 }}>📂</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 6 }}>此組合尚無專案</div>
+                <div style={{ fontSize: 15, color: 'var(--xc-text-muted)' }}>編輯組合以新增專案</div>
               </div>
             ) : (
-              <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: 12 }}>
+              <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: 12, overflowX: isMobile ? 'auto' : 'visible' }}>
                 {/* 表頭 */}
                 <div style={{
                   display: 'grid', gridTemplateColumns: '2fr 100px 90px 110px 60px 180px 40px',
+                  minWidth: isMobile ? '700px' : undefined,
                   alignItems: 'center', gap: 10, padding: '10px 16px',
                   background: 'var(--xc-surface-soft)', borderBottom: '1px solid var(--xc-border)',
                   borderRadius: '12px 12px 0 0',
                 }}>
                   {['專案名稱', '狀態', '健康度', '進度', '逾期', '備註', ''].map(h => (
-                    <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--xc-text-muted)' }}>{h}</div>
+                    <div key={h} style={{ fontSize: 13, fontWeight: 700, color: 'var(--xc-text-muted)' }}>{h}</div>
                   ))}
                 </div>
 
@@ -663,7 +671,7 @@ export default function PortfoliosPage({ onNavigate }) {
                       <div>
                         <button onClick={() => onNavigate?.('projects')} style={{
                           background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                          fontSize: 13, fontWeight: 600, color: 'var(--xc-text)',
+                          fontSize: 15, fontWeight: 600, color: 'var(--xc-text)',
                           textDecoration: 'none',
                         }}
                           onMouseEnter={e => e.currentTarget.style.color = 'var(--xc-brand)'}
@@ -671,7 +679,7 @@ export default function PortfoliosPage({ onNavigate }) {
                         >
                           {p.name}
                         </button>
-                        <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginTop: 2 }}>
+                        <div style={{ fontSize: 13, color: 'var(--xc-text-muted)', marginTop: 2 }}>
                           👤 {p.memberCount} 人 · ⏱ {p.totalHours}h
                         </div>
                       </div>
@@ -687,12 +695,12 @@ export default function PortfoliosPage({ onNavigate }) {
                         <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--xc-border)', overflow: 'hidden' }}>
                           <div style={{ width: `${p.progress}%`, height: '100%', background: pctColor, borderRadius: 999 }} />
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: pctColor, flexShrink: 0 }}>{p.progress}%</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: pctColor, flexShrink: 0 }}>{p.progress}%</span>
                       </div>
 
                       {/* 逾期 */}
                       <div style={{
-                        textAlign: 'center', fontSize: 12, fontWeight: p.overdue > 0 ? 700 : 400,
+                        textAlign: 'center', fontSize: 14, fontWeight: p.overdue > 0 ? 700 : 400,
                         color: p.overdue > 0 ? '#ef4444' : 'var(--xc-text-muted)',
                       }}>
                         {p.overdue}

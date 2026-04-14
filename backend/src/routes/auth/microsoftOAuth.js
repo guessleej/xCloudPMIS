@@ -329,7 +329,6 @@ router.get('/callback', async (req, res) => {
     const user  = await findOrCreateOAuthUser({
       email,
       name:      profile.displayName,
-      avatarUrl: null,
       provider:  'microsoft',
     });
 

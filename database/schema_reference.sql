@@ -69,7 +69,6 @@ CREATE TABLE users (
     role          VARCHAR(20) NOT NULL DEFAULT 'member'
                   CHECK (role IN ('admin', 'pm', 'member')),
 
-    avatar_url    TEXT,
     is_active     BOOLEAN NOT NULL DEFAULT TRUE,
     last_login_at TIMESTAMP WITH TIME ZONE,       -- 最後登入時間（可以是空的）
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

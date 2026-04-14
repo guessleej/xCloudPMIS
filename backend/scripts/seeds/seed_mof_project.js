@@ -48,7 +48,6 @@ async function main() {
           passwordHash: require('crypto').randomBytes(32).toString('hex'),
           role:      m.role,
           isActive:  true,
-          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.seed}`,
         },
       });
       userMap[m.name] = u.id;

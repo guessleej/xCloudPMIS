@@ -9,6 +9,7 @@
  */
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const STATUS_CONFIG = {
   green:  { label: '健康',   color: '#22c55e', darkColor: '#16a34a' },
@@ -41,7 +42,7 @@ function CustomTooltip({ active, payload }) {
       borderRadius: '8px',
       padding:      '8px 12px',
       boxShadow:    '0 4px 12px rgba(0,0,0,.12)',
-      fontSize:     '13px',
+      fontSize: '15px',
       color:        'var(--xc-text)',
     }}>
       <span style={{ display: 'inline-block', width: '10px', height: '10px',
@@ -92,7 +93,7 @@ export default function HealthPieChart({ projects = [], loading }) {
 
   if (total === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--xc-text-muted)', fontSize: '13px' }}>
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--xc-text-muted)', fontSize: '15px' }}>
         尚無專案資料
       </div>
     );
@@ -135,7 +136,7 @@ export default function HealthPieChart({ projects = [], loading }) {
         {/* 圖例 */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
           {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px' }}>
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px' }}>
               <span style={{ width: '10px', height: '10px', borderRadius: '50%',
                 background: cfg.color, display: 'inline-block' }} />
               <span style={{ color: 'var(--xc-text-soft)' }}>
@@ -157,7 +158,7 @@ export default function HealthPieChart({ projects = [], loading }) {
                 padding:       '5px 8px',
                 borderRadius:  '6px',
                 background:    'var(--xc-surface-soft)',
-                fontSize:      '12px',
+                fontSize: '14px',
               }}>
                 <span style={{
                   width:        '8px',
@@ -177,7 +178,7 @@ export default function HealthPieChart({ projects = [], loading }) {
             );
           })}
           {sortedProjects.length > 6 && (
-            <div style={{ fontSize: '11px', color: 'var(--xc-text-muted)', paddingLeft: '16px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--xc-text-muted)', paddingLeft: '16px' }}>
               還有 {sortedProjects.length - 6} 個專案…
             </div>
           )}

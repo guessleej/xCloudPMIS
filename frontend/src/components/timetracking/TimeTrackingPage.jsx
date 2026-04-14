@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -25,12 +26,12 @@ const BRAND = {
   info:    'var(--xc-info)',
 };
 
-const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' };
-const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize:13, cursor:'pointer' };
+const btnPrimary = { padding:'7px 16px', borderRadius:7, border:'none', background:BRAND.crimson, color:'#fff', fontSize: 15, fontWeight:600, cursor:'pointer' };
+const btnGhost   = { padding:'7px 16px', borderRadius:7, border:`1px solid ${BRAND.silver}`, background:'transparent', color:BRAND.carbon, fontSize: 15, cursor:'pointer' };
 
 // 專案清單由 API 動態載入（see loadProjects）
 
-const TH_STYLE = { fontSize:11, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
+const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
 
 const EMPTY_STATS = {
   weekTotal: 0, monthTotal: 0, todayTotal: 0, dailyAvg: 0,
@@ -46,6 +47,7 @@ const EMPTY_STATS = {
 };
 
 export default function TimeTrackingPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
 
   const [entries,    setEntries]    = useState([]);
@@ -156,33 +158,33 @@ export default function TimeTrackingPage() {
   return (
     <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit' }}>
       {/* Hero */}
-      <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff' }}>
-        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
+      <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff' }}>
+        <div style={{ fontSize: 13, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
           time tracking
         </div>
-        <h1 style={{ fontSize:26, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>工時記錄</h1>
-        <p style={{ fontSize:13, opacity:0.7, margin:0 }}>記錄、統計個人與團隊工時，追蹤每項任務的實際投入</p>
+        <h1 style={{ fontSize: 28, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>工時記錄</h1>
+        <p style={{ fontSize: 15, opacity:0.7, margin:0 }}>記錄、統計個人與團隊工時，追蹤每項任務的實際投入</p>
         <div style={{ display:'flex', gap:32, marginTop:20 }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize:24, fontWeight:800, lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight:800, lineHeight:1 }}>{k.value}</div>
+              <div style={{ fontSize: 13, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ padding:'24px 32px' }}>
+      <div style={{ padding: isMobile ? '14px 16px' : '24px 32px' }}>
         {/* Loading */}
         {loading && (
-          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>載入中…</div>
+          <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>載入中…</div>
         )}
 
         {!loading && (
           <>
             {/* 本週分布 */}
             <div style={{ background:BRAND.white, borderRadius:10, border:`1px solid ${BRAND.mist}`, padding:'16px 20px', marginBottom:20 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>本週工時分布</div>
+              <div style={{ fontSize: 14, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:12 }}>本週工時分布</div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:8 }}>
                 {weekDays.map(w => (
                   <div key={w.day} style={{
@@ -190,10 +192,10 @@ export default function TimeTrackingPage() {
                     background: w.hours > 0 ? BRAND.accentSurface : BRAND.surfaceSoft,
                     border: `1px solid ${w.hours > 0 ? BRAND.accentBorder : BRAND.mist}`,
                   }}>
-                    <div style={{ fontSize:11, color:BRAND.muted, marginBottom:4 }}>{w.day}</div>
-                    <div style={{ fontSize:10, color:BRAND.muted, marginBottom:6 }}>{w.date}</div>
+                    <div style={{ fontSize: 13, color:BRAND.muted, marginBottom:4 }}>{w.day}</div>
+                    <div style={{ fontSize: 12, color:BRAND.muted, marginBottom:6 }}>{w.date}</div>
                     <div style={{
-                      fontSize:16, fontWeight:700,
+                      fontSize: 17, fontWeight:700,
                       color: w.hours > 0 ? BRAND.crimson : BRAND.silver,
                     }}>{w.hours > 0 ? `${w.hours}h` : '—'}</div>
                   </div>
@@ -203,7 +205,7 @@ export default function TimeTrackingPage() {
 
             {/* Table header row */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-              <div style={{ fontSize:14, fontWeight:600, color:BRAND.ink }}>工時紀錄</div>
+              <div style={{ fontSize: 16, fontWeight:600, color:BRAND.ink }}>工時紀錄</div>
               <button style={btnPrimary} onClick={openAdd}>+ 記錄工時</button>
             </div>
 
@@ -220,7 +222,7 @@ export default function TimeTrackingPage() {
               </div>
 
               {entries.length === 0 && (
-                <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>尚無工時記錄</div>
+                <div style={{ padding:'40px 16px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>尚無工時記錄</div>
               )}
 
               {entries.map((e, idx) => (
@@ -235,14 +237,14 @@ export default function TimeTrackingPage() {
                   onMouseEnter={ev => ev.currentTarget.style.background = BRAND.surfaceSoft}
                   onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}
                 >
-                  <span style={{ fontSize:12, color:BRAND.muted }}>{e.date}</span>
-                  <span style={{ fontSize:13, color:BRAND.carbon }}>{e.project}</span>
-                  <span style={{ fontSize:13, color:BRAND.ink, fontWeight:500 }}>{e.task}</span>
-                  <span style={{ fontSize:13, fontWeight:700, color:BRAND.crimson }}>{e.hours}h</span>
-                  <span style={{ fontSize:12, color:BRAND.muted }}>{e.note || '—'}</span>
+                  <span style={{ fontSize: 14, color:BRAND.muted }}>{e.date}</span>
+                  <span style={{ fontSize: 15, color:BRAND.carbon }}>{e.project}</span>
+                  <span style={{ fontSize: 15, color:BRAND.ink, fontWeight:500 }}>{e.task}</span>
+                  <span style={{ fontSize: 15, fontWeight:700, color:BRAND.crimson }}>{e.hours}h</span>
+                  <span style={{ fontSize: 14, color:BRAND.muted }}>{e.note || '—'}</span>
                   <span style={{ display:'flex', gap:10 }}>
-                    <button onClick={() => openEdit(e)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:BRAND.carbon, padding:0 }}>編輯</button>
-                    <button onClick={() => deleteEntry(e.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:BRAND.muted, padding:0 }}>刪除</button>
+                    <button onClick={() => openEdit(e)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>
+                    <button onClick={() => deleteEntry(e.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>
                   </span>
                 </div>
               ))}
@@ -254,52 +256,52 @@ export default function TimeTrackingPage() {
       {/* Modal */}
       {showModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div style={{ background:BRAND.white, borderRadius:12, padding:'28px 32px', width:480, maxWidth:'90vw' }}>
-            <h2 style={{ fontSize:18, fontWeight:700, margin:'0 0 20px', color:BRAND.ink }}>
+          <div style={{ background:BRAND.white, borderRadius:12, padding: isMobile ? '14px 16px' : '28px 32px', width:480, maxWidth:'90vw' }}>
+            <h2 style={{ fontSize: 20, fontWeight:700, margin:'0 0 20px', color:BRAND.ink }}>
               {editEntry ? '編輯工時記錄' : '記錄工時'}
             </h2>
 
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 專案
                 <select
                   value={form.project}
                   onChange={e => setForm(f => ({ ...f, project: e.target.value }))}
-                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 >
                   <option value=''>— 選擇專案 —</option>
                   {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 任務名稱
                 <input
                   value={form.task}
                   onChange={e => setForm(f => ({ ...f, task: e.target.value }))}
                   placeholder='輸入任務名稱'
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 />
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 工時（小時）
                 <input
                   type='number' min='0.5' step='0.5'
                   value={form.hours}
                   onChange={e => setForm(f => ({ ...f, hours: e.target.value }))}
                   placeholder='例：2.5'
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 />
               </label>
 
-              <label style={{ fontSize:12, fontWeight:600, color:BRAND.carbon }}>
+              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 備注
                 <input
                   value={form.note}
                   onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                   placeholder='選填'
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize:13, background:BRAND.surface, color:BRAND.ink }}
+                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
                 />
               </label>
             </div>

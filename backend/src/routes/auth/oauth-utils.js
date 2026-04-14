@@ -41,7 +41,6 @@ const fail = (res, msg,  s = 400) => res.status(s).json({ success: false, error:
  *   - providerId  {string}  Provider 的唯一用戶 ID
  *   - email       {string}  用戶 Email（必填）
  *   - name        {string}  顯示名稱
- *   - avatarUrl   {string?} 大頭貼 URL
  *
  * @returns {{ user, isNew, linked }}
  *   - user   : Prisma User 物件
@@ -50,7 +49,7 @@ const fail = (res, msg,  s = 400) => res.status(s).json({ success: false, error:
  *
  * @throws {Error} 帳號不存在且 OAUTH_ALLOW_REGISTRATION !== 'true'
  */
-async function findOrCreateOAuthUser({ provider, providerId, email, name, avatarUrl }) {
+async function findOrCreateOAuthUser({ provider, providerId, email, name }) {
   // ── Step 1：查詢既有 OAuth 連結 ──────────────────────────
   const existingLink = await prisma.userOAuthAccount.findUnique({
     where: { provider_providerId: { provider, providerId } },
@@ -62,11 +61,11 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
   });
 
   if (existingLink) {
-    // 更新大頭貼（如有新版本）
-    if (avatarUrl && existingLink.avatarUrl !== avatarUrl) {
+    // 更新顯示名稱（如有變更）
+    if (name && existingLink.displayName !== name) {
       await prisma.userOAuthAccount.update({
         where: { id: existingLink.id },
-        data:  { avatarUrl, displayName: name },
+        data:  { displayName: name },
       });
     }
     return { user: existingLink.user, isNew: false, linked: false };
@@ -92,18 +91,8 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
         providerId,
         providerEmail: normalizedEmail,
         displayName:  name,
-        avatarUrl:    avatarUrl || null,
       },
     });
-
-    // 若大頭貼原本為空，補上 OAuth 大頭貼
-    if (!existingUser.avatarUrl && avatarUrl) {
-      await prisma.user.update({
-        where: { id: existingUser.id },
-        data:  { avatarUrl },
-      });
-      existingUser.avatarUrl = avatarUrl;
-    }
 
     return { user: existingUser, isNew: false, linked: true };
   }
@@ -124,14 +113,12 @@ async function findOrCreateOAuthUser({ provider, providerId, email, name, avatar
       email:        normalizedEmail,
       passwordHash: '', // OAuth 登入者沒有密碼
       role:         'member',
-      avatarUrl:    avatarUrl || null,
       oauthAccounts: {
         create: {
           provider,
           providerId,
           providerEmail: normalizedEmail,
           displayName:  name,
-          avatarUrl:    avatarUrl || null,
         },
       },
     },
@@ -176,7 +163,6 @@ function buildUserPayload(user) {
     email:      user.email,
     role:       user.role,
     roleLabel:  ROLE_LABEL[user.role] || user.role,
-    avatarUrl:  user.avatarUrl  || null,
     department: user.department || null,
     phone:      user.phone      || null,
     jobTitle:   user.jobTitle   || null,
@@ -234,7 +220,7 @@ function parseState(stateStr) {
 // ════════════════════════════════════════════════════════════
 /**
  * @param {Response} res       Express response
- * @param {Object}   profile   OAuth Profile { provider, providerId, email, name, avatarUrl }
+ * @param {Object}   profile   OAuth Profile { provider, providerId, email, name }
  */
 async function handleOAuthCallback(res, profile) {
   try {

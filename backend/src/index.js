@@ -36,7 +36,6 @@ const timeTrackingRouter  = require('./routes/time-tracking');
 const reportsRouter       = require('./routes/reports');
 const teamRouter          = require('./routes/team');
 const settingsRouter      = require('./routes/settings');
-const aiDecisionsRouter   = require('./routes/aiDecisions');
 const healthRouter        = require('./routes/health');
 const microsoftAuthRouter = require('./routes/auth/microsoftOAuth');
 const adminMcpRouter      = require('./routes/adminMcp');
@@ -49,7 +48,6 @@ const goalsRouter         = require('./routes/goals');
 const portfoliosRouter    = require('./routes/portfolios');
 const authRouter          = require('./routes/auth/login');
 const customFieldsRouter  = require('./routes/custom-fields');
-const workflowRouter      = require('./routes/workflow');
 const formsRouter         = require('./routes/forms');
 const calendarRouter      = require('./routes/calendar');
 const adminUsersRouter    = require('./routes/admin/users');
@@ -218,9 +216,6 @@ app.use('/api/team', teamRouter);
 // ── 系統設定路由 ─────────────────────────────────────────────
 app.use('/api/settings', settingsRouter);
 
-// ── AI 決策中心路由（Human-in-the-Loop 控制台）───────────────
-app.use('/api/ai', aiDecisionsRouter);
-
 // ── 健康檢查路由（Email / Graph API 連線狀態）────────────────
 app.use('/api/health', healthRouter);
 
@@ -299,12 +294,6 @@ app.use('/api/custom-fields', customFieldsRouter);
 // GET  /api/calendar/events            → 取得 Outlook 行事曆事件
 app.use('/api/calendar', calendarRouter);
 
-// ── 工作流程路由 ──────────────────────────────────────────────
-// GET    /api/workflow?companyId=N  → 流程列表
-// POST   /api/workflow              → 建立流程
-// PATCH  /api/workflow/:id          → 更新流程
-// DELETE /api/workflow/:id          → 刪除流程
-app.use('/api/workflow', workflowRouter);
 
 // ── 表單管理路由 ──────────────────────────────────────────────
 // GET    /api/forms?companyId=N  → 表單列表
@@ -378,7 +367,6 @@ httpServer.listen(PORT, () => {
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/executive-summary`);
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/projects-health`);
   console.log(`  GET  http://localhost:${PORT}/api/dashboard/workload`);
-  console.log(`  GET  http://localhost:${PORT}/api/dashboard/actionable-insights`);
   console.log(`  GET  http://localhost:${PORT}/api/gantt`);
   console.log(`  GET  http://localhost:${PORT}/api/time-tracking`);
   console.log(`  GET  http://localhost:${PORT}/api/time-tracking/tasks`);

@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import ProjectDetail from './ProjectDetail';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
 const API = '';
@@ -122,10 +123,10 @@ const fmtDate  = (iso) => iso ? new Date(iso).toLocaleDateString('zh-TW', { mont
 const daysLeft = (iso) => iso ? Math.ceil((new Date(iso) - new Date()) / 864e5) : null;
 
 // ── 共用樣式 ─────────────────────────────────────────────
-const inputSt = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: '8px', padding: '8px 12px', fontSize: '13.5px', color: C.ink, outline: 'none', background: C.white, fontFamily: 'inherit' };
-const btnP    = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
-const btnO    = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
-const btnD    = { background: '#DC2626', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13.5px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
+const inputSt = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: '8px', padding: '8px 12px', fontSize: '15px', color: C.ink, outline: 'none', background: C.white, fontFamily: 'inherit' };
+const btnP    = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
+const btnO    = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: '8px', padding: '9px 20px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
+const btnD    = { background: '#DC2626', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' };
 
 // ══════════════════════════════════════════════════════════════
 // 小元件
@@ -182,10 +183,10 @@ function TemplatePickerModal({ onSelect, onClose }) {
         {/* 頭部 */}
         <div style={{ padding: '22px 28px 16px', borderBottom: `1px solid ${C.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: C.ink }}>新增專案</h2>
-            <p style={{ margin: '3px 0 0', fontSize: '12px', color: C.ink4 }}>選擇範本或從空白開始</p>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: C.ink }}>新增專案</h2>
+            <p style={{ margin: '3px 0 0', fontSize: '14px', color: C.ink4 }}>選擇範本或從空白開始</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: C.ink4 }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: C.ink4 }}>✕</button>
         </div>
 
         {/* 主體：左側分類 + 右側範本 */}
@@ -193,13 +194,13 @@ function TemplatePickerModal({ onSelect, onClose }) {
 
           {/* 左側分類列 */}
           <div style={{ width: '150px', flexShrink: 0, borderRight: `1px solid ${C.line}`, padding: '12px 8px', background: C.surfaceSoft }}>
-            <div style={{ fontSize: '10.5px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.6px', padding: '0 8px', marginBottom: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.6px', padding: '0 8px', marginBottom: '8px' }}>
               分類
             </div>
             {TEMPLATE_CATEGORIES.map(c => (
               <button key={c.id} onClick={() => setCat(c.id)} style={{
                 width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: '7px',
-                border: 'none', fontFamily: 'inherit', fontSize: '13px', cursor: 'pointer',
+                border: 'none', fontFamily: 'inherit', fontSize: '15px', cursor: 'pointer',
                 background: cat === c.id ? `${C.brand}15` : 'transparent',
                 color: cat === c.id ? C.brand : C.ink2,
                 fontWeight: cat === c.id ? '600' : '400',
@@ -226,18 +227,18 @@ function TemplatePickerModal({ onSelect, onClose }) {
                     {/* 色帶預覽 */}
                     <div style={{ height: '8px', background: pal.hex }} />
                     <div style={{ padding: '16px' }}>
-                      <div style={{ fontSize: '26px', marginBottom: '8px' }}>{tpl.icon}</div>
-                      <div style={{ fontSize: '13.5px', fontWeight: '700', color: C.ink, marginBottom: '6px' }}>{tpl.name}</div>
-                      <div style={{ fontSize: '12px', color: C.ink3, lineHeight: '1.5', marginBottom: '12px' }}>{tpl.desc}</div>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>{tpl.icon}</div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: C.ink, marginBottom: '6px' }}>{tpl.name}</div>
+                      <div style={{ fontSize: '14px', color: C.ink3, lineHeight: '1.5', marginBottom: '12px' }}>{tpl.desc}</div>
                       {tpl.sections.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                           {tpl.sections.slice(0, 3).map(s => (
-                            <span key={s} style={{ fontSize: '10px', background: pal.light, color: pal.hex, borderRadius: '4px', padding: '2px 6px', fontWeight: '500' }}>
+                            <span key={s} style={{ fontSize: '12px', background: pal.light, color: pal.hex, borderRadius: '4px', padding: '2px 6px', fontWeight: '500' }}>
                               {s}
                             </span>
                           ))}
                           {tpl.sections.length > 3 && (
-                            <span style={{ fontSize: '10px', color: C.ink4, padding: '2px 4px' }}>+{tpl.sections.length - 3}</span>
+                            <span style={{ fontSize: '12px', color: C.ink4, padding: '2px 4px' }}>+{tpl.sections.length - 3}</span>
                           )}
                         </div>
                       )}
@@ -258,6 +259,7 @@ function TemplatePickerModal({ onSelect, onClose }) {
 // ══════════════════════════════════════════════════════════════
 function ProjectFormModal({ users, project, template, onClose, onSaved }) {
   const { user, authFetch } = useAuth();
+  const isMobile = useIsMobile();
   const COMPANY_ID = user?.companyId;
   const isEdit = !!project;
   const defColor = project ? loadColors()[project.id] || 'blue' : (template?.color || 'blue');
@@ -307,37 +309,37 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
         {/* 色帶頭部 */}
         <div style={{ height: '6px', background: pal.hex, borderRadius: '18px 18px 0 0' }} />
 
-        <div style={{ padding: '24px 28px 28px' }}>
+        <div style={{ padding: isMobile ? '14px 16px 12px' : '24px 28px 28px' }}>
           {/* 標題 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '28px' }}>{template?.icon || '📁'}</div>
+            <div style={{ fontSize: '30px' }}>{template?.icon || '📁'}</div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: C.ink }}>
+              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: C.ink }}>
                 {isEdit ? '編輯專案' : template?.name || '新專案'}
               </h2>
-              <p style={{ margin: 0, fontSize: '12px', color: C.ink4 }}>
+              <p style={{ margin: 0, fontSize: '14px', color: C.ink4 }}>
                 {isEdit ? '修改專案詳細資訊' : '設定你的新專案'}
               </p>
             </div>
-            <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: C.ink4 }}>✕</button>
+            <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: C.ink4 }}>✕</button>
           </div>
 
           <form onSubmit={handleSubmit}>
             {/* 專案名稱（大輸入框）*/}
             <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
                 專案名稱 *
               </label>
               <input
                 value={form.name} onChange={e => set('name', e.target.value)}
                 placeholder="例如：電商平台 2.0 重構" autoFocus
-                style={{ ...inputSt, fontSize: '16px', padding: '10px 14px', fontWeight: '600' }}
+                style={{ ...inputSt, fontSize: '17px', padding: '10px 14px', fontWeight: '600' }}
               />
             </div>
 
             {/* 顏色選擇器 */}
             <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 專案顏色
               </label>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -360,7 +362,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
 
             {/* 描述 */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
                 目標說明
               </label>
               <textarea
@@ -371,16 +373,16 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
             </div>
 
             {/* 2欄：負責人 + 狀態 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>負責人</label>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>負責人</label>
                 <select value={form.ownerId} onChange={e => set('ownerId', e.target.value)} style={inputSt}>
                   <option value="">— 未指派 —</option>
                   {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>狀態</label>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>狀態</label>
                 <select value={form.status} onChange={e => set('status', e.target.value)} style={inputSt}>
                   {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
@@ -388,32 +390,32 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
             </div>
 
             {/* 2欄：日期 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>開始日期</label>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>開始日期</label>
                 <input type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)} style={inputSt} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>截止日期</label>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>截止日期</label>
                 <input type="date" value={form.endDate} onChange={e => set('endDate', e.target.value)} style={inputSt} />
               </div>
             </div>
 
             {/* 預算 */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>預算（元）</label>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>預算（元）</label>
               <input type="number" value={form.budget} onChange={e => set('budget', e.target.value)} placeholder="例如：1,500,000" style={inputSt} />
             </div>
 
             {/* 範本分節預覽 */}
             {template?.sections?.length > 0 && !isEdit && (
               <div style={{ background: `${pal.hex}0D`, border: `1px solid ${pal.hex}30`, borderRadius: '10px', padding: '12px 14px', marginBottom: '18px' }}>
-                <div style={{ fontSize: '11.5px', fontWeight: '700', color: pal.hex, marginBottom: '8px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: pal.hex, marginBottom: '8px' }}>
                   📋 範本將自動建立以下分節
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                   {template.sections.map((s, i) => (
-                    <span key={i} style={{ fontSize: '11px', background: pal.light, color: pal.hex, borderRadius: '5px', padding: '3px 8px', fontWeight: '500' }}>
+                    <span key={i} style={{ fontSize: '13px', background: pal.light, color: pal.hex, borderRadius: '5px', padding: '3px 8px', fontWeight: '500' }}>
                       {i + 1}. {s}
                     </span>
                   ))}
@@ -421,7 +423,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               </div>
             )}
 
-            {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>⚠️ {error}</div>}
+            {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', marginBottom: '14px' }}>⚠️ {error}</div>}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button type="button" onClick={onClose} style={btnO}>取消</button>
@@ -455,17 +457,17 @@ function DeleteModal({ project, onClose, onDeleted, authFetch }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: C.white, borderRadius: '16px', padding: '32px', width: '420px', maxWidth: '92vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
-        <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.dangerSoft, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🗑️</div>
-        <h2 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: '700', color: C.ink }}>確認刪除專案？</h2>
-        <p style={{ margin: '0 0 12px', fontSize: '13px', color: C.ink3 }}>
+        <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.dangerSoft, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🗑️</div>
+        <h2 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: C.ink }}>確認刪除專案？</h2>
+        <p style={{ margin: '0 0 12px', fontSize: '15px', color: C.ink3 }}>
           「<strong>{project.name}</strong>」將被封存（軟刪除，可復原）
         </p>
         {project.taskTotal > 0 && (
-          <div style={{ background: C.warningSoft, border: '1px solid #FDE68A', borderRadius: '8px', padding: '9px 12px', fontSize: '12.5px', color: '#A16207', marginBottom: '14px', textAlign: 'left' }}>
+          <div style={{ background: C.warningSoft, border: '1px solid #FDE68A', borderRadius: '8px', padding: '9px 12px', fontSize: '14px', color: '#A16207', marginBottom: '14px', textAlign: 'left' }}>
             ⚠️ 此專案含 <strong>{project.taskTotal}</strong> 個任務，將一併封存。
           </div>
         )}
-        {err && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '9px', fontSize: '13px', marginBottom: '12px' }}>❌ {err}</div>}
+        {err && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '9px', fontSize: '15px', marginBottom: '12px' }}>❌ {err}</div>}
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
           <button onClick={onClose} style={btnO} disabled={del}>取消</button>
           <button onClick={go} disabled={del} style={{ ...btnD, opacity: del ? 0.6 : 1 }}>{del ? '刪除中…' : '確認刪除'}</button>
@@ -481,6 +483,7 @@ function DeleteModal({ project, onClose, onDeleted, authFetch }) {
 
 /** 單行元件 — 各行獨立管理 hover 狀態，避免在 map 中使用 hooks */
 function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
+  const isMobile = useIsMobile();
   const [hov, setHov] = useState(false);
   const pal = getProjectColor(p.id);
   const dl  = daysLeft(p.endDate);
@@ -490,7 +493,7 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
     <div
       onMouseOver={() => setHov(true)} onMouseOut={() => setHov(false)}
       style={{
-        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
+        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
         padding: '9px 18px', borderBottom: isLast ? 'none' : `1px solid ${C.lineL}`,
         background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
         alignItems: 'center',
@@ -501,45 +504,46 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       <HealthDot project={p} />
       {/* 名稱 */}
       <div onClick={() => onOpen(p)} style={{ cursor: 'pointer' }}>
-        <div style={{ fontSize: '13.5px', fontWeight: '600', color: C.ink }}>{p.name}</div>
+        <div style={{ fontSize: '15px', fontWeight: '600', color: C.ink }}>{p.name}</div>
         {p.description && (
-          <div style={{ fontSize: '11.5px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
+          <div style={{ fontSize: '13px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
         )}
       </div>
       {/* 負責人 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <Avatar name={p.owner?.name} size={22} color={pal.hex} />
-        <span style={{ fontSize: '12px', color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>{p.owner?.name || '—'}</span>
+        <span style={{ fontSize: '14px', color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>{p.owner?.name || '—'}</span>
       </div>
       {/* 狀態 */}
-      <span style={{ fontSize: '10.5px', fontWeight: '600', color: st.color, background: st.bg, borderRadius: '99px', padding: '3px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{st.label}</span>
+      <span style={{ fontSize: '12px', fontWeight: '600', color: st.color, background: st.bg, borderRadius: '99px', padding: '3px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{st.label}</span>
       {/* 進度 */}
       <ProgressRing pct={p.completion || 0} size={34} stroke={3} colorHex={pal.hex} />
       {/* 截止日 */}
-      <div style={{ fontSize: '12px', color: dlC, fontWeight: dl !== null && dl <= 7 ? '600' : '400', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: '14px', color: dlC, fontWeight: dl !== null && dl <= 7 ? '600' : '400', whiteSpace: 'nowrap' }}>
         {dl === null ? '—' : dl < 0 ? `逾期${Math.abs(dl)}天` : dl === 0 ? '今天' : fmtDate(p.endDate)}
       </div>
       {/* 任務數 */}
-      <div style={{ fontSize: '12px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
+      <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
       {/* 操作 */}
       <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-        <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-        <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
+        <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
+        <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
       </div>
     </div>
   );
 }
 
 function ListView({ projects, onOpen, onEdit, onDelete }) {
+  const isMobile = useIsMobile();
   return (
     <div style={{ background: C.surface }}>
       <div style={{
-        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px',
+        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
         padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
         position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
       }}>
         {['', '', '專案名稱', '負責人', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
-          <div key={i} style={{ fontSize: '10.5px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+          <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
         ))}
       </div>
       {projects.map((p, i) => (
@@ -567,8 +571,8 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
               background: st.colBg, borderRadius: '8px',
             }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: st.dot }} />
-              <span style={{ fontSize: '12.5px', fontWeight: '700', color: st.color }}>{st.label}</span>
-              <span style={{ marginLeft: 'auto', fontSize: '11px', background: C.surface, color: st.color, borderRadius: '99px', padding: '1px 8px', fontWeight: '600' }}>
+              <span style={{ fontSize: '14px', fontWeight: '700', color: st.color }}>{st.label}</span>
+              <span style={{ marginLeft: 'auto', fontSize: '13px', background: C.surface, color: st.color, borderRadius: '99px', padding: '1px 8px', fontWeight: '600' }}>
                 {col.length}
               </span>
             </div>
@@ -585,15 +589,15 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                     onMouseOver={e => e.currentTarget.style.boxShadow = `0 4px 14px rgba(0,0,0,0.1)`}
                     onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}
                   >
-                    <div style={{ fontSize: '13px', fontWeight: '600', color: C.ink, marginBottom: '8px', lineHeight: '1.3' }}>{p.name}</div>
+                    <div style={{ fontSize: '15px', fontWeight: '600', color: C.ink, marginBottom: '8px', lineHeight: '1.3' }}>{p.name}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '8px' }}>
                       <ProgressRing pct={p.completion || 0} size={30} stroke={3} colorHex={pal.hex} />
-                      <span style={{ fontSize: '11.5px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0} 任務</span>
+                      <span style={{ fontSize: '13px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0} 任務</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Avatar name={p.owner?.name} size={22} color={pal.hex} />
                       {dl !== null && (
-                        <span style={{ fontSize: '11px', color: dlC, fontWeight: dl <= 7 ? '600' : '400' }}>
+                        <span style={{ fontSize: '13px', color: dlC, fontWeight: dl <= 7 ? '600' : '400' }}>
                           {dl < 0 ? `逾期${Math.abs(dl)}d` : dl === 0 ? '今天截止' : `${dl}天`}
                         </span>
                       )}
@@ -601,14 +605,14 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                     {/* 操作按鈕（懸停時） */}
                     <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
                       onClick={e => e.stopPropagation()}>
-                      <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
+                      <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
+                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
                     </div>
                   </div>
                 );
               })}
               {col.length === 0 && (
-                <div style={{ border: `2px dashed ${C.line}`, borderRadius: '8px', padding: '20px', textAlign: 'center', color: C.ink4, fontSize: '12px' }}>
+                <div style={{ border: `2px dashed ${C.line}`, borderRadius: '8px', padding: '20px', textAlign: 'center', color: C.ink4, fontSize: '14px' }}>
                   無專案
                 </div>
               )}
@@ -654,12 +658,12 @@ function CalendarView({ projects }) {
     <div style={{ padding: '20px 24px' }}>
       {/* 月曆導覽 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-        <button onClick={prev} style={{ ...btnO, padding: '6px 12px', fontSize: '12px' }}>‹ 上月</button>
-        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: C.ink }}>
+        <button onClick={prev} style={{ ...btnO, padding: '6px 12px', fontSize: '14px' }}>‹ 上月</button>
+        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: C.ink }}>
           {year} 年 {month + 1} 月
         </h3>
-        <button onClick={next} style={{ ...btnO, padding: '6px 12px', fontSize: '12px' }}>下月 ›</button>
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: C.ink4 }}>
+        <button onClick={next} style={{ ...btnO, padding: '6px 12px', fontSize: '14px' }}>下月 ›</button>
+        <span style={{ marginLeft: 'auto', fontSize: '14px', color: C.ink4 }}>
           本月截止：{Object.values(projectsByDay).flat().length} 個專案
         </span>
       </div>
@@ -667,7 +671,7 @@ function CalendarView({ projects }) {
       {/* 星期標題 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
         {WDAYS.map((w, i) => (
-          <div key={w} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: i === 0 || i === 6 ? '#DC2626' : C.ink4, padding: '4px 0' }}>{w}</div>
+          <div key={w} style={{ textAlign: 'center', fontSize: '13px', fontWeight: '700', color: i === 0 || i === 6 ? '#DC2626' : C.ink4, padding: '4px 0' }}>{w}</div>
         ))}
       </div>
 
@@ -686,7 +690,7 @@ function CalendarView({ projects }) {
               {d && (
                 <>
                   <div style={{
-                    fontSize: '12px', fontWeight: isToday ? '800' : '500',
+                    fontSize: '14px', fontWeight: isToday ? '800' : '500',
                     color: isToday ? C.brand : ci % 7 === 0 || ci % 7 === 6 ? '#DC2626' : C.ink,
                     marginBottom: '4px',
                     width: '20px', height: '20px', borderRadius: '50%',
@@ -697,7 +701,7 @@ function CalendarView({ projects }) {
                     const pal = getProjectColor(p.id);
                     return (
                       <div key={p.id} style={{
-                        fontSize: '10px', background: pal.hex, color: 'white',
+                        fontSize: '12px', background: pal.hex, color: 'white',
                         borderRadius: '4px', padding: '2px 5px', marginBottom: '2px',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         fontWeight: '500',
@@ -705,7 +709,7 @@ function CalendarView({ projects }) {
                     );
                   })}
                   {dayProjects.length > 2 && (
-                    <div style={{ fontSize: '10px', color: C.ink4 }}>+{dayProjects.length - 2} 個</div>
+                    <div style={{ fontSize: '12px', color: C.ink4 }}>+{dayProjects.length - 2} 個</div>
                   )}
                 </>
               )}
@@ -721,6 +725,7 @@ function CalendarView({ projects }) {
 // 主元件：ProjectsPage
 // ══════════════════════════════════════════════════════════════
 export default function ProjectsPage() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const COMPANY_ID = user?.companyId;
 
@@ -737,6 +742,13 @@ export default function ProjectsPage() {
   const [selectedTpl,   setSelectedTpl]   = useState(null);   // 選定範本後進入 form
   const [editProject,   setEditProject]   = useState(null);
   const [deleteProject, setDeleteProject] = useState(null);
+  // 封存區
+  const [showArchived,    setShowArchived]    = useState(false);
+  const [archivedProjects,setArchivedProjects]= useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [restoringId,     setRestoringId]     = useState(null);
+  const [permanentDelete,  setPermanentDelete] = useState(null); // 確認硬刪除的專案
+  const [hardDeleting,     setHardDeleting]    = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
 
@@ -754,11 +766,48 @@ export default function ProjectsPage() {
     finally { setLoading(false); }
   }, []);
 
+  const loadArchived = useCallback(async () => {
+    setLoadingArchived(true);
+    try {
+      const res = await authFetch(`${API}/api/projects?companyId=${COMPANY_ID}&onlyDeleted=true`);
+      const json = await res.json();
+      setArchivedProjects(json.data || []);
+    } catch { setArchivedProjects([]); }
+    finally { setLoadingArchived(false); }
+  }, []);
+
+  const restoreProject = async (id) => {
+    setRestoringId(id);
+    try {
+      const res = await authFetch(`${API}/api/projects/${id}/restore`, { method: 'PATCH' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '還原失敗');
+      setArchivedProjects(prev => prev.filter(p => p.id !== id));
+      load(); // 重新載入主列表
+      showToast('✅ 專案已還原');
+    } catch (e) { showToast(`❌ ${e.message}`); }
+    finally { setRestoringId(null); }
+  };
+
+  const hardDeleteProject = async (id) => {
+    setHardDeleting(true);
+    try {
+      const res = await authFetch(`${API}/api/projects/${id}/permanent`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '永久刪除失敗');
+      setArchivedProjects(prev => prev.filter(p => p.id !== id));
+      setPermanentDelete(null);
+      showToast('🗑️ 專案已永久刪除');
+    } catch (e) { showToast(`❌ ${e.message}`); }
+    finally { setHardDeleting(false); }
+  };
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (showArchived) loadArchived(); }, [showArchived, loadArchived]);
 
   const onCreated  = (saved) => { setSelectedTpl(null); load(); showToast('✅ 專案已建立'); };
   const onEdited   = (upd)   => { setEditProject(null); setProjects(prev => prev.map(p => p.id !== upd.id ? p : { ...p, ...upd })); showToast('✅ 已更新'); };
-  const onDeleted  = (id)    => { setDeleteProject(null); setProjects(prev => prev.filter(p => p.id !== id)); showToast('🗑️ 已刪除'); };
+  const onDeleted  = (id)    => { setDeleteProject(null); setProjects(prev => prev.filter(p => p.id !== id)); if (showArchived) loadArchived(); showToast('🗑️ 已封存'); };
 
   // 從工作流程圖跳轉過來時，自動開啟指定專案
   useEffect(() => {
@@ -810,7 +859,7 @@ export default function ProjectsPage() {
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 9999, background: '#1E293B', color: 'white', padding: '12px 20px', borderRadius: '10px', fontSize: '13.5px', fontWeight: '500', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', animation: 'fadeIn 0.2s ease' }}>
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 9999, background: '#1E293B', color: 'white', padding: '12px 20px', borderRadius: '10px', fontSize: '15px', fontWeight: '500', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', animation: 'fadeIn 0.2s ease' }}>
           {toast}
         </div>
       )}
@@ -820,19 +869,34 @@ export default function ProjectsPage() {
         {/* 標題行 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: C.ink }}>專案管理</h1>
-            <p style={{ margin: '3px 0 0', fontSize: '12px', color: C.ink4 }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: C.ink }}>專案管理</h1>
+            <p style={{ margin: '3px 0 0', fontSize: '14px', color: C.ink4 }}>
               How Asana Works · {stats.total} 個專案
             </p>
           </div>
-          {/* 新增按鈕 → 開範本選擇器 */}
-          <button onClick={() => setShowTplPicker(true)} style={btnP}>
-            ＋ 新增專案
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* 封存區切換 */}
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              style={{
+                ...btnO,
+                background: showArchived ? 'var(--xc-warning-soft)' : C.white,
+                color: showArchived ? '#A16207' : C.ink2,
+                border: showArchived ? '1px solid #FDE68A' : `1px solid ${C.line}`,
+                display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              🗄️ 封存區{showArchived ? '' : ''}
+            </button>
+            {/* 新增按鈕 → 開範本選擇器 */}
+            <button onClick={() => setShowTplPicker(true)} style={btnP}>
+              ＋ 新增專案
+            </button>
+          </div>
         </div>
 
         {/* KPI 統計列 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
           {[
             { label: '全部專案', value: stats.total,     bg: C.surfaceMuted, vc: C.ink2,    dot: C.ink3 },
             { label: '進行中',   value: stats.active,    bg: C.successSoft,  vc: '#15803D', dot: '#16A34A' },
@@ -842,8 +906,8 @@ export default function ProjectsPage() {
             <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: '21px', fontWeight: '800', color: s.vc, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: '10.5px', color: C.ink4, marginTop: '2px' }}>{s.label}</div>
+                <div style={{ fontSize: '23px', fontWeight: '800', color: s.vc, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '12px', color: C.ink4, marginTop: '2px' }}>{s.label}</div>
               </div>
             </div>
           ))}
@@ -858,11 +922,11 @@ export default function ProjectsPage() {
                 color: filter === f.key ? 'var(--xc-bg)' : C.ink2,
                 border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
                 borderRadius: '99px', padding: '5px 13px',
-                fontSize: '12.5px', fontWeight: '500', cursor: 'pointer',
+                fontSize: '14px', fontWeight: '500', cursor: 'pointer',
                 transition: 'all 0.15s', fontFamily: 'inherit',
               }}>
                 {f.label}
-                <span style={{ marginLeft: '5px', fontSize: '10.5px', background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.lineL, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: '99px', padding: '1px 6px' }}>
+                <span style={{ marginLeft: '5px', fontSize: '12px', background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.lineL, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: '99px', padding: '1px 6px' }}>
                   {f.count}
                 </span>
               </button>
@@ -875,7 +939,7 @@ export default function ProjectsPage() {
                 padding: '5px 11px', borderRadius: '6px', border: 'none',
                 background: view === v.key ? C.surface : 'transparent',
                 color: view === v.key ? C.ink : C.ink4, cursor: 'pointer',
-                fontSize: '14px',
+                fontSize: '16px',
                 boxShadow: view === v.key ? C.shadow : 'none',
                 transition: 'all 0.15s', fontFamily: 'inherit',
               }}>{v.icon}</button>
@@ -883,6 +947,70 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── 封存區 ── */}
+      {showArchived && (
+        <div style={{ background: 'var(--xc-warning-soft)', borderBottom: `1px solid #FDE68A`, flexShrink: 0 }}>
+          <div style={{ padding: isMobile ? '12px 16px' : '14px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: archivedProjects.length > 0 ? '12px' : '0' }}>
+              <span style={{ fontSize: '18px' }}>🗄️</span>
+              <span style={{ fontSize: '15px', fontWeight: '700', color: '#92400E' }}>封存區</span>
+              <span style={{ fontSize: '13px', color: '#A16207' }}>（已封存 {archivedProjects.length} 個專案，可隨時還原）</span>
+              <button onClick={() => setShowArchived(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#A16207' }}>✕</button>
+            </div>
+            {loadingArchived ? (
+              <div style={{ padding: '16px 0', textAlign: 'center', color: '#A16207', fontSize: '14px' }}>載入中…</div>
+            ) : archivedProjects.length === 0 ? (
+              <div style={{ padding: '8px 0 4px', textAlign: 'center', color: '#A16207', fontSize: '14px' }}>目前沒有已封存的專案</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {archivedProjects.map(p => {
+                  const pal = getProjectColor(p.id);
+                  return (
+                    <div key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      background: 'var(--xc-surface)', borderRadius: '10px',
+                      padding: '10px 16px', border: '1px solid var(--xc-border)',
+                    }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: pal.hex, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: '600', color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: '12px', color: C.ink4, marginTop: '2px' }}>
+                          封存於 {p.deletedAt ? new Date(p.deletedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
+                          {p.taskTotal > 0 && ` · ${p.taskTotal} 個任務`}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => restoreProject(p.id)}
+                        disabled={restoringId === p.id}
+                        style={{
+                          background: '#16A34A', color: 'white', border: 'none',
+                          borderRadius: '8px', padding: '6px 16px', fontSize: '14px',
+                          fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+                          opacity: restoringId === p.id ? 0.6 : 1,
+                        }}
+                      >
+                        {restoringId === p.id ? '還原中…' : '↩ 還原'}
+                      </button>
+                      <button
+                        onClick={() => setPermanentDelete(p)}
+                        style={{
+                          background: 'none', color: '#DC2626', border: '1px solid #FECACA',
+                          borderRadius: '8px', padding: '6px 14px', fontSize: '14px',
+                          fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                        title="永久刪除（不可復原）"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── 內容區 ── */}
       <div style={{ flex: 1, overflowY: 'auto', background: view === 'board' || view === 'calendar' ? C.bg : C.surface }}>
@@ -893,20 +1021,20 @@ export default function ProjectsPage() {
           </div>
         ) : error ? (
           <div style={{ padding: '80px', textAlign: 'center' }}>
-            <div style={{ fontSize: '36px', marginBottom: '12px' }}>😢</div>
+            <div style={{ fontSize: '38px', marginBottom: '12px' }}>😢</div>
             <div style={{ color: '#DC2626', fontWeight: '700', marginBottom: '8px' }}>載入失敗</div>
-            <div style={{ color: C.ink4, fontSize: '13px', marginBottom: '16px' }}>{error}</div>
+            <div style={{ color: C.ink4, fontSize: '15px', marginBottom: '16px' }}>{error}</div>
             <button onClick={load} style={btnP}>重試</button>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: '80px', textAlign: 'center' }}>
-            <div style={{ fontSize: '48px', marginBottom: '14px' }}>📭</div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: C.ink, marginBottom: '8px' }}>
+            <div style={{ fontSize: '50px', marginBottom: '14px' }}>📭</div>
+            <div style={{ fontSize: '17px', fontWeight: '700', color: C.ink, marginBottom: '8px' }}>
               {filter === 'all' ? '還沒有任何專案' : '沒有符合條件的專案'}
             </div>
             {filter === 'all' && (
               <>
-                <div style={{ fontSize: '13px', color: C.ink4, marginBottom: '18px' }}>
+                <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
                   選擇範本或從空白開始，建立你的第一個專案
                 </div>
                 <button onClick={() => setShowTplPicker(true)} style={btnP}>🚀 選擇範本</button>
@@ -939,6 +1067,33 @@ export default function ProjectsPage() {
       )}
       {deleteProject && (
         <DeleteModal project={deleteProject} onClose={() => setDeleteProject(null)} onDeleted={onDeleted} authFetch={authFetch} />
+      )}
+
+      {/* 永久刪除確認 */}
+      {permanentDelete && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget && !hardDeleting) setPermanentDelete(null); }}>
+          <div style={{ background: C.white, borderRadius: '16px', padding: '32px', width: '440px', maxWidth: '92vw', textAlign: 'center', boxShadow: '0 24px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ width: 54, height: 54, borderRadius: '50%', background: C.dangerSoft, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>⚠️</div>
+            <h2 style={{ margin: '0 0 6px', fontSize: '17px', fontWeight: '700', color: C.ink }}>確認永久刪除？</h2>
+            <p style={{ margin: '0 0 12px', fontSize: '15px', color: C.ink3 }}>
+              「<strong>{permanentDelete.name}</strong>」將被<span style={{ color: '#DC2626', fontWeight: 700 }}>永久刪除</span>，包含所有任務、留言、時間記錄等資料。
+            </p>
+            <div style={{ background: C.dangerSoft, border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: '#B91C1C', marginBottom: '16px', textAlign: 'left' }}>
+              ⚠️ <strong>此操作不可復原！</strong>刪除後無法恢復任何資料。
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => setPermanentDelete(null)} disabled={hardDeleting} style={btnO}>取消</button>
+              <button
+                onClick={() => hardDeleteProject(permanentDelete.id)}
+                disabled={hardDeleting}
+                style={{ ...btnD, opacity: hardDeleting ? 0.6 : 1 }}
+              >
+                {hardDeleting ? '刪除中…' : '☠️ 永久刪除'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`

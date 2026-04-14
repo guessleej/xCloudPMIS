@@ -33,7 +33,7 @@ const SUPPORTED_TOP_LEVEL_FIELDS = new Set([
 ]);
 
 const SUPPORTED_NESTED_FIELDS = {
-  assignees: new Set(['gid', 'id', 'name', 'email', 'avatar_url', 'is_primary']),
+  assignees: new Set(['gid', 'id', 'name', 'email', 'is_primary']),
   memberships: new Set(['gid', 'project', 'project.gid', 'project.name', 'is_primary', 'position']),
   projects: new Set(['gid', 'name']),
   custom_fields: new Set([
@@ -48,7 +48,7 @@ const SUPPORTED_NESTED_FIELDS = {
     'is_value_set',
     'enum_options',
   ]),
-  created_by: new Set(['gid', 'id', 'name', 'email', 'avatar_url']),
+  created_by: new Set(['gid', 'id', 'name', 'email']),
 };
 
 class NotFoundError extends Error {
@@ -257,7 +257,6 @@ class TaskService {
           id: true,
           name: true,
           email: true,
-          avatarUrl: true,
         },
       };
     }
@@ -268,7 +267,6 @@ class TaskService {
           id: true,
           name: true,
           email: true,
-          avatarUrl: true,
         },
       };
       select.taskAssigneeLinks = {
@@ -283,7 +281,6 @@ class TaskService {
               id: true,
               name: true,
               email: true,
-              avatarUrl: true,
             },
           },
         },
@@ -337,7 +334,6 @@ class TaskService {
               id: true,
               name: true,
               email: true,
-              avatarUrl: true,
             },
           },
           optionValue: {
@@ -392,7 +388,6 @@ class TaskService {
           id: task.createdBy?.id ?? null,
           name: task.createdBy?.name ?? null,
           email: task.createdBy?.email ?? null,
-          avatar_url: task.createdBy?.avatarUrl ?? null,
         },
         this.getNestedFields(fieldTree, 'created_by')
       );
@@ -406,7 +401,6 @@ class TaskService {
             id: assignment.user.id,
             name: assignment.user.name,
             email: assignment.user.email,
-            avatar_url: assignment.user.avatarUrl,
             is_primary: assignment.isPrimary,
           },
           this.getNestedFields(fieldTree, 'assignees')
@@ -421,7 +415,6 @@ class TaskService {
                 id: task.assignee.id,
                 name: task.assignee.name,
                 email: task.assignee.email,
-                avatar_url: task.assignee.avatarUrl,
                 is_primary: true,
               },
               this.getNestedFields(fieldTree, 'assignees')
@@ -593,7 +586,6 @@ class TaskService {
               gid: String(value.userValue.id),
               name: value.userValue.name,
               email: value.userValue.email,
-              avatar_url: value.userValue.avatarUrl ?? null,
             }
           : null;
       default:

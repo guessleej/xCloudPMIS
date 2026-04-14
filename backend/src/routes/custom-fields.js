@@ -28,31 +28,12 @@ function formatField(f) {
   };
 }
 
-async function seedIfEmpty(companyId) {
-  const count = await prisma.customFieldDefinition.count({ where: { companyId } });
-  if (count > 0) return;
-
-  const seedData = [
-    { companyId, name: '客戶名稱',     fieldType: 'text',          entityType: 'task',    isRequired: true,  createdAt: new Date('2026-01-15T00:00:00.000Z') },
-    { companyId, name: '預算金額',     fieldType: 'currency',      entityType: 'project', isRequired: false, createdAt: new Date('2026-01-20T00:00:00.000Z') },
-    { companyId, name: '合約截止日',   fieldType: 'date',          entityType: 'project', isRequired: true,  createdAt: new Date('2026-01-25T00:00:00.000Z') },
-    { companyId, name: '任務分類',     fieldType: 'single_select', entityType: 'task',    isRequired: false, createdAt: new Date('2026-02-01T00:00:00.000Z') },
-    { companyId, name: '需要上線通知', fieldType: 'checkbox',      entityType: 'task',    isRequired: false, createdAt: new Date('2026-02-10T00:00:00.000Z') },
-    { companyId, name: '外部審核人',   fieldType: 'people',        entityType: 'project', isRequired: false, createdAt: new Date('2026-02-18T00:00:00.000Z') },
-    { companyId, name: '風險等級',     fieldType: 'single_select', entityType: 'task',    isRequired: true,  createdAt: new Date('2026-03-01T00:00:00.000Z') },
-    { companyId, name: '驗收日期',     fieldType: 'date',          entityType: 'task',    isRequired: false, createdAt: new Date('2026-03-10T00:00:00.000Z') },
-  ];
-
-  await prisma.customFieldDefinition.createMany({ data: seedData });
-}
-
 // GET /api/custom-fields?companyId=N
 router.get('/', async (req, res) => {
   const companyId = parseInt(req.query.companyId);
   if (!companyId) return err(res, 'companyId 為必填', 400);
 
   try {
-    await seedIfEmpty(companyId);
     const fields = await prisma.customFieldDefinition.findMany({
       where:   { companyId, isArchived: false },
       include: { options: { orderBy: { sortOrder: 'asc' } } },
@@ -75,6 +56,9 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    const isSelect = fieldType === 'single_select' || fieldType === 'multi_select';
+    const optionsInput = isSelect && Array.isArray(req.body.options) ? req.body.options : [];
+
     const field = await prisma.customFieldDefinition.create({
       data: {
         companyId:   parseInt(companyId),
@@ -84,8 +68,17 @@ router.post('/', async (req, res) => {
         isRequired:  isRequired  || false,
         description: description || '',
         isArchived:  false,
+        ...(optionsInput.length > 0 ? {
+          options: {
+            create: optionsInput.map((o, i) => ({
+              name:      o.name,
+              color:     o.color || null,
+              sortOrder: i,
+            })),
+          },
+        } : {}),
       },
-      include: { options: true },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
     });
     return ok(res, formatField(field));
   } catch (e) {
@@ -107,10 +100,36 @@ router.patch('/:id', async (req, res) => {
     if (req.body.isRequired  !== undefined) data.isRequired  = req.body.isRequired;
     if (req.body.description !== undefined) data.description = req.body.description;
 
+    // 同步選項（如果有傳入 options 且欄位類型為 select）
+    if (Array.isArray(req.body.options)) {
+      const incoming = req.body.options.filter(o => o.name && o.name.trim());
+      const existing = await prisma.customFieldOption.findMany({ where: { definitionId: id }, orderBy: { sortOrder: 'asc' } });
+      const incomingIds = incoming.filter(o => o.id).map(o => o.id);
+      // 刪除不在新列表中的舊選項
+      const toDelete = existing.filter(e => !incomingIds.includes(e.id));
+      for (const d of toDelete) {
+        await prisma.customFieldOption.delete({ where: { id: d.id } }).catch(() => {});
+      }
+      // 更新已有的 + 建立新的
+      for (let i = 0; i < incoming.length; i++) {
+        const o = incoming[i];
+        if (o.id && existing.find(e => e.id === o.id)) {
+          await prisma.customFieldOption.update({
+            where: { id: o.id },
+            data:  { name: o.name.trim(), color: o.color || null, sortOrder: i },
+          });
+        } else {
+          await prisma.customFieldOption.create({
+            data: { definitionId: id, name: o.name.trim(), color: o.color || null, sortOrder: i },
+          });
+        }
+      }
+    }
+
     const field = await prisma.customFieldDefinition.update({
       where:   { id },
       data,
-      include: { options: true },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
     });
     return ok(res, formatField(field));
   } catch (e) {

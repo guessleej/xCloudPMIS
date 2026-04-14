@@ -64,7 +64,6 @@ const USER_SELECT = {
   name:       true,
   email:      true,
   role:       true,
-  avatarUrl:  true,
   isActive:   true,
   department: true,
   phone:      true,
@@ -316,7 +315,7 @@ router.put('/:id', async (req, res) => {
 
     const {
       name, email, role,
-      department, phone, jobTitle, joinedAt, avatarUrl,
+      department, phone, jobTitle, joinedAt,
     } = req.body;
 
     const updateData = {};
@@ -329,7 +328,6 @@ router.put('/:id', async (req, res) => {
     if (phone      !== undefined) updateData.phone      = phone      || null;
     if (jobTitle   !== undefined) updateData.jobTitle   = jobTitle   || null;
     if (joinedAt   !== undefined) updateData.joinedAt   = joinedAt ? new Date(joinedAt) : null;
-    if (avatarUrl  !== undefined) updateData.avatarUrl  = avatarUrl  || null;
 
     // Email 更新需確認不重複
     if (email !== undefined) {

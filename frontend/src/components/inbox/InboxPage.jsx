@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -25,8 +26,8 @@ const BRAND = {
   info:    'var(--xc-info)',
 };
 
-const btnPrimary = { padding: '7px 16px', borderRadius: 7, border: 'none', background: BRAND.crimson, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-const btnGhost   = { padding: '7px 16px', borderRadius: 7, border: `1px solid ${BRAND.silver}`, background: 'transparent', color: BRAND.carbon, fontSize: 13, cursor: 'pointer' };
+const btnPrimary = { padding: '7px 16px', borderRadius: 7, border: 'none', background: BRAND.crimson, color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+const btnGhost   = { padding: '7px 16px', borderRadius: 7, border: `1px solid ${BRAND.silver}`, background: 'transparent', color: BRAND.carbon, fontSize: 15, cursor: 'pointer' };
 
 // 類型色條對應（API type: task_assigned / mentioned / deadline_approaching / …）
 const TYPE_COLOR = {
@@ -80,6 +81,7 @@ const RESOURCE_LABEL = {
 };
 
 export default function InboxPage({ onNavigate }) {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
 
   const [items,       setItems]       = useState([]);
@@ -198,17 +200,17 @@ export default function InboxPage({ onNavigate }) {
   return (
     <div style={{ minHeight:'100vh', background:BRAND.paper, fontFamily:'inherit', display:'flex', flexDirection:'column' }}>
       {/* Hero */}
-      <div style={{ background:BRAND.heroBg, padding:'28px 32px 24px', color:'#fff', flexShrink:0 }}>
-        <div style={{ fontSize:11, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
+      <div style={{ background:BRAND.heroBg, padding: isMobile ? '14px 16px 12px' : '28px 32px 24px', color:'#fff', flexShrink:0 }}>
+        <div style={{ fontSize: 13, fontWeight:600, letterSpacing:'0.1em', opacity:0.6, textTransform:'uppercase', marginBottom:8 }}>
           inbox
         </div>
-        <h1 style={{ fontSize:26, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>收件匣</h1>
-        <p style={{ fontSize:13, opacity:0.7, margin:0 }}>任務指派通知、@提及與系統事件的統一收件中心</p>
-        <div style={{ display:'flex', gap:32, marginTop:20, alignItems:'flex-end' }}>
+        <h1 style={{ fontSize: 28, fontWeight:800, margin:'0 0 4px', letterSpacing:'-0.02em' }}>收件匣</h1>
+        <p style={{ fontSize: 15, opacity:0.7, margin:0 }}>任務指派通知、@提及與系統事件的統一收件中心</p>
+        <div style={{ display:'flex', gap: isMobile ? 16 : 32, marginTop: isMobile ? 14 : 20, alignItems:'flex-end', flexWrap:'wrap' }}>
           {kpis.map(k => (
             <div key={k.label}>
-              <div style={{ fontSize:24, fontWeight:800, lineHeight:1 }}>{k.value}</div>
-              <div style={{ fontSize:11, opacity:0.6, marginTop:3 }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight:800, lineHeight:1 }}>{k.value}</div>
+              <div style={{ fontSize: 13, opacity:0.6, marginTop:3 }}>{k.label}</div>
             </div>
           ))}
           <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
@@ -216,7 +218,7 @@ export default function InboxPage({ onNavigate }) {
               <button
                 onClick={deleteAll}
                 disabled={deletingAll}
-                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.12)', color:'#fff', fontSize:12, cursor: deletingAll ? 'not-allowed' : 'pointer', opacity: deletingAll ? 0.55 : 1 }}
+                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'rgba(255,255,255,0.12)', color:'#fff', fontSize: 14, cursor: deletingAll ? 'not-allowed' : 'pointer', opacity: deletingAll ? 0.55 : 1 }}
               >
                 {deletingAll ? '刪除中…' : '🗑 一鍵刪除全部'}
               </button>
@@ -224,7 +226,7 @@ export default function InboxPage({ onNavigate }) {
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'transparent', color:'#fff', fontSize:12, cursor:'pointer' }}
+                style={{ padding:'5px 12px', borderRadius:6, border:'1px solid rgba(255,255,255,0.4)', background:'transparent', color:'#fff', fontSize: 14, cursor:'pointer' }}
               >
                 全部標為已讀
               </button>
@@ -235,16 +237,16 @@ export default function InboxPage({ onNavigate }) {
 
       {/* Loading */}
       {loading && (
-        <div style={{ padding:'40px 32px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>載入中…</div>
+        <div style={{ padding:'40px 32px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>載入中…</div>
       )}
 
       {/* Two-column layout */}
       {!loading && (
-        <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+        <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', flex:1, overflow:'hidden' }}>
           {/* Left: notification list */}
-          <div style={{ width:320, flexShrink:0, borderRight:`1px solid ${BRAND.mist}`, overflowY:'auto', background:BRAND.white }}>
+          <div style={{ width: isMobile ? '100%' : 320, flexShrink:0, borderRight: isMobile ? 'none' : `1px solid ${BRAND.mist}`, borderBottom: isMobile ? `1px solid ${BRAND.mist}` : 'none', overflowY:'auto', background:BRAND.white, maxHeight: isMobile ? '50vh' : 'none' }}>
             {items.length === 0 && (
-              <div style={{ padding:'40px 20px', textAlign:'center', color:BRAND.muted, fontSize:13 }}>收件匣為空</div>
+              <div style={{ padding:'40px 20px', textAlign:'center', color:BRAND.muted, fontSize: 15 }}>收件匣為空</div>
             )}
             {items.map(msg => {
               const isSelected = selectedMsg?.id === msg.id;
@@ -272,18 +274,18 @@ export default function InboxPage({ onNavigate }) {
                   {/* Content */}
                   <div style={{ flex:1, padding:'12px 14px', minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
-                      <span style={{ fontSize:11, color:typeColor, fontWeight:600 }}>{TYPE_LABEL[msg.type] || msg.type}</span>
+                      <span style={{ fontSize: 13, color:typeColor, fontWeight:600 }}>{TYPE_LABEL[msg.type] || msg.type}</span>
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ fontSize:11, color:BRAND.muted, whiteSpace:'nowrap' }}>{timeStr}</span>
+                        <span style={{ fontSize: 13, color:BRAND.muted, whiteSpace:'nowrap' }}>{timeStr}</span>
                         {isUnread && (
                           <span style={{ width:7, height:7, borderRadius:'50%', background:'#3B82F6', display:'inline-block', flexShrink:0 }} />
                         )}
                       </div>
                     </div>
-                    <div style={{ fontSize:13, color:BRAND.ink, fontWeight: isUnread ? 600 : 400, lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <div style={{ fontSize: 15, color:BRAND.ink, fontWeight: isUnread ? 600 : 400, lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {msg.title}
                     </div>
-                    <div style={{ fontSize:11, color:BRAND.muted, marginTop:3 }}>
+                    <div style={{ fontSize: 13, color:BRAND.muted, marginTop:3 }}>
                       {msg.resourceType ? `${msg.resourceType} #${msg.resourceId}` : ''}
                     </div>
                   </div>
@@ -293,12 +295,12 @@ export default function InboxPage({ onNavigate }) {
           </div>
 
           {/* Right: detail pane */}
-          <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', background:BRAND.paper }}>
+          <div style={{ flex:1, overflowY:'auto', padding: isMobile ? '14px 16px' : '28px 32px', background:BRAND.paper }}>
             {!selectedMsg ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', minHeight:300 }}>
                 <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:14, color:BRAND.muted, marginBottom:6 }}>請從左側選取一則通知</div>
-                  <div style={{ fontSize:12, color:BRAND.silver }}>共 {items.length} 則通知，{unreadCount} 則未讀</div>
+                  <div style={{ fontSize: 16, color:BRAND.muted, marginBottom:6 }}>請從左側選取一則通知</div>
+                  <div style={{ fontSize: 14, color:BRAND.silver }}>共 {items.length} 則通知，{unreadCount} 則未讀</div>
                 </div>
               </div>
             ) : (
@@ -308,23 +310,23 @@ export default function InboxPage({ onNavigate }) {
                   <span style={{
                     display:'inline-block', padding:'3px 10px', borderRadius:4,
                     border:`1px solid ${TYPE_COLOR[selectedMsg.type] || BRAND.silver}`,
-                    fontSize:11, fontWeight:600, color:TYPE_COLOR[selectedMsg.type] || BRAND.silver,
+                    fontSize: 13, fontWeight:600, color:TYPE_COLOR[selectedMsg.type] || BRAND.silver,
                   }}>
                     {TYPE_LABEL[selectedMsg.type] || selectedMsg.type}
                   </span>
-                  <span style={{ fontSize:12, color:BRAND.muted }}>
+                  <span style={{ fontSize: 14, color:BRAND.muted }}>
                     {selectedMsg.createdAt ? new Date(selectedMsg.createdAt).toLocaleString('zh-TW', { timeZone:'Asia/Taipei' }) : ''}
                   </span>
                 </div>
 
                 {/* Title */}
-                <h2 style={{ fontSize:20, fontWeight:700, color:BRAND.ink, margin:'0 0 8px', lineHeight:1.3 }}>
+                <h2 style={{ fontSize: 22, fontWeight:700, color:BRAND.ink, margin:'0 0 8px', lineHeight:1.3 }}>
                   {selectedMsg.title}
                 </h2>
 
                 {/* Resource */}
                 {selectedMsg.resourceType && (
-                  <div style={{ fontSize:13, color:BRAND.muted, marginBottom:20 }}>
+                  <div style={{ fontSize: 15, color:BRAND.muted, marginBottom:20 }}>
                     關聯資源：<span style={{ color:BRAND.carbon, fontWeight:500 }}>
                       {selectedMsg.resourceType} #{selectedMsg.resourceId}
                     </span>
@@ -335,7 +337,7 @@ export default function InboxPage({ onNavigate }) {
                 <div style={{ borderTop:`1px solid ${BRAND.mist}`, marginBottom:20 }} />
 
                 {/* Message */}
-                <p style={{ fontSize:14, color:BRAND.ink, lineHeight:1.75, margin:'0 0 28px', whiteSpace:'pre-wrap' }}>
+                <p style={{ fontSize: 16, color:BRAND.ink, lineHeight:1.75, margin:'0 0 28px', whiteSpace:'pre-wrap' }}>
                   {selectedMsg.message || selectedMsg.detail || '（無詳細說明）'}
                 </p>
 

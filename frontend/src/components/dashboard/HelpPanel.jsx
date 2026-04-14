@@ -4,6 +4,7 @@
  * 資深系統架構師撰寫
  */
 import { useState, useMemo } from 'react';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 頁面對應說明索引 ──────────────────────────────────────
 const PAGE_MAP = {
@@ -18,14 +19,10 @@ const PAGE_MAP = {
   projects:        'projects',
   tasks:           'tasks',
   gantt:           'gantt',
-  sprint:          'sprint',
   automation:      'automation',
   forms:           'forms',
   'custom-fields': 'custom-fields',
-  workflow:        'workflow',
   timelog:         'timelog',
-  ai:              'ai',
-  mcp:             'mcp',
   settings:        'settings',
 };
 
@@ -616,49 +613,6 @@ const HELP_DATA = [
 
   // ══════════════════════════════════════════════════════
   {
-    id: 'sprint',
-    icon: '🏃',
-    title: '敏捷衝刺',
-    subtitle: 'Scrum Sprint 管理',
-    description: '敏捷衝刺頁面提供完整的 Scrum 框架支援，包含 Sprint 規劃、執行、回顧，以及 Burndown Chart 進度燃盡圖，讓敏捷團隊高效執行迭代開發。',
-    sections: [
-      {
-        title: 'Sprint 生命週期',
-        icon: '🔄',
-        items: [
-          { label: 'Sprint 規劃', desc: '建立新 Sprint 時設定名稱、開始日、結束日與 Sprint 目標。從 Backlog 將任務拖入 Sprint 即完成規劃。' },
-          { label: 'Sprint 執行', desc: '啟動 Sprint 後，看板視圖顯示 Sprint 中的所有任務，團隊每日更新任務狀態。' },
-          { label: 'Sprint 回顧', desc: 'Sprint 結束後系統自動彙整本輪完成率、未完成任務數量，供團隊進行回顧討論。' },
-          { label: 'Backlog', desc: '未分配到任何 Sprint 的任務存放在 Backlog，可依優先度排序後分批納入下個 Sprint。' },
-        ],
-      },
-      {
-        title: 'Burndown Chart',
-        icon: '📉',
-        items: [
-          { label: '燃盡圖說明', desc: 'X 軸為 Sprint 天數，Y 軸為剩餘任務量（工時或任務數）。理想線為直線斜降至 0，實際線顯示真實進度。' },
-          { label: '判讀方式', desc: '實際線高於理想線代表進度落後，需要加速；低於理想線代表超前，可適當納入更多任務。' },
-        ],
-      },
-      {
-        title: 'Sprint 操作',
-        icon: '🔧',
-        items: [
-          { label: '建立 Sprint', desc: '點擊「＋ 新增 Sprint」，設定時間範圍（通常 1~4 週）與 Sprint 目標描述。' },
-          { label: '啟動 Sprint', desc: '規劃完成後點擊「啟動 Sprint」，系統進入執行模式，看板開始追蹤每日進度。' },
-          { label: '完成 Sprint', desc: '時間到或提前完成後點擊「完成 Sprint」，未完成任務可選擇移至下個 Sprint 或回到 Backlog。' },
-        ],
-      },
-    ],
-    tips: [
-      'Sprint 長度建議固定為 2 週，讓團隊建立穩定節奏；過短的 Sprint 會造成規劃負擔，過長則失去敏捷意義。',
-      '每日站立會議（Daily Standup）對照 Burndown Chart，是識別阻塞最有效的方式，每次不超過 15 分鐘。',
-      'Backlog 精煉（Refinement）應在每個 Sprint 中間進行，確保下個 Sprint 的任務已就緒。',
-    ],
-  },
-
-  // ══════════════════════════════════════════════════════
-  {
     id: 'automation',
     icon: '⚡',
     title: '自動化規則',
@@ -799,47 +753,6 @@ const HELP_DATA = [
 
   // ══════════════════════════════════════════════════════
   {
-    id: 'workflow',
-    icon: '🔀',
-    title: '工作流程圖',
-    subtitle: '視覺化流程設計與管理',
-    description: '工作流程圖提供拖曳式的流程圖設計工具，讓你視覺化呈現業務流程、審批路徑與專案流程，並可與任務狀態連結實現流程自動化。',
-    sections: [
-      {
-        title: '流程圖設計',
-        icon: '✏️',
-        items: [
-          { label: '新增節點', desc: '從左側元件庫拖曳節點到畫布：開始/結束（圓形）、任務節點（矩形）、判斷節點（菱形）、通知節點（六角形）。' },
-          { label: '連接節點', desc: '滑鼠移至節點邊緣出現連接點，拖曳連接線到目標節點建立流向關係。' },
-          { label: '編輯節點', desc: '雙擊節點可編輯節點名稱；右鍵可開啟更多選項（刪除、複製、設定連結任務狀態）。' },
-          { label: '畫布操作', desc: '滾輪縮放、中鍵拖曳平移畫布；右下角有縮放比例控制器。' },
-        ],
-      },
-      {
-        title: '流程與任務連結',
-        icon: '🔗',
-        items: [
-          { label: '連結任務狀態', desc: '每個流程節點可對應一個任務狀態，當任務進入該狀態時，系統在流程圖中高亮顯示對應節點。' },
-          { label: '查看執行狀態', desc: '在「流程追蹤」模式下，可看到目前有哪些任務正在流程的哪個節點。' },
-        ],
-      },
-      {
-        title: '匯出與分享',
-        icon: '📤',
-        items: [
-          { label: '匯出圖片', desc: '點擊「匯出 PNG」可將目前畫布儲存為高解析度圖片，適合放入文件或簡報。' },
-          { label: '儲存流程', desc: '點擊「儲存」按鈕將流程圖儲存至系統，其他具權限的成員也能查看與編輯。' },
-        ],
-      },
-    ],
-    tips: [
-      '工作流程圖最適合在專案啟動前與團隊一起定義工作流程，確保所有人對流程的理解一致。',
-      '審批流程建議使用菱形判斷節點，分為「通過」與「不通過」兩個分支，模擬實際審批情境。',
-    ],
-  },
-
-  // ══════════════════════════════════════════════════════
-  {
     id: 'timelog',
     icon: '⏱️',
     title: '工時記錄',
@@ -876,98 +789,6 @@ const HELP_DATA = [
     tips: [
       '養成完成任務後立即記錄工時的習慣，比事後回填更準確；工時數據也會讓未來的估算更有依據。',
       '若團隊不需要精確計費，工時記錄最大的價值是識別「哪類任務比預期花更多時間」，用於改善估算能力。',
-    ],
-  },
-
-  // ══════════════════════════════════════════════════════
-  {
-    id: 'ai',
-    icon: '🤖',
-    title: 'AI 決策中心',
-    subtitle: 'AI 智能分析與決策輔助',
-    description: 'AI 決策中心整合大型語言模型，對你的專案資料進行深度分析，提供風險預測、資源建議與決策優化，讓管理決策更有數據支撐。',
-    sections: [
-      {
-        title: 'AI 分析功能',
-        icon: '🧠',
-        items: [
-          { label: '風險預測', desc: 'AI 分析所有進行中專案的進度、逾期趨勢與資源負載，預測哪些專案在未來 2 週有超時風險，並給出信心分數。' },
-          { label: '資源最佳化', desc: '根據成員工作負載與任務複雜度，AI 建議任務重新分配方案，使整體完成速度最佳化。' },
-          { label: '優先度建議', desc: 'AI 考量截止日、依賴關係與業務影響，對待辦任務重新排序，建議你今天應先處理哪些任務。' },
-          { label: '趨勢洞察', desc: '識別跨週期的模式，例如「週五提交任務通常延誤 2~3 天」，幫你識別系統性問題。' },
-        ],
-      },
-      {
-        title: 'AI 對話',
-        icon: '💬',
-        items: [
-          { label: '自然語言查詢', desc: '在對話框中用中文提問，例如「哪個專案最可能延誤？」或「本月誰的工時最高？」，AI 即時回答。' },
-          { label: '決策輔助', desc: '輸入你面臨的決策情境，例如「如果削減一個成員，哪個專案受影響最小？」，AI 提供分析。' },
-          { label: '報告生成', desc: '請 AI 幫你起草週報、月報或例外事項說明，節省撰寫時間。' },
-        ],
-      },
-      {
-        title: '設定與個人化',
-        icon: '⚙️',
-        items: [
-          { label: '分析週期', desc: '可設定 AI 自動分析的頻率（每日/每週），定期推送洞察至收件匣。' },
-          { label: '關注指標', desc: '設定你最關心的 KPI（如「逾期率」、「完成率」），AI 優先分析這些維度並提醒異常。' },
-        ],
-      },
-    ],
-    tips: [
-      'AI 建議是輔助工具而非最終決策，特別是人員調整相關的建議，需要結合實際情境判斷後再執行。',
-      '每週一使用 AI 決策中心查看「本週風險摘要」，只需 2 分鐘，卻能提前發現問題。',
-    ],
-  },
-
-  // ══════════════════════════════════════════════════════
-  {
-    id: 'mcp',
-    icon: '🔌',
-    title: 'MCP 控制台',
-    subtitle: 'Model Context Protocol 整合管理',
-    description: 'MCP 控制台讓你管理與外部 AI 工具（如 Claude、GPT、Cursor）的整合，透過 Model Context Protocol 讓 AI 助手直接讀取與操作你的專案資料。',
-    sections: [
-      {
-        title: 'MCP 整合說明',
-        icon: '🔌',
-        items: [
-          { label: '什麼是 MCP', desc: 'Model Context Protocol（MCP）是一個標準化協定，讓 AI 工具能安全地讀取外部資料來源，並執行預定義的操作。' },
-          { label: '支援的 AI 工具', desc: '目前支援 Claude（Anthropic）、Cursor、以及任何相容 MCP 規範的 AI 助手工具。' },
-          { label: '可存取的資料', desc: 'AI 透過 MCP 可查詢任務清單、專案狀態、成員工作負載、里程碑等資料，用於回答你的問題或自動化操作。' },
-        ],
-      },
-      {
-        title: '連線設定',
-        icon: '🔗',
-        items: [
-          { label: '生成 API Token', desc: '在 MCP 控制台點擊「生成 Token」，系統產生一組唯一的存取金鑰，有效期可設 7 天、30 天或永久。' },
-          { label: '設定 AI 工具', desc: '將生成的 Token 與 MCP 端點 URL 填入你使用的 AI 工具的 MCP 設定中，即可建立連線。' },
-          { label: 'Claude Code 設定', desc: '在 Claude Code 的 .claude/settings.json 加入 xCloudPMIS 的 MCP Server URL 與 Token，即可讓 Claude 直接操作你的任務。' },
-        ],
-      },
-      {
-        title: '權限管理',
-        icon: '🔒',
-        items: [
-          { label: '讀取權限', desc: '允許 AI 工具查詢資料但不能修改，適合分析與報告場景。' },
-          { label: '寫入權限', desc: '允許 AI 工具建立/修改任務，需謹慎授權。建議僅授權給你信任且熟悉的 AI 工具。' },
-          { label: '撤銷 Token', desc: '若懷疑 Token 外洩，立即在 MCP 控制台點擊「撤銷」，舊 Token 立即失效。' },
-        ],
-      },
-      {
-        title: '使用記錄',
-        icon: '📋',
-        items: [
-          { label: '存取日誌', desc: '控制台下方顯示最近 100 筆 MCP 存取記錄，包含時間、操作類型、來源工具與執行結果。' },
-          { label: '異常偵測', desc: '若短時間內有大量非預期的 API 呼叫，系統會發送警示通知至收件匣。' },
-        ],
-      },
-    ],
-    tips: [
-      '首次使用 MCP 整合建議先只開啟「讀取」權限，確認 AI 工具行為符合預期後，再考慮是否開啟寫入權限。',
-      'Token 應視為密碼等級的機密資訊，不應明文儲存於公開的程式碼倉庫中。',
     ],
   },
 
@@ -1093,17 +914,17 @@ export default function HelpPanel({ open, onClose, currentPage }) {
               width: 34, height: 34, borderRadius: 10,
               background: 'color-mix(in srgb, var(--xc-brand) 12%, var(--xc-surface))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16,
+              fontSize: 17,
             }}>📖</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--xc-text)' }}>使用說明</div>
-              <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginTop: 1 }}>xCloudPMIS 功能完整指南</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--xc-text)' }}>使用說明</div>
+              <div style={{ fontSize: 13, color: 'var(--xc-text-muted)', marginTop: 1 }}>xCloudPMIS 功能完整指南</div>
             </div>
           </div>
           <button onClick={onClose} style={{
             width: 30, height: 30, borderRadius: 8, border: 'none',
             background: 'var(--xc-surface-muted)', color: 'var(--xc-text-muted)',
-            cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>×</button>
         </div>
 
@@ -1118,7 +939,7 @@ export default function HelpPanel({ open, onClose, currentPage }) {
               padding: '8px 12px 8px 36px',
               border: '1px solid var(--xc-border)', borderRadius: 8,
               background: 'var(--xc-surface-soft)', color: 'var(--xc-text)',
-              fontSize: 13, outline: 'none',
+              fontSize: 15, outline: 'none',
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat', backgroundPosition: '11px center',
             }}
@@ -1150,14 +971,14 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                   transition: 'all 0.12s',
                 }}
               >
-                <span style={{ fontSize: 14, lineHeight: 1 }}>{page.icon}</span>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>{page.icon}</span>
                 <div>
                   <div style={{
-                    fontSize: 12.5, fontWeight: activeId === page.id ? 700 : 500,
+                    fontSize: 14, fontWeight: activeId === page.id ? 700 : 500,
                     color: activeId === page.id ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
                     lineHeight: 1.3,
                   }}>{page.title}</div>
-                  <div style={{ fontSize: 10, color: 'var(--xc-text-muted)', marginTop: 1, lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 12, color: 'var(--xc-text-muted)', marginTop: 1, lineHeight: 1.3 }}>
                     {page.subtitle}
                   </div>
                 </div>
@@ -1170,18 +991,18 @@ export default function HelpPanel({ open, onClose, currentPage }) {
             {/* 頁面標題 */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 24 }}>{activePage.icon}</span>
+                <span style={{ fontSize: 26 }}>{activePage.icon}</span>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: 'var(--xc-text)' }}>
+                  <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'var(--xc-text)' }}>
                     {activePage.title}
                   </h2>
-                  <div style={{ fontSize: 12, color: 'var(--xc-brand)', fontWeight: 600, marginTop: 2 }}>
+                  <div style={{ fontSize: 14, color: 'var(--xc-brand)', fontWeight: 600, marginTop: 2 }}>
                     {activePage.subtitle}
                   </div>
                 </div>
               </div>
               <p style={{
-                margin: 0, fontSize: 13.5, color: 'var(--xc-text-soft)',
+                margin: 0, fontSize: 15, color: 'var(--xc-text-soft)',
                 lineHeight: 1.7, padding: '12px 14px',
                 background: 'var(--xc-surface-soft)',
                 borderRadius: 10, borderLeft: '3px solid var(--xc-brand)',
@@ -1209,17 +1030,17 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14 }}>{section.icon}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--xc-text)' }}>
+                      <span style={{ fontSize: 16 }}>{section.icon}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)' }}>
                         {section.title}
                       </span>
                       <span style={{
-                        fontSize: 10, fontWeight: 700, color: 'var(--xc-text-muted)',
+                        fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)',
                         background: 'var(--xc-surface-strong)',
                         padding: '1px 7px', borderRadius: 99,
                       }}>{section.items.length}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--xc-text-muted)', transition: 'transform 0.15s', display: 'inline-block', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
+                    <span style={{ fontSize: 13, color: 'var(--xc-text-muted)', transition: 'transform 0.15s', display: 'inline-block', transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▼</span>
                   </button>
                   {isExpanded && (
                     <div style={{
@@ -1238,14 +1059,14 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                           }}
                         >
                           <div style={{
-                            fontSize: 12, fontWeight: 700,
+                            fontSize: 14, fontWeight: 700,
                             color: 'var(--xc-text)',
                             paddingTop: 1,
                           }}>
                             {item.label}
                           </div>
                           <div style={{
-                            fontSize: 12.5, color: 'var(--xc-text-soft)',
+                            fontSize: 14, color: 'var(--xc-text-soft)',
                             lineHeight: 1.6,
                           }}>
                             {item.desc}
@@ -1261,7 +1082,7 @@ export default function HelpPanel({ open, onClose, currentPage }) {
             {/* 小技巧 */}
             {activePage.tips && activePage.tips.length > 0 && (
               <div style={{ marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--xc-text)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>💡</span> 使用小技巧
                 </div>
                 {activePage.tips.map((tip, ti) => (
@@ -1272,10 +1093,10 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                     border: '1px solid color-mix(in srgb, var(--xc-warning) 22%, var(--xc-border))',
                     borderRadius: 8,
                   }}>
-                    <span style={{ fontSize: 12, color: 'var(--xc-warning)', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>
+                    <span style={{ fontSize: 14, color: 'var(--xc-warning)', fontWeight: 800, flexShrink: 0, marginTop: 1 }}>
                       {ti + 1}.
                     </span>
-                    <span style={{ fontSize: 12.5, color: 'var(--xc-text-soft)', lineHeight: 1.6 }}>{tip}</span>
+                    <span style={{ fontSize: 14, color: 'var(--xc-text-soft)', lineHeight: 1.6 }}>{tip}</span>
                   </div>
                 ))}
               </div>
@@ -1287,10 +1108,10 @@ export default function HelpPanel({ open, onClose, currentPage }) {
               borderTop: '1px solid var(--xc-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <div style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
                 xCloudPMIS 企業級專案管理系統
               </div>
-              <div style={{ fontSize: 11, color: 'var(--xc-text-muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
                 文件版本 v2.0
               </div>
             </div>

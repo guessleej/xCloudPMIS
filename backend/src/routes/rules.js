@@ -13,6 +13,16 @@ const VALID_TRIGGER_TYPES = [
   'status_changed', 'assignee_changed', 'field_changed',
 ];
 
+const VALID_ACTION_TYPES = [
+  'set_status', 'set_priority', 'set_assignee', 'send_notification',
+];
+
+const VALID_CONDITION_FIELDS = [
+  'status', 'priority', 'assigneeId', 'projectId', 'title',
+];
+
+const VALID_OPERATORS = ['eq', 'neq', 'contains', 'in', 'not_in'];
+
 const prisma = require('../lib/prisma');
 
 // GET /api/rules?companyId=N — 列出所有規則
@@ -45,8 +55,6 @@ router.get('/', async (req, res) => {
   } catch (e) {
     console.error('[rules GET]', e.message);
     return err(res, e.message);
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
@@ -72,8 +80,8 @@ router.post('/', async (req, res) => {
         description: description || '',
         triggerType,
         triggerConfig:  triggerConfig  || {},
-        conditions:     conditions     || {},
-        actions:        actions        || {},
+        conditions:     Array.isArray(conditions) ? conditions : [],
+        actions:        Array.isArray(actions)    ? actions    : [],
         isEnabled:      isEnabled !== undefined ? isEnabled : true,
         createdBy:  req.user?.id ? { connect: { id: req.user.id } } : undefined,
       },
@@ -82,8 +90,6 @@ router.post('/', async (req, res) => {
   } catch (e) {
     console.error('[rules POST]', e.message);
     return err(res, e.message);
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
@@ -117,8 +123,6 @@ router.patch('/:id', async (req, res) => {
   } catch (e) {
     console.error('[rules PATCH]', e.message);
     return err(res, e.message);
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
@@ -136,8 +140,6 @@ router.delete('/:id', async (req, res) => {
   } catch (e) {
     console.error('[rules DELETE]', e.message);
     return err(res, e.message);
-  } finally {
-    await prisma.$disconnect();
   }
 });
 

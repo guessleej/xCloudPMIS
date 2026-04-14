@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import './LoginPage.css';
+import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── SVG 圖示 ──────────────────────────────────────────────────
 function IconSpinner({ size = 20 }) {
@@ -47,6 +48,7 @@ function IconMoon({ size = 16, color = 'currentColor' }) {
 
 // ── 主元件 ────────────────────────────────────────────────────
 export default function LoginPage() {
+  const isMobile = useIsMobile();
   const { oauthError, clearOauthError } = useAuth();
   const { mode, toggleMode } = useTheme();
 
@@ -149,7 +151,7 @@ export default function LoginPage() {
           {oauthError && (
             <div className="login-page__error" style={{ justifyContent: 'space-between' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⛔</span>
+                <span style={{ fontSize: 17 }}>⛔</span>
                 {oauthError}
               </span>
               <button
@@ -157,7 +159,7 @@ export default function LoginPage() {
                 onClick={clearOauthError}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'inherit', fontSize: 14, padding: '0 2px', lineHeight: 1,
+                  color: 'inherit', fontSize: 16, padding: '0 2px', lineHeight: 1,
                 }}
               >✕</button>
             </div>
