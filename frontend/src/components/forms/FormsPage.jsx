@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -34,6 +35,7 @@ const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransfor
 export default function FormsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManageForms } = usePermissions();
 
   const [forms,      setForms]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -147,7 +149,7 @@ export default function FormsPage() {
         {/* Action bar */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
           <div style={{ fontSize: 16, fontWeight:600, color:BRAND.ink }}>表單列表</div>
-          <button style={btnPrimary} onClick={() => { setForm({ name:'', desc:'' }); setShowModal(true); }}>+ 建立表單</button>
+          {canManageForms && <button style={btnPrimary} onClick={() => { setForm({ name:'', desc:'' }); setShowModal(true); }}>+ 建立表單</button>}
         </div>
 
         {/* Loading */}
@@ -201,10 +203,10 @@ export default function FormsPage() {
                   </span>
                   <span onClick={e => e.stopPropagation()} style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                     <button onClick={() => copyLink(f.name)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.info || '#3B82F6', padding:0 }}>複製連結</button>
-                    <button onClick={() => toggleStatus(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>
+                    {canManageForms && <button onClick={() => toggleStatus(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>
                       {f.status === 'active' ? '停用' : '啟用'}
-                    </button>
-                    <button onClick={() => deleteForm(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>
+                    </button>}
+                    {canManageForms && <button onClick={() => deleteForm(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>}
                   </span>
                 </div>
 

@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const HEALTH_CFG = {
@@ -372,6 +373,7 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
 export default function PortfoliosPage({ onNavigate }) {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManagePortfolios } = usePermissions();
   const companyId = user?.companyId;
 
   const [portfolios,    setPortfolios]    = useState([]);
@@ -562,7 +564,7 @@ export default function PortfoliosPage({ onNavigate }) {
           </button>
         ))}
 
-        <button onClick={() => setShowCreate(true)} style={{
+        {canManagePortfolios && <button onClick={() => setShowCreate(true)} style={{
           marginLeft: portfolios.length > 0 ? 4 : 0,
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: isMobile ? '7px 12px' : '8px 16px',
@@ -573,7 +575,7 @@ export default function PortfoliosPage({ onNavigate }) {
           flexShrink: 0,
         }}>
           ＋ 新增組合
-        </button>
+        </button>}
       </div>
 
       {/* ═══ 組合內容 ═══ */}
@@ -608,11 +610,11 @@ export default function PortfoliosPage({ onNavigate }) {
                   <p style={{ fontSize: 15, color: 'var(--xc-text-muted)', margin: '6px 0 0 24px' }}>{active.description}</p>
                 )}
               </div>
-              <button onClick={() => deletePortfolio(active.id)} style={{
+              {canManagePortfolios && <button onClick={() => deletePortfolio(active.id)} style={{
                 padding: '6px 14px', borderRadius: 8, border: '1px solid var(--xc-border)',
                 background: 'var(--xc-surface)', cursor: 'pointer', fontSize: 14,
                 color: '#ef4444',
-              }}>🗑 刪除組合</button>
+              }}>🗑 刪除組合</button>}
             </div>
 
             {/* 10.1 統計卡片 */}

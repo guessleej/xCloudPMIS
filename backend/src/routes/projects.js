@@ -20,6 +20,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma = require('../lib/prisma');
+const requireRole = require('../middleware/requireRole');
 const { taskController } = require('../controllers/task.controller');
 const { taskRuleEngine } = require('../services/taskRuleEngine');
 const {
@@ -226,9 +227,9 @@ router.get('/', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // POST /api/projects
-// 建立新專案
+// 建立新專案（需要 admin 或 pm 角色）
 // ════════════════════════════════════════════════════════════
-router.post('/', async (req, res) => {
+router.post('/', requireRole('admin', 'pm'), async (req, res) => {
   const companyId = req.user?.companyId || parseInt(req.body.companyId);
   const {
     name, description = '',
@@ -590,9 +591,9 @@ router.patch('/:id', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // DELETE /api/projects/:id
-// 軟刪除專案（設定 deletedAt，不實際移除資料）
+// 軟刪除專案（需要 admin 或 pm 角色）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
@@ -650,9 +651,9 @@ router.patch('/:id/restore', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // DELETE /api/projects/:id/permanent
-// 永久刪除專案（不可復原，真正從資料庫移除）
+// 永久刪除專案（僅限 admin）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id/permanent', async (req, res) => {
+router.delete('/:id/permanent', requireRole('admin'), async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 

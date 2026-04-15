@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const router  = express.Router();
+const requireRole = require('../middleware/requireRole');
 
 const ok  = (res, data, meta = {}) => res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
 const err = (res, msg, s = 500)   => res.status(s).json({ success: false, error: msg });
@@ -94,15 +95,38 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PATCH /api/team/:id — 更新成員資料（role / department / jobTitle / isActive）
-router.patch('/:id', async (req, res) => {
+// PATCH /api/team/:id — 更新成員資料（角色限制）
+// - 修改 role：僅 admin
+// - 修改 department / jobTitle / phone / isActive：admin 或 pm
+router.patch('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 id', 400);
 
   const { role, department, jobTitle, phone, isActive } = req.body;
+  const callerRole = req.user.role;
+
+  // 只有 admin 才能修改角色
+  if (role !== undefined && callerRole !== 'admin') {
+    return err(res, '只有管理員才能修改成員角色', 403);
+  }
+
+  // 只有 admin 才能啟用/停用帳號
+  if (isActive !== undefined && callerRole !== 'admin') {
+    return err(res, '只有管理員才能啟用或停用帳號', 403);
+  }
 
   if (role !== undefined && !VALID_ROLES.includes(role)) {
     return err(res, `role 必須是: ${VALID_ROLES.join(', ')}`, 400);
+  }
+
+  // 防止 admin 降級/停用自己
+  if (id === req.user.id || id === req.user.userId) {
+    if (role !== undefined && role !== 'admin' && callerRole === 'admin') {
+      return err(res, '管理員不能降級自己', 400);
+    }
+    if (isActive === false) {
+      return err(res, '不能停用自己的帳號', 400);
+    }
   }
 
   try {

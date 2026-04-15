@@ -21,6 +21,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma  = require('../lib/prisma');
+const requireRole = require('../middleware/requireRole');
 
 // ── 工具函式 ─────────────────────────────────────────────────
 const ok  = (res, data)         => res.json({ success: true, data, timestamp: new Date().toISOString() });
@@ -107,9 +108,9 @@ router.get('/', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// POST /api/goals — 建立 Objective
+// POST /api/goals — 建立 Objective（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.post('/', async (req, res) => {
+router.post('/', requireRole('admin', 'pm'), async (req, res) => {
   const { companyId, title, description, quarter, year, owner, status = 'active', parentId } = req.body;
   if (!companyId || !title) return err(res, 'companyId, title 為必填');
 
@@ -194,11 +195,11 @@ router.patch('/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// DELETE /api/goals/:id — 刪除 Objective
+// DELETE /api/goals/:id — 刪除 Objective（需要 admin 或 pm）
 // 子目標 parentId 設為 NULL（升格頂層，不連鎖刪除）
 // KR 透過 Cascade 自動刪除
 // ════════════════════════════════════════════════════════════
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return err(res, '無效的目標 ID');
 
@@ -214,9 +215,9 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// POST /api/goals/:id/key-results — 新增 KR
+// POST /api/goals/:id/key-results — 新增 KR（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.post('/:id/key-results', async (req, res) => {
+router.post('/:id/key-results', requireRole('admin', 'pm'), async (req, res) => {
   const goalId = parseInt(req.params.id, 10);
   if (isNaN(goalId)) return err(res, '無效的目標 ID');
 
@@ -291,9 +292,9 @@ router.patch('/:id/key-results/:krId', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// DELETE /api/goals/:id/key-results/:krId — 刪除 KR
+// DELETE /api/goals/:id/key-results/:krId — 刪除 KR（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id/key-results/:krId', async (req, res) => {
+router.delete('/:id/key-results/:krId', requireRole('admin', 'pm'), async (req, res) => {
   const goalId = parseInt(req.params.id,   10);
   const krId   = parseInt(req.params.krId, 10);
   if (isNaN(goalId) || isNaN(krId)) return err(res, '無效的 ID');

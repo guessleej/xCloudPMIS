@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback } from 'react';
 import ProjectDetail from './ProjectDetail';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // API 使用相對路徑，由 Vite proxy 轉發到後端（見 vite.config.js）
 const API = '';
@@ -524,11 +525,11 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       </div>
       {/* 任務數 */}
       <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
-      {/* 操作 */}
-      <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-        <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-        <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
-      </div>
+      {/* 操作（僅 admin/pm 可編輯、刪除） */}
+      {(onEdit || onDelete) && <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
+        {onEdit && <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
+        {onDelete && <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
+      </div>}
     </div>
   );
 }
@@ -602,12 +603,12 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                         </span>
                       )}
                     </div>
-                    {/* 操作按鈕（懸停時） */}
-                    <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
+                    {/* 操作按鈕（懸停時，僅 admin/pm） */}
+                    {(onEdit || onDelete) && <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
                       onClick={e => e.stopPropagation()}>
-                      <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>
-                      <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>
-                    </div>
+                      {onEdit && <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
+                      {onDelete && <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
+                    </div>}
                   </div>
                 );
               })}
@@ -727,6 +728,7 @@ function CalendarView({ projects }) {
 export default function ProjectsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canCreateProject, canDeleteProject } = usePermissions();
   const COMPANY_ID = user?.companyId;
 
   const [projects,      setProjects]      = useState([]);
@@ -888,10 +890,10 @@ export default function ProjectsPage() {
             >
               🗄️ 封存區{showArchived ? '' : ''}
             </button>
-            {/* 新增按鈕 → 開範本選擇器 */}
-            <button onClick={() => setShowTplPicker(true)} style={btnP}>
+            {/* 新增按鈕 → 開範本選擇器（僅 admin/pm） */}
+            {canCreateProject && <button onClick={() => setShowTplPicker(true)} style={btnP}>
               ＋ 新增專案
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -1032,7 +1034,7 @@ export default function ProjectsPage() {
             <div style={{ fontSize: '17px', fontWeight: '700', color: C.ink, marginBottom: '8px' }}>
               {filter === 'all' ? '還沒有任何專案' : '沒有符合條件的專案'}
             </div>
-            {filter === 'all' && (
+            {filter === 'all' && canCreateProject && (
               <>
                 <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
                   選擇範本或從空白開始，建立你的第一個專案
@@ -1042,9 +1044,9 @@ export default function ProjectsPage() {
             )}
           </div>
         ) : view === 'list' ? (
-          <ListView projects={filtered} onOpen={setActiveProject} onEdit={setEditProject} onDelete={setDeleteProject} />
+          <ListView projects={filtered} onOpen={setActiveProject} onEdit={canDeleteProject ? setEditProject : null} onDelete={canDeleteProject ? setDeleteProject : null} />
         ) : view === 'board' ? (
-          <BoardView projects={filtered} onOpen={setActiveProject} onEdit={setEditProject} onDelete={setDeleteProject} />
+          <BoardView projects={filtered} onOpen={setActiveProject} onEdit={canDeleteProject ? setEditProject : null} onDelete={canDeleteProject ? setDeleteProject : null} />
         ) : (
           <CalendarView projects={filtered} />
         )}

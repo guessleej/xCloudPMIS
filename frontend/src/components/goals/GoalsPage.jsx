@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // ── 常數 ─────────────────────────────────────────────────────
 const BRAND = '#C70018';
@@ -112,7 +113,7 @@ function KRProgressBar({ kr, onUpdate }) {
 }
 
 // ── OKR 卡片（列表視圖） ──────────────────────────────────────
-function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDeleteKR }) {
+function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDeleteKR, canManage }) {
   const [expanded, setExpanded]   = useState(true);
   const [addKROpen, setAddKROpen] = useState(false);
   const [newKR, setNewKR]         = useState({ title: '', targetValue: 100, unit: '%' });
@@ -151,9 +152,9 @@ function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDele
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-          <button onClick={() => setAddKROpen(v => !v)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>+ KR</button>
-          <button onClick={() => onEdit(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>編輯</button>
-          <button onClick={() => onDelete(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-danger)' }}>刪除</button>
+          {canManage && <button onClick={() => setAddKROpen(v => !v)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>+ KR</button>}
+          {canManage && <button onClick={() => onEdit(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-text-soft)' }}>編輯</button>}
+          {canManage && <button onClick={() => onDelete(goal)} style={{ padding: '5px 10px', borderRadius: '6px', fontSize: '13px', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', color: 'var(--xc-danger)' }}>刪除</button>}
           <span style={{ fontSize: '15px', padding: '5px', color: 'var(--xc-text-muted)' }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
@@ -185,7 +186,7 @@ function OkrCard({ goal, allGoals, onEdit, onDelete, onAddKR, onUpdateKR, onDele
             goal.keyResults.map(kr => (
               <div key={kr.id} style={{ position: 'relative' }}>
                 <KRProgressBar kr={kr} onUpdate={(kr, newVal) => onUpdateKR(goal, kr, newVal)} />
-                <button onClick={() => onDeleteKR(goal, kr)} style={{ position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', width: '18px', height: '18px', borderRadius: '50%', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                <button onClick={() => onDeleteKR(goal, kr)} style={{ position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', width: '18px', height: '18px', borderRadius: '50%', border: '1px solid var(--xc-border)', background: 'var(--xc-surface)', cursor: 'pointer', fontSize: '12px', color: 'var(--xc-text-muted)', display: canManage ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center' }}>×</button>
               </div>
             ))
           )}
@@ -548,6 +549,7 @@ function StrategyMap({ allGoals, onEdit, onAddChild }) {
 export default function GoalsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManageGoals } = usePermissions();
   const companyId = user?.companyId;
 
   const { quarter: initQ, year: initY } = getQuarterYear();
@@ -700,7 +702,7 @@ export default function GoalsPage() {
                 Objectives & Key Results · 追蹤目標達成進度 + 策略地圖視覺化
               </p>
             </div>
-            <button
+            {canManageGoals && <button
               onClick={() => setModal({ mode: 'add' })}
               style={{
                 padding: '10px 22px', borderRadius: '10px', fontSize: '15px',
@@ -712,7 +714,7 @@ export default function GoalsPage() {
               }}
             >
               + 新增目標
-            </button>
+            </button>}
           </div>
 
           {/* KPI 卡片列 */}
@@ -827,6 +829,7 @@ export default function GoalsPage() {
                   onAddKR={handleAddKR}
                   onUpdateKR={handleUpdateKR}
                   onDeleteKR={handleDeleteKR}
+                  canManage={canManageGoals}
                 />
               ))}
             </div>

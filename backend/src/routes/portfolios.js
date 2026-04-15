@@ -13,6 +13,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma  = require('../lib/prisma');
+const requireRole = require('../middleware/requireRole');
 
 const ok  = (res, data)         => res.json({ success: true, data, timestamp: new Date().toISOString() });
 const err = (res, msg, s = 500) => res.status(s).json({ success: false, error: msg });
@@ -132,9 +133,9 @@ router.get('/', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// POST /api/portfolios  — 建立組合
+// POST /api/portfolios  — 建立組合（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.post('/', async (req, res) => {
+router.post('/', requireRole('admin', 'pm'), async (req, res) => {
   const { companyId, name, description, color, projectIds } = req.body;
   if (!companyId || !name?.trim()) return err(res, 'companyId 和 name 為必填', 400);
 
@@ -158,9 +159,9 @@ router.post('/', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// PATCH /api/portfolios/:id  — 更新組合
+// PATCH /api/portfolios/:id  — 更新組合（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return err(res, '無效的組合 ID', 400);
 
@@ -182,9 +183,9 @@ router.patch('/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// DELETE /api/portfolios/:id  — 刪除組合
+// DELETE /api/portfolios/:id  — 刪除組合（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return err(res, '無效的組合 ID', 400);
 
@@ -198,9 +199,9 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// POST /api/portfolios/:id/projects  — 新增專案到組合
+// POST /api/portfolios/:id/projects  — 新增專案到組合（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.post('/:id/projects', async (req, res) => {
+router.post('/:id/projects', requireRole('admin', 'pm'), async (req, res) => {
   const portfolioId = parseInt(req.params.id, 10);
   const { projectIds } = req.body;
   if (!projectIds?.length) return err(res, 'projectIds 為必填', 400);
@@ -223,9 +224,9 @@ router.post('/:id/projects', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// DELETE /api/portfolios/:id/projects/:pid  — 移除專案
+// DELETE /api/portfolios/:id/projects/:pid  — 移除專案（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id/projects/:pid', async (req, res) => {
+router.delete('/:id/projects/:pid', requireRole('admin', 'pm'), async (req, res) => {
   const portfolioId = parseInt(req.params.id, 10);
   const projectId   = parseInt(req.params.pid, 10);
 
@@ -241,9 +242,9 @@ router.delete('/:id/projects/:pid', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
-// PATCH /api/portfolios/:id/projects/:pid  — 更新備註
+// PATCH /api/portfolios/:id/projects/:pid  — 更新備註（需要 admin 或 pm）
 // ════════════════════════════════════════════════════════════
-router.patch('/:id/projects/:pid', async (req, res) => {
+router.patch('/:id/projects/:pid', requireRole('admin', 'pm'), async (req, res) => {
   const portfolioId = parseInt(req.params.id, 10);
   const projectId   = parseInt(req.params.pid, 10);
   const { notes, healthOverride } = req.body;

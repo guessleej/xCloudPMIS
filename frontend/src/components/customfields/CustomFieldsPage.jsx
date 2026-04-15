@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -61,6 +62,7 @@ const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransfor
 export default function CustomFieldsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManageFields } = usePermissions();
 
   const [fields,     setFields]     = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -188,7 +190,7 @@ export default function CustomFieldsPage() {
         {/* Table header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
           <div style={{ fontSize: 16, fontWeight:600, color:BRAND.ink }}>欄位列表</div>
-          <button style={btnPrimary} onClick={openAdd}>+ 新增欄位</button>
+          {canManageFields && <button style={btnPrimary} onClick={openAdd}>+ 新增欄位</button>}
         </div>
 
         {/* Loading */}
@@ -239,8 +241,8 @@ export default function CustomFieldsPage() {
                   </span>
                   <span style={{ fontSize: 14, color:BRAND.muted }}>{createdDate}</span>
                   <span style={{ display:'flex', gap:10 }}>
-                    <button onClick={() => openEdit(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>
-                    <button onClick={() => deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>
+                    {canManageFields && <button onClick={() => openEdit(f)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>}
+                    {canManageFields && <button onClick={() => deleteField(f.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>}
                   </span>
                 </div>
               );

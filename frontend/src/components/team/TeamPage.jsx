@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -149,7 +150,7 @@ function MemberCard({ member, onClick }) {
   );
 }
 
-function MemberDrawer({ member, onClose, onRoleChange }) {
+function MemberDrawer({ member, onClose, onRoleChange, canManageRoles }) {
   const isMobile = useIsMobile();
   const [editRole, setEditRole] = useState(member?.role || 'member');
   const [saving, setSaving] = useState(false);
@@ -259,8 +260,8 @@ function MemberDrawer({ member, onClose, onRoleChange }) {
             </div>
           </div>
 
-          {/* 角色編輯 */}
-          <div style={{ marginTop: 24, padding: 16, background: BRAND.accentSurface, borderRadius: 10, border: `1px solid ${BRAND.accentBorder}` }}>
+          {/* 角色編輯（僅 admin） */}
+          {canManageRoles && <div style={{ marginTop: 24, padding: 16, background: BRAND.accentSurface, borderRadius: 10, border: `1px solid ${BRAND.accentBorder}` }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: BRAND.carbon, marginBottom: 10 }}>變更角色</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {VALID_ROLES_LIST.map(r => (
@@ -280,15 +281,17 @@ function MemberDrawer({ member, onClose, onRoleChange }) {
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${BRAND.mist}`, display: 'flex', gap: 10 }}>
-          <button onClick={save} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>
+          {canManageRoles && <button onClick={save} disabled={saving} style={{ ...btnPrimary, flex: 1 }}>
             {saving ? '儲存中…' : '儲存變更'}
+          </button>}
+          <button onClick={onClose} style={{ ...btnGhost, flex: canManageRoles ? undefined : 1 }}>
+            {canManageRoles ? '取消' : '關閉'}
           </button>
-          <button onClick={onClose} style={btnGhost}>取消</button>
         </div>
       </div>
     </>
@@ -300,6 +303,7 @@ const VALID_ROLES_LIST = ['admin', 'pm', 'member'];
 export default function TeamPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManageTeamRoles } = usePermissions();
   const [members,  setMembers]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState(null);
@@ -491,6 +495,7 @@ export default function TeamPage() {
           member={selected}
           onClose={() => { closeMember(); window.history.back(); }}
           onRoleChange={handleRoleChange}
+          canManageRoles={canManageTeamRoles}
         />
       )}
     </div>

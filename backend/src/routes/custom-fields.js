@@ -5,6 +5,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma = require('../lib/prisma');
+const requireRole = require('../middleware/requireRole');
 
 const ok  = (res, data, meta = {}) => res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
 const err = (res, msg, s = 500)   => res.status(s).json({ success: false, error: msg });
@@ -47,8 +48,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/custom-fields
-router.post('/', async (req, res) => {
+// POST /api/custom-fields（需要 admin 或 pm）
+router.post('/', requireRole('admin', 'pm'), async (req, res) => {
   const { companyId, name, fieldType, entityType, isRequired, description } = req.body;
   if (!companyId || !name || !fieldType) return err(res, 'companyId, name, fieldType 為必填', 400);
   if (!VALID_FIELD_TYPES.includes(fieldType)) {
@@ -139,8 +140,8 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/custom-fields/:id — 封存（軟刪除）
-router.delete('/:id', async (req, res) => {
+// DELETE /api/custom-fields/:id — 封存（軟刪除）（需要 admin 或 pm）
+router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id) return err(res, '無效的 ID', 400);
 

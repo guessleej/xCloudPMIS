@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const BRAND = {
   crimson:      '#C70018',
@@ -97,6 +98,7 @@ function deriveAction(rule) {
 export default function RulesPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canManageRules } = usePermissions();
 
   const [rules,      setRules]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -247,7 +249,7 @@ export default function RulesPage() {
               </button>
             ))}
           </div>
-          <button style={btnPrimary} onClick={openAdd}>+ 新增規則</button>
+          {canManageRules && <button style={btnPrimary} onClick={openAdd}>+ 新增規則</button>}
         </div>
 
         {/* Loading */}
@@ -301,8 +303,8 @@ export default function RulesPage() {
                   <span style={{ fontSize: 15, color:BRAND.ink, textAlign:'right' }}>{runCount}</span>
                   <Toggle enabled={r.isEnabled} onChange={() => toggleEnabled(r)} />
                   <span style={{ display:'flex', gap:10 }}>
-                    <button onClick={() => openEdit(r)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>
-                    <button onClick={() => deleteRule(r.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>
+                    {canManageRules && <button onClick={() => openEdit(r)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.carbon, padding:0 }}>編輯</button>}
+                    {canManageRules && <button onClick={() => deleteRule(r.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize: 14, color:BRAND.muted, padding:0 }}>刪除</button>}
                   </span>
                 </div>
               );
