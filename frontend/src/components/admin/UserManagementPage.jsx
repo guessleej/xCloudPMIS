@@ -794,7 +794,7 @@ export default function UserManagementPage() {
           {/* 表頭 */}
           <div style={{
             display:         'grid',
-            gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px auto',
+            gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
             padding:         '10px 16px',
             borderBottom:    '1px solid var(--xc-border)',
             background:      'var(--xc-bg-soft)',
@@ -828,7 +828,7 @@ export default function UserManagementPage() {
             users.map((user, idx) => (
               <div key={user.id} style={{
                 display:         'grid',
-                gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px auto',
+                gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
                 padding:         '12px 16px',
                 borderBottom:    idx < users.length - 1 ? '1px solid var(--xc-border)' : 'none',
                 alignItems:      'center',
