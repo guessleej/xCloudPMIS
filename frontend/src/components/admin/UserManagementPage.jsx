@@ -794,7 +794,7 @@ export default function UserManagementPage() {
           {/* 表頭 */}
           <div style={{
             display:         'grid',
-            gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr auto',
+            gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px auto',
             padding:         '10px 16px',
             borderBottom:    '1px solid var(--xc-border)',
             background:      'var(--xc-bg-soft)',
@@ -803,7 +803,8 @@ export default function UserManagementPage() {
             color:           'var(--xc-text-muted)',
             textTransform:   'uppercase',
             letterSpacing:   '0.05em',
-            gap:             8,
+            gap:             12,
+            alignItems:      'center',
           }}>
             <span>姓名 / Email</span>
             <span>部門 / 職稱</span>
@@ -827,11 +828,11 @@ export default function UserManagementPage() {
             users.map((user, idx) => (
               <div key={user.id} style={{
                 display:         'grid',
-                gridTemplateColumns: '2fr 2fr 1fr 1fr 1fr 1fr auto',
+                gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px auto',
                 padding:         '12px 16px',
                 borderBottom:    idx < users.length - 1 ? '1px solid var(--xc-border)' : 'none',
                 alignItems:      'center',
-                gap:             8,
+                gap:             12,
                 opacity:         user.isActive ? 1 : 0.6,
                 transition:      'background 0.1s',
               }}
