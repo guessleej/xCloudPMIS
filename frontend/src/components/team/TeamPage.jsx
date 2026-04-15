@@ -150,6 +150,7 @@ function MemberCard({ member, onClick }) {
 }
 
 function MemberDrawer({ member, onClose, onRoleChange }) {
+  const isMobile = useIsMobile();
   const [editRole, setEditRole] = useState(member?.role || 'member');
   const [saving, setSaving] = useState(false);
   const { authFetch } = useAuth();
@@ -306,6 +307,27 @@ export default function TeamPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
 
+  // ── 瀏覽器上一頁支援：打開成員詳情時推一筆 history ──
+  const openMember = useCallback((member) => {
+    setSelected(member);
+    window.history.pushState({ memberDrawer: true }, '');
+  }, []);
+
+  const closeMember = useCallback(() => {
+    setSelected(null);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = (e) => {
+      if (selected) {
+        // 按上一頁 → 關閉成員抽屜，留在團隊頁面
+        setSelected(null);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [selected]);
+
   const load = useCallback(async () => {
     if (!user?.companyId || !authFetch) return;
     setLoading(true);
@@ -426,7 +448,7 @@ export default function TeamPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
             {filtered.map(m => (
-              <MemberCard key={m.id} member={m} onClick={setSelected} />
+              <MemberCard key={m.id} member={m} onClick={openMember} />
             ))}
           </div>
         )}
@@ -467,7 +489,7 @@ export default function TeamPage() {
       {selected && (
         <MemberDrawer
           member={selected}
-          onClose={() => setSelected(null)}
+          onClose={() => { closeMember(); window.history.back(); }}
           onRoleChange={handleRoleChange}
         />
       )}

@@ -1580,90 +1580,61 @@ export default function ReportsPage() {
       </div>
 
       {/* ── 主要區塊 ───────────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
-        {/* 左側：報表類型選單 */}
+        {/* 頂部：報表類型 Tab 列 */}
         <div style={{
-          width:       isMobile ? '100%' : '220px',
-          flexShrink:  0,
-          background:  THEME.panel,
-          borderRight: isMobile ? 'none' : `1px solid ${THEME.border}`,
-          borderBottom: isMobile ? `1px solid ${THEME.border}` : 'none',
-          padding:     isMobile ? '8px 12px' : '16px 12px',
-          overflowX:   isMobile ? 'auto' : 'visible',
-          overflowY:   isMobile ? 'hidden' : 'auto',
-          display:     isMobile ? 'flex' : 'block',
-          gap:         isMobile ? '6px' : undefined,
+          display:      'flex',
+          alignItems:   'center',
+          gap:          '4px',
+          padding:      isMobile ? '8px 12px' : '10px 20px',
+          background:   THEME.panel,
+          borderBottom: `1px solid ${THEME.border}`,
+          overflowX:    'auto',
+          flexShrink:   0,
         }}>
-          {!isMobile && <div style={{
-            fontSize: '13px',
-            fontWeight:    '700',
-            color:         THEME.textMuted,
-            letterSpacing: '0.08em',
-            marginBottom:  '8px',
-            paddingLeft:   '8px',
-          }}>
-            報表類型
-          </div>}
-          {REPORT_TYPES.map(rt => (
-            <button
-              key={rt.id}
-              onClick={() => setActiveType(rt.id)}
-              style={{
-                width:        '100%',
-                textAlign:    'left',
-                border:       'none',
-                background:   activeType === rt.id ? `color-mix(in srgb, ${rt.color} 16%, ${THEME.surfaceStrong})` : 'transparent',
-                borderRadius: '8px',
-                padding:      '10px 10px',
-                marginBottom: '4px',
-                cursor:       'pointer',
-                borderLeft:   activeType === rt.id ? `3px solid ${rt.color}` : '3px solid transparent',
-                transition:   'all 0.15s',
-              }}
-            >
-              <div style={{
-                display:    'flex',
-                alignItems: 'center',
-                gap:        '8px',
-                fontSize: '16px',
-                fontWeight: activeType === rt.id ? '600' : '400',
-                color:      activeType === rt.id ? rt.color : THEME.textSoft,
-              }}>
-                <span style={{ lineHeight: 1.3 }}>{rt.label}</span>
-              </div>
-              {activeType === rt.id && (
-                <div style={{
-                  fontSize: '13px',
-                  color:       THEME.textMuted,
-                  marginTop:   '4px',
-                  paddingLeft: '24px',
-                  lineHeight:  1.4,
-                }}>
-                  {rt.description}
-                </div>
-              )}
-            </button>
-          ))}
+          {REPORT_TYPES.map(rt => {
+            const isActive = activeType === rt.id;
+            return (
+              <button
+                key={rt.id}
+                onClick={() => setActiveType(rt.id)}
+                title={rt.description}
+                style={{
+                  whiteSpace:   'nowrap',
+                  border:       'none',
+                  background:   isActive ? `color-mix(in srgb, ${rt.color} 16%, ${THEME.surfaceStrong})` : 'transparent',
+                  borderRadius: '8px',
+                  padding:      isMobile ? '7px 12px' : '8px 16px',
+                  cursor:       'pointer',
+                  borderBottom: isActive ? `2.5px solid ${rt.color}` : '2.5px solid transparent',
+                  transition:   'all 0.15s',
+                  fontSize:     isMobile ? '14px' : '15px',
+                  fontWeight:   isActive ? '700' : '500',
+                  color:        isActive ? rt.color : THEME.textSoft,
+                }}
+              >
+                {rt.label}
+              </button>
+            );
+          })}
 
-          {/* 格式說明 */}
+          {/* 匯出格式提示 */}
           <div style={{
-            marginTop:    '24px',
-            padding:      '12px',
-            background:   THEME.successSoft,
-            borderRadius: '8px',
-            fontSize: '13px',
-            color:        THEME.success,
-            lineHeight:   1.6,
+            marginLeft:  'auto',
+            fontSize:    '12px',
+            color:       THEME.success,
+            whiteSpace:  'nowrap',
+            padding:     '4px 10px',
+            background:  THEME.successSoft,
+            borderRadius: '6px',
+            flexShrink:  0,
           }}>
-            <div style={{ fontWeight: '700', marginBottom: '4px' }}>匯出格式</div>
-            <div>• CSV（Excel 可直接開啟）</div>
-            <div>• UTF-8 + BOM 編碼</div>
-            <div>• 支援中文欄位名稱</div>
+            匯出：CSV · UTF-8 BOM
           </div>
         </div>
 
-        {/* 右側：報表內容 */}
+        {/* 報表內容 */}
         <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
 
           {/* P1#34-36: Executive Report 特殊渲染 */}

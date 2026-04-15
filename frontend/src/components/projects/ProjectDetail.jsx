@@ -699,6 +699,7 @@ function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick }
 // 主元件：ProjectDetail
 // ─────────────────────────────────────────────────────────
 export default function ProjectDetail({ projectId, projectName, onBack }) {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const { isDark } = useTheme();
 

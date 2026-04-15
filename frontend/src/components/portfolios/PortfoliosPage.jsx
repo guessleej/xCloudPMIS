@@ -529,60 +529,54 @@ export default function PortfoliosPage({ onNavigate }) {
   const projects = active?.projects || [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
-      {/* ═══ 左側：組合列表 ═══ */}
+      {/* ═══ 頂部：組合 Tab 列 ═══ */}
       <div style={{
-        width: isMobile ? '100%' : 240, minWidth: isMobile ? 0 : 240,
-        borderRight: isMobile ? 'none' : '1px solid var(--xc-border)',
-        borderBottom: isMobile ? '1px solid var(--xc-border)' : 'none',
-        display: 'flex', flexDirection: isMobile ? 'row' : 'column',
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: isMobile ? '8px 12px' : '10px 20px',
         background: 'var(--xc-surface-soft)',
-        overflowX: isMobile ? 'auto' : 'visible',
-        flexShrink: 0,
+        borderBottom: '1px solid var(--xc-border)',
+        overflowX: 'auto', flexShrink: 0,
       }}>
-        <div style={{ padding: '18px 16px 12px', borderBottom: '1px solid var(--xc-border)' }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--xc-text)', marginBottom: 12 }}>專案組合</div>
-          <button onClick={() => setShowCreate(true)} style={{
-            width: '100%', padding: '9px 0', borderRadius: 8, border: '1px dashed var(--xc-border)',
-            background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-            color: 'var(--xc-brand)', transition: 'background .1s',
+        {loading && portfolios.length === 0 ? (
+          <div style={{ padding: '6px 12px', color: 'var(--xc-text-muted)', fontSize: 14 }}>載入中…</div>
+        ) : portfolios.map(pf => (
+          <button key={pf.id} onClick={() => setActiveId(pf.id)} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            whiteSpace: 'nowrap',
+            padding: isMobile ? '7px 12px' : '8px 16px',
+            borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: pf.id === activeId ? 'color-mix(in srgb, var(--xc-brand) 14%, var(--xc-surface))' : 'transparent',
+            borderBottom: pf.id === activeId ? '2.5px solid var(--xc-brand)' : '2.5px solid transparent',
+            transition: 'all .15s',
           }}>
-            ＋ 新增組合
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: pf.color, flexShrink: 0 }} />
+            <span style={{
+              fontSize: isMobile ? 14 : 15, fontWeight: pf.id === activeId ? 700 : 500,
+              color: pf.id === activeId ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
+            }}>{pf.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--xc-text-muted)', fontWeight: 600 }}>
+              {pf.summary.totalProjects}
+            </span>
           </button>
-        </div>
+        ))}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-          {loading && portfolios.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 14 }}>載入中…</div>
-          ) : portfolios.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', color: 'var(--xc-text-muted)', fontSize: 14 }}>
-              尚無組合<br />點擊上方按鈕建立
-            </div>
-          ) : portfolios.map(pf => (
-            <button key={pf.id} onClick={() => setActiveId(pf.id)} style={{
-              width: '100%', padding: '10px 12px', marginBottom: 4, borderRadius: 8,
-              border: 'none', cursor: 'pointer', textAlign: 'left',
-              background: pf.id === activeId ? 'color-mix(in srgb, var(--xc-brand) 12%, var(--xc-surface))' : 'transparent',
-              transition: 'background .1s',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: pf.color, flexShrink: 0 }} />
-                <span style={{
-                  fontSize: 15, fontWeight: pf.id === activeId ? 700 : 500,
-                  color: pf.id === activeId ? 'var(--xc-brand)' : 'var(--xc-text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{pf.name}</span>
-                <span style={{ fontSize: 13, color: 'var(--xc-text-muted)', marginLeft: 'auto', flexShrink: 0 }}>
-                  {pf.summary.totalProjects}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
+        <button onClick={() => setShowCreate(true)} style={{
+          marginLeft: portfolios.length > 0 ? 4 : 0,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: isMobile ? '7px 12px' : '8px 16px',
+          borderRadius: 8, border: '1px dashed var(--xc-border)',
+          background: 'transparent', cursor: 'pointer',
+          fontSize: 14, fontWeight: 600, color: 'var(--xc-brand)',
+          whiteSpace: 'nowrap', transition: 'background .1s',
+          flexShrink: 0,
+        }}>
+          ＋ 新增組合
+        </button>
       </div>
 
-      {/* ═══ 右側：組合內容 ═══ */}
+      {/* ═══ 組合內容 ═══ */}
       <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '28px 32px' }}>
         {!active ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
@@ -591,7 +585,7 @@ export default function PortfoliosPage({ onNavigate }) {
               {portfolios.length === 0 ? '建立你的第一個組合' : '選擇一個組合'}
             </div>
             <div style={{ fontSize: 15, color: 'var(--xc-text-muted)' }}>
-              從左側選擇或新增組合來管理多專案
+              點選上方的組合標籤或新增組合來管理多專案
             </div>
             {portfolios.length === 0 && (
               <button onClick={() => setShowCreate(true)} style={{

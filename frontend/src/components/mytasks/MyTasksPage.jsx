@@ -168,6 +168,7 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
 
 // ── Detail modal ──────────────────────────────────────────────
 function DetailModal({ task, onClose, onUpdate, onDelete }) {
+  const isMobile = useIsMobile();
   if (!task) return null;
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);

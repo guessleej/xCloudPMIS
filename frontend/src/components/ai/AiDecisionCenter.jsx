@@ -59,6 +59,7 @@ function ConfidenceText({ value }) {
 const TH_STYLE = { fontSize: 13, fontWeight:600, color:BRAND.muted, textTransform:'uppercase', letterSpacing:'0.05em' };
 
 export default function AiDecisionCenter() {
+  const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
 
   const [decisions, setDecisions] = useState([]);
