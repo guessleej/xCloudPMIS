@@ -1869,7 +1869,7 @@ export default function SettingsPage({ initialTab, callbackState }) {
 
       {/* 內容區域 */}
       <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '24px 28px' }}>
-        <div style={{ maxWidth: 720 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
           {activeTab === 'company'       && <CompanyTab />}
           {activeTab === 'profile'       && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
           {activeTab === 'notifications' && <NotificationsTab />}
