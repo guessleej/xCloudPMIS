@@ -173,11 +173,24 @@ router.get('/', async (req, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
     const deletedFilter  = onlyDeleted ? { not: null } : includeDeleted ? undefined : null;
 
+    // 支援 ?mine=true → 僅回傳自己擁有或參與的專案
+    const mine = req.query.mine === 'true';
+    const userId = req.user?.id || req.user?.userId;
+    const mineFilter = mine && userId ? {
+      OR: [
+        { ownerId: parseInt(userId) },
+        { members: { some: { userId: parseInt(userId) } } },
+      ],
+    } : {};
+
     const projects = await prisma.project.findMany({
-      where:   { companyId, ...(deletedFilter !== undefined ? { deletedAt: deletedFilter } : {}) },
+      where:   { companyId, ...mineFilter, ...(deletedFilter !== undefined ? { deletedAt: deletedFilter } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
         owner: { select: { id: true, name: true } },
+        members: {
+          include: { user: { select: { id: true, name: true } } },
+        },
         tasks: {
           where:  { deletedAt: null },
           select: { id: true, status: true, dueDate: true },
@@ -217,6 +230,7 @@ router.get('/', async (req, res) => {
         startDate:    p.startDate,
         endDate:      p.endDate,
         owner:        p.owner,
+        members:      (p.members || []).map(m => ({ id: m.user.id, name: m.user.name, role: m.role })),
         taskTotal:    total,
         taskDone:     done,
         taskOverdue:  overdue,
@@ -245,7 +259,7 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
     name, description = '',
     status = 'planning',
     budget, startDate, endDate,
-    ownerId,
+    ownerId, memberIds,
   } = req.body;
 
   if (!name?.trim()) return err(res, '專案名稱為必填', 400);
@@ -266,6 +280,22 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
         owner: { select: { id: true, name: true } },
       },
     });
+
+    // 建立專案成員關聯
+    const mIds = Array.isArray(memberIds) ? memberIds.map(Number).filter(Boolean) : [];
+    if (mIds.length > 0) {
+      await prisma.projectMember.createMany({
+        data: mIds.map(uid => ({ projectId: project.id, userId: uid, role: uid === parseInt(ownerId) ? 'owner' : 'editor' })),
+        skipDuplicates: true,
+      });
+    }
+
+    // 查詢成員資料回傳
+    const members = await prisma.projectMember.findMany({
+      where: { projectId: project.id },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    project.members = members.map(m => ({ id: m.user.id, name: m.user.name, role: m.role }));
 
     ok(res, project);
 
@@ -331,6 +361,10 @@ router.get('/tasks', async (req, res) => {
         project:      { select: { id: true, name: true } },
         taskTags:     { include: { tag: { select: { id: true, name: true, color: true } } } },
         taskProjects: { include: { project: { select: { id: true, name: true } } } },
+        taskAssigneeLinks: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
+        },
         _count:       { select: { subtasks: true, comments: true, dependencies: true } },
       },
     });
@@ -353,6 +387,7 @@ router.get('/tasks', async (req, res) => {
       commentCount:   t._count?.comments || 0,
       depCount:       t._count?.dependencies || 0,
       assignee:       t.assignee,
+      assignees:      (t.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       project:        t.project,
       tags:           t.taskTags.map(tt => tt.tag),
       extraProjects:  t.taskProjects.map(tp => ({
@@ -414,6 +449,7 @@ router.get('/:id', async (req, res) => {
       where: { id, deletedAt: null },
       include: {
         owner: { select: { id: true, name: true } },
+        members: { include: { user: { select: { id: true, name: true } } } },
         milestones: { orderBy: { dueDate: 'asc' } },
         customFieldValues: {
           include: {
@@ -427,6 +463,7 @@ router.get('/:id', async (req, res) => {
           orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
           include: {
             assignee: { select: { id: true, name: true } },
+            taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
             _count:   { select: { subtasks: true } },
             taskTags: {
               include: { tag: { select: { id: true, name: true, color: true } } },
@@ -453,6 +490,7 @@ router.get('/:id', async (req, res) => {
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
       assignee:       t.assignee,
+      assignees:      (t.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       tags:           t.taskTags.map(tt => tt.tag),
       createdAt:      t.createdAt,
     }));
@@ -491,6 +529,7 @@ router.get('/:id', async (req, res) => {
       startDate:   project.startDate,
       endDate:     project.endDate,
       owner:       project.owner,
+      members:     (project.members || []).map(m => ({ id: m.user.id, name: m.user.name, role: m.role })),
       milestones:  project.milestones,
       customFieldValues,
       tasks,
@@ -519,20 +558,20 @@ router.patch('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
-  const { name, description, status, access, budget, startDate, endDate, ownerId } = req.body;
+  const { name, description, status, access, budget, startDate, endDate, ownerId, memberIds } = req.body;
 
   try {
     const data = {};
     if (name        !== undefined) data.name        = name.trim();
     if (description !== undefined) data.description = description;
     if (status      !== undefined) data.status      = status;
-    if (access      !== undefined) data.access      = access;   // ← 隱私設定
+    if (access      !== undefined) data.access      = access;
     if (budget      !== undefined) data.budget      = budget ? parseFloat(budget) : null;
     if (startDate   !== undefined) data.startDate   = startDate ? new Date(startDate) : null;
     if (endDate     !== undefined) data.endDate     = endDate   ? new Date(endDate)   : null;
     if (ownerId     !== undefined) data.ownerId     = ownerId   ? parseInt(ownerId)   : null;
 
-    if (Object.keys(data).length === 0 && !req.body.customFieldValues) return err(res, '沒有要更新的欄位', 400);
+    if (Object.keys(data).length === 0 && !req.body.customFieldValues && !memberIds) return err(res, '沒有要更新的欄位', 400);
 
     // 查詢舊的 ownerId 以便偵測是否變更
     const oldProject = data.ownerId !== undefined
@@ -544,6 +583,26 @@ router.patch('/:id', async (req, res) => {
       data:  Object.keys(data).length > 0 ? data : { updatedAt: new Date() },
       include: { owner: { select: { id: true, name: true } } },
     });
+
+    // 同步專案成員
+    if (Array.isArray(memberIds)) {
+      const mIds = memberIds.map(Number).filter(Boolean);
+      // 先刪除舊的再重建
+      await prisma.projectMember.deleteMany({ where: { projectId: id } });
+      if (mIds.length > 0) {
+        await prisma.projectMember.createMany({
+          data: mIds.map(uid => ({ projectId: id, userId: uid, role: uid === (data.ownerId || project.ownerId) ? 'owner' : 'editor' })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    // 查詢成員資料回傳
+    const members = await prisma.projectMember.findMany({
+      where: { projectId: id },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    project.members = members.map(m => ({ id: m.user.id, name: m.user.name, role: m.role }));
 
     ok(res, project);
 
@@ -750,7 +809,7 @@ router.post('/:id/tasks', async (req, res) => {
   const {
     title, description = '',
     priority = 'medium',
-    estimatedHours, dueDate, assigneeId, parentTaskId,
+    estimatedHours, dueDate, assigneeId, assigneeIds, parentTaskId,
   } = req.body;
 
   if (!title?.trim()) return err(res, '任務標題為必填', 400);
@@ -812,39 +871,22 @@ router.post('/:id/tasks', async (req, res) => {
         },
       });
 
-      if (normalizedAssigneeId) {
-        await tx.taskAssigneeLink.upsert({
-          where: {
-            taskId_userId: {
-              taskId: createdTask.id,
-              userId: normalizedAssigneeId,
-            },
-          },
-          update: {
-            isPrimary: true,
-            ...(actorId ? { assignedById: actorId } : {}),
-          },
-          create: {
-            taskId: createdTask.id,
-            userId: normalizedAssigneeId,
-            isPrimary: true,
-            ...(actorId ? { assignedById: actorId } : {}),
-          },
-        });
+      // 建立多人指派 (assigneeIds 優先，fallback 單人 assigneeId)
+      const allAssigneeIds = Array.isArray(assigneeIds) && assigneeIds.length > 0
+        ? assigneeIds.map(Number).filter(Boolean)
+        : (normalizedAssigneeId ? [normalizedAssigneeId] : []);
 
+      for (let i = 0; i < allAssigneeIds.length; i++) {
+        const uid = allAssigneeIds[i];
+        await tx.taskAssigneeLink.upsert({
+          where: { taskId_userId: { taskId: createdTask.id, userId: uid } },
+          update: { isPrimary: i === 0, ...(actorId ? { assignedById: actorId } : {}) },
+          create: { taskId: createdTask.id, userId: uid, isPrimary: i === 0, ...(actorId ? { assignedById: actorId } : {}) },
+        });
         await tx.projectMember.upsert({
-          where: {
-            projectId_userId: {
-              projectId,
-              userId: normalizedAssigneeId,
-            },
-          },
+          where: { projectId_userId: { projectId, userId: uid } },
           update: {},
-          create: {
-            projectId,
-            userId: normalizedAssigneeId,
-            role: 'editor',
-          },
+          create: { projectId, userId: uid, role: 'editor' },
         });
       }
 
@@ -852,6 +894,7 @@ router.post('/:id/tasks', async (req, res) => {
         where: { id: createdTask.id },
         include: {
           assignee: { select: { id: true, name: true } },
+          taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
           _count:   { select: { subtasks: true } },
         },
       });
@@ -862,6 +905,7 @@ router.post('/:id/tasks', async (req, res) => {
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
       progressPercent: task.progressPercent || 0,
       numSubtasks: task._count?.subtasks || 0,
+      assignees: (task.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
     });
 
     // 觸發 task_created 自動化規則
@@ -901,7 +945,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
   const taskId = parseInt(req.params.taskId);
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
 
-  const { title, status, priority, assigneeId, dueDate, description, planStart, planEnd,
+  const { title, status, priority, assigneeId, assigneeIds, dueDate, description, planStart, planEnd,
           customFieldValues, projectIds } = req.body;
 
   try {
@@ -951,53 +995,52 @@ router.patch('/tasks/:taskId', async (req, res) => {
         data,
         include: {
           assignee: { select: { id: true, name: true } },
+          taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
           _count:   { select: { subtasks: true } },
         },
       });
 
-      if (assigneeId !== undefined) {
-        await tx.taskAssigneeLink.updateMany({
-          where: {
-            taskId,
-            isPrimary: true,
-          },
-          data: { isPrimary: false },
-        });
-
-        if (normalizedAssigneeId) {
-          await tx.taskAssigneeLink.upsert({
-            where: {
-              taskId_userId: {
-                taskId,
-                userId: normalizedAssigneeId,
-              },
-            },
-            update: {
-              isPrimary: true,
-              ...(actorId ? { assignedById: actorId } : {}),
-            },
-            create: {
-              taskId,
-              userId: normalizedAssigneeId,
-              isPrimary: true,
-              ...(actorId ? { assignedById: actorId } : {}),
-            },
+      // ── 多人指派同步 ────────────────────────────────────
+      if (Array.isArray(assigneeIds)) {
+        const mIds = assigneeIds.map(Number).filter(Boolean);
+        // 刪除舊的全部 link，重建
+        await tx.taskAssigneeLink.deleteMany({ where: { taskId } });
+        for (let i = 0; i < mIds.length; i++) {
+          const uid = mIds[i];
+          await tx.taskAssigneeLink.create({
+            data: { taskId, userId: uid, isPrimary: i === 0, ...(actorId ? { assignedById: actorId } : {}) },
           });
-
           if (updatedTask.projectId) {
             await tx.projectMember.upsert({
-              where: {
-                projectId_userId: {
-                  projectId: updatedTask.projectId,
-                  userId: normalizedAssigneeId,
-                },
-              },
+              where: { projectId_userId: { projectId: updatedTask.projectId, userId: uid } },
               update: {},
-              create: {
-                projectId: updatedTask.projectId,
-                userId: normalizedAssigneeId,
-                role: 'editor',
-              },
+              create: { projectId: updatedTask.projectId, userId: uid, role: 'editor' },
+            });
+          }
+        }
+        // 同步主要 assigneeId 為第一人
+        if (mIds.length > 0 && updatedTask.assigneeId !== mIds[0]) {
+          await tx.task.update({ where: { id: taskId }, data: { assigneeId: mIds[0] } });
+        } else if (mIds.length === 0 && updatedTask.assigneeId) {
+          await tx.task.update({ where: { id: taskId }, data: { assigneeId: null } });
+        }
+      } else if (assigneeId !== undefined) {
+        // 舊的單人相容
+        await tx.taskAssigneeLink.updateMany({
+          where: { taskId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+        if (normalizedAssigneeId) {
+          await tx.taskAssigneeLink.upsert({
+            where: { taskId_userId: { taskId, userId: normalizedAssigneeId } },
+            update: { isPrimary: true, ...(actorId ? { assignedById: actorId } : {}) },
+            create: { taskId, userId: normalizedAssigneeId, isPrimary: true, ...(actorId ? { assignedById: actorId } : {}) },
+          });
+          if (updatedTask.projectId) {
+            await tx.projectMember.upsert({
+              where: { projectId_userId: { projectId: updatedTask.projectId, userId: normalizedAssigneeId } },
+              update: {},
+              create: { projectId: updatedTask.projectId, userId: normalizedAssigneeId, role: 'editor' },
             });
           }
         }
@@ -1036,7 +1079,15 @@ router.patch('/tasks/:taskId', async (req, res) => {
         }
       }
 
-      return updatedTask;
+      // 重新查詢以取得最新的 assigneeLinks
+      return tx.task.findUnique({
+        where: { id: taskId },
+        include: {
+          assignee: { select: { id: true, name: true } },
+          taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
+          _count: { select: { subtasks: true } },
+        },
+      });
     });
 
     const automation = await taskRuleEngine.handleTaskUpdated({
@@ -1057,6 +1108,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
       progressPercent: task.progressPercent || 0,
       numSubtasks: task._count?.subtasks || 0,
+      assignees: (task.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       automation,
     });
 

@@ -12,7 +12,7 @@
  *  ⑥ 統計看板    (Stats)          — 頂部 KPI 卡片列
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ProjectDetail from './ProjectDetail';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
@@ -265,6 +265,13 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
   const isEdit = !!project;
   const defColor = project ? loadColors()[project.id] || 'blue' : (template?.color || 'blue');
 
+  // 初始化成員清單：編輯模式讀取 project.members，無則用 owner 單人
+  const initMemberIds = () => {
+    if (project?.members?.length > 0) return project.members.map(m => m.id);
+    if (project?.owner?.id)           return [project.owner.id];
+    return [];
+  };
+
   const [form, setForm] = useState({
     name:        project?.name        || (template && template.id !== 'blank' ? template.name : ''),
     description: project?.description || template?.desc || '',
@@ -272,13 +279,35 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
     budget:      project?.budget      ? String(project.budget) : '',
     startDate:   project?.startDate   ? project.startDate.slice(0, 10) : '',
     endDate:     project?.endDate     ? project.endDate.slice(0, 10)   : '',
-    ownerId:     project?.owner?.id   ? String(project.owner.id)       : '',
+    memberIds:   initMemberIds(),
     colorId:     defColor,
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
+  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const memberRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const pal = getPalette(form.colorId);
+
+  // 點擊下拉外部關閉
+  useEffect(() => {
+    const handler = (e) => {
+      if (memberRef.current && !memberRef.current.contains(e.target)) {
+        setMemberDropdownOpen(false);
+      }
+    };
+    if (memberDropdownOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [memberDropdownOpen]);
+
+  const toggleMember = (uid) => {
+    setForm(f => {
+      const ids = f.memberIds.includes(uid)
+        ? f.memberIds.filter(id => id !== uid)
+        : [...f.memberIds, uid];
+      return { ...f, memberIds: ids };
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -286,9 +315,15 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
     setSaving(true); setError('');
     try {
       const url = isEdit ? `${API}/api/projects/${project.id}` : `${API}/api/projects`;
+      const payload = {
+        ...form,
+        companyId: COMPANY_ID,
+        ownerId: form.memberIds.length > 0 ? form.memberIds[0] : null,
+        memberIds: form.memberIds,
+      };
       const res  = await authFetch(url, {
         method:  isEdit ? 'PATCH' : 'POST',
-        body:    JSON.stringify({ ...form, companyId: COMPANY_ID }),
+        body:    JSON.stringify(payload),
       });
       const json = await res.json();
       if (!json.success && !res.ok) throw new Error(json.error || '操作失敗');
@@ -373,14 +408,83 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               />
             </div>
 
-            {/* 2欄：負責人 + 狀態 */}
+            {/* 2欄：成員指派 + 狀態 */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>負責人</label>
-                <select value={form.ownerId} onChange={e => set('ownerId', e.target.value)} style={inputSt}>
-                  <option value="">— 未指派 —</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
+              <div ref={memberRef} style={{ position: 'relative' }}>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                  專案成員
+                </label>
+                {/* 已選成員 chips */}
+                <div
+                  onClick={() => setMemberDropdownOpen(v => !v)}
+                  style={{
+                    ...inputSt, cursor: 'pointer', minHeight: '38px',
+                    display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center',
+                    padding: '4px 10px',
+                  }}
+                >
+                  {form.memberIds.length === 0 && (
+                    <span style={{ color: C.ink4, fontSize: '14px', lineHeight: '28px' }}>— 點擊指派成員 —</span>
+                  )}
+                  {form.memberIds.map((uid, idx) => {
+                    const u = users.find(x => x.id === uid);
+                    if (!u) return null;
+                    return (
+                      <span key={uid} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        background: idx === 0 ? `${pal.hex}18` : C.surfaceSoft,
+                        border: `1px solid ${idx === 0 ? `${pal.hex}40` : C.line}`,
+                        borderRadius: '99px', padding: '2px 8px 2px 4px', fontSize: '13px', fontWeight: '500', color: C.ink,
+                      }}>
+                        <Avatar name={u.name} size={20} color={idx === 0 ? pal.hex : C.brand} />
+                        {u.name}
+                        {idx === 0 && <span style={{ fontSize: '10px', color: pal.hex, fontWeight: '700', marginLeft: '2px' }}>主</span>}
+                        <span
+                          onClick={e => { e.stopPropagation(); toggleMember(uid); }}
+                          style={{ cursor: 'pointer', marginLeft: '2px', color: C.ink4, fontWeight: '700', fontSize: '14px', lineHeight: 1 }}
+                        >×</span>
+                      </span>
+                    );
+                  })}
+                </div>
+                {/* 下拉選單 */}
+                {memberDropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+                    background: C.white, border: `1px solid ${C.line}`, borderRadius: '8px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '200px', overflowY: 'auto',
+                    marginTop: '4px',
+                  }}>
+                    {users.map(u => {
+                      const selected = form.memberIds.includes(u.id);
+                      return (
+                        <div key={u.id}
+                          onClick={() => toggleMember(u.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            padding: '7px 12px', cursor: 'pointer',
+                            background: selected ? `${pal.hex}0D` : 'transparent',
+                            transition: 'background 0.1s',
+                          }}
+                          onMouseOver={e => { if (!selected) e.currentTarget.style.background = C.surfaceSoft; }}
+                          onMouseOut={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <div style={{
+                            width: '18px', height: '18px', borderRadius: '4px',
+                            border: `2px solid ${selected ? pal.hex : C.line}`,
+                            background: selected ? pal.hex : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            {selected && <span style={{ color: '#fff', fontSize: '12px', fontWeight: '700' }}>✓</span>}
+                          </div>
+                          <Avatar name={u.name} size={22} color={C.brand} />
+                          <span style={{ fontSize: '14px', color: C.ink }}>{u.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>狀態</label>
@@ -510,10 +614,13 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
           <div style={{ fontSize: '13px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
         )}
       </div>
-      {/* 負責人 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <Avatar name={p.owner?.name} size={22} color={pal.hex} />
-        <span style={{ fontSize: '14px', color: C.ink3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70px' }}>{p.owner?.name || '—'}</span>
+      {/* 成員 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+        {(p.members?.length > 0 ? p.members : p.owner ? [{ id: p.owner.id, name: p.owner.name }] : []).slice(0, 3).map((m, i) => (
+          <Avatar key={m.id} name={m.name} size={22} color={i === 0 ? pal.hex : C.brand} />
+        ))}
+        {(p.members?.length || 0) > 3 && <span style={{ fontSize: '11px', color: C.ink4, fontWeight: '600', marginLeft: '2px' }}>+{p.members.length - 3}</span>}
+        {!p.members?.length && !p.owner && <span style={{ fontSize: '14px', color: C.ink4 }}>—</span>}
       </div>
       {/* 狀態 */}
       <span style={{ fontSize: '12px', fontWeight: '600', color: st.color, background: st.bg, borderRadius: '99px', padding: '3px 8px', whiteSpace: 'nowrap', display: 'inline-block' }}>{st.label}</span>
@@ -543,7 +650,7 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
         padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
         position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
       }}>
-        {['', '', '專案名稱', '負責人', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
+        {['', '', '專案名稱', '成員', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
           <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
         ))}
       </div>
@@ -596,7 +703,12 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                       <span style={{ fontSize: '13px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0} 任務</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Avatar name={p.owner?.name} size={22} color={pal.hex} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        {(p.members?.length > 0 ? p.members : p.owner ? [{ id: p.owner.id, name: p.owner.name }] : []).slice(0, 3).map((m, i) => (
+                          <Avatar key={m.id} name={m.name} size={22} color={i === 0 ? pal.hex : C.brand} />
+                        ))}
+                        {(p.members?.length || 0) > 3 && <span style={{ fontSize: '11px', color: C.ink4, fontWeight: '600' }}>+{p.members.length - 3}</span>}
+                      </div>
                       {dl !== null && (
                         <span style={{ fontSize: '13px', color: dlC, fontWeight: dl <= 7 ? '600' : '400' }}>
                           {dl < 0 ? `逾期${Math.abs(dl)}d` : dl === 0 ? '今天截止' : `${dl}天`}

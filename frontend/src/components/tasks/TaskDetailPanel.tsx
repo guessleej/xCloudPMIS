@@ -81,6 +81,7 @@ export interface TaskDetailRecord {
   title: string;
   status?: string | null;
   assignee?: TaskPanelMember | null;
+  assignees?: TaskPanelMember[];
   dueDate?: string | null;
   projects: TaskPanelProject[];
   customFieldValues?: Record<string, CustomFieldStoredValue | undefined>;
@@ -90,7 +91,7 @@ export interface TaskDetailRecord {
 
 export interface TaskDetailSavePayload {
   title: string;
-  assigneeId: EntityId | null;
+  assigneeIds: EntityId[];
   dueDate: string | null;
   projectIds: EntityId[];
   customFieldValues: Record<string, CustomFieldStoredValue | undefined>;
@@ -853,7 +854,9 @@ export default function TaskDetailPanel({
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState('');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
+  const assigneeRef = useRef<HTMLDivElement | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<TaskCustomFieldValueMap>({});
@@ -872,7 +875,12 @@ export default function TaskDetailPanel({
     if (!open || !task) return;
 
     setTitle(task.title);
-    setAssigneeId(task.assignee ? toKey(task.assignee.id) : '');
+    setAssigneeIds(
+      (task.assignees && task.assignees.length > 0)
+        ? task.assignees.map((a) => toKey(a.id))
+        : task.assignee ? [toKey(task.assignee.id)] : []
+    );
+    setAssigneeDropdownOpen(false);
     setDueDate(formatDateInputValue(task.dueDate));
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
@@ -916,6 +924,17 @@ export default function TaskDetailPanel({
     };
   }, [open, onClose]);
 
+  // 指派成員 dropdown 點擊外部關閉
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) {
+        setAssigneeDropdownOpen(false);
+      }
+    };
+    if (assigneeDropdownOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [assigneeDropdownOpen]);
+
   useEffect(() => {
     if (isEditingTitle) {
       titleInputRef.current?.focus();
@@ -958,8 +977,14 @@ export default function TaskDetailPanel({
   if (!open || !task) return null;
 
   const subtaskStats = getSubtaskStats(task.subtasks || []);
-  const assignee = members.find((member) => toKey(member.id) === assigneeId) || null;
+  const resolvedAssignees = assigneeIds.map((id) => members.find((m) => toKey(m.id) === id)).filter(Boolean) as TaskPanelMember[];
   const statusTone = STATUS_TONES[task.status || 'todo'] || STATUS_TONES.todo;
+
+  const toggleAssignee = (uid: string) => {
+    setAssigneeIds((prev) =>
+      prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]
+    );
+  };
 
   const handleSave = async () => {
     const normalizedValues: TaskCustomFieldValueMap = {};
@@ -973,7 +998,7 @@ export default function TaskDetailPanel({
 
     await onSave({
       title: title.trim(),
-      assigneeId: assigneeId || null,
+      assigneeIds: assigneeIds,
       dueDate: dueDate || null,
       projectIds: selectedProjectIds,
       customFieldValues: normalizedValues,
@@ -1160,10 +1185,17 @@ export default function TaskDetailPanel({
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
                 負責人
               </div>
-              {assignee ? (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  <Avatar user={assignee} size={28} />
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>{assignee.name}</span>
+              {resolvedAssignees.length > 0 ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {resolvedAssignees.slice(0, 3).map((a, i) => (
+                    <div key={toKey(a.id)} style={{ marginLeft: i > 0 ? -4 : 0, position: 'relative', zIndex: 3 - i }} title={a.name}>
+                      <Avatar user={a} size={28} />
+                    </div>
+                  ))}
+                  <span style={{ fontSize: 15, fontWeight: 700, marginLeft: 4 }}>
+                    {resolvedAssignees[0].name}
+                    {resolvedAssignees.length > 1 && <span style={{ fontSize: 13, opacity: 0.8 }}> +{resolvedAssignees.length - 1}</span>}
+                  </span>
                 </div>
               ) : (
                 <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,.92)' }}>
@@ -1186,22 +1218,147 @@ export default function TaskDetailPanel({
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 28px' }}>
           <Section kicker="Properties" title="任務屬性">
             <div style={{ display: 'grid', gap: 16 }}>
-              <div style={{ display: 'grid', gap: 8 }}>
+              <div ref={assigneeRef} style={{ display: 'grid', gap: 8, position: 'relative' }}>
                 <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                   負責人
                 </label>
-                <select
-                  value={assigneeId}
-                  onChange={(event) => setAssigneeId(event.target.value)}
-                  style={inputStyle}
+                <div
+                  onClick={() => setAssigneeDropdownOpen((v) => !v)}
+                  style={{
+                    ...inputStyle,
+                    cursor: 'pointer',
+                    minHeight: 42,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 4,
+                    alignItems: 'center',
+                    padding: '6px 10px',
+                  }}
                 >
-                  <option value="">未指派</option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
+                  {assigneeIds.length === 0 && (
+                    <span style={{ color: BRAND.muted, fontSize: 14, lineHeight: '28px' }}>
+                      — 點擊指派 —
+                    </span>
+                  )}
+                  {resolvedAssignees.map((a, idx) => (
+                    <span
+                      key={toKey(a.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        background:
+                          idx === 0
+                            ? 'color-mix(in srgb, var(--xc-brand) 12%, transparent)'
+                            : BRAND.surfaceSoft,
+                        border: `1px solid ${idx === 0 ? 'color-mix(in srgb, var(--xc-brand) 30%, transparent)' : BRAND.line}`,
+                        borderRadius: 99,
+                        padding: '2px 8px 2px 4px',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: BRAND.ink,
+                      }}
+                    >
+                      <Avatar user={a} size={18} />
+                      {a.name}
+                      {idx === 0 && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: BRAND.crimson,
+                            fontWeight: 700,
+                            marginLeft: 2,
+                          }}
+                        >
+                          主
+                        </span>
+                      )}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleAssignee(toKey(a.id));
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          marginLeft: 2,
+                          color: BRAND.muted,
+                          fontWeight: 700,
+                          fontSize: 14,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ×
+                      </span>
+                    </span>
                   ))}
-                </select>
+                </div>
+                {assigneeDropdownOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      zIndex: 20,
+                      background: BRAND.white,
+                      border: `1px solid ${BRAND.line}`,
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+                      maxHeight: 200,
+                      overflowY: 'auto',
+                      marginTop: 4,
+                    }}
+                  >
+                    {members.map((m) => {
+                      const sel = assigneeIds.includes(toKey(m.id));
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => toggleAssignee(toKey(m.id))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '7px 12px',
+                            cursor: 'pointer',
+                            background: sel
+                              ? 'color-mix(in srgb, var(--xc-brand) 8%, transparent)'
+                              : 'transparent',
+                            transition: 'background .1s',
+                          }}
+                          onMouseOver={(e) => {
+                            if (!sel) (e.currentTarget as HTMLElement).style.background = BRAND.surfaceSoft;
+                          }}
+                          onMouseOut={(e) => {
+                            if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent';
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 18,
+                              height: 18,
+                              borderRadius: 4,
+                              border: `2px solid ${sel ? BRAND.crimson : BRAND.line}`,
+                              background: sel ? BRAND.crimson : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {sel && (
+                              <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                          <Avatar user={m} size={22} />
+                          <span style={{ fontSize: 14, color: BRAND.ink }}>{m.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>

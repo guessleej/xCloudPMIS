@@ -63,6 +63,7 @@ function formatTask(t) {
     progressPercent: t.progressPercent ?? 0,
     project:      t.project,
     assignee:     t.assignee,
+    assignees:    (t.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
     section:      deriveSection(t.dueDate),
   };
 }
@@ -92,6 +93,10 @@ router.get('/', async (req, res) => {
       include: {
         assignee: { select: { id: true, name: true } },
         project:  { select: { id: true, name: true } },
+        taskAssigneeLinks: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
+        },
       },
     });
 

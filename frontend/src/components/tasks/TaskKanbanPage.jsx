@@ -17,7 +17,7 @@
  *   - 活動紀錄時間線
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCorners, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -733,33 +733,44 @@ function TaskCard({
               </button>
             )}
 
-            {task.assignee ? (
-              <div style={{ position: 'relative' }} title={task.assignee.name}>
+            {(() => {
+              const assignees = task.assignees?.length > 0 ? task.assignees : task.assignee ? [task.assignee] : [];
+              if (assignees.length === 0) return (
                 <div style={{
-                  position: 'absolute',
-                  inset: -3,
+                  width: 28,
+                  height: 28,
                   borderRadius: '50%',
-                  border: `2px solid ${BRAND.white}`,
-                  boxShadow: '0 6px 16px rgba(18,18,18,.12)',
-                }} />
-                <Avatar name={task.assignee.name} size={28} />
-              </div>
-            ) : (
-              <div style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                border: `1px dashed ${BRAND.silver}`,
-                color: BRAND.muted,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-                background: BRAND.surfaceSoft,
-              }} title="未指派">
-                +
-              </div>
-            )}
+                  border: `1px dashed ${BRAND.silver}`,
+                  color: BRAND.muted,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  background: BRAND.surfaceSoft,
+                }} title="未指派">
+                  +
+                </div>
+              );
+              return (
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {assignees.slice(0, 3).map((a, i) => (
+                    <div key={a.id} style={{ position: 'relative', marginLeft: i > 0 ? -8 : 0, zIndex: 3 - i }} title={a.name}>
+                      <div style={{
+                        position: 'absolute',
+                        inset: -3,
+                        borderRadius: '50%',
+                        border: `2px solid ${BRAND.white}`,
+                        boxShadow: '0 6px 16px rgba(18,18,18,.12)',
+                      }} />
+                      <Avatar name={a.name} size={28} />
+                    </div>
+                  ))}
+                  {assignees.length > 3 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: BRAND.muted, marginLeft: 2 }}>+{assignees.length - 3}</span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -962,10 +973,29 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
   const [form, setForm] = useState({
     title: '', description: '',
     status: defaultStatus || 'todo', priority: 'medium',
-    projectId: defaultProjectId || projects[0]?.id || '', assigneeId: '', dueDate: '',
+    projectId: defaultProjectId || projects[0]?.id || '', assigneeIds: [], dueDate: '',
   });
   const [saving, setSaving] = useState(false);
+  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const memberRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const toggleAssignee = (uid) => {
+    setForm(f => {
+      const ids = f.assigneeIds.includes(uid)
+        ? f.assigneeIds.filter(id => id !== uid)
+        : [...f.assigneeIds, uid];
+      return { ...f, assigneeIds: ids };
+    });
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (memberRef.current && !memberRef.current.contains(e.target)) setMemberDropdownOpen(false);
+    };
+    if (memberDropdownOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [memberDropdownOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -980,7 +1010,8 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
           description: form.description,
           status:     form.status,
           priority:   form.priority,
-          assigneeId: form.assigneeId ? parseInt(form.assigneeId) : undefined,
+          assigneeIds: form.assigneeIds,
+          assigneeId: form.assigneeIds.length > 0 ? form.assigneeIds[0] : undefined,
           dueDate:    form.dueDate || undefined,
         }),
       });
@@ -1049,13 +1080,60 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div>
-                <label style={labelStyle}>指派給</label>
-                <select style={inputStyle} value={form.assigneeId}
-                  onChange={e => set('assigneeId', e.target.value)}>
-                  <option value="">未指派</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
+              <div ref={memberRef} style={{ position: 'relative' }}>
+                <label style={labelStyle}>指派成員</label>
+                <div
+                  onClick={() => setMemberDropdownOpen(v => !v)}
+                  style={{ ...inputStyle, cursor: 'pointer', minHeight: 38, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 10px' }}
+                >
+                  {form.assigneeIds.length === 0 && (
+                    <span style={{ color: BRAND.muted, fontSize: 14, lineHeight: '28px' }}>— 點擊指派 —</span>
+                  )}
+                  {form.assigneeIds.map((uid, idx) => {
+                    const u = users.find(x => String(x.id) === String(uid));
+                    if (!u) return null;
+                    return (
+                      <span key={uid} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        background: idx === 0 ? 'color-mix(in srgb, var(--xc-brand) 12%, transparent)' : BRAND.surfaceSoft,
+                        border: `1px solid ${idx === 0 ? 'color-mix(in srgb, var(--xc-brand) 30%, transparent)' : BRAND.silver}`,
+                        borderRadius: 99, padding: '2px 8px 2px 4px', fontSize: 13, fontWeight: 500, color: BRAND.ink,
+                      }}>
+                        <Avatar name={u.name} size={18} />
+                        {u.name}
+                        {idx === 0 && <span style={{ fontSize: 10, color: BRAND.crimson, fontWeight: 700, marginLeft: 2 }}>主</span>}
+                        <span onClick={e => { e.stopPropagation(); toggleAssignee(uid); }}
+                          style={{ cursor: 'pointer', marginLeft: 2, color: BRAND.muted, fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+                      </span>
+                    );
+                  })}
+                </div>
+                {memberDropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+                    background: BRAND.white, border: `1px solid ${BRAND.silver}`, borderRadius: 8,
+                    boxShadow: '0 8px 24px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto', marginTop: 4,
+                  }}>
+                    {users.map(u => {
+                      const sel = form.assigneeIds.includes(u.id);
+                      return (
+                        <div key={u.id} onClick={() => toggleAssignee(u.id)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer',
+                            background: sel ? 'color-mix(in srgb, var(--xc-brand) 8%, transparent)' : 'transparent', transition: 'background .1s' }}
+                          onMouseOver={e => { if (!sel) e.currentTarget.style.background = BRAND.surfaceSoft; }}
+                          onMouseOut={e => { if (!sel) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${sel ? BRAND.crimson : BRAND.silver}`,
+                            background: sel ? BRAND.crimson : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {sel && <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                          </div>
+                          <Avatar name={u.name} size={22} />
+                          <span style={{ fontSize: 14, color: BRAND.ink }}>{u.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={labelStyle}>截止日期</label>
@@ -1255,11 +1333,15 @@ export function TaskSidePanel({
 
   const handleSave = async (payload) => {
     try {
+      const assigneeIds = payload.assigneeIds
+        ? payload.assigneeIds.map((id) => parseInt(id, 10))
+        : (payload.assigneeId ? [parseInt(payload.assigneeId, 10)] : []);
       const res = await authFetch(`${API}/tasks/${task.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           title:             payload.title.trim(),
-          assigneeId:        payload.assigneeId ? parseInt(payload.assigneeId, 10) : null,
+          assigneeIds:       assigneeIds,
+          assigneeId:        assigneeIds.length > 0 ? assigneeIds[0] : null,
           dueDate:           payload.dueDate || null,
           projectIds:        payload.projectIds || [],
           customFieldValues: payload.customFieldValues || {},
@@ -1379,6 +1461,7 @@ export function TaskSidePanel({
         title: task.title,
         status: task.status,
         assignee: task.assignee || null,
+        assignees: task.assignees || (task.assignee ? [task.assignee] : []),
         dueDate: task.dueDate,
         projects: linkedProjects,
         customFieldValues,

@@ -399,7 +399,7 @@ function TopNavBar({
 
   useEffect(() => {
     if (!currentUser?.companyId) return;
-    authFetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}`)
+    authFetch(`${API_BASE}/api/projects?companyId=${currentUser.companyId}&mine=true`)
       .then(r => r.json())
       .then(d => {
         const list = Array.isArray(d) ? d : (d.data || d.projects || []);

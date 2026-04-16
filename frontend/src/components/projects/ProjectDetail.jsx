@@ -8,7 +8,7 @@
  *   onBack      {function} 返回上一頁
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TaskSidePanel } from '../tasks/TaskKanbanPage';
@@ -117,10 +117,30 @@ function ProgressBar({ pct, color }) {
 // ─────────────────────────────────────────────────────────
 function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClose, authFetch }) {
   const isMobile = useIsMobile();
-  const [form, setForm] = useState({ title: '', status: defaultStatus, priority: 'medium', assigneeId: '', dueDate: '', description: '' });
+  const [form, setForm] = useState({ title: '', status: defaultStatus, priority: 'medium', assigneeIds: [], dueDate: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
+  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const memberRef = useRef(null);
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const toggleAssignee = (uid) => {
+    setForm(f => {
+      const ids = f.assigneeIds.includes(uid)
+        ? f.assigneeIds.filter(id => id !== uid)
+        : [...f.assigneeIds, uid];
+      return { ...f, assigneeIds: ids };
+    });
+  };
+
+  // 點擊外部關閉
+  useEffect(() => {
+    const handler = (e) => {
+      if (memberRef.current && !memberRef.current.contains(e.target)) setMemberDropdownOpen(false);
+    };
+    if (memberDropdownOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [memberDropdownOpen]);
 
   const submit = async e => {
     e.preventDefault();
@@ -133,7 +153,8 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
           title:       form.title.trim(),
           status:      form.status,
           priority:    form.priority,
-          assigneeId:  form.assigneeId ? parseInt(form.assigneeId) : undefined,
+          assigneeIds: form.assigneeIds,
+          assigneeId:  form.assigneeIds.length > 0 ? form.assigneeIds[0] : undefined,
           dueDate:     form.dueDate || undefined,
           description: form.description || undefined,
         }),
@@ -178,12 +199,60 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>負責人</label>
-              <select style={inputSt} value={form.assigneeId} onChange={set('assigneeId')}>
-                <option value="">未指派</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+            <div ref={memberRef} style={{ position: 'relative' }}>
+              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>指派成員</label>
+              <div
+                onClick={() => setMemberDropdownOpen(v => !v)}
+                style={{ ...inputSt, cursor: 'pointer', minHeight: 38, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 10px' }}
+              >
+                {form.assigneeIds.length === 0 && (
+                  <span style={{ color: C.ink3, fontSize: 14, lineHeight: '28px' }}>— 點擊指派 —</span>
+                )}
+                {form.assigneeIds.map((uid, idx) => {
+                  const u = users.find(x => x.id === uid);
+                  if (!u) return null;
+                  return (
+                    <span key={uid} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 3,
+                      background: idx === 0 ? 'color-mix(in srgb, var(--xc-brand) 12%, transparent)' : C.surfaceSoft,
+                      border: `1px solid ${idx === 0 ? 'color-mix(in srgb, var(--xc-brand) 30%, transparent)' : C.line}`,
+                      borderRadius: 99, padding: '2px 8px 2px 4px', fontSize: 13, fontWeight: 500, color: C.ink,
+                    }}>
+                      <Avatar name={u.name} size={18} />
+                      {u.name}
+                      {idx === 0 && <span style={{ fontSize: 10, color: C.brand, fontWeight: 700, marginLeft: 2 }}>主</span>}
+                      <span onClick={e => { e.stopPropagation(); toggleAssignee(uid); }}
+                        style={{ cursor: 'pointer', marginLeft: 2, color: C.ink3, fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {memberDropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+                  background: C.white, border: `1px solid ${C.line}`, borderRadius: 8,
+                  boxShadow: '0 8px 24px rgba(0,0,0,.12)', maxHeight: 200, overflowY: 'auto', marginTop: 4,
+                }}>
+                  {users.map(u => {
+                    const sel = form.assigneeIds.includes(u.id);
+                    return (
+                      <div key={u.id} onClick={() => toggleAssignee(u.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer',
+                          background: sel ? 'color-mix(in srgb, var(--xc-brand) 8%, transparent)' : 'transparent', transition: 'background .1s' }}
+                        onMouseOver={e => { if (!sel) e.currentTarget.style.background = C.surfaceSoft; }}
+                        onMouseOut={e => { if (!sel) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${sel ? C.brand : C.line}`,
+                          background: sel ? C.brand : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {sel && <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                        </div>
+                        <Avatar name={u.name} size={22} />
+                        <span style={{ fontSize: 14, color: C.ink }}>{u.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
@@ -530,7 +599,14 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           {/* 指派人 */}
-          {task.assignee && <Avatar name={task.assignee.name} size={22} url={task.assignee.avatarUrl} />}
+          {(task.assignees?.length > 0 ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((a, i) => (
+            <div key={a.id} style={{ marginLeft: i > 0 ? -6 : 0, zIndex: 3 - i, position: 'relative' }} title={a.name}>
+              <Avatar name={a.name} size={22} url={a.avatarUrl} />
+            </div>
+          ))}
+          {(task.assignees?.length || 0) > 3 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.ink3, marginLeft: -2 }}>+{task.assignees.length - 3}</span>
+          )}
           {/* 推進按鈕 */}
           <button
             onClick={e => { e.stopPropagation(); onMoveNext(task); }}
@@ -604,9 +680,22 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
               {task.numSubtasks > 0 && <span style={{ marginLeft: 6, fontSize: 13, color: C.ink3 }}>+{task.numSubtasks} 子任務</span>}
             </span>
             <span>
-              {task.assignee
-                ? <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Avatar name={task.assignee.name} size={20} url={task.assignee.avatarUrl} /><span style={{ fontSize: 14, color: C.ink2 }}>{task.assignee.name}</span></div>
-                : <span style={{ color: C.ink3, fontSize: 14 }}>未指派</span>}
+              {(() => {
+                const assignees = task.assignees?.length > 0 ? task.assignees : task.assignee ? [task.assignee] : [];
+                if (assignees.length === 0) return <span style={{ color: C.ink3, fontSize: 14 }}>未指派</span>;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {assignees.slice(0, 2).map((a, i) => (
+                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: i > 0 ? -2 : 0 }} title={a.name}>
+                        <Avatar name={a.name} size={20} url={a.avatarUrl} />
+                      </div>
+                    ))}
+                    <span style={{ fontSize: 13, color: C.ink2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 60 }}>
+                      {assignees[0].name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ''}
+                    </span>
+                  </div>
+                );
+              })()}
             </span>
             <span>
               <span style={{ fontSize: 13, fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: st.bg, color: st.color }}>{st.label}</span>
