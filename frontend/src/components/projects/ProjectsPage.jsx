@@ -823,7 +823,7 @@ export default function ProjectsPage() {
   }, [projects]);
 
   if (activeProject) {
-    return <ProjectDetail projectId={activeProject.id} projectName={activeProject.name} onBack={() => setActiveProject(null)} />;
+    return <ProjectDetail projectId={activeProject.id} projectName={activeProject.name} onBack={() => { setActiveProject(null); load(); }} />;
   }
 
   // 篩選

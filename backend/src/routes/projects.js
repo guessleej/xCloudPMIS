@@ -180,7 +180,10 @@ router.get('/', async (req, res) => {
         owner: { select: { id: true, name: true } },
         tasks: {
           where:  { deletedAt: null },
-          select: { id: true, status: true },
+          select: { id: true, status: true, dueDate: true },
+        },
+        taskProjects: {
+          include: { task: { select: { id: true, status: true, dueDate: true, deletedAt: true } } },
         },
         milestones: {
           select: { id: true, name: true, isAchieved: true, dueDate: true },
@@ -190,9 +193,16 @@ router.get('/', async (req, res) => {
     });
 
     const result = projects.map(p => {
-      const total    = p.tasks.length;
-      const done     = p.tasks.filter(t => t.status === 'done').length;
-      const overdue  = p.tasks.filter(t =>
+      // 合併直接關聯 + taskProjects 多對多關聯（去重）
+      const taskMap = new Map();
+      p.tasks.forEach(t => taskMap.set(t.id, t));
+      (p.taskProjects || []).forEach(tp => {
+        if (!tp.task.deletedAt && !taskMap.has(tp.task.id)) taskMap.set(tp.task.id, tp.task);
+      });
+      const allTasks = [...taskMap.values()];
+      const total    = allTasks.length;
+      const done     = allTasks.filter(t => t.status === 'done').length;
+      const overdue  = allTasks.filter(t =>
         t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()
       ).length;
 

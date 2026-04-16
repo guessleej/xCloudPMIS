@@ -26,14 +26,65 @@ router.get('/', async (req, res) => {
         id: true, name: true, email: true, role: true,
         department: true, jobTitle: true,
         isActive: true, lastLoginAt: true, joinedAt: true, createdAt: true,
+        // 主要指派（Task.assigneeId）
         assignedTasks: {
-          select: { id: true, status: true, priority: true },
+          where: { deletedAt: null },
+          select: { id: true, status: true, priority: true, dueDate: true },
+        },
+        // 多人協作指派（TaskAssigneeLink）
+        taskAssigneeLinks: {
+          where: { task: { deletedAt: null } },
+          select: {
+            task: { select: { id: true, status: true, priority: true, dueDate: true } },
+          },
+        },
+        // 擁有的專案（Project.ownerId = user.id）
+        ownedProjects: {
+          where: { deletedAt: null },
+          select: { id: true, status: true },
+        },
+        // 專案成員身分（ProjectMember 表）
+        projectMemberships: {
+          where: { project: { deletedAt: null } },
+          select: {
+            project: { select: { id: true, status: true } },
+          },
         },
       },
     });
 
+    const now = new Date();
+    const soon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 天內
+
     const data = users.map(u => {
-      const tasks = u.assignedTasks || [];
+      // 合併兩種指派來源，以 task.id 去重
+      const taskMap = new Map();
+      for (const t of (u.assignedTasks || [])) {
+        taskMap.set(t.id, t);
+      }
+      for (const link of (u.taskAssigneeLinks || [])) {
+        if (link.task && !taskMap.has(link.task.id)) {
+          taskMap.set(link.task.id, link.task);
+        }
+      }
+      const tasks = [...taskMap.values()];
+
+      // 進行中專案：合併 ownedProjects + projectMemberships，以 project.id 去重
+      const projectSet = new Set();
+      for (const p of (u.ownedProjects || [])) {
+        if (p.status === 'active') projectSet.add(p.id);
+      }
+      for (const pm of (u.projectMemberships || [])) {
+        if (pm.project.status === 'active') projectSet.add(pm.project.id);
+      }
+      const activeProjects = projectSet.size;
+
+      const activeTasks = tasks.filter(t => !['done', 'cancelled'].includes(t.status)).length;
+      const deadlineReminders = tasks.filter(t => {
+        if (!t.dueDate || ['done', 'cancelled'].includes(t.status)) return false;
+        const due = new Date(t.dueDate);
+        return due <= soon; // 已逾期或 7 天內到期
+      }).length;
       return {
         id:          u.id,
         name:        u.name,
@@ -46,9 +97,11 @@ router.get('/', async (req, res) => {
         joinedAt:    u.joinedAt    || u.createdAt,
         taskStats: {
           total:     tasks.length,
-          active:    tasks.filter(t => !['done', 'cancelled'].includes(t.status)).length,
+          active:    activeTasks,
           completed: tasks.filter(t => t.status === 'done').length,
-          overdue:   0, // 簡化：不計逾期
+          overdue:   0,
+          activeProjects,
+          deadlineReminders,
         },
       };
     });

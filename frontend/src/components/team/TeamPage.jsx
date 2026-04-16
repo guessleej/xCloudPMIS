@@ -79,18 +79,18 @@ function MemberCard({ member, onClick }) {
         background: hover ? BRAND.accentSurface : BRAND.surface,
         border: `1px solid ${hover ? BRAND.accentBorder : BRAND.mist}`,
         borderRadius: 12,
-        padding: '20px',
+        padding: '16px',
         cursor: 'pointer',
         transition: 'all 0.15s',
         display: 'flex',
         flexDirection: 'column',
-        gap: 14,
+        gap: 10,
       }}
     >
-      {/* 頭像 + 基本資訊 */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ position: 'relative' }}>
-          <Avatar name={member.name} avatarUrl={member.avatarUrl} size={44} />
+      {/* 頭像 + 姓名 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <Avatar name={member.name} avatarUrl={member.avatarUrl} size={38} />
           <span style={{
             position: 'absolute', bottom: 0, right: -2,
             width: 11, height: 11, borderRadius: '50%',
@@ -98,13 +98,15 @@ function MemberCard({ member, onClick }) {
             border: `2px solid ${BRAND.surface}`,
           }} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: BRAND.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {member.name}
-          </div>
-          <div style={{ fontSize: 13, color: BRAND.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {member.jobTitle}
-          </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: BRAND.ink, whiteSpace: 'nowrap' }}>
+          {member.name}
+        </div>
+      </div>
+
+      {/* 職稱 + 角色 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, fontSize: 12, color: BRAND.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {member.jobTitle}
         </div>
         <span style={{
           fontSize: 12, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
@@ -116,33 +118,27 @@ function MemberCard({ member, onClick }) {
         </span>
       </div>
 
-      {/* 部門 */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        padding: '5px 10px', borderRadius: 6,
-        background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
-        fontSize: 13, color: BRAND.carbon,
-      }}>
-        <span style={{ opacity: 0.6 }}>🏢</span>
-        {member.department}
-      </div>
-
       {/* 任務統計 */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 5 }}>
         {[
-          { label: '總任務', value: member.taskStats?.total ?? 0, color: BRAND.info },
-          { label: '進行中', value: member.taskStats?.active ?? 0, color: BRAND.warning },
-          { label: '已完成', value: member.taskStats?.completed ?? 0, color: BRAND.success },
+          { icon: '📁', label: '專案', value: member.taskStats?.activeProjects ?? 0, color: BRAND.info },
+          { icon: '📋', label: '任務', value: member.taskStats?.active ?? 0, color: BRAND.warning },
+          { icon: '⏰', label: '到期', value: member.taskStats?.deadlineReminders ?? 0, color: (member.taskStats?.deadlineReminders ?? 0) > 0 ? BRAND.danger : BRAND.success },
         ].map(s => (
-          <div key={s.label} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 6, background: BRAND.surfaceSoft }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: BRAND.muted }}>{s.label}</div>
+          <div key={s.label} style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '6px 2px', borderRadius: 6, background: BRAND.surfaceSoft,
+            border: `1px solid ${BRAND.mist}`,
+          }}>
+            <span style={{ fontSize: 13, lineHeight: 1 }}>{s.icon}</span>
+            <div style={{ fontSize: 17, fontWeight: 800, color: s.color, lineHeight: 1.3 }}>{s.value}</div>
+            <div style={{ fontSize: 10, color: BRAND.muted, whiteSpace: 'nowrap' }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* 加入時間 + 最後登入 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: BRAND.muted, borderTop: `1px solid ${BRAND.mist}`, paddingTop: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: BRAND.muted, borderTop: `1px solid ${BRAND.mist}`, paddingTop: 8 }}>
         <span>📅 加入 {joinDate}</span>
         <span>🔑 {lastLogin}</span>
       </div>
@@ -246,15 +242,20 @@ function MemberDrawer({ member, onClose, onRoleChange, canManageRoles }) {
           {/* 任務統計 */}
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: BRAND.carbon, marginBottom: 10 }}>任務統計</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               {[
-                { label: '總任務', value: member.taskStats?.total ?? 0, color: BRAND.info },
-                { label: '進行中', value: member.taskStats?.active ?? 0, color: BRAND.warning },
-                { label: '已完成', value: member.taskStats?.completed ?? 0, color: BRAND.success },
+                { icon: '📁', label: '進行中專案', value: member.taskStats?.activeProjects ?? 0, color: BRAND.info },
+                { icon: '📋', label: '進行中任務', value: member.taskStats?.active ?? 0, color: BRAND.warning },
+                { icon: '⏰', label: '截止提醒', value: member.taskStats?.deadlineReminders ?? 0, color: (member.taskStats?.deadlineReminders ?? 0) > 0 ? BRAND.danger : BRAND.success },
               ].map(s => (
-                <div key={s.label} style={{ textAlign: 'center', padding: '10px 6px', borderRadius: 8, background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}` }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: 12, color: BRAND.muted }}>{s.label}</div>
+                <div key={s.label} style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  padding: '12px 6px', borderRadius: 10, background: BRAND.surfaceSoft,
+                  border: `1px solid ${BRAND.mist}`,
+                }}>
+                  <span style={{ fontSize: 18, lineHeight: 1, marginBottom: 4 }}>{s.icon}</span>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, lineHeight: 1.3 }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: BRAND.muted, whiteSpace: 'nowrap' }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -449,13 +450,36 @@ export default function TeamPage() {
           <div style={{ textAlign: 'center', padding: 60, color: BRAND.muted, fontSize: 15 }}>載入中…</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, color: BRAND.muted, fontSize: 15 }}>找不到符合的成員</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            {filtered.map(m => (
-              <MemberCard key={m.id} member={m} onClick={openMember} />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          // 按部門分組
+          const grouped = {};
+          filtered.forEach(m => {
+            const dept = m.department || '未分配';
+            if (!grouped[dept]) grouped[dept] = [];
+            grouped[dept].push(m);
+          });
+          const deptOrder = Object.keys(grouped).sort((a, b) => {
+            if (a === '未分配') return 1;
+            if (b === '未分配') return -1;
+            if (a === '管理部') return -1;
+            if (b === '管理部') return 1;
+            return a.localeCompare(b, 'zh-TW');
+          });
+          return deptOrder.map(dept => (
+            <div key={dept} style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 15 }}>🏢</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: BRAND.ink }}>{dept}</span>
+                <span style={{ fontSize: 13, color: BRAND.muted }}>({grouped[dept].length})</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                {grouped[dept].map(m => (
+                  <MemberCard key={m.id} member={m} onClick={openMember} />
+                ))}
+              </div>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* 部門分佈統計（底部） */}

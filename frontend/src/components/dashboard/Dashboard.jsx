@@ -2683,8 +2683,73 @@ export default function Dashboard() {
     );
   };
 
+  // ── 未分配部門引導：首次登入導向整合服務 ──────────────────
+  const needsOnboarding = currentUser && !currentUser.department;
+  const [dismissedOnboarding, setDismissedOnboarding] = useState(() => {
+    try { return sessionStorage.getItem('xc_onboarding_dismissed') === '1'; } catch { return false; }
+  });
+  const showOnboarding = needsOnboarding && !dismissedOnboarding && activeNav !== 'settings';
+
+  const goToIntegrations = useCallback(() => {
+    setSettingsState({ initialTab: 'integrations' });
+    navigate('settings');
+    setDismissedOnboarding(true);
+    try { sessionStorage.setItem('xc_onboarding_dismissed', '1'); } catch {}
+  }, [navigate]);
+
+  const dismissOnboarding = useCallback(() => {
+    setDismissedOnboarding(true);
+    try { sessionStorage.setItem('xc_onboarding_dismissed', '1'); } catch {}
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: T.pageBg, color: isDark ? T.t1 : undefined }}>
+      {/* 未分配部門引導遮罩 */}
+      {showOnboarding && (
+        <>
+          <div onClick={dismissOnboarding} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 9998 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: 420, maxWidth: '92vw', background: 'var(--xc-surface)', borderRadius: 16,
+            boxShadow: '0 24px 80px rgba(0,0,0,.3)', zIndex: 9999,
+            padding: '32px 28px', textAlign: 'center',
+            animation: 'onboardFadeIn .25s ease',
+          }}>
+            <style>{`@keyframes onboardFadeIn { from { opacity:0; transform:translate(-50%,-50%) scale(.95); } to { opacity:1; transform:translate(-50%,-50%) scale(1); } }`}</style>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--xc-text)', margin: '0 0 8px' }}>
+              歡迎加入 xCloudPMIS！
+            </h2>
+            <p style={{ fontSize: 14, color: 'var(--xc-text-muted)', margin: '0 0 20px', lineHeight: 1.6 }}>
+              您的部門資訊尚未設定。<br />
+              請先連結 <strong>Microsoft 365 / Azure AD</strong> 帳號，<br />
+              系統將自動同步您的部門與職稱資訊。
+            </p>
+            <button
+              onClick={goToIntegrations}
+              style={{
+                width: '100%', padding: '11px 0', borderRadius: 8, border: 'none',
+                background: 'var(--xc-brand, #C70018)', color: '#fff',
+                fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                marginBottom: 10,
+              }}
+            >
+              前往整合服務連結帳號
+            </button>
+            <button
+              onClick={dismissOnboarding}
+              style={{
+                width: '100%', padding: '9px 0', borderRadius: 8,
+                border: '1px solid var(--xc-border-strong)', background: 'transparent',
+                color: 'var(--xc-text-soft)', fontSize: 14, cursor: 'pointer',
+              }}
+            >
+              稍後再說
+            </button>
+          </div>
+        </>
+      )}
+
       <TopNavBar
         active={activeNav}
         onNavigate={navigate}
