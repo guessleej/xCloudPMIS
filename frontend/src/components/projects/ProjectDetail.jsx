@@ -591,10 +591,21 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
               {isOverdue ? `逾期 ${Math.abs(days)} 天` : days === 0 ? '今天' : `${fmtDate(task.dueDate)}`}
             </span>
           )}
-          {/* 子任務 */}
-          {task.numSubtasks > 0 && (
-            <span style={{ fontSize: 12, color: C.ink3 }}>◫ {task.numSubtasks}</span>
-          )}
+          {/* 子任務進度 */}
+          {task.numSubtasks > 0 && (() => {
+            const done = task.completedSubtasks || 0;
+            const total = task.numSubtasks;
+            const pct = total > 0 ? Math.round(done / total * 100) : 0;
+            const barColor = pct === 100 ? '#22c55e' : pct >= 50 ? '#3b82f6' : '#f97316';
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ width: 44, height: 5, borderRadius: 999, background: 'var(--xc-surface-muted)', overflow: 'hidden' }}>
+                  <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: barColor, transition: 'width .3s' }} />
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: barColor }}>{done}/{total}</span>
+              </div>
+            );
+          })()}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -677,7 +688,20 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
               textDecoration: (task.status === 'done' || task.status === 'completed') ? 'line-through' : 'none',
               opacity: (task.status === 'done' || task.status === 'completed') ? .6 : 1 }}>
               {task.title}
-              {task.numSubtasks > 0 && <span style={{ marginLeft: 6, fontSize: 13, color: C.ink3 }}>+{task.numSubtasks} 子任務</span>}
+              {task.numSubtasks > 0 && (() => {
+                const done = task.completedSubtasks || 0;
+                const total = task.numSubtasks;
+                const pct = total > 0 ? Math.round(done / total * 100) : 0;
+                const barColor = pct === 100 ? '#22c55e' : pct >= 50 ? '#3b82f6' : '#f97316';
+                return (
+                  <span style={{ marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-block', width: 36, height: 4, borderRadius: 999, background: 'var(--xc-surface-muted)', overflow: 'hidden', verticalAlign: 'middle' }}>
+                      <span style={{ display: 'block', width: `${pct}%`, height: '100%', borderRadius: 999, background: barColor, transition: 'width .3s' }} />
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: barColor }}>{done}/{total}</span>
+                  </span>
+                );
+              })()}
             </span>
             <span>
               {(() => {

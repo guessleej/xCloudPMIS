@@ -1415,6 +1415,20 @@ export function TaskSidePanel({
     }
   };
 
+  const handleApprovalAction = async ({ action, comment }) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${task.id}/approval`, {
+        method: 'POST',
+        body: JSON.stringify({ action, comment }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '審核操作失敗');
+      onSaved();
+    } catch (error) {
+      alert(`審核操作失敗：${error.message}`);
+    }
+  };
+
   const handleToggleSubtask = async ({ subtaskId, completed }) => {
     try {
       const res = await authFetch(`${API}/tasks/${subtaskId}`, {
@@ -1489,6 +1503,7 @@ export function TaskSidePanel({
       onAddChecklistItem={handleAddChecklistItem}
       onToggleChecklistItem={handleToggleChecklistItem}
       onDeleteChecklistItem={handleDeleteChecklistItem}
+      onApprovalAction={handleApprovalAction}
     />
   );
 }

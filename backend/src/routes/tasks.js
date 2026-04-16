@@ -84,7 +84,7 @@ router.get('/', async (req, res) => {
     const projectIds = projects.map(p => p.id);
     if (!projectIds.length) return res.json({ success: true, data: [], meta: { total: 0 } });
 
-    const where = { projectId: { in: projectIds }, deletedAt: null };
+    const where = { projectId: { in: projectIds }, deletedAt: null, parentTaskId: null };
     if (assigneeId) where.assigneeId = assigneeId;
 
     const tasks = await prisma.task.findMany({

@@ -130,6 +130,8 @@ export interface TaskDetailPanelProps {
   onAddChecklistItem?: (title: string) => Promise<void> | void;
   onToggleChecklistItem?: (itemId: EntityId, isDone: boolean) => Promise<void> | void;
   onDeleteChecklistItem?: (itemId: EntityId) => Promise<void> | void;
+  // Approval
+  onApprovalAction?: (input: { action: 'approve' | 'reject' | 'request_review'; comment?: string }) => Promise<void> | void;
 }
 
 const BRAND = {
@@ -850,6 +852,7 @@ export default function TaskDetailPanel({
   onAddChecklistItem,
   onToggleChecklistItem,
   onDeleteChecklistItem,
+  onApprovalAction,
 }: TaskDetailPanelProps) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -866,6 +869,8 @@ export default function TaskDetailPanel({
   const [commentText, setCommentText] = useState('');
   const [checklistInput, setChecklistInput] = useState('');
   const [checklistPending, setChecklistPending] = useState(false);
+  const [approvalComment, setApprovalComment] = useState('');
+  const [approvalPending, setApprovalPending] = useState(false);
 
   // ── 根本修正：task 物件每次由父層 inline 建立，ref 不同但 id 相同
   //    只在 task.id 真正改變時重設所有欄位，避免父層 re-render 覆蓋使用者編輯中的值
@@ -1216,6 +1221,86 @@ export default function TaskDetailPanel({
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 28px' }}>
+
+          {/* ── 審核簽核橫幅 ── */}
+          {task.status === 'review' && onApprovalAction && (
+            <div style={{
+              background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+              border: '1px solid #F59E0B',
+              borderRadius: 14,
+              padding: '16px 20px',
+              marginBottom: 18,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 18 }}>✉️</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>此任務等待審核簽核</span>
+              </div>
+              <textarea
+                value={approvalComment}
+                onChange={e => setApprovalComment(e.target.value)}
+                placeholder="審核意見（選填）..."
+                style={{
+                  width: '100%', minHeight: 56, padding: '8px 12px', borderRadius: 8,
+                  border: '1px solid #D97706', background: 'rgba(255,255,255,.7)',
+                  fontSize: 14, resize: 'vertical', fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                <button
+                  disabled={approvalPending}
+                  onClick={async () => {
+                    setApprovalPending(true);
+                    try { await onApprovalAction({ action: 'approve', comment: approvalComment || undefined }); setApprovalComment(''); } finally { setApprovalPending(false); }
+                  }}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+                    background: '#16A34A', color: '#fff', fontSize: 15, fontWeight: 800,
+                    cursor: approvalPending ? 'not-allowed' : 'pointer', opacity: approvalPending ? .6 : 1,
+                  }}
+                >
+                  ✅ 批准
+                </button>
+                <button
+                  disabled={approvalPending}
+                  onClick={async () => {
+                    setApprovalPending(true);
+                    try { await onApprovalAction({ action: 'reject', comment: approvalComment || undefined }); setApprovalComment(''); } finally { setApprovalPending(false); }
+                  }}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+                    background: '#DC2626', color: '#fff', fontSize: 15, fontWeight: 800,
+                    cursor: approvalPending ? 'not-allowed' : 'pointer', opacity: approvalPending ? .6 : 1,
+                  }}
+                >
+                  ❌ 退回
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── 提交審核按鈕（非 review 狀態時顯示）── */}
+          {task.status !== 'review' && task.status !== 'done' && task.status !== 'completed' && onApprovalAction && (
+            <div style={{ marginBottom: 14 }}>
+              <button
+                onClick={async () => {
+                  setApprovalPending(true);
+                  try { await onApprovalAction({ action: 'request_review' }); } finally { setApprovalPending(false); }
+                }}
+                disabled={approvalPending}
+                style={{
+                  width: '100%', padding: '10px 0', borderRadius: 10,
+                  border: '1px solid #F59E0B', background: '#FFFBEB',
+                  color: '#92400E', fontSize: 14, fontWeight: 700,
+                  cursor: approvalPending ? 'not-allowed' : 'pointer',
+                  opacity: approvalPending ? .6 : 1,
+                }}
+              >
+                📝 提交審核
+              </button>
+            </div>
+          )}
+
           <Section kicker="Properties" title="任務屬性">
             <div style={{ display: 'grid', gap: 16 }}>
               <div ref={assigneeRef} style={{ display: 'grid', gap: 8, position: 'relative' }}>

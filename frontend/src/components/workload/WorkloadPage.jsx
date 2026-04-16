@@ -310,6 +310,113 @@ function FilterBar({ projects, filters, onChange }) {
   );
 }
 
+// ── 容量時間軸視圖 ──────────────────────────────────────────
+function CapacityTimeline({ members, onCellClick }) {
+  // 計算未來 4 週的時間軸
+  const weeks = [];
+  const now = new Date(); now.setHours(0,0,0,0);
+  const dayOfWeek = now.getDay();
+  const weekStart = new Date(now); weekStart.setDate(weekStart.getDate() - dayOfWeek);
+  for (let w = 0; w < 4; w++) {
+    const start = new Date(weekStart); start.setDate(start.getDate() + w * 7);
+    const end = new Date(start); end.setDate(end.getDate() + 6);
+    weeks.push({ start, end, label: `${start.getMonth()+1}/${start.getDate()} - ${end.getMonth()+1}/${end.getDate()}` });
+  }
+
+  // 為每位成員按週統計任務數
+  const memberWeekData = members.map(m => {
+    const weekCounts = weeks.map(w => {
+      let count = 0;
+      for (const t of (m.tasks || [])) {
+        if (t.status === 'done') continue;
+        if (!t.dueDate) { count++; continue; } // 無截止日的活躍任務算到每週
+        const due = new Date(t.dueDate); due.setHours(0,0,0,0);
+        if (due >= w.start && due <= w.end) count++;
+      }
+      return count;
+    });
+    // 假設每人每週容量 = 10 task
+    const weeklyCapacity = 10;
+    return { ...m, weekCounts, weeklyCapacity };
+  });
+
+  const maxCount = Math.max(1, ...memberWeekData.flatMap(m => m.weekCounts));
+
+  return (
+    <div style={{ background: 'var(--xc-surface)', border: '1px solid var(--xc-border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid var(--xc-border)' }}>
+              <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: 14, fontWeight: 700, color: 'var(--xc-text-muted)', minWidth: 200 }}>成員</th>
+              {weeks.map((w, i) => (
+                <th key={i} style={{ padding: '14px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: i === 0 ? 'var(--xc-brand)' : 'var(--xc-text-muted)' }}>
+                  {i === 0 ? '本週' : `第 ${i+1} 週`}
+                  <div style={{ fontSize: 11, fontWeight: 500, marginTop: 2 }}>{w.label}</div>
+                </th>
+              ))}
+              <th style={{ padding: '14px 12px', textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--xc-text-muted)' }}>總量</th>
+            </tr>
+          </thead>
+          <tbody>
+            {memberWeekData.map((m, idx) => (
+              <tr key={m.userId} style={{ borderBottom: '1px solid var(--xc-border)', background: idx % 2 === 0 ? 'transparent' : 'var(--xc-surface-soft)' }}>
+                <td style={{ padding: '12px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Avatar name={m.name} size={30} />
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)' }}>{m.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--xc-text-muted)' }}>{m.department || ''}</div>
+                    </div>
+                  </div>
+                </td>
+                {m.weekCounts.map((cnt, wi) => {
+                  const pct = cnt / m.weeklyCapacity;
+                  const barColor = pct >= 1 ? '#ef4444' : pct >= 0.7 ? '#f97316' : pct >= 0.4 ? '#eab308' : '#22c55e';
+                  const barWidth = Math.min(100, pct * 100);
+                  return (
+                    <td key={wi} style={{ padding: '10px 12px', cursor: cnt > 0 ? 'pointer' : 'default' }}
+                        onClick={() => cnt > 0 && onCellClick(m.name, 'in_progress', m.tasks)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 20, background: 'var(--xc-surface-strong)', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                          <div style={{ width: `${barWidth}%`, height: '100%', background: barColor, borderRadius: 6, transition: 'width 0.3s' }} />
+                          {pct >= 1 && <div style={{ position: 'absolute', top: 0, right: 4, fontSize: 10, color: '#fff', fontWeight: 800, lineHeight: '20px' }}>!</div>}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: barColor, minWidth: 24, textAlign: 'right' }}>{cnt}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--xc-text-muted)', marginTop: 2, textAlign: 'center' }}>
+                        {Math.round(pct * 100)}% 容量
+                      </div>
+                    </td>
+                  );
+                })}
+                <td style={{ textAlign: 'center', padding: '0 12px' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>{m.counts?.total || 0}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ padding: '10px 20px', borderTop: '1px solid var(--xc-border)', background: 'var(--xc-surface-soft)', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, color: 'var(--xc-text-muted)' }}>
+        <span>容量基準：每人每週 10 項任務</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#22c55e' }} /> 0-40%
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#eab308' }} /> 40-70%
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#f97316' }} /> 70-100%
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: '#ef4444' }} /> 超載
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ── 主元件 ────────────────────────────────────────────────────
 export default function WorkloadPage({ onNavigate }) {
   const isMobile = useIsMobile();
@@ -321,7 +428,7 @@ export default function WorkloadPage({ onNavigate }) {
   const [error,    setError]    = useState(null);
   const [filters,  setFilters]  = useState({});
   const [drawer,   setDrawer]   = useState(null); // { title, tasks }
-  const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'cards'
+  const [viewMode, setViewMode] = useState('matrix'); // 'matrix' | 'cards' | 'timeline'
 
   // ── 資料載入 ────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -409,7 +516,7 @@ export default function WorkloadPage({ onNavigate }) {
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {/* 視圖切換 */}
-            {['matrix','cards'].map(m => (
+            {['matrix','cards','timeline'].map(m => (
               <button
                 key={m}
                 onClick={() => setViewMode(m)}
@@ -420,7 +527,7 @@ export default function WorkloadPage({ onNavigate }) {
                   fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                 }}
               >
-                {m === 'matrix' ? '⊞ 矩陣' : '☰ 卡片'}
+                {m === 'matrix' ? '⊞ 矩陣' : m === 'cards' ? '☰ 卡片' : '📊 時間軸'}
               </button>
             ))}
             <button
@@ -484,6 +591,11 @@ export default function WorkloadPage({ onNavigate }) {
             totals={totals}
             maxPS={maxPS}
             unassigned={data?.unassigned}
+            onCellClick={openDrawer}
+          />
+        ) : viewMode === 'timeline' ? (
+          <CapacityTimeline
+            members={members}
             onCellClick={openDrawer}
           />
         ) : (

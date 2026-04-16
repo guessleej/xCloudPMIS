@@ -38,6 +38,12 @@ const PAGE_SIZE  = 15; // 每頁顯示筆數
 // ── 報表類型定義 ──────────────────────────────────────────────
 const REPORT_TYPES = [
   {
+    id:          'dashboard',
+    label:       '儀表板',
+    description: '多圖表 Widget 總覽，專案健康、任務趨勢、工時分佈',
+    color:       '#c41230',
+  },
+  {
     id:          'projects',
     label:       '專案進度報表',
     description: '各專案的任務完成率、工時、里程碑達成狀況',
@@ -1375,6 +1381,185 @@ function ExecutiveReport({ companyId, authFetch }) {
   );
 }
 
+// ════════════════════════════════════════════════════════════
+// ReportDashboard — Widget 儀表板
+// ════════════════════════════════════════════════════════════
+function ReportDashboard({ companyId, authFetch: authFetchProp }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    const fetcher = authFetchProp || fetch;
+
+    (async () => {
+      try {
+        const [projRes, taskRes, timeRes, msRes] = await Promise.all([
+          fetcher(`${API_BASE}/api/reports/projects?companyId=${companyId}`),
+          fetcher(`${API_BASE}/api/reports/tasks?companyId=${companyId}`),
+          fetcher(`${API_BASE}/api/reports/timelog?companyId=${companyId}&groupBy=project`),
+          fetcher(`${API_BASE}/api/reports/milestones?companyId=${companyId}`),
+        ]);
+        const [proj, task, time, ms] = await Promise.all([projRes.json(), taskRes.json(), timeRes.json(), msRes.json()]);
+        if (!cancelled) setData({ proj, task, time, ms });
+      } catch { /* silent */ }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+
+    return () => { cancelled = true; };
+  }, [companyId, authFetchProp]);
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}><div style={{ color: THEME.textMuted }}>儀表板載入中...</div></div>;
+  if (!data) return null;
+
+  // 專案進度
+  const projData = (data.proj?.data || []).map(p => ({
+    name: p.name?.length > 8 ? p.name.slice(0, 8) + '…' : p.name,
+    完成率: typeof p.completionRate === 'number' ? p.completionRate : (p.completionRate ? parseFloat(p.completionRate) : 0),
+  }));
+
+  // 任務狀態
+  const sm = data.task?.statusSummary || data.task?.summary?.byStatus || {};
+  const taskStatusData = Object.entries(sm).filter(([_, v]) => v > 0).map(([k, v]) => ({
+    name: k, value: v,
+  }));
+  const STATUS_COLORS = ['#64748b','#3b82f6','#8b5cf6','#22c55e','#ef4444','#f97316'];
+
+  // 任務優先度
+  const pm = data.task?.prioritySummary || data.task?.summary?.byPriority || {};
+  const taskPriorityData = Object.entries(pm).filter(([_, v]) => v > 0).map(([k, v]) => ({
+    name: k, value: v,
+  }));
+  const PRI_COLORS = ['#ef4444','#f97316','#eab308','#94a3b8'];
+
+  // 工時 top5
+  const timeData = (data.time?.data || []).slice(0, 5).map(t => ({
+    name: (t.name || t.project || '未分類').length > 8 ? (t.name || t.project || '未分類').slice(0, 8) + '…' : (t.name || t.project || '未分類'),
+    工時: typeof t.totalHours === 'number' ? t.totalHours : parseFloat(t.totalHours || '0'),
+  }));
+
+  // 里程碑摘要
+  const msList = data.ms?.data || [];
+  const msAchieved = msList.filter(m => m.status === '已達成').length;
+  const msOverdue = msList.filter(m => m.status === '已延誤').length;
+  const msUpcoming = msList.filter(m => m.status === '即將到期').length;
+
+  const Widget = ({ title, children, span = 1 }) => (
+    <div style={{
+      gridColumn: `span ${span}`,
+      background: THEME.surface,
+      border: `1px solid ${THEME.border}`,
+      borderRadius: 14,
+      padding: '18px 20px',
+      boxShadow: THEME.shadow,
+    }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: THEME.text, marginBottom: 14 }}>{title}</div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, padding: '16px 20px' }}>
+      {/* Widget 1: 專案完成率 */}
+      <Widget title="📊 專案完成率">
+        {projData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={projData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--xc-border)" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="完成率" radius={[6, 6, 0, 0]}>
+                {projData.map((_, i) => <Cell key={i} fill={i % 2 === 0 ? '#3b82f6' : '#8b5cf6'} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <div style={{ color: THEME.textMuted, textAlign: 'center', padding: 30 }}>無專案資料</div>}
+      </Widget>
+
+      {/* Widget 2: 任務狀態分佈 */}
+      <Widget title="🎯 任務狀態分佈">
+        {taskStatusData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={taskStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                {taskStatusData.map((_, i) => <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />)}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : <div style={{ color: THEME.textMuted, textAlign: 'center', padding: 30 }}>無任務資料</div>}
+      </Widget>
+
+      {/* Widget 3: 任務優先度分佈 */}
+      <Widget title="⚡ 任務優先度">
+        {taskPriorityData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={taskPriorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={75} label>
+                {taskPriorityData.map((_, i) => <Cell key={i} fill={PRI_COLORS[i % PRI_COLORS.length]} />)}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : <div style={{ color: THEME.textMuted, textAlign: 'center', padding: 30 }}>無資料</div>}
+      </Widget>
+
+      {/* Widget 4: 工時分佈 Top 5 */}
+      <Widget title="⏱️ 工時分佈 Top 5">
+        {timeData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={timeData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--xc-border)" />
+              <XAxis type="number" tick={{ fontSize: 12 }} />
+              <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="工時" radius={[0, 6, 6, 0]} fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : <div style={{ color: THEME.textMuted, textAlign: 'center', padding: 30 }}>無工時記錄</div>}
+      </Widget>
+
+      {/* Widget 5: 里程碑總覽 (full width) */}
+      <Widget title="🏁 里程碑總覽" span={2}>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          {[
+            { label: '已達成', count: msAchieved, color: '#22c55e', bg: '#d1fae5' },
+            { label: '即將到期', count: msUpcoming, color: '#f59e0b', bg: '#fef3c7' },
+            { label: '已延誤', count: msOverdue, color: '#ef4444', bg: '#fee2e2' },
+            { label: '里程碑總數', count: msList.length, color: '#3b82f6', bg: '#dbeafe' },
+          ].map(m => (
+            <div key={m.label} style={{ flex: '1 1 130px', background: m.bg, borderRadius: 12, padding: '16px 20px', textAlign: 'center', minWidth: 120 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: m.color }}>{m.count}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: m.color, marginTop: 4 }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+      </Widget>
+
+      {/* Widget 6: 快速統計摘要 (full width) */}
+      <Widget title="📋 整體摘要" span={2}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+          {[
+            { label: '專案數', value: data.proj?.data?.length || 0, icon: '📁' },
+            { label: '任務總數', value: data.task?.summary?.total || data.task?.data?.length || 0, icon: '✅' },
+            { label: '已完成', value: sm['已完成'] || sm['done'] || 0, icon: '🎉' },
+            { label: '總工時', value: `${((data.time?.data || []).reduce((a, b) => a + parseFloat(b.totalHours || 0), 0)).toFixed(1)}h`, icon: '⏰' },
+          ].map(s => (
+            <div key={s.label} style={{ background: THEME.surfaceSoft, borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
+              <div style={{ fontSize: 22 }}>{s.icon}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: THEME.text, marginTop: 4 }}>{s.value}</div>
+              <div style={{ fontSize: 13, color: THEME.textMuted, marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </Widget>
+    </div>
+  );
+}
+
 // 主元件：ReportsPage
 // ════════════════════════════════════════════════════════════
 export default function ReportsPage() {
@@ -1382,7 +1567,7 @@ export default function ReportsPage() {
   const { user, authFetch } = useAuth();
   const COMPANY_ID = user?.companyId;
 
-  const [activeType,  setActiveType]  = useState('projects');
+  const [activeType,  setActiveType]  = useState('dashboard');
   const [reportData,  setReportData]  = useState(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState(null);
@@ -1417,8 +1602,8 @@ export default function ReportsPage() {
   // 切換報表類型時自動產生報表
   // executive 型別有獨立的 ExecutiveReport 元件，不走 generateReport
   useEffect(() => {
-    if (activeType === 'executive') {
-      setReportData(null); // 清除舊報表資料，避免匯出按鈕殘留
+    if (activeType === 'executive' || activeType === 'dashboard') {
+      setReportData(null);
       setError(null);
       setLoading(false);
       return;
@@ -1486,7 +1671,7 @@ export default function ReportsPage() {
 
   // 匯出 CSV
   const handleExportCSV = async () => {
-    if (activeType === 'executive') return; // executive 無獨立 CSV 端點
+    if (activeType === 'executive' || activeType === 'dashboard') return;
     if (!COMPANY_ID) return;
     setExporting(true);
     try {
@@ -1554,8 +1739,8 @@ export default function ReportsPage() {
             產生各類分析報表，支援 CSV 格式下載；專案、任務、里程碑支援行內編輯與刪除
           </p>
         </div>
-        {/* 匯出按鈕：executive 模式無獨立 CSV，不顯示 */}
-        {reportData && activeType !== 'executive' && (
+        {/* 匯出按鈕：executive/dashboard 模式無獨立 CSV，不顯示 */}
+        {reportData && activeType !== 'executive' && activeType !== 'dashboard' && (
           <button
             onClick={handleExportCSV}
             disabled={exporting}
@@ -1644,8 +1829,15 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {/* Dashboard Widget 儀表板 */}
+          {activeType === 'dashboard' && (
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <ReportDashboard companyId={COMPANY_ID} authFetch={authFetch} />
+            </div>
+          )}
+
           {/* 篩選列 */}
-          {activeType !== 'executive' && showFilters && (
+          {activeType !== 'executive' && activeType !== 'dashboard' && showFilters && (
             <FilterBar
               type={activeType}
               filters={filters}
@@ -1656,8 +1848,8 @@ export default function ReportsPage() {
             />
           )}
 
-          {/* 報表內容區（非 executive 模式才顯示） */}
-          {activeType !== 'executive' && <div style={{ flex: 1, padding: '16px 20px', overflow: 'auto' }}>
+          {/* 報表內容區（非 executive/dashboard 模式才顯示） */}
+          {activeType !== 'executive' && activeType !== 'dashboard' && <div style={{ flex: 1, padding: '16px 20px', overflow: 'auto' }}>
 
             {/* 載入中 */}
             {loading && (

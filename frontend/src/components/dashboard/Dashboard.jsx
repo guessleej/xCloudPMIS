@@ -41,6 +41,7 @@ import HelpPanel             from './HelpPanel';
 import WorkloadPage          from '../workload/WorkloadPage';
 import RulesPage             from '../rules/RulesPage';
 import UserManagementPage    from '../admin/UserManagementPage';
+import CalendarPage          from '../calendar/CalendarPage';
 
 // ── Design Tokens ─────────────────────────────────────────────
 const T = {
@@ -98,6 +99,7 @@ const PAGE_TITLES = {
   team:            { title: '團隊',        sub: '成員與角色設定' },
   settings:        { title: '設定',        sub: '偏好與整合設定' },
   'user-management':{ title: '使用者管理',  sub: '帳號 · 角色 · 權限設定' },
+  calendar:        { title: '行事曆',      sub: '任務日程視覺化' },
   profile:         { title: '個人資料',    sub: '帳戶設定' },
 };
 
@@ -116,7 +118,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 
 // ── 全部有效路由 ──────────────────────────────────────────────
 const ALL_NAV_IDS = [
-  'home','inbox','my-tasks','projects','tasks','gantt',
+  'home','inbox','my-tasks','projects','tasks','gantt','calendar',
   'analytics','reports','portfolios','goals','workload',
   'rules','forms','custom-fields',
   'time','team','settings','user-management','profile',
@@ -440,6 +442,7 @@ function TopNavBar({
       { navId: 'projects', label: '所有專案', icon: Ic.projects },
       { navId: 'tasks',    label: '任務看板', icon: Ic.tasks },
       { navId: 'gantt',    label: '時程規劃', icon: Ic.gantt },
+      { navId: 'calendar', label: '行事曆',   icon: Ic.gantt },
     ], showProjects: true },
     { groupId: 'wf', label: '流程', icon: Ic.workflow, items: [
       { navId: 'rules',         label: '自動化規則', icon: Ic.rules },
@@ -2665,6 +2668,7 @@ export default function Dashboard() {
     if (activeNav === 'goals')         return <GoalsPage />;
     if (activeNav === 'portfolios')    return <PortfoliosPage onNavigate={navigate} />;
     if (activeNav === 'workload')      return <WorkloadPage onNavigate={navigate} />;
+    if (activeNav === 'calendar')      return <CalendarPage onNavigate={navigate} />;
     if (activeNav === 'reports')       return <ReportsPage />;
     if (activeNav === 'team')          return <TeamPage />;
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;

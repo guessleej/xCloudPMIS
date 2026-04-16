@@ -366,6 +366,7 @@ router.get('/tasks', async (req, res) => {
           orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
         },
         _count:       { select: { subtasks: true, comments: true, dependencies: true } },
+        subtasks:     { select: { id: true, status: true }, where: { deletedAt: null } },
       },
     });
 
@@ -384,6 +385,7 @@ router.get('/tasks', async (req, res) => {
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
+      completedSubtasks: (t.subtasks || []).filter(s => s.status === 'done' || s.status === 'completed').length,
       commentCount:   t._count?.comments || 0,
       depCount:       t._count?.dependencies || 0,
       assignee:       t.assignee,
@@ -465,6 +467,7 @@ router.get('/:id', async (req, res) => {
             assignee: { select: { id: true, name: true } },
             taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
             _count:   { select: { subtasks: true } },
+            subtasks: { select: { id: true, status: true }, where: { deletedAt: null } },
             taskTags: {
               include: { tag: { select: { id: true, name: true, color: true } } },
             },
@@ -489,6 +492,7 @@ router.get('/:id', async (req, res) => {
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
+      completedSubtasks: (t.subtasks || []).filter(s => s.status === 'done' || s.status === 'completed').length,
       assignee:       t.assignee,
       assignees:      (t.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       tags:           t.taskTags.map(tt => tt.tag),
@@ -1556,6 +1560,111 @@ router.delete('/milestones/:milestoneId', async (req, res) => {
     res.json({ success: true, message: `里程碑「${existing.name}」已刪除` });
   } catch (e) {
     console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// POST /api/tasks/:taskId/approval  — 審核/簽核流程
+// body: { action: 'approve' | 'reject' | 'request_review', comment? }
+// ════════════════════════════════════════════════════════════
+router.post('/tasks/:taskId/approval', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  const { action, comment } = req.body;
+  if (!['approve', 'reject', 'request_review'].includes(action)) {
+    return err(res, '無效的審核動作，必須是 approve / reject / request_review', 400);
+  }
+
+  // 需要登入才能進行審核操作
+  const actorId = req.user?.id ? parseInt(req.user.id) : (req.user?.userId ? parseInt(req.user.userId) : null);
+  if (!actorId) return err(res, '需要登入才能進行審核操作', 401);
+  const actorName = req.user?.name || '系統';
+
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, deletedAt: null },
+      include: { assignee: { select: { id: true, name: true } } },
+    });
+    if (!task) return err(res, `找不到任務 #${taskId}`, 404);
+
+    let newStatus = task.status;
+    let message = '';
+
+    if (action === 'request_review') {
+      newStatus = 'review';
+      message = `${actorName} 提交了審核請求`;
+    } else if (action === 'approve') {
+      if (task.status !== 'review') return err(res, '只有「審核中」狀態的任務才能批准', 400);
+      newStatus = 'done';
+      message = `${actorName} 已批准此任務`;
+    } else if (action === 'reject') {
+      if (task.status !== 'review') return err(res, '只有「審核中」狀態的任務才能退回', 400);
+      newStatus = 'in_progress';
+      message = `${actorName} 退回了此任務`;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const data = { status: newStatus };
+      if (newStatus === 'done') {
+        data.completedAt = new Date();
+        data.progressPercent = 100;
+      }
+      if (newStatus === 'in_progress' && task.status !== 'in_progress') {
+        data.startedAt = task.startedAt || new Date();
+        data.completedAt = null;
+        data.progressPercent = 0;
+      }
+
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data,
+        include: {
+          assignee: { select: { id: true, name: true } },
+          _count: { select: { subtasks: true } },
+        },
+      });
+
+      // 記錄審核評論
+      const commentText = comment
+        ? `[審核] ${message}\n\n${comment}`
+        : `[審核] ${message}`;
+
+      await tx.comment.create({
+        data: {
+          taskId,
+          userId: actorId,
+          content: commentText,
+        },
+      });
+
+      // 記錄活動日誌
+      try {
+        await tx.activityLog.create({
+          data: {
+            taskId,
+            userId: actorId,
+            action: `approval_${action}`,
+            details: { action, comment: comment || null, fromStatus: task.status, toStatus: newStatus },
+          },
+        });
+      } catch { /* 活動記錄失敗不阻斷 */ }
+
+      return updatedTask;
+    });
+
+    res.json({
+      success: true,
+      message,
+      data: {
+        id: updated.id,
+        status: updated.status,
+        completedAt: updated.completedAt,
+      },
+    });
+  } catch (e) {
+    console.error('Approval error:', e);
     err(res, e.message);
   }
 });
