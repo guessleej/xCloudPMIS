@@ -83,6 +83,7 @@ export interface TaskDetailRecord {
   assignee?: TaskPanelMember | null;
   assignees?: TaskPanelMember[];
   dueDate?: string | null;
+  dueEndDate?: string | null;
   dueTime?: string | null;
   dueEndTime?: string | null;
   projects: TaskPanelProject[];
@@ -95,6 +96,7 @@ export interface TaskDetailSavePayload {
   title: string;
   assigneeIds: EntityId[];
   dueDate: string | null;
+  dueEndDate: string | null;
   dueTime: string | null;
   dueEndTime: string | null;
   projectIds: EntityId[];
@@ -895,6 +897,7 @@ export default function TaskDetailPanel({
   const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
   const assigneeRef = useRef<HTMLDivElement | null>(null);
   const [dueDate, setDueDate] = useState('');
+  const [dueEndDate, setDueEndDate] = useState('');
   const [dueTime, setDueTime] = useState('');
   const [dueEndTime, setDueEndTime] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -923,6 +926,7 @@ export default function TaskDetailPanel({
     );
     setAssigneeDropdownOpen(false);
     setDueDate(formatDateInputValue(task.dueDate));
+    setDueEndDate(formatDateInputValue(task.dueEndDate));
     setDueTime(task.dueTime || '');
     setDueEndTime(task.dueEndTime || '');
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
@@ -1043,6 +1047,7 @@ export default function TaskDetailPanel({
       title: title.trim(),
       assigneeIds: assigneeIds,
       dueDate: dueDate || null,
+      dueEndDate: dueEndDate || null,
       dueTime: dueTime || null,
       dueEndTime: dueEndTime || null,
       projectIds: selectedProjectIds,
@@ -1496,12 +1501,21 @@ export default function TaskDetailPanel({
                 <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                   日期
                 </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                  style={inputStyle}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.target.value)}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <span style={{ color: BRAND.muted, fontSize: 14, flexShrink: 0 }}>~</span>
+                  <input
+                    type="date"
+                    value={dueEndDate}
+                    onChange={(event) => setDueEndDate(event.target.value)}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gap: 8 }}>

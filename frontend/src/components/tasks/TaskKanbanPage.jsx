@@ -1343,6 +1343,7 @@ export function TaskSidePanel({
           assigneeIds:       assigneeIds,
           assigneeId:        assigneeIds.length > 0 ? assigneeIds[0] : null,
           dueDate:           payload.dueDate || null,
+          dueEndDate:        payload.dueEndDate || null,
           dueTime:           payload.dueTime || null,
           dueEndTime:        payload.dueEndTime || null,
           projectIds:        payload.projectIds || [],
