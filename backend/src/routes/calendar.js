@@ -66,7 +66,7 @@ router.get('/task/:taskId/ics', async (req, res) => {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
-        id: true, title: true, description: true, dueDate: true, dueTime: true,
+        id: true, title: true, description: true, dueDate: true, dueTime: true, dueEndTime: true,
         project: { select: { name: true } },
       },
     });
@@ -75,8 +75,9 @@ router.get('/task/:taskId/ics', async (req, res) => {
     // 若無截止日，預設使用明天
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
     const [startHour, startMinute] = (task.dueTime || '09:00').split(':').map(Number);
+    const [endHour, endMinute] = (task.dueEndTime || `${String(startHour + 1).padStart(2, '0')}:${String(startMinute || 0).padStart(2, '0')}`).split(':').map(Number);
     const startDate = buildTzDate(dueDate, startHour, startMinute || 0);
-    const endDate   = buildTzDate(dueDate, startHour + 1, startMinute || 0);
+    const endDate   = buildTzDate(dueDate, endHour, endMinute || 0);
 
     const uid = `pmis-task-${task.id}@xcloudpmis`;
     const now = new Date();
@@ -145,7 +146,7 @@ router.get('/task/:taskId/add', async (req, res) => {
     task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
-        id: true, title: true, description: true, dueDate: true, dueTime: true,
+        id: true, title: true, description: true, dueDate: true, dueTime: true, dueEndTime: true,
         project: { select: { name: true } },
       },
     });
@@ -159,8 +160,9 @@ router.get('/task/:taskId/add', async (req, res) => {
   try {
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
     const [startHour, startMinute] = (task.dueTime || '09:00').split(':').map(Number);
+    const [endHour, endMinute] = (task.dueEndTime || `${String(startHour + 1).padStart(2, '0')}:${String(startMinute || 0).padStart(2, '0')}`).split(':').map(Number);
     const startDateTime = buildTzDate(dueDate, startHour, startMinute || 0);
-    const endDateTime   = buildTzDate(dueDate, startHour + 1, startMinute || 0);
+    const endDateTime   = buildTzDate(dueDate, endHour, endMinute || 0);
 
     await createCalendarEvent(userId, {
       subject: `📋 ${task.title}`,

@@ -44,6 +44,7 @@ function formatTask(t) {
     healthStatus:    t.healthStatus ?? calcHealth(t.dueDate, t.status),
     dueDate:         dueDateStr,
     dueTime:         t.dueTime || null,
+    dueEndTime:      t.dueEndTime || null,
     progressPercent: t.progressPercent ?? 0,
     project:         t.project  ? { id: t.project.id, name: t.project.name }   : null,
     assignee:        t.assignee ? { id: t.assignee.id, name: t.assignee.name } : null,
@@ -136,7 +137,7 @@ router.patch('/:id', async (req, res) => {
   const userId = parseInt(req.user?.id || req.user?.userId || '0');
   if (isNaN(id)) return err(res, '無效的任務 ID', 400);
 
-  const { title, description, status, priority, dueDate, dueTime } = req.body;
+  const { title, description, status, priority, dueDate, dueTime, dueEndTime } = req.body;
 
   try {
     const existing = await prisma.task.findFirst({
@@ -150,6 +151,7 @@ router.patch('/:id', async (req, res) => {
     if (priority    !== undefined) data.priority    = priority;
     if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
     if (dueTime     !== undefined) data.dueTime     = dueTime || null;
+    if (dueEndTime  !== undefined) data.dueEndTime  = dueEndTime || null;
     if (status      !== undefined) {
       const s = normalizeStatus(status, existing.status);
       data.status = s;

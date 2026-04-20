@@ -1344,6 +1344,7 @@ export function TaskSidePanel({
           assigneeId:        assigneeIds.length > 0 ? assigneeIds[0] : null,
           dueDate:           payload.dueDate || null,
           dueTime:           payload.dueTime || null,
+          dueEndTime:        payload.dueEndTime || null,
           projectIds:        payload.projectIds || [],
           customFieldValues: payload.customFieldValues || {},
         }),

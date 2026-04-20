@@ -382,6 +382,7 @@ router.get('/tasks', async (req, res) => {
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
       dueTime:        t.dueTime || null,
+      dueEndTime:     t.dueEndTime || null,
       startedAt:      t.startedAt,
       completedAt:    t.completedAt,
       parentTaskId:   t.parentTaskId,
@@ -492,6 +493,7 @@ router.get('/:id', async (req, res) => {
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
       dueTime:        t.dueTime || null,
+      dueEndTime:     t.dueEndTime || null,
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
@@ -787,6 +789,7 @@ router.get('/:id/tasks', async (req, res) => {
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
       dueTime:        t.dueTime || null,
+      dueEndTime:     t.dueEndTime || null,
       planStart:      t.planStart,
       planEnd:        t.planEnd,
       startedAt:      t.startedAt,
@@ -817,7 +820,7 @@ router.post('/:id/tasks', async (req, res) => {
   const {
     title, description = '',
     priority = 'medium',
-    estimatedHours, dueDate, dueTime, assigneeId, assigneeIds, parentTaskId,
+    estimatedHours, dueDate, dueTime, dueEndTime, assigneeId, assigneeIds, parentTaskId,
   } = req.body;
 
   if (!title?.trim()) return err(res, '任務標題為必填', 400);
@@ -850,6 +853,7 @@ router.post('/:id/tasks', async (req, res) => {
           estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
           dueDate:        dueDate ? new Date(dueDate) : null,
           dueTime:        dueTime || null,
+          dueEndTime:     dueEndTime || null,
           assigneeId:     normalizedAssigneeId,
           parentTaskId:   normalizedParentTaskId,
           position:       nextPosition,
@@ -954,7 +958,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
   const taskId = parseInt(req.params.taskId);
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
 
-  const { title, status, priority, assigneeId, assigneeIds, dueDate, dueTime, description, planStart, planEnd,
+  const { title, status, priority, assigneeId, assigneeIds, dueDate, dueTime, dueEndTime, description, planStart, planEnd,
           customFieldValues, projectIds } = req.body;
 
   try {
@@ -996,6 +1000,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
     if (assigneeId  !== undefined) data.assigneeId  = normalizedAssigneeId;
     if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
     if (dueTime     !== undefined) data.dueTime     = dueTime || null;
+    if (dueEndTime  !== undefined) data.dueEndTime  = dueEndTime || null;
     if (planStart   !== undefined) data.planStart   = planStart ? new Date(planStart) : null;
     if (planEnd     !== undefined) data.planEnd     = planEnd   ? new Date(planEnd)   : null;
 

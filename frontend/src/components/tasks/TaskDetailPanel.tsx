@@ -84,6 +84,7 @@ export interface TaskDetailRecord {
   assignees?: TaskPanelMember[];
   dueDate?: string | null;
   dueTime?: string | null;
+  dueEndTime?: string | null;
   projects: TaskPanelProject[];
   customFieldValues?: Record<string, CustomFieldStoredValue | undefined>;
   subtasks?: TaskSubtaskNode[];
@@ -95,6 +96,7 @@ export interface TaskDetailSavePayload {
   assigneeIds: EntityId[];
   dueDate: string | null;
   dueTime: string | null;
+  dueEndTime: string | null;
   projectIds: EntityId[];
   customFieldValues: Record<string, CustomFieldStoredValue | undefined>;
 }
@@ -894,6 +896,7 @@ export default function TaskDetailPanel({
   const assigneeRef = useRef<HTMLDivElement | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
+  const [dueEndTime, setDueEndTime] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<TaskCustomFieldValueMap>({});
   const [showProjectPicker, setShowProjectPicker] = useState(false);
@@ -921,6 +924,7 @@ export default function TaskDetailPanel({
     setAssigneeDropdownOpen(false);
     setDueDate(formatDateInputValue(task.dueDate));
     setDueTime(task.dueTime || '');
+    setDueEndTime(task.dueEndTime || '');
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
     cfvFromParentRef.current = task.customFieldValues || null;
@@ -1040,6 +1044,7 @@ export default function TaskDetailPanel({
       assigneeIds: assigneeIds,
       dueDate: dueDate || null,
       dueTime: dueTime || null,
+      dueEndTime: dueEndTime || null,
       projectIds: selectedProjectIds,
       customFieldValues: normalizedValues,
     });
@@ -1503,13 +1508,23 @@ export default function TaskDetailPanel({
                 <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
                   時間
                 </label>
-                <input
-                  type="time"
-                  value={dueTime}
-                  onChange={(event) => setDueTime(event.target.value)}
-                  placeholder="未設定"
-                  style={inputStyle}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(event) => setDueTime(event.target.value)}
+                    placeholder="開始"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <span style={{ color: BRAND.muted, fontSize: 14, flexShrink: 0 }}>~</span>
+                  <input
+                    type="time"
+                    value={dueEndTime}
+                    onChange={(event) => setDueEndTime(event.target.value)}
+                    placeholder="結束"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'grid', gap: 10 }}>
