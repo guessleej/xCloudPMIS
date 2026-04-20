@@ -46,7 +46,7 @@ const CAPACITY_CFG = {
 
 // ── 小工具 ────────────────────────────────────────────────────
 function Avatar({ name, url, size = 28 }) {
-  const initial = (name || '?').trim().slice(0, 1).toUpperCase();
+  const initial = (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?';
   const colors  = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6'];
   const bg      = colors[(name?.charCodeAt(0) || 0) % colors.length];
   if (url) return <img src={url} alt={name} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;

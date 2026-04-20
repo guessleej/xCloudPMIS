@@ -112,7 +112,7 @@ function daysLeft(dueDate) {
   if (!dueDate) return null;
   return Math.ceil((new Date(dueDate) - new Date()) / 86400000);
 }
-function avatarChar(name) { return name ? name.charAt(0).toUpperCase() : '?'; }
+function avatarChar(name) { return name ? name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?' : '?'; }
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 // LocalStorage helpers

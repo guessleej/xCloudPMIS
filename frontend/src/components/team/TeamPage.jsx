@@ -44,7 +44,7 @@ const DEPT_COLOR = [
 ];
 
 function Avatar({ name, avatarUrl, size = 36 }) {
-  const initials = (name || '?').slice(0, 2);
+  const initials = (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?';
   const color = DEPT_COLOR[(name?.charCodeAt(0) || 0) % DEPT_COLOR.length];
   return (
     <div style={{

@@ -1247,7 +1247,7 @@ export default function GanttPage() {
                               padding:      '1px 5px',
                               flexShrink:   0,
                             }}>
-                              {task.assignee.name.slice(0, 2)}
+                              {task.assignee.name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || '?'}
                             </span>
                           )
                         )}
