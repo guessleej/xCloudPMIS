@@ -83,6 +83,7 @@ export interface TaskDetailRecord {
   assignee?: TaskPanelMember | null;
   assignees?: TaskPanelMember[];
   dueDate?: string | null;
+  dueTime?: string | null;
   projects: TaskPanelProject[];
   customFieldValues?: Record<string, CustomFieldStoredValue | undefined>;
   subtasks?: TaskSubtaskNode[];
@@ -93,6 +94,7 @@ export interface TaskDetailSavePayload {
   title: string;
   assigneeIds: EntityId[];
   dueDate: string | null;
+  dueTime: string | null;
   projectIds: EntityId[];
   customFieldValues: Record<string, CustomFieldStoredValue | undefined>;
 }
@@ -272,35 +274,65 @@ function Section({
   kicker,
   title,
   children,
+  defaultCollapsed = false,
 }: {
   kicker: string;
   title: string;
   children: ReactNode;
+  defaultCollapsed?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
   return (
     <section style={{ marginTop: 24 }}>
       <div
         style={{
-          fontSize: 13,
-          fontWeight: 800,
-          letterSpacing: '.08em',
-          textTransform: 'uppercase',
-          color: BRAND.muted,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: defaultCollapsed ? 'pointer' : undefined,
+          userSelect: defaultCollapsed ? 'none' : undefined,
         }}
+        onClick={defaultCollapsed ? () => setCollapsed((c) => !c) : undefined}
       >
-        {kicker}
+        <div>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: '.08em',
+              textTransform: 'uppercase',
+              color: BRAND.muted,
+            }}
+          >
+            {kicker}
+          </div>
+          <h3
+            style={{
+              margin: '6px 0 14px',
+              fontSize: 20,
+              fontWeight: 800,
+              color: BRAND.ink,
+            }}
+          >
+            {title}
+          </h3>
+        </div>
+        {defaultCollapsed && (
+          <span
+            style={{
+              fontSize: 18,
+              color: BRAND.muted,
+              transition: 'transform .2s',
+              transform: collapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+              marginBottom: 8,
+            }}
+          >
+            ▼
+          </span>
+        )}
       </div>
-      <h3
-        style={{
-          margin: '6px 0 14px',
-          fontSize: 20,
-          fontWeight: 800,
-          color: BRAND.ink,
-        }}
-      >
-        {title}
-      </h3>
-      {children}
+      {!collapsed && children}
     </section>
   );
 }
@@ -861,6 +893,7 @@ export default function TaskDetailPanel({
   const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
   const assigneeRef = useRef<HTMLDivElement | null>(null);
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<TaskCustomFieldValueMap>({});
   const [showProjectPicker, setShowProjectPicker] = useState(false);
@@ -887,6 +920,7 @@ export default function TaskDetailPanel({
     );
     setAssigneeDropdownOpen(false);
     setDueDate(formatDateInputValue(task.dueDate));
+    setDueTime(task.dueTime || '');
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
     cfvFromParentRef.current = task.customFieldValues || null;
@@ -1005,6 +1039,7 @@ export default function TaskDetailPanel({
       title: title.trim(),
       assigneeIds: assigneeIds,
       dueDate: dueDate || null,
+      dueTime: dueTime || null,
       projectIds: selectedProjectIds,
       customFieldValues: normalizedValues,
     });
@@ -1464,6 +1499,19 @@ export default function TaskDetailPanel({
                 />
               </div>
 
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
+                  時間
+                </label>
+                <input
+                  type="time"
+                  value={dueTime}
+                  onChange={(event) => setDueTime(event.target.value)}
+                  placeholder="未設定"
+                  style={inputStyle}
+                />
+              </div>
+
               <div style={{ display: 'grid', gap: 10 }}>
                 <div
                   style={{
@@ -1534,7 +1582,7 @@ export default function TaskDetailPanel({
             </div>
           </Section>
 
-          <Section kicker="Custom Fields" title="自定義欄位">
+          <Section kicker="Custom Fields" title="自定義欄位" defaultCollapsed>
             <div style={{ display: 'grid', gap: 16 }}>
               {customFields.length === 0 ? (
                 <div

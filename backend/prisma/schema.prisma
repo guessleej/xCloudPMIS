@@ -344,6 +344,8 @@ model Task {
   // ─────────────────────────────────────────────────────
 
   dueDate        DateTime?  @map("due_date") @db.Date
+  /// 截止時間（HH:MM 格式，如 "09:00"、"17:30"），搭配 dueDate 使用
+  dueTime        String?    @map("due_time") @db.VarChar(5)
   /// 計劃開始時間（甘特圖用）
   planStart      DateTime?  @map("plan_start") @db.Date
   /// 計劃結束時間（甘特圖用）

@@ -1128,6 +1128,7 @@ function TaskPanel({
         status: draft.status,
         priority: draft.priority,
         dueDate: draft.dueDate || null,
+        dueTime: draft.dueTime || null,
         listId: draft.listId,
       });
     } finally {

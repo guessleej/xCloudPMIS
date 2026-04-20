@@ -66,7 +66,7 @@ router.get('/task/:taskId/ics', async (req, res) => {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
-        id: true, title: true, description: true, dueDate: true,
+        id: true, title: true, description: true, dueDate: true, dueTime: true,
         project: { select: { name: true } },
       },
     });
@@ -74,8 +74,9 @@ router.get('/task/:taskId/ics', async (req, res) => {
 
     // 若無截止日，預設使用明天
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
-    const startDate = buildTzDate(dueDate, 9, 0);
-    const endDate   = buildTzDate(dueDate, 10, 0);
+    const [startHour, startMinute] = (task.dueTime || '09:00').split(':').map(Number);
+    const startDate = buildTzDate(dueDate, startHour, startMinute || 0);
+    const endDate   = buildTzDate(dueDate, startHour + 1, startMinute || 0);
 
     const uid = `pmis-task-${task.id}@xcloudpmis`;
     const now = new Date();
@@ -144,7 +145,7 @@ router.get('/task/:taskId/add', async (req, res) => {
     task = await prisma.task.findUnique({
       where: { id: taskId },
       select: {
-        id: true, title: true, description: true, dueDate: true,
+        id: true, title: true, description: true, dueDate: true, dueTime: true,
         project: { select: { name: true } },
       },
     });
@@ -157,8 +158,9 @@ router.get('/task/:taskId/add', async (req, res) => {
   // 嘗試透過 Graph API 直接加入 Outlook 行事曆
   try {
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
-    const startDateTime = buildTzDate(dueDate, 9, 0);
-    const endDateTime   = buildTzDate(dueDate, 10, 0);
+    const [startHour, startMinute] = (task.dueTime || '09:00').split(':').map(Number);
+    const startDateTime = buildTzDate(dueDate, startHour, startMinute || 0);
+    const endDateTime   = buildTzDate(dueDate, startHour + 1, startMinute || 0);
 
     await createCalendarEvent(userId, {
       subject: `📋 ${task.title}`,
