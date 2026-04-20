@@ -1235,7 +1235,7 @@ export default function TaskDetailPanel({
                 <span style={{ fontSize: 18 }}>✉️</span>
                 <div>
                   <span style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>此任務等待審核簽核</span>
-                  <div style={{ fontSize: 12, color: '#92400E', opacity: 0.8, marginTop: 2 }}>專案負責人或管理者可進行批准/退回操作</div>
+                  <div style={{ fontSize: 12, color: '#92400E', opacity: 0.8, marginTop: 2 }}>專案建立者或管理者可進行批准/退回操作</div>
                 </div>
               </div>
               <textarea
@@ -1302,7 +1302,7 @@ export default function TaskDetailPanel({
                 📝 提交審核
               </button>
               <div style={{ fontSize: 12, color: '#92400E', marginTop: 4, textAlign: 'center', opacity: 0.8 }}>
-                審核將發送給專案負責人，由其批准或退回
+                審核將發送給專案建立者，由其批准或退回
               </div>
             </div>
           )}
