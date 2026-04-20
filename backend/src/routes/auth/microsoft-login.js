@@ -35,10 +35,17 @@ const router  = express.Router();
 
 const {
   handleOAuthCallback,
+  findOrCreateOAuthUser,
+  issueJwtForUser,
+  buildOAuthRedirect,
+  buildUserPayload,
   generateState,
   buildOAuthErrorRedirect,
   ok,
 } = require('./oauth-utils');
+const {
+  saveOAuthTokens,
+} = require('../../services/tokenManager');
 
 // In-memory state store（生產環境建議改用 Redis）
 const stateStore  = new Map();
@@ -50,6 +57,14 @@ function cleanExpiredStates() {
     if (now - v.createdAt > STATE_TTL_MS) stateStore.delete(k);
   }
 }
+
+// ── Delegated Token 所需的完整 Scopes（登入時一併取得授權）───
+const LOGIN_DELEGATED_SCOPES = [
+  'openid', 'profile', 'email', 'offline_access',
+  'User.Read',
+  'Mail.ReadWrite', 'Mail.Send',
+  'Calendars.ReadWrite',
+].join(' ');
 
 function getConfig() {
   const tenantId = process.env.MS_LOGIN_TENANT_ID || 'common';
@@ -93,7 +108,7 @@ router.get('/', (req, res) => {
     response_type:         'code',
     redirect_uri:          cfg.callbackUrl,
     response_mode:         'query',
-    scope:                 'openid profile email User.Read',
+    scope:                 LOGIN_DELEGATED_SCOPES,  // 登入時一併取得 M365 授權
     state,
     code_challenge:        codeChallenge,
     code_challenge_method: 'S256',
@@ -142,7 +157,7 @@ router.get('/callback', async (req, res) => {
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
 
-    const { access_token } = tokenRes.data;
+    const { access_token, refresh_token, id_token, expires_in, scope: grantedScope } = tokenRes.data;
 
     // ── 取得 Microsoft Graph 用戶資訊 ─────────────────────
     const userRes = await axios.get('https://graph.microsoft.com/v1.0/me', {
@@ -157,12 +172,43 @@ router.get('/callback', async (req, res) => {
       return frontendErrUrl('無法從 Microsoft 取得 Email，請確認帳號設定');
     }
 
-    await handleOAuthCallback(res, {
+    // ── 找到或建立系統使用者 ───────────────────────────────
+    const { user, isNew, linked } = await findOrCreateOAuthUser({
       provider:   'microsoft',
       providerId: msUser.id,
       email:      email.toLowerCase(),
       name:       msUser.displayName || email.split('@')[0],
     });
+
+    // ── 自動綁定 Delegated Token（登入時一併完成 M365 連線）──
+    if (refresh_token) {
+      try {
+        await saveOAuthTokens(user.id, {
+          accessToken:     access_token,
+          refreshToken:    refresh_token,
+          idToken:         id_token || null,
+          expiresIn:       expires_in || 3600,
+          scope:           grantedScope || LOGIN_DELEGATED_SCOPES,
+          tenantId:        cfg.tenantId,
+          microsoftUserId: msUser.id,
+          microsoftEmail:  email.toLowerCase(),
+        });
+        console.log(`🔗 [Microsoft Login] 自動綁定 Delegated Token：userId=${user.id}`);
+      } catch (bindErr) {
+        // 綁定失敗不影響登入
+        console.warn('[Microsoft Login] 自動綁定失敗（不影響登入）：', bindErr.message);
+      }
+    }
+
+    // ── 簽發 JWT 並導向前端 ───────────────────────────────
+    const token = await issueJwtForUser(user);
+    const userPayload = buildUserPayload(user);
+    userPayload._provider = 'microsoft';
+
+    const logTag = isNew ? '新建帳號' : linked ? '新連結 OAuth' : '直接登入';
+    console.log(`✅ [Microsoft Login] ${email} ${logTag}`);
+
+    return res.redirect(buildOAuthRedirect(token, userPayload));
 
   } catch (err) {
     console.error('❌ [Microsoft OAuth Login] 回呼錯誤：', err.response?.data || err.message);
@@ -183,7 +229,7 @@ router.get('/config', (req, res) => {
     configured:  !!cfg.clientId,
     callbackUrl: cfg.callbackUrl,
     tenantId:    cfg.tenantId,
-    scopes:      ['openid', 'profile', 'email', 'User.Read'],
+    scopes:      LOGIN_DELEGATED_SCOPES.split(' '),
   });
 });
 

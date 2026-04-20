@@ -275,6 +275,7 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
         startDate:   startDate ? new Date(startDate) : null,
         endDate:     endDate   ? new Date(endDate)   : null,
         ownerId:     ownerId   ? parseInt(ownerId)   : null,
+        createdById: req.user?.id ? parseInt(req.user.id) : (req.user?.userId ? parseInt(req.user.userId) : null),
       },
       include: {
         owner: { select: { id: true, name: true } },
@@ -1590,6 +1591,7 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
         project: {
           select: {
             id: true, name: true,
+            createdBy: { select: { id: true, name: true } },
             owner: { select: { id: true, name: true } },
             members: {
               where: { role: 'owner' },
@@ -1601,9 +1603,11 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
     });
     if (!task) return err(res, `找不到任務 #${taskId}`, 404);
 
-    // 收集審核人清單（專案負責人 + 管理者角色成員）
+    // 收集審核人清單（專案建立者 > 專案負責人 > 管理者角色成員）
     const reviewers = [];
-    if (task.project?.owner) reviewers.push(task.project.owner);
+    if (task.project?.createdBy) reviewers.push(task.project.createdBy);
+    // 如果沒有建立者，fallback 到負責人
+    if (reviewers.length === 0 && task.project?.owner) reviewers.push(task.project.owner);
     for (const pm of (task.project?.members || [])) {
       if (pm.user && !reviewers.find(r => r.id === pm.user.id)) {
         reviewers.push(pm.user);

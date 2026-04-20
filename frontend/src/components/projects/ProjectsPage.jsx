@@ -265,6 +265,9 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
   const isEdit = !!project;
   const defColor = project ? loadColors()[project.id] || 'blue' : (template?.color || 'blue');
 
+  // ── localStorage 暫存 key ──────────────────────────────────
+  const DRAFT_KEY = `xcloud_project_draft_${isEdit ? project.id : 'new'}`;
+
   // 初始化成員清單：編輯模式讀取 project.members，無則用 owner 單人
   const initMemberIds = () => {
     if (project?.members?.length > 0) return project.members.map(m => m.id);
@@ -272,22 +275,57 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
     return [];
   };
 
-  const [form, setForm] = useState({
-    name:        project?.name        || (template && template.id !== 'blank' ? template.name : ''),
-    description: project?.description || template?.desc || '',
-    status:      project?.status      || 'planning',
-    budget:      project?.budget      ? String(project.budget) : '',
-    startDate:   project?.startDate   ? project.startDate.slice(0, 10) : '',
-    endDate:     project?.endDate     ? project.endDate.slice(0, 10)   : '',
-    memberIds:   initMemberIds(),
-    colorId:     defColor,
-  });
+  // 嘗試從 localStorage 恢復暫存草稿
+  const getInitialForm = () => {
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        // 驗證草稿資料的基本結構
+        if (parsed && typeof parsed === 'object' && 'name' in parsed) {
+          return parsed;
+        }
+      }
+    } catch { /* 草稿解析失敗，使用預設值 */ }
+
+    return {
+      name:        project?.name        || (template && template.id !== 'blank' ? template.name : ''),
+      description: project?.description || template?.desc || '',
+      status:      project?.status      || 'planning',
+      budget:      project?.budget      ? String(project.budget) : '',
+      startDate:   project?.startDate   ? project.startDate.slice(0, 10) : '',
+      endDate:     project?.endDate     ? project.endDate.slice(0, 10)   : '',
+      memberIds:   initMemberIds(),
+      colorId:     defColor,
+    };
+  };
+
+  const [form, setForm] = useState(getInitialForm);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
   const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
   const memberRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const pal = getPalette(form.colorId);
+
+  // ── 自動暫存至 localStorage ─────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(form)); } catch {}
+  }, [form, DRAFT_KEY]);
+
+  // ── 關閉前確認（避免點空白區域遺失資料）──────────────────
+  const handleClose = () => {
+    const hasContent = form.name.trim() || form.description.trim() || form.budget || form.startDate || form.endDate || form.memberIds.length > 0;
+    if (hasContent) {
+      if (window.confirm('表單內容已暫存，確定要關閉嗎？下次開啟時會自動恢復。')) {
+        onClose();
+      }
+    } else {
+      // 沒有任何內容，直接關閉並清除草稿
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      onClose();
+    }
+  };
 
   // 點擊下拉外部關閉
   useEffect(() => {
@@ -329,6 +367,8 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
       if (!json.success && !res.ok) throw new Error(json.error || '操作失敗');
       const saved = json.data || json;
       saveColor(saved.id, form.colorId);
+      // 儲存成功，清除暫存草稿
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
       onSaved(saved);
     } catch (e) {
       setError(e.message);
@@ -339,7 +379,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onClick={e => { if (e.target === e.currentTarget) handleClose(); }}>
       <div style={{ background: C.white, borderRadius: '18px', width: '540px', maxWidth: '96vw', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.22)' }}>
 
         {/* 色帶頭部 */}
@@ -357,7 +397,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
                 {isEdit ? '修改專案詳細資訊' : '設定你的新專案'}
               </p>
             </div>
-            <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: C.ink4 }}>✕</button>
+            <button onClick={handleClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: C.ink4 }}>✕</button>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -531,7 +571,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
             {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', marginBottom: '14px' }}>⚠️ {error}</div>}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={onClose} style={btnO}>取消</button>
+              <button type="button" onClick={handleClose} style={btnO}>取消</button>
               <button type="submit" disabled={saving} style={{ ...btnP, background: pal.hex, opacity: saving ? 0.6 : 1 }}>
                 {saving ? (isEdit ? '儲存中…' : '建立中…') : (isEdit ? '💾 儲存變更' : '🚀 建立專案')}
               </button>

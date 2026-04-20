@@ -207,7 +207,7 @@ router.get('/', (req, res) => {
     client_id:     CLIENT_ID(),
     response_type: 'code',
     redirect_uri:  REDIRECT_URI(),
-    scope:         LOGIN_SCOPES,
+    scope:         DELEGATED_SCOPES,   // 登入時一併取得完整授權，實現自動綁定
     response_mode: 'query',
     state,
     prompt:        'select_account',
@@ -349,6 +349,26 @@ router.get('/callback', async (req, res) => {
     } catch (syncErr) {
       // 同步失敗不影響登入
       console.warn('[Microsoft OAuth] Azure AD 資料同步失敗（不影響登入）：', syncErr.message);
+    }
+
+    // ── 自動綁定 Delegated Token（登入時一併完成 M365 連線）──
+    if (refresh_token) {
+      try {
+        await saveOAuthTokens(user.id, {
+          accessToken:     access_token,
+          refreshToken:    refresh_token,
+          idToken:         id_token || null,
+          expiresIn:       expires_in || 3600,
+          scope:           grantedScope || DELEGATED_SCOPES,
+          tenantId:        TENANT_ID(),
+          microsoftUserId: profile.id,
+          microsoftEmail:  email.toLowerCase(),
+        });
+        console.log(`🔗 [Microsoft OAuth] Login 自動綁定 Delegated Token：userId=${user.id}`);
+      } catch (bindErr) {
+        // 綁定失敗不影響登入
+        console.warn('[Microsoft OAuth] Login 自動綁定失敗（不影響登入）：', bindErr.message);
+      }
     }
 
     const jwtToken = issueJWT(user);

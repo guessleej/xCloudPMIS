@@ -464,17 +464,17 @@ export default function MyTasksPage() {
       });
       const json = await res.json();
       if (json.success) {
-        // 樂觀更新：合併到 tasks 列表
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, ...json.data } : t));
-        // 若是當前選取的任務，同步更新 selected
-        setSelected(prev => prev?.id === id ? { ...prev, ...json.data } : prev);
+        // 從伺服器重新載入完整列表，確保與專案任務一致
+        await load();
+        // 同步更新 selected（load 後 tasks 已更新）
+        setSelected(prev => prev?.id === id ? { ...prev, ...fields } : prev);
       } else {
         console.error('[MyTasksPage updateTask]', json.error);
       }
     } catch (e) {
       console.error('[MyTasksPage updateTask]', e);
     }
-  }, [authFetch]);
+  }, [authFetch, load]);
 
   // ── 刪除任務（DELETE /api/my-tasks/:id）──
   const deleteTask = useCallback(async (id) => {
@@ -484,10 +484,8 @@ export default function MyTasksPage() {
     try {
       const res  = await authFetch(`/api/my-tasks/${id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (!json.success) {
-        console.error('[MyTasksPage deleteTask] 失敗，重新載入資料');
-        await load();
-      }
+      // 無論成功失敗都重新載入，確保與專案任務一致
+      await load();
     } catch (e) {
       console.error('[MyTasksPage deleteTask]', e);
       await load();

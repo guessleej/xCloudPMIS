@@ -76,7 +76,8 @@ model User {
   settings    Json?     @map("settings_json")      // 個人偏好（通知、介面設定）
 
   company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  ownedProjects Project[]
+  ownedProjects Project[]     @relation("ProjectOwner")
+  createdProjects Project[]   @relation("ProjectCreator")
   assignedTasks Task[]         @relation("TaskAssignee")
   createdTasks  Task[]         @relation("TaskCreator")
   createdWorkspaces Workspace[] @relation("WorkspaceCreator")
@@ -181,6 +182,7 @@ model Project {
   workspaceId Int?          @map("workspace_id")
   teamId      Int?          @map("team_id")
   ownerId     Int?          @map("owner_id")
+  createdById Int?          @map("created_by_id")
   name        String        @db.VarChar(255)
   description String        @default("")
   status      ProjectStatus @default(active)
@@ -196,7 +198,8 @@ model Project {
   company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   workspace  Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   team       Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  owner      User?       @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner      User?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy  User?       @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
   tasks      Task[]
   taskProjects TaskProject[]
   automationRuleScopes AutomationRuleProject[]
@@ -212,6 +215,7 @@ model Project {
   @@index([workspaceId])
   @@index([teamId])
   @@index([ownerId])
+  @@index([createdById])
   @@index([status])
   @@index([deletedAt])
   @@map("projects")
