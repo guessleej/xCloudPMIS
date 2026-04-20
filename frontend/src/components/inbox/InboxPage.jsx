@@ -504,7 +504,7 @@ export default function InboxPage({ onNavigate }) {
         </div>
       )}
 
-      {/* ── Slide-over detail drawer ───────────────────── */}
+      {/* ── Detail modal (centered) ──────────────────── */}
       {selectedMsg && (() => {
         const cfg = TYPE_CONFIG[selectedMsg.type] || { color: BRAND.silver, icon: '📌', label: selectedMsg.type };
         return (
@@ -514,28 +514,29 @@ export default function InboxPage({ onNavigate }) {
               onClick={() => setSelected(null)}
               style={{
                 position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(3px)',
+                background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
                 zIndex: 100, animation: 'inboxFadeIn .18s ease',
               }}
             />
-            {/* Drawer */}
+            {/* Modal */}
             <div style={{
-              position: 'fixed', top: 0, right: 0, bottom: 0,
-              width: isMobile ? '100%' : 480, maxWidth: '100vw',
-              background: BRAND.surface, zIndex: 101,
+              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              width: isMobile ? '95vw' : 520, maxWidth: '95vw', maxHeight: '85vh',
+              background: BRAND.surface, borderRadius: 16, zIndex: 101,
               display: 'flex', flexDirection: 'column',
-              boxShadow: '-8px 0 40px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06)',
-              animation: 'inboxSlideIn .22s ease',
+              boxShadow: '0 24px 80px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08)',
+              overflow: 'hidden',
+              animation: 'inboxModalIn .22s ease',
             }}>
               <style>{`
                 @keyframes inboxFadeIn  { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes inboxSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+                @keyframes inboxModalIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
                 /* show delete button on row hover */
                 div:has(> .inbox-row-del):hover > .inbox-row-del { opacity: 1 !important; }
                 .inbox-row-del:hover { color: ${BRAND.crimson} !important; border-color: ${BRAND.crimson} !important; }
               `}</style>
 
-              {/* Drawer header */}
+              {/* Modal header */}
               <div style={{
                 padding: '16px 24px', borderBottom: `1px solid ${BRAND.mist}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
@@ -550,10 +551,13 @@ export default function InboxPage({ onNavigate }) {
                   }}>
                     {cfg.icon}
                   </div>
-                  <span style={{
-                    fontSize: 14, fontWeight: 700, color: cfg.color,
-                  }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: cfg.color }}>
                     {cfg.label}
+                  </span>
+                  <span style={{ fontSize: 13, color: BRAND.muted }}>
+                    {selectedMsg.createdAt
+                      ? relativeTime(selectedMsg.createdAt)
+                      : ''}
                   </span>
                 </div>
                 <button
@@ -564,14 +568,13 @@ export default function InboxPage({ onNavigate }) {
                 </button>
               </div>
 
-              {/* Drawer body */}
+              {/* Modal body */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-                {/* Time */}
+                {/* Time full */}
                 <div style={{ fontSize: 13, color: BRAND.muted, marginBottom: 12 }}>
                   {selectedMsg.createdAt
                     ? new Date(selectedMsg.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
                     : ''}
-                  {selectedMsg.createdAt && <span style={{ marginLeft: 8, opacity: 0.7 }}>({relativeTime(selectedMsg.createdAt)})</span>}
                 </div>
 
                 {/* Title */}
@@ -606,7 +609,7 @@ export default function InboxPage({ onNavigate }) {
                 </div>
               </div>
 
-              {/* Drawer footer */}
+              {/* Modal footer */}
               <div style={{
                 padding: '16px 24px', borderTop: `1px solid ${BRAND.mist}`,
                 display: 'flex', gap: 10, flexShrink: 0,
