@@ -2694,6 +2694,54 @@ export default function Dashboard() {
   });
   const showOnboarding = needsOnboarding && !dismissedOnboarding && activeNav !== 'settings';
 
+  // ── M365 未綁定提示橫幅（已登入但無 Delegated Token）──────
+  const [m365Unbound, setM365Unbound] = useState(false);
+  const [m365Dismissed, setM365Dismissed] = useState(() => {
+    try { return sessionStorage.getItem('xc_m365_bind_dismissed') === '1'; } catch { return false; }
+  });
+  const [m365Binding, setM365Binding] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.id || m365Dismissed) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch('/api/auth/microsoft/status');
+        const data = await res.json();
+        if (!cancelled && data.configured && !data.connected) {
+          setM365Unbound(true);
+        }
+      } catch { /* 靜默失敗 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser?.id, authFetch, m365Dismissed]);
+
+  const handleM365Bind = useCallback(() => {
+    setM365Binding(true);
+    // 導向 delegated OAuth 流程（帶 Authorization header 表示已登入）
+    (async () => {
+      try {
+        const res = await authFetch('/api/auth/microsoft', {
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json();
+        if (data.authorizationUrl) {
+          window.location.href = data.authorizationUrl;
+        }
+      } catch {
+        setM365Binding(false);
+      }
+    })();
+  }, [authFetch]);
+
+  const dismissM365Banner = useCallback(() => {
+    setM365Unbound(false);
+    setM365Dismissed(true);
+    try { sessionStorage.setItem('xc_m365_bind_dismissed', '1'); } catch {}
+  }, []);
+
+  const showM365Banner = m365Unbound && !m365Dismissed && !showOnboarding && activeNav !== 'settings';
+
   const goToIntegrations = useCallback(() => {
     setSettingsState({ initialTab: 'integrations' });
     navigate('settings');
@@ -2752,6 +2800,43 @@ export default function Dashboard() {
             </button>
           </div>
         </>
+      )}
+
+      {/* M365 未綁定提示橫幅 */}
+      {showM365Banner && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9990,
+          background: 'linear-gradient(90deg, #0078d4, #106ebe)',
+          color: '#fff', padding: '10px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          fontSize: 14, fontWeight: 500,
+          boxShadow: '0 2px 8px rgba(0,0,0,.15)',
+          animation: 'bindBannerIn .3s ease',
+        }}>
+          <style>{`@keyframes bindBannerIn { from { transform: translateY(-100%); opacity:0; } to { transform: translateY(0); opacity:1; } }`}</style>
+          <span style={{ fontSize: 18 }}>🔗</span>
+          <span>您的 Microsoft 365 尚未連線，連線後即可使用 Outlook 郵件與行事曆整合功能。</span>
+          <button
+            onClick={handleM365Bind}
+            disabled={m365Binding}
+            style={{
+              padding: '5px 16px', borderRadius: 6, border: '1.5px solid rgba(255,255,255,.6)',
+              background: 'rgba(255,255,255,.15)', color: '#fff',
+              fontSize: 13, fontWeight: 600, cursor: m365Binding ? 'wait' : 'pointer',
+              whiteSpace: 'nowrap', backdropFilter: 'blur(4px)',
+            }}
+          >
+            {m365Binding ? '導向中…' : '立即連線'}
+          </button>
+          <button
+            onClick={dismissM365Banner}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,.7)',
+              fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1,
+            }}
+            title="稍後再說"
+          >×</button>
+        </div>
       )}
 
       <TopNavBar
