@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { TaskSidePanel } from '../tasks/TaskKanbanPage';
 
 // ── Design tokens ────────────────────────────────────────────
 const BRAND = {
@@ -166,257 +167,34 @@ function TaskRow({ task, isSelected, onClick, onToggleDone }) {
   );
 }
 
-// ── Detail modal ──────────────────────────────────────────────
-function DetailModal({ task, onClose, onUpdate, onDelete }) {
-  const isMobile = useIsMobile();
-  if (!task) return null;
-  const [saving,   setSaving]   = useState(false);
+// ── Delete confirm modal ──────────────────────────────────────
+function DeleteConfirmModal({ task, onClose, onDeleted, authFetch }) {
   const [deleting, setDeleting] = useState(false);
-  const [editTitle, setEditTitle] = useState(task.title);
-  const [editDesc,  setEditDesc]  = useState(task.description || '');
-  const pm      = PRIORITY_META[task.priority] || PRIORITY_META.medium;
-  const overdue = isOverdue(task.dueDate) && task.status !== 'done';
-  const isDone  = task.status === 'done';
-
-  // 同步外部 task 變更
-  useEffect(() => { setEditTitle(task.title); }, [task.title]);
-  useEffect(() => { setEditDesc(task.description || ''); }, [task.description]);
-
-  async function handleField(field, value) {
-    if (saving) return;
-    setSaving(true);
-    await onUpdate(task.id, { [field]: value });
-    setSaving(false);
-  }
-
-  async function handleDelete() {
-    if (deleting || !window.confirm(`確定刪除任務「${task.title}」？此操作無法復原。`)) return;
-    setDeleting(true);
-    await onDelete(task.id);
-    setDeleting(false);
-  }
-
-  function handleToggleDone() {
-    handleField('status', isDone ? 'todo' : 'done');
-  }
-
-  const selectStyle = {
-    padding: '6px 10px', borderRadius: 8, fontSize: 15, cursor: 'pointer',
-    border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
-    color: BRAND.carbon, width: '100%', outline: 'none',
+  const [error, setError] = useState('');
+  if (!task) return null;
+  const handleDelete = async () => {
+    setDeleting(true); setError('');
+    try {
+      const res = await authFetch(`/api/projects/tasks/${task.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || '刪除失敗');
+      onDeleted(task.id);
+    } catch (e) {
+      setError(e.message);
+      setDeleting(false);
+    }
   };
-  const labelStyle = {
-    fontSize: 13, color: BRAND.muted, marginBottom: 5, fontWeight: 600,
-    textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block',
-  };
-
   return (
     <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 999,
-          background: 'rgba(0,0,0,0.45)',
-          backdropFilter: 'blur(4px)',
-        }}
-      />
-
-      {/* Modal */}
-      <div style={{
-        position: 'fixed', zIndex: 1000,
-        top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '90%', maxWidth: 560,
-        maxHeight: '85vh',
-        background: BRAND.surface,
-        borderRadius: 16,
-        border: `1px solid ${BRAND.mist}`,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.25), 0 8px 24px rgba(0,0,0,0.12)',
-        display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '14px 24px',
-          borderBottom: `1px solid ${BRAND.mist}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* 標記完成按鈕 */}
-            <button
-              onClick={handleToggleDone}
-              disabled={saving}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '5px 12px', borderRadius: 8, fontSize: 14, fontWeight: 700,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                border: `1px solid ${isDone ? BRAND.success : BRAND.silver}`,
-                background: isDone
-                  ? 'color-mix(in srgb, var(--xc-success) 12%, transparent)'
-                  : BRAND.surfaceSoft,
-                color: isDone ? BRAND.success : BRAND.carbon,
-                transition: 'all .15s',
-              }}
-            >
-              {isDone ? '✓ 已完成' : '⊙ 標記完成'}
-            </button>
-            {saving && <span style={{ fontSize: 13, color: BRAND.muted }}>儲存中…</span>}
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
-              cursor: 'pointer', color: BRAND.muted, fontSize: 16,
-              width: 28, height: 28, borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >✕</button>
-        </div>
-
-        {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-          {/* 可編輯標題 */}
-          <input
-            value={editTitle}
-            onChange={e => setEditTitle(e.target.value)}
-            onBlur={() => {
-              const trimmed = editTitle.trim();
-              if (trimmed && trimmed !== task.title) handleField('title', trimmed);
-              else setEditTitle(task.title);
-            }}
-            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-            style={{
-              width: '100%', fontSize: 20, fontWeight: 800, color: BRAND.ink,
-              lineHeight: 1.4, margin: '0 0 20px', padding: '4px 0',
-              border: 'none', borderBottom: '2px solid transparent',
-              background: 'transparent', outline: 'none',
-              transition: 'border-color .15s',
-
-            }}
-            onFocus={e => { e.target.style.borderBottomColor = BRAND.crimson; }}
-            onBlurCapture={e => { e.target.style.borderBottomColor = 'transparent'; }}
-            disabled={saving}
-            placeholder="輸入任務標題…"
-          />
-
-          {/* ── 可編輯欄位（雙欄佈局）── */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: 16 }}>
-            {/* 截止日期 */}
-            <div>
-              <label style={labelStyle}>截止日期</label>
-              <input
-                type="date"
-                defaultValue={task.dueDate || ''}
-                onBlur={e => {
-                  const val = e.target.value || null;
-                  if (val !== (task.dueDate || null)) handleField('dueDate', val);
-                }}
-                style={{
-                  ...selectStyle,
-                  color: overdue ? BRAND.danger : BRAND.carbon,
-                  fontWeight: overdue ? 700 : 400,
-                }}
-                disabled={saving}
-              />
-              {overdue && (
-                <span style={{ fontSize: 12, color: BRAND.danger, marginTop: 3, display: 'block' }}>⚠ 已逾期</span>
-              )}
-            </div>
-
-            {/* 優先序 */}
-            <div>
-              <label style={labelStyle}>優先度</label>
-              <select
-                value={task.priority || 'medium'}
-                onChange={e => handleField('priority', e.target.value)}
-                style={{ ...selectStyle, color: pm.dot, fontWeight: 600 }}
-                disabled={saving}
-              >
-                {Object.entries(PRIORITY_META).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}優先</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 唯讀資訊（雙欄）*/}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: 16 }}>
-            {task.project?.name && (
-              <div>
-                <span style={labelStyle}>所屬專案</span>
-                <span style={{ fontSize: 15, color: BRAND.carbon }}>{task.project.name}</span>
-              </div>
-            )}
-            {task.assignee?.name && (
-              <div>
-                <span style={labelStyle}>負責人</span>
-                <span style={{ fontSize: 15, color: BRAND.carbon }}>{task.assignee.name}</span>
-              </div>
-            )}
-            <div>
-              <span style={labelStyle}>健康度</span>
-              <HealthBadge status={task.healthStatus} size="md" />
-            </div>
-          </div>
-
-          {/* 分隔線 */}
-          <div style={{ borderTop: `1px solid ${BRAND.mist}`, margin: '4px 0 16px' }} />
-
-          {/* 可編輯說明 */}
-          <div>
-            <label style={labelStyle}>說明</label>
-            <textarea
-              value={editDesc}
-              onChange={e => setEditDesc(e.target.value)}
-              onBlur={() => {
-                if (editDesc !== (task.description || '')) handleField('description', editDesc);
-              }}
-              placeholder="輸入任務說明…"
-              rows={4}
-              style={{
-                width: '100%', fontSize: 15, color: BRAND.carbon, lineHeight: 1.7,
-                padding: '8px 10px', borderRadius: 8, resize: 'vertical',
-                border: `1px solid ${BRAND.silver}`, background: BRAND.surfaceSoft,
-                outline: 'none', fontFamily: 'inherit',
-                transition: 'border-color .15s',
-              }}
-              onFocus={e => { e.target.style.borderColor = BRAND.crimson; }}
-              onBlurCapture={e => { e.target.style.borderColor = BRAND.silver; }}
-              disabled={saving}
-            />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          padding: '14px 24px',
-          borderTop: `1px solid ${BRAND.mist}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            style={{
-              padding: '7px 16px', borderRadius: 8, fontSize: 14, cursor: deleting ? 'not-allowed' : 'pointer',
-              border: `1px solid ${BRAND.danger}`, background: 'transparent',
-              color: BRAND.danger, opacity: deleting ? 0.5 : 1, fontWeight: 600,
-            }}
-          >
-            {deleting ? '刪除中…' : '🗑 刪除任務'}
-          </button>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '7px 20px', borderRadius: 8, fontSize: 14, cursor: 'pointer',
-              border: `1px solid ${BRAND.mist}`, background: BRAND.surfaceSoft,
-              color: BRAND.carbon, fontWeight: 600,
-            }}
-          >
-            關閉
-          </button>
+      <div onClick={onClose} style={{ position:'fixed',inset:0,zIndex:1100,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(4px)' }} />
+      <div style={{ position:'fixed',zIndex:1101,top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:'90%',maxWidth:420,background:BRAND.surface,borderRadius:16,border:`1px solid ${BRAND.mist}`,boxShadow:'0 24px 64px rgba(0,0,0,0.25)',padding:'28px 24px',textAlign:'center' }}>
+        <div style={{ fontSize:40,marginBottom:12 }}>🗑️</div>
+        <h3 style={{ fontSize:18,fontWeight:700,color:BRAND.ink,margin:'0 0 8px' }}>確認刪除任務</h3>
+        <p style={{ fontSize:15,color:BRAND.carbon,margin:'0 0 20px',lineHeight:1.6 }}>確定要刪除「<b>{task.title}</b>」嗎？<br/>此操作無法復原。</p>
+        {error && <div style={{ color:'#ef4444',fontSize:14,marginBottom:14 }}>❌ {error}</div>}
+        <div style={{ display:'flex',gap:10,justifyContent:'center' }}>
+          <button onClick={onClose} disabled={deleting} style={{ padding:'9px 20px',borderRadius:8,border:`1px solid ${BRAND.silver}`,background:BRAND.white,fontSize:15,fontWeight:600,cursor:'pointer',color:BRAND.carbon }}>取消</button>
+          <button onClick={handleDelete} disabled={deleting} style={{ padding:'9px 20px',borderRadius:8,border:'none',background:deleting?'#fca5a5':'#ef4444',color:'#fff',fontSize:15,fontWeight:600,cursor:deleting?'not-allowed':'pointer' }}>{deleting?'刪除中…':'確認刪除'}</button>
         </div>
       </div>
     </>
@@ -430,6 +208,10 @@ export default function MyTasksPage() {
   const [tasks,      setTasks]      = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState(null);
+  const [deleteTask, setDeleteTask] = useState(null);   // 刪除確認
+  const [panelUsers, setPanelUsers] = useState([]);
+  const [panelProjects, setPanelProjects] = useState([]);
+  const [panelCFDefs, setPanelCFDefs] = useState([]);
   const [filterStatus, setFilterStatus] = useState('active'); // all | active | done
   const [filterPri,    setFilterPri]    = useState('all');
   const [search,       setSearch]       = useState('');
@@ -454,6 +236,21 @@ export default function MyTasksPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ── 載入 TaskSidePanel 所需的團隊/專案/自訂欄位 ──
+  useEffect(() => {
+    if (!user?.companyId || !authFetch) return;
+    const cid = user.companyId;
+    Promise.all([
+      authFetch(`/api/projects/users?companyId=${cid}`).then(r => r.json()),
+      authFetch(`/api/projects/tasks?companyId=${cid}`).then(r => r.json()),
+      authFetch(`/api/custom-fields?companyId=${cid}`).then(r => r.json()),
+    ]).then(([usersData, tasksData, cfData]) => {
+      setPanelUsers(usersData.data || []);
+      setPanelProjects(tasksData.data?.projects || []);
+      if (cfData.success) setPanelCFDefs(cfData.data || []);
+    }).catch(e => console.error('[MyTasksPage panel data]', e));
+  }, [user?.companyId, authFetch]);
+
   // ── 更新任務（PATCH /api/my-tasks/:id）──
   const updateTask = useCallback(async (id, fields) => {
     try {
@@ -473,22 +270,6 @@ export default function MyTasksPage() {
       }
     } catch (e) {
       console.error('[MyTasksPage updateTask]', e);
-    }
-  }, [authFetch, load]);
-
-  // ── 刪除任務（DELETE /api/my-tasks/:id）──
-  const deleteTask = useCallback(async (id) => {
-    // 樂觀移除
-    setTasks(prev => prev.filter(t => t.id !== id));
-    setSelected(prev => prev?.id === id ? null : prev);
-    try {
-      const res  = await authFetch(`/api/my-tasks/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      // 無論成功失敗都重新載入，確保與專案任務一致
-      await load();
-    } catch (e) {
-      console.error('[MyTasksPage deleteTask]', e);
-      await load();
     }
   }, [authFetch, load]);
 
@@ -777,13 +558,35 @@ export default function MyTasksPage() {
           )}
         </div>
 
-        {/* 右側詳情彈窗 */}
+        {/* 任務詳情面板（與看板一致的完整版）*/}
         {selected && (
-          <DetailModal
+          <TaskSidePanel
+            key={selected.id}
             task={tasks.find(t => t.id === selected.id) || selected}
+            users={panelUsers}
+            projects={panelProjects}
+            allTasks={tasks}
+            customFieldDefs={panelCFDefs}
             onClose={() => setSelected(null)}
-            onUpdate={updateTask}
-            onDelete={deleteTask}
+            onSaved={() => { load(); }}
+            onDeleteRequest={(t) => { setSelected(null); setDeleteTask(t); }}
+            currentUser={user ? { id: user.id, name: user.name || '我', color: '#C70018' } : { id: 0, name: '我', color: '#C70018' }}
+            authFetch={authFetch}
+          />
+        )}
+
+        {/* 刪除確認 */}
+        {deleteTask && (
+          <DeleteConfirmModal
+            task={deleteTask}
+            onClose={() => setDeleteTask(null)}
+            onDeleted={(id) => {
+              setDeleteTask(null);
+              setSelected(prev => prev?.id === id ? null : prev);
+              setTasks(prev => prev.filter(t => t.id !== id));
+              load();
+            }}
+            authFetch={authFetch}
           />
         )}
       </div>
