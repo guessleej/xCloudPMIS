@@ -361,220 +361,288 @@ export default function InboxPage({ onNavigate }) {
         </div>
       )}
 
-      {/* ── Main two-column ────────────────────────────── */}
+      {/* ── Full-width notification list ───────────────── */}
       {!loading && (
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '12px 12px' : '20px 32px' }}>
 
-          {/* ── Left: notification list ────────────────── */}
-          <div style={{
-            width: isMobile ? '100%' : 380,
-            flexShrink: 0,
-            borderRight: isMobile ? 'none' : `1px solid ${BRAND.mist}`,
-            borderBottom: isMobile ? `1px solid ${BRAND.mist}` : 'none',
-            overflowY: 'auto',
-            background: BRAND.white,
-            maxHeight: isMobile ? '55vh' : 'none',
-          }}>
-            {filtered.length === 0 && (
-              <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>📭</div>
-                <div style={{ fontSize: 16, color: BRAND.muted, fontWeight: 600, marginBottom: 4 }}>
-                  {items.length === 0 ? '收件匣為空' : '沒有符合條件的通知'}
-                </div>
-                <div style={{ fontSize: 14, color: BRAND.silver }}>
-                  {items.length === 0 ? '當有新的任務指派或提及時，通知會出現在這裡' : '試試調整篩選條件或搜尋關鍵字'}
-                </div>
+          {/* Empty state */}
+          {filtered.length === 0 && (
+            <div style={{ padding: '80px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 14, opacity: 0.45 }}>📭</div>
+              <div style={{ fontSize: 17, color: BRAND.muted, fontWeight: 600, marginBottom: 6 }}>
+                {items.length === 0 ? '收件匣為空' : '沒有符合條件的通知'}
               </div>
-            )}
-            {dateGroups.map(group => (
-              <div key={group.label}>
-                {/* Date group header */}
-                <div style={{
-                  padding: '8px 16px', fontSize: 12, fontWeight: 700, color: BRAND.muted,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  background: BRAND.surfaceSoft, borderBottom: `1px solid ${BRAND.mist}`,
-                  position: 'sticky', top: 0, zIndex: 1,
-                }}>
-                  {group.label}
-                </div>
-                {group.items.map(msg => {
-                  const isSelected = selectedMsg?.id === msg.id;
-                  const cfg        = TYPE_CONFIG[msg.type] || { color: BRAND.silver, icon: '📌', label: msg.type };
-                  const isUnread   = !msg.isRead;
+              <div style={{ fontSize: 14, color: BRAND.silver }}>
+                {items.length === 0 ? '當有新的任務指派或提及時，通知會出現在這裡' : '試試調整篩選條件或搜尋關鍵字'}
+              </div>
+            </div>
+          )}
+
+          {/* Date-grouped list */}
+          {dateGroups.map(group => (
+            <div key={group.label} style={{ marginBottom: 24 }}>
+              {/* Date group header */}
+              <div style={{
+                fontSize: 13, fontWeight: 700, color: BRAND.muted,
+                letterSpacing: '0.04em', marginBottom: 8,
+                padding: '0 4px',
+              }}>
+                {group.label}
+              </div>
+
+              {/* Notification rows */}
+              <div style={{
+                background: BRAND.surface, border: `1px solid ${BRAND.mist}`,
+                borderRadius: 12, overflow: 'hidden',
+              }}>
+                {group.items.map((msg, idx) => {
+                  const cfg      = TYPE_CONFIG[msg.type] || { color: BRAND.silver, icon: '📌', label: msg.type };
+                  const isUnread = !msg.isRead;
+                  const isLast   = idx === group.items.length - 1;
 
                   return (
                     <div
                       key={msg.id}
                       onClick={() => selectMsg(msg)}
                       style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer',
-                        padding: '14px 16px',
-                        borderBottom: `1px solid ${BRAND.mist}`,
-                        background: isSelected ? BRAND.accentSurface : 'transparent',
+                        display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14,
+                        padding: isMobile ? '12px 12px' : '14px 20px',
+                        cursor: 'pointer',
+                        borderBottom: isLast ? 'none' : `1px solid ${BRAND.mist}`,
+                        background: 'transparent',
                         transition: 'background 0.12s',
                       }}
-                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = BRAND.surfaceSoft; }}
-                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? BRAND.accentSurface : 'transparent'; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = BRAND.surfaceSoft; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
-                      {/* Type icon badge */}
+                      {/* Unread dot */}
+                      <div style={{ width: 8, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                        {isUnread && (
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6' }} />
+                        )}
+                      </div>
+
+                      {/* Type icon */}
                       <div style={{
-                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
                         border: `1px solid color-mix(in srgb, ${cfg.color} 20%, transparent)`,
-                        fontSize: 16, lineHeight: 1,
+                        fontSize: 17, lineHeight: 1,
                       }}>
                         {cfg.icon}
                       </div>
 
-                      {/* Content */}
+                      {/* Main content */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                          <span style={{ fontSize: 12, color: cfg.color, fontWeight: 600 }}>{cfg.label}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 12, color: BRAND.muted, whiteSpace: 'nowrap' }}>{relativeTime(msg.createdAt)}</span>
-                            {isUnread && (
-                              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3B82F6', display: 'inline-block', flexShrink: 0 }} />
-                            )}
-                          </div>
-                        </div>
                         <div style={{
                           fontSize: 14, color: BRAND.ink,
-                          fontWeight: isUnread ? 600 : 400, lineHeight: 1.45,
+                          fontWeight: isUnread ? 600 : 400, lineHeight: 1.4,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>
                           {msg.title}
                         </div>
                         {msg.message && (
                           <div style={{
-                            fontSize: 13, color: BRAND.muted, marginTop: 2, lineHeight: 1.4,
+                            fontSize: 13, color: BRAND.muted, marginTop: 2,
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
-                            {msg.message.slice(0, 60)}
+                            {msg.message.length > 80 ? msg.message.slice(0, 80) + '…' : msg.message}
                           </div>
                         )}
                       </div>
+
+                      {/* Type label pill */}
+                      <span style={{
+                        display: isMobile ? 'none' : 'inline-flex',
+                        alignItems: 'center', gap: 4,
+                        padding: '3px 10px', borderRadius: 20, flexShrink: 0,
+                        background: `color-mix(in srgb, ${cfg.color} 10%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${cfg.color} 20%, transparent)`,
+                        fontSize: 12, fontWeight: 600, color: cfg.color,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {cfg.label}
+                      </span>
+
+                      {/* Resource chip */}
+                      {msg.resourceType && !isMobile && (
+                        <span style={{
+                          padding: '3px 8px', borderRadius: 5, flexShrink: 0,
+                          background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
+                          fontSize: 12, color: BRAND.muted, whiteSpace: 'nowrap',
+                        }}>
+                          {msg.resourceType} #{msg.resourceId}
+                        </span>
+                      )}
+
+                      {/* Time */}
+                      <span style={{ fontSize: 12, color: BRAND.muted, whiteSpace: 'nowrap', flexShrink: 0, minWidth: isMobile ? 'auto' : 64, textAlign: 'right' }}>
+                        {relativeTime(msg.createdAt)}
+                      </span>
+
+                      {/* Inline delete (hover-visible via CSS) */}
+                      <button
+                        className="inbox-row-del"
+                        onClick={e => { e.stopPropagation(); deleteMsg(msg.id); }}
+                        style={{
+                          padding: '4px 8px', borderRadius: 6, border: `1px solid ${BRAND.mist}`,
+                          background: 'transparent', color: BRAND.muted, fontSize: 13,
+                          cursor: 'pointer', flexShrink: 0, opacity: 0,
+                          transition: 'opacity .12s, color .12s, border-color .12s',
+                        }}
+                        title="刪除"
+                      >
+                        ✕
+                      </button>
                     </div>
                   );
                 })}
               </div>
-            ))}
-          </div>
-
-          {/* ── Right: detail pane ─────────────────────── */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '28px 32px', background: BRAND.paper }}>
-            {!selectedMsg ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 320 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>📬</div>
-                  <div style={{ fontSize: 17, color: BRAND.muted, fontWeight: 600, marginBottom: 6 }}>選取一則通知查看詳情</div>
-                  <div style={{ fontSize: 14, color: BRAND.silver }}>
-                    共 {items.length} 則通知，{unreadCount} 則未讀
-                  </div>
-                </div>
-              </div>
-            ) : (() => {
-              const cfg = TYPE_CONFIG[selectedMsg.type] || { color: BRAND.silver, icon: '📌', label: selectedMsg.type };
-              return (
-                <div style={{ maxWidth: 660 }}>
-                  {/* Detail card */}
-                  <div style={{
-                    background: BRAND.surface, border: `1px solid ${BRAND.mist}`, borderRadius: 14,
-                    padding: isMobile ? '18px 16px' : '24px 28px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.04)',
-                  }}>
-                    {/* Type badge + time */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '4px 12px', borderRadius: 20,
-                          background: `color-mix(in srgb, ${cfg.color} 10%, transparent)`,
-                          border: `1px solid color-mix(in srgb, ${cfg.color} 25%, transparent)`,
-                          fontSize: 13, fontWeight: 600, color: cfg.color,
-                        }}>
-                          <span style={{ fontSize: 13 }}>{cfg.icon}</span>
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 13, color: BRAND.muted }}>
-                        {selectedMsg.createdAt ? new Date(selectedMsg.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) : ''}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h2 style={{ fontSize: 20, fontWeight: 700, color: BRAND.ink, margin: '0 0 10px', lineHeight: 1.35 }}>
-                      {selectedMsg.title}
-                    </h2>
-
-                    {/* Resource */}
-                    {selectedMsg.resourceType && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '4px 10px', borderRadius: 6,
-                        background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
-                        fontSize: 13, color: BRAND.carbon, marginBottom: 16,
-                      }}>
-                        <span style={{ opacity: 0.7 }}>🔗</span>
-                        {selectedMsg.resourceType} #{selectedMsg.resourceId}
-                      </div>
-                    )}
-
-                    {/* Divider */}
-                    <div style={{ borderTop: `1px solid ${BRAND.mist}`, margin: '16px 0' }} />
-
-                    {/* Message body */}
-                    <div style={{
-                      fontSize: 15, color: BRAND.ink, lineHeight: 1.75,
-                      whiteSpace: 'pre-wrap', marginBottom: 24,
-                    }}>
-                      {selectedMsg.message || selectedMsg.detail || '（無詳細說明）'}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {selectedMsg.resourceType && onNavigate && (
-                        <button
-                          style={btnPrimary}
-                          onClick={() => goToResource(selectedMsg)}
-                          onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                          title={`跳轉到 ${selectedMsg.resourceType} #${selectedMsg.resourceId}`}
-                        >
-                          {RESOURCE_LABEL[selectedMsg.resourceType] || '前往任務'} →
-                        </button>
-                      )}
-                      {!selectedMsg.resourceType && (
-                        <button
-                          style={{ ...btnPrimary, opacity: 0.4, cursor: 'not-allowed' }}
-                          disabled
-                          title="此通知沒有關聯的資源"
-                        >
-                          前往任務
-                        </button>
-                      )}
-                      <button
-                        style={{
-                          ...btnGhost,
-                          opacity: deleting ? 0.55 : 1,
-                          cursor: deleting ? 'not-allowed' : 'pointer',
-                        }}
-                        onClick={() => !deleting && deleteMsg(selectedMsg.id)}
-                        onMouseEnter={e => { if (!deleting) { e.currentTarget.style.borderColor = BRAND.crimson; e.currentTarget.style.color = BRAND.crimson; } }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = BRAND.silver; e.currentTarget.style.color = BRAND.carbon; }}
-                        disabled={deleting}
-                        title="刪除此通知"
-                      >
-                        {deleting ? '刪除中…' : '🗑 刪除通知'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* ── Slide-over detail drawer ───────────────────── */}
+      {selectedMsg && (() => {
+        const cfg = TYPE_CONFIG[selectedMsg.type] || { color: BRAND.silver, icon: '📌', label: selectedMsg.type };
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => setSelected(null)}
+              style={{
+                position: 'fixed', inset: 0,
+                background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(3px)',
+                zIndex: 100, animation: 'inboxFadeIn .18s ease',
+              }}
+            />
+            {/* Drawer */}
+            <div style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0,
+              width: isMobile ? '100%' : 480, maxWidth: '100vw',
+              background: BRAND.surface, zIndex: 101,
+              display: 'flex', flexDirection: 'column',
+              boxShadow: '-8px 0 40px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06)',
+              animation: 'inboxSlideIn .22s ease',
+            }}>
+              <style>{`
+                @keyframes inboxFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes inboxSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+                /* show delete button on row hover */
+                div:has(> .inbox-row-del):hover > .inbox-row-del { opacity: 1 !important; }
+                .inbox-row-del:hover { color: ${BRAND.crimson} !important; border-color: ${BRAND.crimson} !important; }
+              `}</style>
+
+              {/* Drawer header */}
+              <div style={{
+                padding: '16px 24px', borderBottom: `1px solid ${BRAND.mist}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `color-mix(in srgb, ${cfg.color} 12%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${cfg.color} 20%, transparent)`,
+                    fontSize: 16,
+                  }}>
+                    {cfg.icon}
+                  </div>
+                  <span style={{
+                    fontSize: 14, fontWeight: 700, color: cfg.color,
+                  }}>
+                    {cfg.label}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelected(null)}
+                  style={{ ...btnGhost, padding: '4px 12px', fontSize: 14 }}
+                >
+                  關閉
+                </button>
+              </div>
+
+              {/* Drawer body */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                {/* Time */}
+                <div style={{ fontSize: 13, color: BRAND.muted, marginBottom: 12 }}>
+                  {selectedMsg.createdAt
+                    ? new Date(selectedMsg.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : ''}
+                  {selectedMsg.createdAt && <span style={{ marginLeft: 8, opacity: 0.7 }}>({relativeTime(selectedMsg.createdAt)})</span>}
+                </div>
+
+                {/* Title */}
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: BRAND.ink, margin: '0 0 14px', lineHeight: 1.35 }}>
+                  {selectedMsg.title}
+                </h2>
+
+                {/* Resource chip */}
+                {selectedMsg.resourceType && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '5px 12px', borderRadius: 8,
+                    background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
+                    fontSize: 13, color: BRAND.carbon, marginBottom: 18,
+                  }}>
+                    <span style={{ opacity: 0.7 }}>🔗</span>
+                    {selectedMsg.resourceType} #{selectedMsg.resourceId}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div style={{ borderTop: `1px solid ${BRAND.mist}`, margin: '16px 0 20px' }} />
+
+                {/* Message body */}
+                <div style={{
+                  fontSize: 15, color: BRAND.ink, lineHeight: 1.8,
+                  whiteSpace: 'pre-wrap',
+                  padding: '16px 18px', borderRadius: 10,
+                  background: BRAND.surfaceSoft, border: `1px solid ${BRAND.mist}`,
+                }}>
+                  {selectedMsg.message || selectedMsg.detail || '（無詳細說明）'}
+                </div>
+              </div>
+
+              {/* Drawer footer */}
+              <div style={{
+                padding: '16px 24px', borderTop: `1px solid ${BRAND.mist}`,
+                display: 'flex', gap: 10, flexShrink: 0,
+              }}>
+                {selectedMsg.resourceType && onNavigate ? (
+                  <button
+                    style={{ ...btnPrimary, flex: 1 }}
+                    onClick={() => goToResource(selectedMsg)}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    {RESOURCE_LABEL[selectedMsg.resourceType] || '前往任務'} →
+                  </button>
+                ) : (
+                  <button style={{ ...btnPrimary, flex: 1, opacity: 0.4, cursor: 'not-allowed' }} disabled>
+                    前往任務
+                  </button>
+                )}
+                <button
+                  style={{
+                    ...btnGhost,
+                    opacity: deleting ? 0.55 : 1,
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                  }}
+                  onClick={() => { if (!deleting) deleteMsg(selectedMsg.id); }}
+                  onMouseEnter={e => { if (!deleting) { e.currentTarget.style.borderColor = BRAND.crimson; e.currentTarget.style.color = BRAND.crimson; } }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = BRAND.silver; e.currentTarget.style.color = BRAND.carbon; }}
+                  disabled={deleting}
+                >
+                  {deleting ? '刪除中…' : '🗑 刪除'}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
