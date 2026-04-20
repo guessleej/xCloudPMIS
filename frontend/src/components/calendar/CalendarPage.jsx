@@ -12,7 +12,7 @@ const T = {
   get bg()         { return 'var(--xc-bg)'; },
   get surface()    { return 'var(--xc-surface)'; },
   get surfaceSoft(){ return 'var(--xc-surface-soft)'; },
-  get card()       { return 'var(--xc-card-bg)'; },
+  get card()       { return 'var(--xc-surface-strong, #ffffff)'; },
   get border()     { return 'var(--xc-border)'; },
   get borderStrong(){ return 'var(--xc-border-strong)'; },
   get t1()         { return 'var(--xc-text)'; },
@@ -519,48 +519,105 @@ export default function CalendarPage({ onNavigate }) {
         </div>
       )}
 
-      {/* ── 選中日期側邊詳情 ──────────────────────────── */}
+      {/* ── 選中日期彈出視窗 ──────────────────────────── */}
       {selectedDate && view === 'month' && (() => {
         const key = fmtDate(selectedDate);
         const dayTasks = tasksByDate[key] || [];
+        const isSelToday = isSameDay(selectedDate, today);
         return (
-          <div style={{
-            position: 'fixed', top: 0, right: 0, bottom: 0, width: 380,
-            background: T.card, borderLeft: `1px solid ${T.border}`,
-            boxShadow: '-8px 0 30px rgba(0,0,0,0.1)', zIndex: 1000,
-            display: 'flex', flexDirection: 'column',
-          }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: T.t1 }}>
-                  {selectedDate.getMonth()+1}/{selectedDate.getDate()} ({WEEKDAYS[selectedDate.getDay()]})
-                </div>
-                <div style={{ fontSize: 13, color: T.t3 }}>{dayTasks.length} 項任務</div>
-              </div>
-              <button onClick={() => setSelectedDate(null)}
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: T.t2, padding: 4 }}>✕</button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-              {dayTasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 0', color: T.t3 }}>無排程任務</div>
-              ) : dayTasks.map(t => (
-                <div key={t.id} style={{ padding: '12px 14px', marginBottom: 10, borderRadius: 12, border: `1px solid ${T.border}`, background: T.surface }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: T.t1, marginBottom: 6 }}>{t.title}</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 6, background: `${STATUS_COLORS[t.status]}20`, color: STATUS_COLORS[t.status], fontWeight: 700 }}>{STATUS_LABELS[t.status]}</span>
-                    {t.priority && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 6, background: `${PRIORITY_COLORS[t.priority]}12`, color: PRIORITY_COLORS[t.priority], fontWeight: 700 }}>{t.priority}</span>}
+          <>
+            {/* 遮罩 */}
+            <div
+              onClick={() => setSelectedDate(null)}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+                zIndex: 1000, backdropFilter: 'blur(2px)',
+              }}
+            />
+            {/* Modal 彈窗 */}
+            <div style={{
+              position: 'fixed', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 480, maxWidth: '92vw', maxHeight: '80vh',
+              background: T.card, borderRadius: 20,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)', zIndex: 1001,
+              display: 'flex', flexDirection: 'column',
+              animation: 'calModalIn 0.2s ease-out',
+            }}>
+              {/* 標頭 */}
+              <div style={{
+                padding: '18px 24px', borderBottom: `1px solid ${T.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: isSelToday ? `${T.accent}08` : 'transparent',
+                borderRadius: '20px 20px 0 0',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    width: 42, height: 42, borderRadius: 12, display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900,
+                    background: isSelToday ? T.accent : T.surfaceSoft,
+                    color: isSelToday ? '#fff' : T.t1,
+                  }}>
+                    {selectedDate.getDate()}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: T.t1 }}>
+                      {selectedDate.getFullYear()} 年 {selectedDate.getMonth()+1} 月 {selectedDate.getDate()} 日
+                      <span style={{ fontWeight: 600, color: T.t2, marginLeft: 6 }}>({WEEKDAYS[selectedDate.getDay()]})</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: T.t3, marginTop: 2 }}>
+                      {dayTasks.length} 項任務
+                      {isSelToday && <span style={{ marginLeft: 8, fontSize: 11, padding: '1px 8px', borderRadius: 999, background: T.accent, color: '#fff', fontWeight: 700 }}>今天</span>}
+                    </div>
                   </div>
-                  {t.project?.name && <div style={{ fontSize: 12, color: T.t3, marginTop: 4 }}>📁 {t.project.name}</div>}
-                  {t.assignee?.name && <div style={{ fontSize: 12, color: T.t2, marginTop: 4 }}>👤 {t.assignee.name}</div>}
                 </div>
-              ))}
+                <button onClick={() => setSelectedDate(null)}
+                  style={{ background: T.surfaceSoft, border: 'none', fontSize: 16, cursor: 'pointer', color: T.t2, padding: '4px 8px', borderRadius: 8, fontFamily: 'inherit', fontWeight: 700 }}>✕</button>
+              </div>
+              {/* 任務列表 */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+                {dayTasks.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: T.t3 }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}>此日無排程任務</div>
+                  </div>
+                ) : dayTasks.map(t => (
+                  <div key={t.id}
+                    onClick={() => { if (onNavigate && t.project?.id) onNavigate('project-detail', { projectId: t.project.id }); }}
+                    style={{
+                      padding: '14px 16px', marginBottom: 10, borderRadius: 14,
+                      border: `1px solid ${T.border}`, background: T.surface,
+                      cursor: 'pointer', transition: 'box-shadow 0.15s, transform 0.1s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS[t.status] || '#94A3B8', flexShrink: 0 }} />
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.t1, flex: 1 }}>{t.title}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 18 }}>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: `${STATUS_COLORS[t.status]}20`, color: STATUS_COLORS[t.status], fontWeight: 700 }}>{STATUS_LABELS[t.status]}</span>
+                      {t.priority && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: `${PRIORITY_COLORS[t.priority]}12`, color: PRIORITY_COLORS[t.priority], fontWeight: 700 }}>{t.priority}</span>}
+                      {t.project?.name && <span style={{ fontSize: 11, color: T.t3 }}>📁 {t.project.name}</span>}
+                      {t.assignee?.name && <span style={{ fontSize: 11, color: T.t2 }}>👤 {t.assignee.name}</span>}
+                    </div>
+                    {t.dueDate && (
+                      <div style={{ fontSize: 11, color: T.t3, marginTop: 4, marginLeft: 18 }}>
+                        🎯 截止：{t.dueDate.split('T')[0]}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+            <style>{`@keyframes calModalIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
+          </>
         );
       })()}
     </div>
   );
 }
 
-const navBtnStyle = { background: 'var(--xc-card-bg)', border: '1px solid var(--xc-border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--xc-text)', fontFamily: 'inherit', fontSize: 14, fontWeight: 700 };
-const selectStyle = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-card-bg)', color: 'var(--xc-text)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' };
+const navBtnStyle = { background: 'var(--xc-surface-strong, #ffffff)', border: '1px solid var(--xc-border)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: 'var(--xc-text)', fontFamily: 'inherit', fontSize: 14, fontWeight: 700 };
+const selectStyle = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--xc-border)', background: 'var(--xc-surface-strong, #ffffff)', color: 'var(--xc-text)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer' };

@@ -1305,7 +1305,6 @@ export default function TaskDetailPanel({
                 審核將發送給專案負責人，由其批准或退回
               </div>
             </div>
-            </div>
           )}
 
           <Section kicker="Properties" title="任務屬性">
