@@ -1585,16 +1585,40 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
   try {
     const task = await prisma.task.findFirst({
       where: { id: taskId, deletedAt: null },
-      include: { assignee: { select: { id: true, name: true } } },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        project: {
+          select: {
+            id: true, name: true,
+            owner: { select: { id: true, name: true } },
+            members: {
+              where: { role: 'owner' },
+              include: { user: { select: { id: true, name: true } } },
+            },
+          },
+        },
+      },
     });
     if (!task) return err(res, `找不到任務 #${taskId}`, 404);
+
+    // 收集審核人清單（專案負責人 + 管理者角色成員）
+    const reviewers = [];
+    if (task.project?.owner) reviewers.push(task.project.owner);
+    for (const pm of (task.project?.members || [])) {
+      if (pm.user && !reviewers.find(r => r.id === pm.user.id)) {
+        reviewers.push(pm.user);
+      }
+    }
 
     let newStatus = task.status;
     let message = '';
 
     if (action === 'request_review') {
       newStatus = 'review';
-      message = `${actorName} 提交了審核請求`;
+      const reviewerNames = reviewers.length > 0
+        ? reviewers.map(r => r.name).join('、')
+        : '專案管理者';
+      message = `${actorName} 提交了審核請求（審核人：${reviewerNames}）`;
     } else if (action === 'approve') {
       if (task.status !== 'review') return err(res, '只有「審核中」狀態的任務才能批准', 400);
       newStatus = 'done';
@@ -1661,6 +1685,7 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
         id: updated.id,
         status: updated.status,
         completedAt: updated.completedAt,
+        reviewers: reviewers.map(r => ({ id: r.id, name: r.name })),
       },
     });
   } catch (e) {

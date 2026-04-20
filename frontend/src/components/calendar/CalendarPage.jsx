@@ -111,16 +111,50 @@ export default function CalendarPage({ onNavigate }) {
   }, [tasks, filteredProject, filteredStatus]);
 
   /* ── 任務分佈到日期 ────────────────────────────────────── */
-  const tasksByDate = useMemo(() => {
+  const { tasksByDate, unscheduledTasks } = useMemo(() => {
     const map = {};
-    for (const t of filteredTasks) {
-      const dateStr = t.dueDate;
-      if (!dateStr) continue;
-      const key = dateStr.split('T')[0];
+    const noDate = [];
+    const addToDate = (key, task) => {
       if (!map[key]) map[key] = [];
-      map[key].push(t);
+      // 避免重複
+      if (!map[key].find(t => t.id === task.id)) map[key].push(task);
+    };
+    for (const t of filteredTasks) {
+      const due = t.dueDate?.split('T')[0];
+      const ps  = t.planStart?.split('T')[0];
+      const pe  = t.planEnd?.split('T')[0];
+
+      if (due) {
+        // 有截止日：放到截止日
+        addToDate(due, t);
+      }
+
+      // 有計劃區間：展開到每一天（最多 60 天避免爆量）
+      if (ps && pe) {
+        const start = new Date(ps); start.setHours(0,0,0,0);
+        const end   = new Date(pe); end.setHours(0,0,0,0);
+        let cur = new Date(start);
+        let safety = 0;
+        while (cur <= end && safety < 60) {
+          const k = fmtDate(cur);
+          if (k !== due) addToDate(k, t); // 截止日已加過
+          cur = addDays(cur, 1);
+          safety++;
+        }
+      } else if (ps && !due) {
+        // 只有 planStart，沒有 dueDate
+        addToDate(ps, t);
+      } else if (pe && !due) {
+        // 只有 planEnd，沒有 dueDate
+        addToDate(pe, t);
+      }
+
+      // 完全沒有任何日期
+      if (!due && !ps && !pe) {
+        noDate.push(t);
+      }
     }
-    return map;
+    return { tasksByDate: map, unscheduledTasks: noDate };
   }, [filteredTasks]);
 
   /* ── 導航 ─────────────────────────────────────────────── */
@@ -146,25 +180,30 @@ export default function CalendarPage({ onNavigate }) {
   }, [anchor]);
 
   /* ── 渲染任務標籤 ────────────────────────────────────── */
-  const TaskChip = ({ task }) => {
+  const TaskChip = ({ task, dateKey }) => {
     const color = STATUS_COLORS[task.status] || '#94A3B8';
     const prioColor = PRIORITY_COLORS[task.priority] || '#6B7280';
+    // 判斷此任務在這天是什麼角色（截止日 vs 計劃區間 vs 開始日）
+    const isDueDay = task.dueDate?.split('T')[0] === dateKey;
+    const isRangeDay = !isDueDay && (task.planStart || task.planEnd);
     return (
       <div
-        title={`${task.title}\n${STATUS_LABELS[task.status] || task.status} | ${task.priority || ''}\n${task.project?.name || ''}`}
+        title={`${task.title}\n${STATUS_LABELS[task.status] || task.status} | ${task.priority || ''}\n${task.project?.name || ''}${task.dueDate ? `\n截止：${task.dueDate}` : ''}${task.planStart ? `\n計劃：${task.planStart} ~ ${task.planEnd || '?'}` : ''}`}
         style={{
           fontSize: 12, lineHeight: '16px', padding: '2px 6px',
           borderRadius: 6, marginBottom: 2, cursor: 'pointer',
-          background: `${color}18`, color: color,
+          background: isRangeDay ? `${color}0C` : `${color}18`,
+          color: color,
           fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          borderLeft: `3px solid ${prioColor}`,
+          borderLeft: `3px solid ${isDueDay ? prioColor : isRangeDay ? `${color}60` : prioColor}`,
           transition: 'transform 0.1s',
+          ...(isRangeDay ? { borderStyle: 'dashed', borderLeftStyle: 'dashed' } : {}),
         }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         onClick={e => { e.stopPropagation(); if (onNavigate && task.project?.id) onNavigate('project-detail', { projectId: task.project.id }); }}
       >
-        {task.title}
+        {isDueDay ? '🎯 ' : isRangeDay ? '📐 ' : ''}{task.title}
       </div>
     );
   };
@@ -172,19 +211,25 @@ export default function CalendarPage({ onNavigate }) {
   /* ── 統計摘要 ──────────────────────────────────────── */
   const stats = useMemo(() => {
     const thisMonth = filteredTasks.filter(t => {
-      if (!t.dueDate) return false;
-      const d = new Date(t.dueDate);
+      const dateStr = t.dueDate || t.planEnd || t.planStart;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
       return d.getMonth() === anchor.getMonth() && d.getFullYear() === anchor.getFullYear();
     });
     const overdue = filteredTasks.filter(t => t.healthStatus === 'off_track' && t.status !== 'done');
     const upcoming = filteredTasks.filter(t => {
-      if (!t.dueDate || t.status === 'done') return false;
-      const d = new Date(t.dueDate); d.setHours(0,0,0,0);
+      const dateStr = t.dueDate || t.planEnd;
+      if (!dateStr || t.status === 'done') return false;
+      const d = new Date(dateStr); d.setHours(0,0,0,0);
       const diff = Math.round((d - today) / 86400000);
       return diff >= 0 && diff <= 7;
     });
-    return { thisMonth: thisMonth.length, overdue: overdue.length, upcoming: upcoming.length, total: filteredTasks.length };
-  }, [filteredTasks, anchor, today]);
+    return {
+      thisMonth: thisMonth.length, overdue: overdue.length,
+      upcoming: upcoming.length, total: filteredTasks.length,
+      unscheduled: unscheduledTasks.length,
+    };
+  }, [filteredTasks, anchor, today, unscheduledTasks]);
 
   /* ── 載入中 ───────────────────────────────────────── */
   if (loading) return (
@@ -198,11 +243,12 @@ export default function CalendarPage({ onNavigate }) {
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto' }}>
       {/* ── 統計卡片 ──────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: '本月任務', value: stats.thisMonth, color: T.accent, icon: '📅' },
-          { label: '即將到期 (7天內)', value: stats.upcoming, color: '#D97706', icon: '⏰' },
+          { label: '即將到期 (7天)', value: stats.upcoming, color: '#D97706', icon: '⏰' },
           { label: '已逾期', value: stats.overdue, color: T.danger, icon: '🔴' },
+          { label: '未排期', value: stats.unscheduled, color: '#F97316', icon: '📭' },
           { label: '總任務數', value: stats.total, color: '#6366F1', icon: '📋' },
         ].map((s, i) => (
           <div key={i} style={{ background: T.card, borderRadius: 14, padding: '16px 18px', border: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -301,7 +347,7 @@ export default function CalendarPage({ onNavigate }) {
                       <span style={{ fontSize: 11, color: T.t3, fontWeight: 700 }}>{dayTasks.length}</span>
                     )}
                   </div>
-                  {dayTasks.slice(0, 3).map(t => <TaskChip key={t.id} task={t} />)}
+                  {dayTasks.slice(0, 3).map(t => <TaskChip key={t.id} task={t} dateKey={key} />)}
                   {dayTasks.length > 3 && (
                     <div style={{ fontSize: 11, color: T.t3, fontWeight: 700, textAlign: 'center', marginTop: 2 }}>
                       +{dayTasks.length - 3} 更多
@@ -437,6 +483,41 @@ export default function CalendarPage({ onNavigate }) {
           </div>
         );
       })()}
+
+      {/* ── 未排期任務列表 ───────────────────────────── */}
+      {unscheduledTasks.length > 0 && (
+        <div style={{ marginTop: 20, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden', background: T.card }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18 }}>📭</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: '#92400E' }}>未排期任務</span>
+              <span style={{ fontSize: 13, color: '#B45309', padding: '2px 8px', borderRadius: 999, background: '#FDE68A', fontWeight: 700 }}>{unscheduledTasks.length}</span>
+            </div>
+            <span style={{ fontSize: 12, color: '#B45309' }}>這些任務沒有設定截止日或計劃日期</span>
+          </div>
+          <div style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10, maxHeight: 300, overflowY: 'auto' }}>
+            {unscheduledTasks.map(t => (
+              <div key={t.id}
+                onClick={() => { if (onNavigate && t.project?.id) onNavigate('project-detail', { projectId: t.project.id }); }}
+                style={{
+                  padding: '10px 14px', borderRadius: 12, border: `1px solid ${T.border}`,
+                  background: T.surface, cursor: 'pointer',
+                  transition: 'box-shadow 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+              >
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.t1, marginBottom: 4 }}>{t.title}</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 6, background: `${STATUS_COLORS[t.status]}20`, color: STATUS_COLORS[t.status], fontWeight: 700 }}>{STATUS_LABELS[t.status]}</span>
+                  {t.project?.name && <span style={{ fontSize: 11, color: T.t3 }}>📁 {t.project.name}</span>}
+                  {t.assignee?.name && <span style={{ fontSize: 11, color: T.t2 }}>👤 {t.assignee.name}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 選中日期側邊詳情 ──────────────────────────── */}
       {selectedDate && view === 'month' && (() => {

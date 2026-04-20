@@ -323,21 +323,29 @@ function CapacityTimeline({ members, onCellClick }) {
     weeks.push({ start, end, label: `${start.getMonth()+1}/${start.getDate()} - ${end.getMonth()+1}/${end.getDate()}` });
   }
 
-  // 為每位成員按週統計任務數
-  const memberWeekData = members.map(m => {
-    const weekCounts = weeks.map(w => {
+  // 為每位成員按週統計任務數（只計入有截止日的任務；無截止日的只算在「本週」）
+  const memberWeekData = members.filter(m => m.name !== '未指派').map(m => {
+    const activeTasks = (m.tasks || []).filter(t => t.status !== 'done');
+    const withDueDate    = activeTasks.filter(t => t.dueDate);
+    const withoutDueDate = activeTasks.filter(t => !t.dueDate);
+
+    const weekCounts = weeks.map((w, wi) => {
       let count = 0;
-      for (const t of (m.tasks || [])) {
-        if (t.status === 'done') continue;
-        if (!t.dueDate) { count++; continue; } // 無截止日的活躍任務算到每週
+      for (const t of withDueDate) {
         const due = new Date(t.dueDate); due.setHours(0,0,0,0);
         if (due >= w.start && due <= w.end) count++;
       }
+      // 無截止日的活躍任務只在「本週」(w=0) 計入
+      if (wi === 0) count += withoutDueDate.length;
       return count;
     });
-    // 假設每人每週容量 = 10 task
-    const weeklyCapacity = 10;
-    return { ...m, weekCounts, weeklyCapacity };
+
+    // 根據成員的實際任務量動態計算合理的週容量
+    // 基準值：成員所有活躍任務平均分配到 4 週，取上限，最少 5
+    const avgPerWeek = Math.ceil(activeTasks.length / 4);
+    const weeklyCapacity = Math.max(5, avgPerWeek + 2); // 留 2 個 buffer
+
+    return { ...m, weekCounts, weeklyCapacity, noDateCount: withoutDueDate.length };
   });
 
   const maxCount = Math.max(1, ...memberWeekData.flatMap(m => m.weekCounts));
@@ -399,7 +407,8 @@ function CapacityTimeline({ members, onCellClick }) {
         </table>
       </div>
       <div style={{ padding: '10px 20px', borderTop: '1px solid var(--xc-border)', background: 'var(--xc-surface-soft)', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, color: 'var(--xc-text-muted)' }}>
-        <span>容量基準：每人每週 10 項任務</span>
+        <span>容量基準：依每人實際任務量動態計算</span>
+        <span style={{ fontSize: 12, color: 'var(--xc-text-muted)' }}>· 無截止日任務僅計入本週</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 10, height: 10, borderRadius: 3, background: '#22c55e' }} /> 0-40%
         </span>

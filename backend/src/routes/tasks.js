@@ -49,7 +49,9 @@ function deriveSection(dueDate) {
 
 // ── 格式化單筆任務 ────────────────────────────────────────────
 function formatTask(t) {
-  const dueDateStr = t.dueDate ? t.dueDate.toISOString().split('T')[0] : null;
+  const dueDateStr  = t.dueDate  ? t.dueDate.toISOString().split('T')[0]  : null;
+  const planStartStr = t.planStart ? t.planStart.toISOString().split('T')[0] : null;
+  const planEndStr   = t.planEnd   ? t.planEnd.toISOString().split('T')[0]   : null;
   // 有手動覆寫用覆寫值；否則自動計算
   const health = t.healthStatus ?? calcHealth(t.dueDate, t.status);
   return {
@@ -60,6 +62,10 @@ function formatTask(t) {
     priority:     t.priority,
     healthStatus: health,
     dueDate:      dueDateStr,
+    planStart:    planStartStr,
+    planEnd:      planEndStr,
+    createdAt:    t.createdAt ? t.createdAt.toISOString().split('T')[0] : null,
+    estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours) : null,
     progressPercent: t.progressPercent ?? 0,
     project:      t.project,
     assignee:     t.assignee,

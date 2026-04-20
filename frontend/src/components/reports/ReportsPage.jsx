@@ -1413,10 +1413,12 @@ function ReportDashboard({ companyId, authFetch: authFetchProp }) {
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}><div style={{ color: THEME.textMuted }}>儀表板載入中...</div></div>;
   if (!data) return null;
 
-  // 專案進度
-  const projData = (data.proj?.data || []).map(p => ({
+  // 專案進度 — API 回傳 { rows: [...] }，每筆有 doneRate
+  const projData = (data.proj?.rows || data.proj?.data || []).map(p => ({
     name: p.name?.length > 8 ? p.name.slice(0, 8) + '…' : p.name,
-    完成率: typeof p.completionRate === 'number' ? p.completionRate : (p.completionRate ? parseFloat(p.completionRate) : 0),
+    完成率: typeof p.doneRate === 'number' ? p.doneRate
+         : typeof p.completionRate === 'number' ? p.completionRate
+         : (p.completionRate ? parseFloat(p.completionRate) : 0),
   }));
 
   // 任務狀態
@@ -1433,17 +1435,17 @@ function ReportDashboard({ companyId, authFetch: authFetchProp }) {
   }));
   const PRI_COLORS = ['#ef4444','#f97316','#eab308','#94a3b8'];
 
-  // 工時 top5
-  const timeData = (data.time?.data || []).slice(0, 5).map(t => ({
+  // 工時 top5 — API 回傳 { rows: [...] }，每筆有 totalHours/name/project
+  const timeData = (data.time?.rows || data.time?.data || []).slice(0, 5).map(t => ({
     name: (t.name || t.project || '未分類').length > 8 ? (t.name || t.project || '未分類').slice(0, 8) + '…' : (t.name || t.project || '未分類'),
     工時: typeof t.totalHours === 'number' ? t.totalHours : parseFloat(t.totalHours || '0'),
   }));
 
-  // 里程碑摘要
-  const msList = data.ms?.data || [];
-  const msAchieved = msList.filter(m => m.status === '已達成').length;
-  const msOverdue = msList.filter(m => m.status === '已延誤').length;
-  const msUpcoming = msList.filter(m => m.status === '即將到期').length;
+  // 里程碑摘要 — API 回傳 { rows: [...] }，每筆有 status/isAchieved/isLate/daysLeft
+  const msList = data.ms?.rows || data.ms?.data || [];
+  const msAchieved = msList.filter(m => m.isAchieved || m.status === '已達成').length;
+  const msOverdue = msList.filter(m => m.isLate || m.status === '已延誤').length;
+  const msUpcoming = msList.filter(m => (!m.isAchieved && !m.isLate && m.daysLeft <= 30) || m.status === '即將到期').length;
 
   const Widget = ({ title, children, span = 1 }) => (
     <div style={{
@@ -1543,10 +1545,10 @@ function ReportDashboard({ companyId, authFetch: authFetchProp }) {
       <Widget title="📋 整體摘要" span={2}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
           {[
-            { label: '專案數', value: data.proj?.data?.length || 0, icon: '📁' },
-            { label: '任務總數', value: data.task?.summary?.total || data.task?.data?.length || 0, icon: '✅' },
+            { label: '專案數', value: (data.proj?.rows || data.proj?.data || []).length, icon: '📁' },
+            { label: '任務總數', value: data.task?.summary?.total || (data.task?.rows || data.task?.data || []).length, icon: '✅' },
             { label: '已完成', value: sm['已完成'] || sm['done'] || 0, icon: '🎉' },
-            { label: '總工時', value: `${((data.time?.data || []).reduce((a, b) => a + parseFloat(b.totalHours || 0), 0)).toFixed(1)}h`, icon: '⏰' },
+            { label: '總工時', value: `${((data.time?.rows || data.time?.data || []).reduce((a, b) => a + parseFloat(b.totalHours || 0), 0)).toFixed(1)}h`, icon: '⏰' },
           ].map(s => (
             <div key={s.label} style={{ background: THEME.surfaceSoft, borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
               <div style={{ fontSize: 22 }}>{s.icon}</div>
