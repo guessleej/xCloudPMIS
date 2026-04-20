@@ -310,8 +310,19 @@ async function createCalendarEvent(userId, {
 }) {
   const { accessToken } = await getTokenOrThrow(userId);
 
-  // ISO 格式但移除 Z（Graph API 需搭配 timeZone 欄位）
-  const toLocalIso = (dt) => new Date(dt).toISOString().replace(/Z$/, '');
+  // 將 Date 格式化為目標時區的本地時間（Graph API 需搭配 timeZone 欄位）
+  const toLocalIso = (dt) => {
+    const d = new Date(dt);
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(d);
+    const get = (type) => parts.find(p => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}.000`;
+  };
 
   const payload = {
     subject,

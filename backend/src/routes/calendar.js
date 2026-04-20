@@ -17,6 +17,27 @@ const requireAuth      = require('../middleware/requireAuth');
 const { createCalendarEvent, getUserCalendarEvents } = require('../services/userOutlookService');
 
 const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3838';
+const CALENDAR_TZ = 'Asia/Taipei';
+
+/**
+ * 在指定 dueDate 上設定小時（時區安全）
+ * 回傳的 Date 物件，其 UTC 值對應 Asia/Taipei 的指定小時
+ */
+function buildTzDate(dueDate, hour, minute = 0) {
+  const d = new Date(dueDate);
+  // 取得 dueDate 在目標時區的日期部分
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: CALENDAR_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const dateStr = fmt.format(d); // e.g. '2026-04-22'
+  // 建立精確的時區時間
+  return new Date(`${dateStr}T${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}:00+08:00`);
+}
+
+/** 格式化為 ICS DATETIME (UTC) */
+function formatIcsFull(date) {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
 
 // ════════════════════════════════════════════════════════════
 // GET /api/calendar/task/:taskId/ics?token=<jwt>
@@ -53,10 +74,8 @@ router.get('/task/:taskId/ics', async (req, res) => {
 
     // 若無截止日，預設使用明天
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
-    const startDate = new Date(dueDate);
-    startDate.setHours(9, 0, 0, 0);
-    const endDate = new Date(dueDate);
-    endDate.setHours(10, 0, 0, 0);
+    const startDate = buildTzDate(dueDate, 9, 0);
+    const endDate   = buildTzDate(dueDate, 10, 0);
 
     const uid = `pmis-task-${task.id}@xcloudpmis`;
     const now = new Date();
@@ -70,8 +89,8 @@ router.get('/task/:taskId/ics', async (req, res) => {
       'BEGIN:VEVENT',
       `UID:${uid}`,
       `DTSTAMP:${formatIcsDate(now)}`,
-      `DTSTART;VALUE=DATE:${formatIcsDateOnly(startDate)}`,
-      `DTEND;VALUE=DATE:${formatIcsDateOnly(endDate)}`,
+      `DTSTART:${formatIcsFull(startDate)}`,
+      `DTEND:${formatIcsFull(endDate)}`,
       `SUMMARY:📋 ${escapeIcs(task.title)}`,
       `DESCRIPTION:${escapeIcs(`專案：${task.project?.name || '未指定'}\\n${task.description || ''}\\n\\n🔗 ${FRONTEND_URL()}`)}`,
       `URL:${FRONTEND_URL()}`,
@@ -138,10 +157,8 @@ router.get('/task/:taskId/add', async (req, res) => {
   // 嘗試透過 Graph API 直接加入 Outlook 行事曆
   try {
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
-    const startDateTime = new Date(dueDate);
-    startDateTime.setHours(9, 0, 0, 0);
-    const endDateTime = new Date(dueDate);
-    endDateTime.setHours(10, 0, 0, 0);
+    const startDateTime = buildTzDate(dueDate, 9, 0);
+    const endDateTime   = buildTzDate(dueDate, 10, 0);
 
     await createCalendarEvent(userId, {
       subject: `📋 ${task.title}`,
@@ -232,10 +249,10 @@ router.post('/task/:taskId', requireAuth, async (req, res) => {
     if (!task) return res.status(404).json({ success: false, error: '找不到任務' });
 
     const dueDate = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 86400000);
-    const startDateTime = new Date(dueDate);
-    startDateTime.setHours(9, 0, 0, 0);
-    const endDateTime = new Date(dueDate);
-    endDateTime.setHours(10, 0, 0, 0);
+    const startHour = parseInt(req.body.startHour) || 9;
+    const endHour   = parseInt(req.body.endHour)   || 10;
+    const startDateTime = buildTzDate(dueDate, startHour, 0);
+    const endDateTime   = buildTzDate(dueDate, endHour,   0);
 
     const result = await createCalendarEvent(userId, {
       subject: `📋 ${task.title}`,
@@ -273,10 +290,10 @@ router.post('/project/:projectId', requireAuth, async (req, res) => {
     if (!project.endDate) return res.status(400).json({ success: false, error: '專案尚未設定截止日' });
 
     const endDate = new Date(project.endDate);
-    const startDateTime = new Date(endDate);
-    startDateTime.setHours(9, 0, 0, 0);
-    const endDateTime = new Date(endDate);
-    endDateTime.setHours(18, 0, 0, 0);
+    const startHour = parseInt(req.body.startHour) || 9;
+    const endHour   = parseInt(req.body.endHour)   || 18;
+    const startDateTime = buildTzDate(endDate, startHour, 0);
+    const endDateTime   = buildTzDate(endDate, endHour,   0);
 
     const result = await createCalendarEvent(userId, {
       subject: `📁 專案截止：${project.name}`,
