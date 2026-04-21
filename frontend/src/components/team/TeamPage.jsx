@@ -89,14 +89,8 @@ function MemberCard({ member, onClick }) {
     >
       {/* 頭像 + 姓名 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ flexShrink: 0 }}>
           <Avatar name={member.name} avatarUrl={member.avatarUrl} size={38} />
-          <span style={{
-            position: 'absolute', bottom: 0, right: -2,
-            width: 11, height: 11, borderRadius: '50%',
-            background: member.isActive ? 'var(--xc-success)' : BRAND.muted,
-            border: `2px solid ${BRAND.surface}`,
-          }} />
         </div>
         <div style={{ fontSize: 15, fontWeight: 700, color: BRAND.ink, whiteSpace: 'nowrap' }}>
           {member.name}
