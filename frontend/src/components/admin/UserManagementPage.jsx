@@ -594,11 +594,11 @@ export default function UserManagementPage() {
     setError(null);
     try {
       const qs = new URLSearchParams({
-        page: p, pageSize: 20, search: s,
+        page: p, pageSize: 200, search: s,
         ...(role   ? { role }            : {}),
         ...(active !== '' ? { isActive: active } : {}),
-        sortBy:  'createdAt',
-        sortDir: 'desc',
+        sortBy:  'department',
+        sortDir: 'asc',
       }).toString();
 
       const res  = await authFetch(`${API_BASE}/api/admin/users?${qs}`);
@@ -824,13 +824,23 @@ export default function UserManagementPage() {
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--xc-text-muted)' }}>
               沒有符合條件的使用者
             </div>
-          ) : (
-            users.map((user, idx) => (
+          ) : (() => {
+              const ROLE_RANK = { admin: 0, pm: 1, member: 2 };
+              const sortedUsers = [...users].sort((a, b) => {
+                const dA = (a.department || '').toLowerCase();
+                const dB = (b.department || '').toLowerCase();
+                if (dA !== dB) return dA.localeCompare(dB, 'zh-TW');
+                const rA = ROLE_RANK[a.role] ?? 3;
+                const rB = ROLE_RANK[b.role] ?? 3;
+                if (rA !== rB) return rA - rB;
+                return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+              });
+              return sortedUsers.map((user, idx) => (
               <div key={user.id} style={{
                 display:         'grid',
                 gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
                 padding:         '12px 16px',
-                borderBottom:    idx < users.length - 1 ? '1px solid var(--xc-border)' : 'none',
+                borderBottom:    idx < sortedUsers.length - 1 ? '1px solid var(--xc-border)' : 'none',
                 alignItems:      'center',
                 gap:             12,
                 opacity:         user.isActive ? 1 : 0.6,
@@ -893,8 +903,8 @@ export default function UserManagementPage() {
                   </Btn>
                 </div>
               </div>
-            ))
-          )}
+            ));
+          })()}
         </div>
 
         {/* ── 分頁 ───────────────────────────────────────── */}

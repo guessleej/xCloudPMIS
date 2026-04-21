@@ -140,10 +140,18 @@ router.get('/', async (req, res) => {
     }
 
     // 排序欄位白名單
-    const allowedSort = ['name', 'email', 'role', 'createdAt', 'lastLoginAt'];
-    const orderBy = {
-      [allowedSort.includes(sortBy) ? sortBy : 'createdAt']: sortDir === 'asc' ? 'asc' : 'desc',
-    };
+    const allowedSort = ['name', 'email', 'role', 'createdAt', 'lastLoginAt', 'department', 'jobTitle'];
+    const dir = sortDir === 'asc' ? 'asc' : 'desc';
+    let orderBy;
+    if (sortBy === 'department') {
+      // 部門 → 姓名複合排序（角色優先序由前端處理）
+      orderBy = [
+        { department: { sort: dir, nulls: 'last' } },
+        { name: 'asc' },
+      ];
+    } else {
+      orderBy = { [allowedSort.includes(sortBy) ? sortBy : 'createdAt']: dir };
+    }
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({ where, select: USER_SELECT, skip, take, orderBy }),
