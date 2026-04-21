@@ -454,6 +454,8 @@ function TaskCard({
   isUpdating,
   isSelected,
   dragHandleProps,
+  nodeRef,
+  dragStyle,
   isOverlay = false,
 }) {
   const pri      = PRIORITY_MAP[task.priority] || PRIORITY_MAP.medium;
@@ -470,8 +472,10 @@ function TaskCard({
 
   return (
     <div
+      ref={isOverlay ? undefined : nodeRef}
       {...(isOverlay ? {} : dragHandleProps)}
       style={{
+        ...(isOverlay ? {} : dragStyle),
         background:   BRAND.white,
         borderRadius: '20px',
         marginBottom: '10px',
@@ -804,24 +808,17 @@ function SortableTaskCard({
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        touchAction: 'none',
-      }}
-    >
-      <TaskCard
-        task={task}
-        onMoveNext={onMoveNext}
-        onOpenPanel={onOpenPanel}
-        isDragging={isDragging || draggingTaskId === task.id}
-        isUpdating={updatingTaskId === task.id}
-        isSelected={selectedTaskId === task.id}
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
-    </div>
+    <TaskCard
+      task={task}
+      onMoveNext={onMoveNext}
+      onOpenPanel={onOpenPanel}
+      isDragging={isDragging || draggingTaskId === task.id}
+      isUpdating={updatingTaskId === task.id}
+      isSelected={selectedTaskId === task.id}
+      nodeRef={setNodeRef}
+      dragStyle={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'none' }}
+      dragHandleProps={{ ...attributes, ...listeners }}
+    />
   );
 }
 
@@ -1291,8 +1288,9 @@ export function TaskSidePanel({
   // Checklist
   const [checklistItems, setChecklistItems] = useState([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
+  const [subtasks,         setSubtasks]         = useState([]);
+  const [subtaskRefreshKey, setSubtaskRefreshKey] = useState(0);
 
-  const subtasks = buildSubtaskTree(allTasks, task.id);
   const activity = buildTaskActivity(task, linkedProjects, comments, currentUser, users);
 
   // 使用 prop 傳入的 customFieldDefs（從主元件 API 載入），不再用 localStorage
@@ -1304,20 +1302,23 @@ export function TaskSidePanel({
 
     const loadData = async () => {
       try {
-        const [commentsRes, cfvRes, clRes] = await Promise.all([
+        const [commentsRes, cfvRes, clRes, subtasksRes] = await Promise.all([
           authFetch(`${API}/tasks/${task.id}/comments`),
           authFetch(`${API}/tasks/${task.id}/custom-field-values`),
           authFetch(`${API}/tasks/${task.id}/checklist`),
+          authFetch(`${API}/tasks/${task.id}/subtasks`),
         ]);
         const commentsPayload = await commentsRes.json();
         const cfvPayload      = await cfvRes.json();
         const clPayload       = await clRes.json();
+        const subtasksPayload = await subtasksRes.json();
         if (cancelled) return;
 
         setComments(Array.isArray(commentsPayload.data) ? commentsPayload.data : []);
         setCommentError('');
         if (cfvPayload.success) setCustomFieldValues(cfvPayload.data || {});
         setChecklistItems(Array.isArray(clPayload.data) ? clPayload.data : []);
+        setSubtasks(Array.isArray(subtasksPayload.data) ? subtasksPayload.data : []);
       } catch (error) {
         if (cancelled) return;
         setComments([]);
@@ -1329,7 +1330,7 @@ export function TaskSidePanel({
     loadData().finally(() => { if (!cancelled) setChecklistLoading(false); });
 
     return () => { cancelled = true; };
-  }, [authFetch, task.id]);
+  }, [authFetch, task.id, subtaskRefreshKey]);
 
   const handleSave = async (payload) => {
     try {
@@ -1413,6 +1414,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       onSaved();
+      setSubtaskRefreshKey(k => k + 1);
     } catch (error) {
       alert(`新增子任務失敗：${error.message}`);
     }
@@ -1441,6 +1443,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       onSaved();
+      setSubtaskRefreshKey(k => k + 1);
     } catch (error) {
       alert(`更新子任務失敗：${error.message}`);
     }
@@ -1484,7 +1487,7 @@ export function TaskSidePanel({
         customFieldValues,
         subtasks,
         activity,
-      }}
+      }}      
       members={users}
       availableProjects={projects.map((project) => ({
         id: project.id,
@@ -1523,6 +1526,7 @@ export default function TaskKanbanPage() {
     : { id: 0, name: '我', color: BRAND.crimson };
 
   const [kanban,          setKanban]          = useState({ todo: [], in_progress: [], review: [], done: [] });
+  const [allRawTasks,     setAllRawTasks]     = useState([]);
   const [projects,        setProjects]        = useState([]);
   const [users,           setUsers]           = useState([]);
   const [customFieldDefs, setCustomFieldDefs] = useState([]);
@@ -1587,6 +1591,13 @@ export default function TaskKanbanPage() {
       // 防禦性過濾：確保子任務（parentTaskId != null）不出現在主看板各欄
       const rawKanban = tasksData.data.kanban || {};
       const filterTopLevel = (arr) => (arr || []).filter(t => !t.parentTaskId);
+      // 保留所有任務（含子任務）供 buildSubtaskTree 使用
+      setAllRawTasks([
+        ...(rawKanban.todo        || []),
+        ...(rawKanban.in_progress || []),
+        ...(rawKanban.review      || []),
+        ...(rawKanban.done        || []),
+      ]);
       setKanban({
         todo:        filterTopLevel(rawKanban.todo),
         in_progress: filterTopLevel(rawKanban.in_progress),
@@ -2225,7 +2236,7 @@ export default function TaskKanbanPage() {
             task={selectedTask}
             users={users}
             projects={projects}
-            allTasks={persistedTasks}
+            allTasks={allRawTasks}
             customFieldDefs={customFieldDefs}
             onClose={() => setPanelTask(null)}
             onSaved={() => { fetchData(); showToast('任務已更新', 'neutral'); }}

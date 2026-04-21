@@ -1363,6 +1363,51 @@ router.get('/tasks/:taskId/custom-field-values', async (req, res) => {
 // GET /api/projects/tasks/:taskId/checklist
 // 取得任務的待辦清單項目
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/subtasks
+// 取得某任務的完整子任務樹（遞迴）
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/subtasks', async (req, res) => {
+  const taskId = parseInt(req.params.taskId);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  // 遞迴建構子任務樹
+  async function fetchSubtreeNode(parentId) {
+    const children = await prisma.task.findMany({
+      where: { parentTaskId: parentId, deletedAt: null },
+      orderBy: [{ createdAt: 'asc' }],
+      include: {
+        assignee: { select: { id: true, name: true } },
+        taskAssigneeLinks: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }],
+        },
+        _count: { select: { subtasks: true } },
+      },
+    });
+    return Promise.all(children.map(async (c) => ({
+      id:              c.id,
+      title:           c.title,
+      status:          c.status,
+      completed:       c.status === 'done' || c.status === 'completed',
+      dueDate:         c.dueDate,
+      progressPercent: c.progressPercent || 0,
+      assignee:        c.assignee,
+      assignees:       (c.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name })),
+      parentTaskId:    c.parentTaskId,
+      children:        await fetchSubtreeNode(c.id),
+    })));
+  }
+
+  try {
+    const subtasks = await fetchSubtreeNode(taskId);
+    ok(res, subtasks, { total: subtasks.length });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
 router.get('/tasks/:taskId/checklist', async (req, res) => {
   const taskId = parseInt(req.params.taskId);
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);

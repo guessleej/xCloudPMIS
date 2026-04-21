@@ -13,6 +13,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TaskSidePanel } from '../tasks/TaskKanbanPage';
 import { useIsMobile } from '../../hooks/useResponsive';
+import {
+  DndContext, DragOverlay, PointerSensor, KeyboardSensor,
+  useSensor, useSensors, closestCorners,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
 const API = '/api/projects';
 
@@ -530,9 +540,19 @@ function MilestoneTimeline({ milestones, onEdit, onDelete, onToggleAchieve, onAd
 }
 
 // ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// dnd-kit 工具函式
+// ─────────────────────────────────────────────────────────
+const toSortableId = id => `task::${id}`;
+const toColDropId  = id => `col::${id}`;
+const colFromDropId  = id => id.replace('col::', '');
+const taskIdFromSortableId = id => parseInt(id.replace('task::', ''), 10);
+
+// ─────────────────────────────────────────────────────────
 // 任務卡片（看板用）
 // ─────────────────────────────────────────────────────────
-function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
+function TaskCard({ task, onMoveNext, onDelete, onTaskClick,
+  nodeRef, dragStyle, dragHandleProps, isDragging = false, isOverlay = false }) {
   const st   = TASK_STATUS[task.status] || TASK_STATUS.todo;
   const pri  = PRIORITY[task.priority]  || PRIORITY.medium;
   const days = daysLeft(task.dueDate);
@@ -540,15 +560,21 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
 
   return (
     <div
-      onClick={() => onTaskClick && onTaskClick(task)}
+      ref={isOverlay ? undefined : nodeRef}
+      {...(isOverlay ? {} : dragHandleProps)}
+      onClick={isOverlay ? undefined : () => onTaskClick && onTaskClick(task)}
       style={{
-        background: C.white, borderRadius: 14, border: `1px solid ${C.line}`,
-        padding: '12px 14px', boxShadow: C.shadow,
+        ...(isOverlay ? {} : dragStyle),
+        background: C.white, borderRadius: 14, border: `1px solid ${isDragging ? C.brand : C.line}`,
+        padding: '12px 14px',
+        boxShadow: isDragging ? '0 20px 40px rgba(18,18,18,.22)' : C.shadow,
         transition: 'box-shadow .15s, transform .15s',
-        cursor: onTaskClick ? 'pointer' : 'default',
+        cursor: isOverlay ? 'grabbing' : (onTaskClick ? 'pointer' : 'default'),
+        opacity: isDragging ? 0.42 : 1,
+        pointerEvents: isOverlay ? 'none' : 'auto',
       }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = C.shadowStrong; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = C.shadow; e.currentTarget.style.transform = 'translateY(0)'; }}
+      onMouseEnter={e => { if (!isDragging && !isOverlay) { e.currentTarget.style.boxShadow = C.shadowStrong; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+      onMouseLeave={e => { if (!isOverlay) { e.currentTarget.style.boxShadow = isDragging ? '0 20px 40px rgba(18,18,18,.22)' : C.shadow; e.currentTarget.style.transform = 'translateY(0)'; } }}
     >
       {/* 優先度線 */}
       <div style={{ height: 3, borderRadius: 999, background: pri.color, marginBottom: 10, opacity: .7 }} />
@@ -636,6 +662,84 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick }) {
             style={{ fontSize: 14, padding: '4px 6px', borderRadius: 6, border: 'none',
               background: 'transparent', color: C.ink3, cursor: 'pointer' }}>✕</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Sortable 任務卡片包裝元件
+// ─────────────────────────────────────────────────────────
+function SortableTaskCard({ task, onMoveNext, onDelete, onTaskClick, draggingTaskId }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: toSortableId(task.id),
+    data: { type: 'task', taskId: task.id },
+  });
+  return (
+    <TaskCard
+      task={task}
+      onMoveNext={onMoveNext}
+      onDelete={onDelete}
+      onTaskClick={onTaskClick}
+      nodeRef={setNodeRef}
+      dragStyle={{ transform: CSS.Transform.toString(transform), transition, touchAction: 'none' }}
+      dragHandleProps={{ ...attributes, ...listeners }}
+      isDragging={isDragging || draggingTaskId === task.id}
+    />
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// 可拖放欄位
+// ─────────────────────────────────────────────────────────
+function DroppableKanbanColumn({ col, tasks, onMoveNext, onDelete, onAddTask, onTaskClick, draggingTaskId }) {
+  const { setNodeRef, isOver } = useDroppable({ id: toColDropId(col.id) });
+  return (
+    <div style={{
+      flex: '1 1 260px', minWidth: 240,
+      background: isOver
+        ? `color-mix(in srgb, ${col.accent} 18%, var(--xc-surface))`
+        : col.accentBg,
+      borderRadius: 18,
+      border: `1.5px solid ${isOver ? col.accent : C.line}`,
+      padding: '12px 10px',
+      display: 'flex', flexDirection: 'column', gap: 10,
+      transition: 'background .15s, border-color .15s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', marginBottom: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: col.accent }} />
+          <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{col.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: col.accent,
+            background: `color-mix(in srgb, ${col.accent} 14%, var(--xc-surface))`, padding: '1px 7px', borderRadius: 999 }}>
+            {tasks.length}
+          </span>
+        </div>
+        <button onClick={() => onAddTask(col.id)}
+          style={{ fontSize: 20, lineHeight: 1, padding: '0 2px', border: 'none',
+            background: 'transparent', color: col.accent, cursor: 'pointer' }}
+          title={`在「${col.label}」新增任務`}>+</button>
+      </div>
+
+      <div ref={setNodeRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 80, flex: 1 }}>
+        <SortableContext items={tasks.map(t => toSortableId(t.id))} strategy={verticalListSortingStrategy}>
+          {tasks.map(task => (
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onMoveNext={onMoveNext}
+              onDelete={onDelete}
+              onTaskClick={onTaskClick}
+              draggingTaskId={draggingTaskId}
+            />
+          ))}
+        </SortableContext>
+        {tasks.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '16px 0', color: C.ink3, fontSize: 14,
+            border: `1.5px dashed ${C.line}`, borderRadius: 10 }}>
+            無任務
+          </div>
+        )}
       </div>
     </div>
   );
@@ -756,7 +860,7 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
 // ─────────────────────────────────────────────────────────
 // 任務看板視圖
 // ─────────────────────────────────────────────────────────
-function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick }) {
+function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick, onDragStatusChange }) {
   const COLS = [
     { id: 'todo',        label: '待辦',   accent: 'var(--xc-text-muted)',  accentBg: 'color-mix(in srgb, #6B6461 10%, var(--xc-surface))' },
     { id: 'in_progress', label: '進行中', accent: 'var(--xc-danger)',      accentBg: 'var(--xc-danger-soft)' },
@@ -764,47 +868,77 @@ function TaskKanbanView({ kanban, onMoveNext, onDelete, onAddTask, onTaskClick }
     { id: 'done',        label: '已完成', accent: 'var(--xc-success)',     accentBg: 'var(--xc-success-soft)' },
   ];
 
-  return (
-    <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
-      {COLS.map(col => {
-        const tasks = kanban[col.id] || [];
-        return (
-          <div key={col.id} style={{
-            flex: '1 1 260px', minWidth: 240,
-            background: col.accentBg, borderRadius: 18,
-            border: `1.5px solid ${C.line}`, padding: '12px 10px',
-            display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', marginBottom: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: col.accent }} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{col.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: col.accent,
-                  background: `color-mix(in srgb, ${col.accent} 14%, var(--xc-surface))`, padding: '1px 7px', borderRadius: 999 }}>
-                  {tasks.length}
-                </span>
-              </div>
-              <button onClick={() => onAddTask(col.id)}
-                style={{ fontSize: 20, lineHeight: 1, padding: '0 2px', border: 'none',
-                  background: 'transparent', color: col.accent, cursor: 'pointer' }}
-                title={`在「${col.label}」新增任務`}>+</button>
-            </div>
+  const [localKanban,   setLocalKanban]   = useState(kanban);
+  const [draggingTask,  setDraggingTask]  = useState(null);
+  const [draggingTaskId, setDraggingTaskId] = useState(null);
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 80 }}>
-              {tasks.map(task => (
-                <TaskCard key={task.id} task={task} onMoveNext={onMoveNext} onDelete={onDelete} onTaskClick={onTaskClick} />
-              ))}
-              {tasks.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: C.ink3, fontSize: 14,
-                  border: `1.5px dashed ${C.line}`, borderRadius: 10 }}>
-                  無任務
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+  useEffect(() => { setLocalKanban(kanban); }, [kanban]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const findTaskColumn = (taskId) =>
+    COLS.find(col => (localKanban[col.id] || []).some(t => t.id === taskId))?.id;
+
+  const handleDragStart = ({ active }) => {
+    const taskId = taskIdFromSortableId(active.id);
+    const colId  = findTaskColumn(taskId);
+    const task   = (localKanban[colId] || []).find(t => t.id === taskId);
+    setDraggingTask(task || null);
+    setDraggingTaskId(taskId);
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    setDraggingTask(null);
+    setDraggingTaskId(null);
+    if (!over) return;
+
+    const taskId = taskIdFromSortableId(active.id);
+    // Determine target column: either dropped on column zone or on another task
+    let targetColId = over.id.startsWith('col::')
+      ? colFromDropId(over.id)
+      : findTaskColumn(taskIdFromSortableId(over.id));
+    if (!targetColId) return;
+
+    const sourceColId = findTaskColumn(taskId);
+    if (!sourceColId || sourceColId === targetColId) return;
+
+    // Optimistic update
+    const task = (localKanban[sourceColId] || []).find(t => t.id === taskId);
+    setLocalKanban(prev => ({
+      ...prev,
+      [sourceColId]: prev[sourceColId].filter(t => t.id !== taskId),
+      [targetColId]: [...(prev[targetColId] || []), { ...task, status: targetColId === 'done' ? 'completed' : targetColId }],
+    }));
+
+    onDragStatusChange(taskId, targetColId);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCorners}
+      onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
+        {COLS.map(col => (
+          <DroppableKanbanColumn
+            key={col.id}
+            col={col}
+            tasks={localKanban[col.id] || []}
+            onMoveNext={onMoveNext}
+            onDelete={onDelete}
+            onAddTask={onAddTask}
+            onTaskClick={onTaskClick}
+            draggingTaskId={draggingTaskId}
+          />
+        ))}
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {draggingTask && (
+          <TaskCard task={draggingTask} onMoveNext={() => {}} onDelete={() => {}} isOverlay isDragging />
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
@@ -916,6 +1050,24 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
     } catch (e) { showToast(`更新失敗：${e.message}`); }
     finally { setUpdatingId(null); }
   };
+
+  // ── 拖曳變更狀態 ──────────────────────────────────────────────────────────
+  const handleDragStatusChange = useCallback(async (taskId, targetColId) => {
+    const status = targetColId === 'done' ? 'completed' : targetColId;
+    try {
+      const res  = await authFetch(`${API}/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      await load();
+      showToast(`任務已移至「${TASK_STATUS[targetColId]?.label || targetColId}」`);
+    } catch (e) {
+      showToast(`更新失敗：${e.message}`);
+      await load(); // 失敗時回覆進行中狀態
+    }
+  }, [authFetch, load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 刪除任務 ─────────────────────────────────────────
   const handleDeleteTask = async task => {
@@ -1103,6 +1255,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             onDelete={handleDeleteTask}
             onAddTask={status => setAddStatus(status)}
             onTaskClick={handleTaskClick}
+            onDragStatusChange={handleDragStatusChange}
           />
         )}
 
