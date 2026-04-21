@@ -75,23 +75,43 @@ function deriveCategory(rule) {
   return '通知';
 }
 
+const TRIGGER_LABELS = {
+  task_created:         '當新任務建立時',
+  task_completed:       '當任務標記為完成',
+  due_date_approaching: '截止日期前 N 天',
+  status_changed:       '當任務狀態變更',
+  assignee_changed:     '當任務負責人變更',
+  field_changed:        '當欄位值變更',
+};
+
+const ACTION_LABELS = {
+  send_notification: '發送通知',
+  set_status:        '變更任務狀態',
+  set_priority:      '變更任務優先度',
+  set_assignee:      '指派負責人',
+};
+
 function deriveTrigger(rule) {
-  if (rule.trigger) return rule.trigger;
-  if (rule.description) return rule.description;
-  const map = {
-    task_created:          '當新任務建立時',
-    task_completed:        '當任務標記為完成',
-    due_date_approaching:  '當任務截止日提前 2 天',
-    status_changed:        '當任務狀態變更',
-    assignee_changed:      '當任務負責人變更',
-    field_changed:         '當欄位值變更',
-  };
-  return map[rule.triggerType] || rule.triggerType || '—';
+  if (rule.triggerType === 'due_date_approaching') {
+    const cond = Array.isArray(rule.conditions) && rule.conditions.find(c => c.field === '_days_before');
+    const days = cond?.value || rule.triggerConfig?.daysBeforeDue || 2;
+    return `截止日前 ${days} 天自動觸發`;
+  }
+  if (rule.description && !TRIGGER_LABELS[rule.description]) return rule.description;
+  return TRIGGER_LABELS[rule.triggerType] || rule.triggerType || '—';
 }
 
 function deriveAction(rule) {
-  if (rule.action) return rule.action;
+  if (Array.isArray(rule.actions) && rule.actions.length > 0) {
+    const a = rule.actions[0];
+    const label = ACTION_LABELS[a.type] || a.type;
+    return a.value ? `${label}：${a.value}` : label;
+  }
   if (rule.actions?.description) return rule.actions.description;
+  if (rule.actions?.type) {
+    const label = ACTION_LABELS[rule.actions.type] || rule.actions.type;
+    return rule.actions.value ? `${label}：${rule.actions.value}` : label;
+  }
   return '—';
 }
 
@@ -105,7 +125,11 @@ export default function RulesPage() {
   const [catFilter,  setCatFilter]  = useState('全部');
   const [showModal,  setShowModal]  = useState(false);
   const [editRule,   setEditRule]   = useState(null);
-  const [form,       setForm]       = useState({ name:'', category:'通知', trigger:'', action:'' });
+  const [form,       setForm]       = useState({
+    name: '', category: '通知',
+    triggerType: 'task_created', daysBefore: 3,
+    actionType: 'send_notification', actionValue: '',
+  });
 
   const load = useCallback(async () => {
     if (!user?.companyId) return;
@@ -162,45 +186,50 @@ export default function RulesPage() {
 
   function openAdd() {
     setEditRule(null);
-    setForm({ name:'', category:'通知', trigger:'', action:'' });
+    setForm({ name: '', category: '通知', triggerType: 'task_created', daysBefore: 3, actionType: 'send_notification', actionValue: '' });
     setShowModal(true);
   }
 
   function openEdit(rule) {
     setEditRule(rule);
+    const cond = Array.isArray(rule.conditions) && rule.conditions.find(c => c.field === '_days_before');
+    const days = parseInt(cond?.value || rule.triggerConfig?.daysBeforeDue || 3);
+    const firstAction = Array.isArray(rule.actions) ? rule.actions[0]
+      : (rule.actions?.type ? rule.actions : null);
     setForm({
-      name:     rule.name,
-      category: deriveCategory(rule),
-      trigger:  deriveTrigger(rule),
-      action:   deriveAction(rule),
+      name:        rule.name,
+      category:    deriveCategory(rule),
+      triggerType: rule.triggerType || 'task_created',
+      daysBefore:  days,
+      actionType:  firstAction?.type || 'send_notification',
+      actionValue: firstAction?.value || '',
     });
     setShowModal(true);
   }
 
   async function handleSubmit() {
-    if (!form.name.trim() || !form.trigger.trim() || !form.action.trim()) return;
+    if (!form.name.trim()) return;
+    const conditions = form.triggerType === 'due_date_approaching'
+      ? [{ field: '_days_before', operator: 'lte', value: String(form.daysBefore) }]
+      : [];
+    const actions = [{ type: form.actionType, ...(form.actionValue ? { value: form.actionValue } : {}) }];
+    const payload = {
+      name:        form.name,
+      description: '',
+      triggerType: form.triggerType,
+      conditions,
+      actions,
+    };
     try {
       if (editRule) {
         await authFetch(`/api/rules/${editRule.id}`, {
-          method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            name:        form.name,
-            description: form.trigger,
-            actions:     { description: form.action },
-          }),
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
       } else {
         await authFetch('/api/rules', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            companyId:   user.companyId,
-            name:        form.name,
-            triggerType: 'task_created',
-            description: form.trigger,
-            actions:     { description: form.action },
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: user.companyId, ...payload }),
         });
       }
       setShowModal(false);
@@ -322,6 +351,7 @@ export default function RulesPage() {
             </h2>
 
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              {/* 規則名稱 */}
               <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 規則名稱
                 <input
@@ -332,6 +362,7 @@ export default function RulesPage() {
                 />
               </label>
 
+              {/* 類別 */}
               <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
                 類別
                 <select
@@ -343,27 +374,62 @@ export default function RulesPage() {
                 </select>
               </label>
 
-              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
-                觸發條件
-                <textarea
-                  value={form.trigger}
-                  onChange={e => setForm(f => ({ ...f, trigger: e.target.value }))}
-                  placeholder='描述觸發此規則的條件'
-                  rows={2}
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink, resize:'vertical' }}
-                />
-              </label>
+              {/* 觸發條件 */}
+              <div>
+                <div style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon, marginBottom:5 }}>觸發條件</div>
+                <select
+                  value={form.triggerType}
+                  onChange={e => setForm(f => ({ ...f, triggerType: e.target.value }))}
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
+                >
+                  {Object.entries(TRIGGER_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+                {form.triggerType === 'due_date_approaching' && (
+                  <div style={{ marginTop:8, display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize: 14, color:BRAND.carbon }}>提前</span>
+                    <input
+                      type='number'
+                      min={1} max={90}
+                      value={form.daysBefore}
+                      onChange={e => setForm(f => ({ ...f, daysBefore: Math.max(1, parseInt(e.target.value) || 1) }))}
+                      style={{ width:70, padding:'6px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink, textAlign:'center' }}
+                    />
+                    <span style={{ fontSize: 14, color:BRAND.carbon }}>天後自動觸發</span>
+                  </div>
+                )}
+              </div>
 
-              <label style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon }}>
-                執行動作
-                <textarea
-                  value={form.action}
-                  onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
-                  placeholder='描述觸發後執行的動作'
-                  rows={2}
-                  style={{ display:'block', marginTop:5, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink, resize:'vertical' }}
-                />
-              </label>
+              {/* 執行動作 */}
+              <div>
+                <div style={{ fontSize: 14, fontWeight:600, color:BRAND.carbon, marginBottom:5 }}>執行動作</div>
+                <select
+                  value={form.actionType}
+                  onChange={e => setForm(f => ({ ...f, actionType: e.target.value, actionValue: '' }))}
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
+                >
+                  {Object.entries(ACTION_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+                {(form.actionType === 'set_status' || form.actionType === 'set_priority') && (
+                  <input
+                    value={form.actionValue}
+                    onChange={e => setForm(f => ({ ...f, actionValue: e.target.value }))}
+                    placeholder={form.actionType === 'set_status' ? '目標狀態（如：in_progress）' : '優先度（如：high）'}
+                    style={{ display:'block', marginTop:8, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
+                  />
+                )}
+                {form.actionType === 'set_assignee' && (
+                  <input
+                    value={form.actionValue}
+                    onChange={e => setForm(f => ({ ...f, actionValue: e.target.value }))}
+                    placeholder='指派對象 User ID'
+                    style={{ display:'block', marginTop:8, width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:7, border:`1px solid ${BRAND.silver}`, fontSize: 15, background:BRAND.surface, color:BRAND.ink }}
+                  />
+                )}
+              </div>
             </div>
 
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:24 }}>
