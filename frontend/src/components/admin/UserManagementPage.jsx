@@ -679,6 +679,21 @@ export default function UserManagementPage() {
     );
   }
 
+  const ROLE_RANK = { admin: 0, pm: 1, member: 2 };
+  const DEPT_PRIORITY = { '管理部': 0 };
+  const sortedUsers = [...users].sort((a, b) => {
+    const pA = DEPT_PRIORITY[a.department] ?? 999;
+    const pB = DEPT_PRIORITY[b.department] ?? 999;
+    if (pA !== pB) return pA - pB;
+    const dA = (a.department || '').toLowerCase();
+    const dB = (b.department || '').toLowerCase();
+    if (dA !== dB) return dA.localeCompare(dB, 'zh-TW');
+    const rA = ROLE_RANK[a.role] ?? 3;
+    const rB = ROLE_RANK[b.role] ?? 3;
+    if (rA !== rB) return rA - rB;
+    return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+  });
+
   return (
     <>
       <style>{`@keyframes fadeIn { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }`}</style>
@@ -824,22 +839,8 @@ export default function UserManagementPage() {
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--xc-text-muted)' }}>
               沒有符合條件的使用者
             </div>
-          ) : (() => {
-              const ROLE_RANK = { admin: 0, pm: 1, member: 2 };
-              const DEPT_PRIORITY = { '管理部': 0 };
-              const sortedUsers = [...users].sort((a, b) => {
-                const pA = DEPT_PRIORITY[a.department] ?? 999;
-                const pB = DEPT_PRIORITY[b.department] ?? 999;
-                if (pA !== pB) return pA - pB;
-                const dA = (a.department || '').toLowerCase();
-                const dB = (b.department || '').toLowerCase();
-                if (dA !== dB) return dA.localeCompare(dB, 'zh-TW');
-                const rA = ROLE_RANK[a.role] ?? 3;
-                const rB = ROLE_RANK[b.role] ?? 3;
-                if (rA !== rB) return rA - rB;
-                return (a.name || '').localeCompare(b.name || '', 'zh-TW');
-              });
-              return sortedUsers.map((user, idx) => (
+          ) : (
+            sortedUsers.map((user, idx) => (
               <div key={user.id} style={{
                 display:         'grid',
                 gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
@@ -907,8 +908,8 @@ export default function UserManagementPage() {
                   </Btn>
                 </div>
               </div>
-            ));
-          })()}
+            ))
+          )}
         </div>
 
         {/* ── 分頁 ───────────────────────────────────────── */}
