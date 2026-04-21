@@ -826,7 +826,11 @@ export default function UserManagementPage() {
             </div>
           ) : (() => {
               const ROLE_RANK = { admin: 0, pm: 1, member: 2 };
+              const DEPT_PRIORITY = { '管理部': 0 };
               const sortedUsers = [...users].sort((a, b) => {
+                const pA = DEPT_PRIORITY[a.department] ?? 999;
+                const pB = DEPT_PRIORITY[b.department] ?? 999;
+                if (pA !== pB) return pA - pB;
                 const dA = (a.department || '').toLowerCase();
                 const dB = (b.department || '').toLowerCase();
                 if (dA !== dB) return dA.localeCompare(dB, 'zh-TW');
