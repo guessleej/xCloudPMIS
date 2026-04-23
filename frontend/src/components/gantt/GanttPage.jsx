@@ -1180,7 +1180,7 @@ export default function GanttPage() {
                 <div style={{
                   position:  'absolute',
                   left:      todayX,
-                  top:       0,
+                  top:       headerH === 84 ? 44 : headerH === 60 ? 22 : 0,
                   bottom:    0,
                   width:     2,
                   background: '#ef4444',
