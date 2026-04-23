@@ -903,7 +903,7 @@ export default function GanttPage() {
           const dayIdx    = Math.max(0, Math.min(days.length - 1, Math.floor(gridX / dayW)));
           const d         = days[dayIdx];
           const label     = d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' });
-          const lineX     = LEFT_W + dayIdx * dayW + Math.floor(dayW / 2);
+          const lineX     = LEFT_W + dayIdx * dayW;
           setCrosshair({ x: lineX, label });
         }}
         onMouseLeave={() => setCrosshair(null)}
