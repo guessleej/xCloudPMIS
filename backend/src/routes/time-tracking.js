@@ -77,10 +77,14 @@ router.get('/', async (req, res) => {
     const entries = await prisma.workTimeLog.findMany({
       where,
       orderBy: { date: 'desc' },
+      include: { user: { select: { id: true, name: true } } },
     });
 
     // calcStats 需要全公司資料（統計不限 userId）
-    const allEntries = await prisma.workTimeLog.findMany({ where: { companyId } });
+    const allEntries = await prisma.workTimeLog.findMany({
+      where: { companyId },
+      include: { user: { select: { id: true, name: true } } },
+    });
     const stats = calcStats(allEntries, userId || 1);
 
     return ok(res, { entries, stats });

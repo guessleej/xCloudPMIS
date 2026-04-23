@@ -466,4 +466,71 @@ router.get('/:id/azure-profile', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════
+// DELETE /api/admin/users/:id
+// 永久刪除使用者（連同 OAuth Token 一併清除）
+// ════════════════════════════════════════════════════════════
+router.delete('/:id', async (req, res) => {
+  try {
+    const id        = parseInt(req.params.id);
+    const companyId = req.user.companyId;
+
+    if (isNaN(id)) return fail(res, '無效的使用者 ID');
+    if (id === req.user.id) return fail(res, '不能刪除自己的帳號');
+
+    const existing = await prisma.user.findFirst({ where: { id, companyId } });
+    if (!existing) return fail(res, '找不到此使用者', 404);
+
+    // 防吷： admin 不可刪除到只剩一位
+    if (existing.role === 'admin') {
+      const adminCount = await prisma.user.count({ where: { companyId, role: 'admin', isActive: true } });
+      if (adminCount <= 1) return fail(res, '系統中至少需要保留一位啟用的管理員');
+    }
+
+    // 刪除 OAuth token
+    await prisma.oAuthToken.deleteMany({ where: { userId: id } });
+    // 刪除使用者
+    await prisma.user.delete({ where: { id } });
+
+    console.log(`✅ [admin/users] 刪除使用者：id=${id}（${existing.email}），by ${req.user.email}`);
+    return ok(res, { message: `已將 ${existing.name} 從系統移除` });
+
+  } catch (e) {
+    console.error('[admin/users] delete 錯誤:', e.message);
+    return fail(res, e.message, 500);
+  }
+});
+// ════════════════════════════════════════════════════════════
+// DELETE /api/admin/users/:id
+// 永久刪除使用者（連同 OAuth Token 一併清除）
+// ════════════════════════════════════════════════════════════
+router.delete('/:id', async (req, res) => {
+  try {
+    const id        = parseInt(req.params.id);
+    const companyId = req.user.companyId;
+
+    if (isNaN(id)) return fail(res, '無效的使用者 ID');
+    if (id === req.user.id) return fail(res, '不能刪除自己的帳號');
+
+    const existing = await prisma.user.findFirst({ where: { id, companyId } });
+    if (!existing) return fail(res, '找不到此使用者', 404);
+
+    // 防呆：admin 不可刪除到只剩零位
+    if (existing.role === 'admin') {
+      const adminCount = await prisma.user.count({ where: { companyId, role: 'admin', isActive: true } });
+      if (adminCount <= 1) return fail(res, '系統中至少需要保留一位啟用的管理員');
+    }
+
+    // 刪除 OAuth token 再刪除使用者
+    await prisma.oAuthToken.deleteMany({ where: { userId: id } });
+    await prisma.user.delete({ where: { id } });
+
+    console.log(`✅ [admin/users] 刪除使用者：id=${id}（${existing.email}），by ${req.user.email}`);
+    return ok(res, { message: `已將 ${existing.name} 從系統移除` });
+
+  } catch (e) {
+    console.error('[admin/users] delete 錯誤:', e.message);
+    return fail(res, e.message, 500);
+  }
+});
 module.exports = router;

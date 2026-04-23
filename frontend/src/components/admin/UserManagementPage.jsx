@@ -573,9 +573,11 @@ export default function UserManagementPage() {
   const [page,     setPage]     = useState(1);
 
   // Modal 狀態
-  const [showCreate, setShowCreate] = useState(false);
-  const [editUser,   setEditUser]   = useState(null);
-  const [toast,      setToast]      = useState(null);
+  const [showCreate,    setShowCreate]    = useState(false);
+  const [editUser,      setEditUser]      = useState(null);
+  const [deleteTarget,  setDeleteTarget]  = useState(null); // 待確認刪除的使用者
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [toast,         setToast]         = useState(null);
 
   // ── Toast 通知 ───────────────────────────────────────────
   const showToast = (msg, type = 'success') => {
@@ -656,6 +658,28 @@ export default function UserManagementPage() {
     }
   };
 
+  // ── 刪除使用者 ─────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res  = await authFetch(`${API_BASE}/api/admin/users/${deleteTarget.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(p => p.filter(u => u.id !== deleteTarget.id));
+        showToast(`已將 ${deleteTarget.name} 從系統移除`);
+        setDeleteTarget(null);
+        loadStats();
+      } else {
+        showToast(data.error || '刪除失敗', 'error');
+      }
+    } catch {
+      showToast('網路錯誤', 'error');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // ── 搜尋 ─────────────────────────────────────────────────
   const handleSearch = (e) => {
     const v = e.target.value;
@@ -698,7 +722,7 @@ export default function UserManagementPage() {
     <>
       <style>{`@keyframes fadeIn { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }`}</style>
 
-      <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', fontFamily: 'var(--xc-font-sans)' }}>
+      <div style={{ padding: '24px 48px', maxWidth: 1400, margin: '0 auto', fontFamily: 'var(--xc-font-sans)' }}>
 
         {/* ── 標題列 ─────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -809,8 +833,8 @@ export default function UserManagementPage() {
           {/* 表頭 */}
           <div style={{
             display:         'grid',
-            gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
-            padding:         '10px 16px',
+            gridTemplateColumns: 'minmax(200px,2fr) minmax(160px,1.5fr) 110px 80px 110px 130px 130px',
+            padding:         '10px 24px',
             borderBottom:    '1px solid var(--xc-border)',
             background:      'var(--xc-bg-soft)',
             fontSize: 13,
@@ -823,11 +847,11 @@ export default function UserManagementPage() {
           }}>
             <span>姓名 / Email</span>
             <span>部門 / 職稱</span>
-            <span>角色</span>
-            <span>狀態</span>
-            <span>社群連結</span>
-            <span>最後登入</span>
-            <span>操作</span>
+            <span style={{ justifySelf: 'center' }}>角色</span>
+            <span style={{ justifySelf: 'center' }}>狀態</span>
+            <span style={{ justifySelf: 'center' }}>Outlook 同步</span>
+            <span style={{ justifySelf: 'center' }}>最後登入</span>
+            <span style={{ justifySelf: 'center' }}>操作</span>
           </div>
 
           {/* 資料列 */}
@@ -843,8 +867,8 @@ export default function UserManagementPage() {
             sortedUsers.map((user, idx) => (
               <div key={user.id} style={{
                 display:         'grid',
-                gridTemplateColumns: 'minmax(180px,2fr) minmax(140px,1.5fr) 100px 80px 80px 110px 120px',
-                padding:         '12px 16px',
+                gridTemplateColumns: 'minmax(200px,2fr) minmax(160px,1.5fr) 110px 80px 110px 130px 130px',
+                padding:         '12px 24px',
                 borderBottom:    idx < sortedUsers.length - 1 ? '1px solid var(--xc-border)' : 'none',
                 alignItems:      'center',
                 gap:             12,
@@ -880,11 +904,11 @@ export default function UserManagementPage() {
                   {!user.department && !user.jobTitle && <span style={{ color: 'var(--xc-text-muted)' }}>—</span>}
                 </div>
                 {/* 角色 */}
-                <div><RoleBadge role={user.role} /></div>
+                <div style={{ justifySelf: 'center' }}><RoleBadge role={user.role} /></div>
                 {/* 狀態 */}
-                <div><StatusBadge isActive={user.isActive} /></div>
-                {/* 社群連結 */}
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <div style={{ justifySelf: 'center' }}><StatusBadge isActive={user.isActive} /></div>
+                {/* Outlook 同步 */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifySelf: 'center' }}>
                   {(user.oauthProviders || []).map(p => (
                     <span key={p} title={p} style={{ fontSize: 17 }}>{PROVIDER_ICON[p] || '🔗'}</span>
                   ))}
@@ -893,11 +917,11 @@ export default function UserManagementPage() {
                   )}
                 </div>
                 {/* 最後登入 */}
-                <div style={{ fontSize: 13, color: 'var(--xc-text-muted)' }}>
+                <div style={{ fontSize: 13, color: 'var(--xc-text-muted)', justifySelf: 'center' }}>
                   {fmtDate(user.lastLoginAt)}
                 </div>
                 {/* 操作按鈕 */}
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, justifySelf: 'center' }}>
                   <Btn variant="secondary" small onClick={() => setEditUser(user)}>編輯</Btn>
                   <Btn
                     variant={user.isActive ? 'danger' : 'success'}
@@ -906,6 +930,16 @@ export default function UserManagementPage() {
                   >
                     {user.isActive ? '停用' : '啟用'}
                   </Btn>
+                  {isAdmin && (
+                    <Btn
+                      variant="danger"
+                      small
+                      onClick={() => setDeleteTarget(user)}
+                      title="永久刪除此帳號"
+                    >
+                      刪除
+                    </Btn>
+                  )}
                 </div>
               </div>
             ))
@@ -951,6 +985,44 @@ export default function UserManagementPage() {
             showToast(`已更新 ${u.name} 的資料`);
           }}
         />
+      )}
+
+      {/* ── 刪除確認 Modal ───────────────────────────────── */}
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => !deleteLoading && setDeleteTarget(null)}>
+          <div style={{
+            background: 'var(--xc-surface-strong)',
+            border: '1px solid var(--xc-border)',
+            borderRadius: 16, padding: '32px 28px', maxWidth: 420, width: '90%',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.25)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 12 }}>⚠️</div>
+            <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800, color: 'var(--xc-text)', textAlign: 'center' }}>
+              確定要刪除此帳號？
+            </h2>
+            <p style={{ margin: '0 0 6px', fontSize: 15, color: 'var(--xc-text-muted)', textAlign: 'center' }}>
+              即將永久刪除：
+            </p>
+            <p style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: 'var(--xc-text)', textAlign: 'center' }}>
+              {deleteTarget.name}（{deleteTarget.email}）
+            </p>
+            <p style={{ margin: '0 0 24px', fontSize: 13, color: '#dc2626', textAlign: 'center', lineHeight: 1.6 }}>
+              此操作無法復原，使用者資料與登入憑證將從資料庫中完全移除。
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <Btn variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+                取消
+              </Btn>
+              <Btn variant="danger" onClick={handleDelete} disabled={deleteLoading}>
+                {deleteLoading ? '刪除中…' : '確認刪除'}
+              </Btn>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Toast ────────────────────────────────────────── */}

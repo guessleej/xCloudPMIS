@@ -24,6 +24,7 @@ import MonthlyTrendWidget    from './MonthlyTrendWidget';
 import MyImpactWidget        from './MyImpactWidget';
 import { useUrgency }        from './useUrgency';
 import ProjectsPage          from '../projects/ProjectsPage';
+import ProjectDetail         from '../projects/ProjectDetail';
 import TaskKanbanPage        from '../tasks/TaskKanbanPage';
 import GanttPage             from '../gantt/GanttPage';
 import TimeTrackingPage      from '../timetracking/TimeTrackingPage';
@@ -413,7 +414,7 @@ function TopNavBar({
   const PROJECT_COLORS = ['#C41230','#2563EB','#16A34A','#D97706','#7C3AED','#0D9488','#DB2777','#EA580C'];
   const projColor = (p) => PROJECT_COLORS[(p.id || 0) % PROJECT_COLORS.length];
 
-  const handleNav = (id) => { onNavigate(id); setOpenDrop(null); };
+  const handleNav = (id, state) => { onNavigate(id, state); setOpenDrop(null); };
   const enterDrop = (id) => { clearTimeout(dropTimer.current); setOpenDrop(id); };
   const leaveDrop = () => { dropTimer.current = setTimeout(() => setOpenDrop(null), 150); };
 
@@ -563,7 +564,7 @@ function TopNavBar({
                 {apiProjects.map(p => (
                   <button
                     key={p.id}
-                    onClick={() => handleNav('projects')}
+                    onClick={() => handleNav('project-detail', { projectId: p.id, projectName: p.name })}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
                       padding: '6px 12px', borderRadius: '7px', border: 'none',
@@ -2328,7 +2329,7 @@ function HomePage({ currentUser, onNavigate, dashData }) {
                   return (
                     <button
                       key={p.id}
-                      onClick={() => onNavigate('projects')}
+                      onClick={() => onNavigate('project-detail', { projectId: p.id, projectName: p.name })}
                       style={{
                         width: '100%',
                         display: 'flex',
@@ -2491,6 +2492,7 @@ export default function Dashboard() {
   const { isMobile } = useResponsive();
 
   const [activeNav,       setActiveNav]       = useState(readHashNav);
+  const [navState,        setNavState]        = useState(null);
   const [settingsState,   setSettingsState]   = useState(null);
   const [inboxCount,      setInboxCount]      = useState(0);
   const [showDarkPanel,   setShowDarkPanel]   = useState(false);
@@ -2565,8 +2567,9 @@ export default function Dashboard() {
     };
   }, []);
 
-  const navigate = useCallback((id) => {
+  const navigate = useCallback((id, state) => {
     setActiveNav(id);
+    setNavState(state || null);
     setShowDarkPanel(false);
     setMobileMenuOpen(false);
     writeHashNav(id);
@@ -2660,6 +2663,7 @@ export default function Dashboard() {
     if (activeNav === 'analytics')     return <AnalyticsPage dashData={dashData} />;
     if (activeNav === 'inbox')         return <InboxPage onNavigate={navigate} />;
     if (activeNav === 'my-tasks')      return <MyTasksPage />;
+    if (activeNav === 'project-detail' && navState?.projectId) return <ProjectDetail projectId={navState.projectId} projectName={navState.projectName || ''} onBack={() => navigate('projects')} />;
     if (activeNav === 'projects')      return <ProjectsPage />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;

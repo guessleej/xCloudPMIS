@@ -48,15 +48,15 @@ const T = {
 const API_BASE   = '/api';
 const LEFT_COL   = 240;  // 左側凍結欄寬度（px）
 const ROW_H      = 44;   // 每列高度（px）
-const HEADER_H   = 48;   // 月份標頭高度（px）
+const HEADER_H   = 48;   // 月份標頭高度（保留供舊程式碼相容，實際由 headerH 動態決定）
 const BAR_H      = 22;   // 甘特條高度（px）
 const BAR_TOP    = (ROW_H - BAR_H) / 2;  // 甘特條垂直置中偏移
 
 // ── 縮放選項（每日寬度 px） ─────────────────────────────────
 const ZOOM_OPTS = [
-  { id: '1m',  label: '1 個月', dayW: 28   },
-  { id: '3m',  label: '3 個月', dayW: 10   },
-  { id: '6m',  label: '6 個月', dayW: 5.5  },
+  { id: '1m',  label: '1 個月', dayW: 36   },
+  { id: '3m',  label: '3 個月', dayW: 24   },
+  { id: '6m',  label: '6 個月', dayW: 14   },
   { id: 'all', label: '全部',   dayW: null }, // 自動計算
 ];
 
@@ -148,12 +148,34 @@ function buildMonths(days) {
   for (let i = 0; i < days.length; i++) {
     const label = days[i].toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
     if (!months.length || months[months.length - 1].label !== label) {
-      months.push({ label, startIdx: i, count: 1 });
+      months.push({ label, startIdx: i, count: 1, date: days[i] });
     } else {
       months[months.length - 1].count++;
     }
   }
   return months;
+}
+
+/**
+ * 依日期陣列產生週次分組（以週一為週首），每組記錄：
+ *   startIdx — 在 days 陣列中的起始索引
+ *   count    — 該週橫跨的天數（第一週可能 < 7 天）
+ *   weekNum  — 連續週次編號（1-based）
+ *   date     — 該週第一天的 Date 物件
+ */
+function buildWeeks(days) {
+  const weeks = [];
+  for (let i = 0; i < days.length; i++) {
+    const d   = days[i];
+    const dow = d.getDay(); // 0=日, 1=一 ... 6=六
+    // 週一（dow===1）或陣列第一天 → 新的一週
+    if (weeks.length === 0 || dow === 1) {
+      weeks.push({ startIdx: i, count: 1, weekNum: weeks.length + 1, date: d });
+    } else {
+      weeks[weeks.length - 1].count++;
+    }
+  }
+  return weeks;
 }
 
 /**
@@ -675,6 +697,7 @@ export default function GanttPage() {
   const [deleteProject, setDeleteProject] = useState(null);       // 待刪除的專案
   const [editTask,      setEditTask]      = useState(null);       // {task, project}
   const [deleteTask,    setDeleteTask]    = useState(null);       // {task, project}
+  const [barTooltip,    setBarTooltip]    = useState(null);       // {task, project, x, y}
   const [toast,         setToast]         = useState('');         // Toast 訊息
   const containerRef = useRef(null);
 
@@ -726,9 +749,20 @@ export default function GanttPage() {
     return Math.max(2, avail / data.range.totalDays);
   }, [data, zoom]);
 
-  // ── 產生日期陣列與月份分組 ──────────────────────────────
+  // ── 產生日期陣列與月份 / 週次分組 ─────────────────────────
   const days   = useMemo(() => data ? buildDays(data.range.start, data.range.end) : [], [data]);
   const months = useMemo(() => buildMonths(days), [days]);
+  const weeks  = useMemo(() => buildWeeks(days),  [days]);
+
+  // ── 動態標頭高度（依縮放層級決定顯示列數） ──────────────
+  //  dayW >= 20 → 4 行（周次 + 周起始日 + 日期數 + 星期名）→ 84px  ← 1個月(36) / 3個月(24)
+  //  dayW >= 12 → 3 行（周次+日期 / 日數 / 星期）             → 60px  ← 6個月(14)
+  //  dayW <  12 → 1 行（月份）                                → 40px  ← 全部(auto)
+  const headerH = useMemo(() => {
+    if (dayW >= 20) return 84;
+    if (dayW >= 12) return 60;
+    return 40;
+  }, [dayW]);
 
   // ── 今日在時間軸上的 X 座標 ─────────────────────────────
   const todayX = useMemo(() => {
@@ -860,13 +894,13 @@ export default function GanttPage() {
         {/* 最小寬度 = 左欄 + 時間軸總寬 */}
         <div style={{ minWidth: LEFT_W + totalW }}>
 
-          {/* ── 月份標頭（上下 sticky） ────────────────────── */}
+          {/* ── 時間軸標頭（sticky top，多行詳細格式） ──── */}
           <div style={{
             display:      'flex',
             position:     'sticky',
             top:          0,
             zIndex:       20,
-            height:       HEADER_H,
+            height:       headerH,
             background:   T.surfaceStrong,
             borderBottom: `2px solid ${T.borderStrong}`,
           }}>
@@ -877,41 +911,252 @@ export default function GanttPage() {
               position:       'sticky',
               left:           0,
               top:            0,
-              zIndex:         30,   // 最高 z-index，覆蓋其他 sticky 元素
+              zIndex:         30,
               background:     '#1e293b',
               display:        'flex',
               alignItems:     'center',
               padding:        '0 16px',
               borderRight:    '2px solid #334155',
               borderBottom:   '2px solid #334155',
+              height:         headerH,
+              boxSizing:      'border-box',
             }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 專案 / 任務
               </span>
             </div>
 
-            {/* 月份標籤區（relative 容器，月份用 absolute 定位） */}
-            <div style={{ position: 'relative', flex: 1, ...weekendBg, overflow: 'hidden' }}>
-              {months.map((m, mi) => (
-                <div key={mi} style={{
-                  position:   'absolute',
-                  left:       m.startIdx * dayW,
-                  width:      m.count * dayW,
-                  height:     HEADER_H,
-                  display:    'flex',
-                  alignItems: 'center',
-                  padding:    '0 8px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color:      T.text,
-                  borderRight: `1px solid ${T.borderStrong}`,
-                  boxSizing:  'border-box',
-                  overflow:   'hidden',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {m.label}
-                </div>
-              ))}
+            {/* 時間軸標頭區 */}
+            <div style={{ position: 'relative', flex: 1, ...weekendBg, overflow: 'hidden', height: headerH }}>
+
+              {dayW >= 20 ? (
+                /* ── 4 行詳細標頭（1個月縮放）────────────── */
+                (() => {
+                  const R1 = 22; // 周次
+                  const R2 = 22; // 周起始日期
+                  const R3 = 20; // 日期數字
+                  const R4 = 20; // 星期名稱
+                  const DOW_LABEL = ['日','一','二','三','四','五','六'];
+                  return (
+                    <>
+                      {/* Row 1：周次 */}
+                      {weeks.map((w, wi) => (
+                        <div key={wi} style={{
+                          position:   'absolute',
+                          left:       w.startIdx * dayW,
+                          width:      w.count * dayW,
+                          top:        0,
+                          height:     R1,
+                          display:    'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize:   12,
+                          fontWeight: 700,
+                          color:      '#94a3b8',
+                          borderRight: `1px solid ${T.borderStrong}`,
+                          borderBottom: `1px solid ${T.border}`,
+                          boxSizing:  'border-box',
+                          overflow:   'hidden',
+                          whiteSpace: 'nowrap',
+                          background: wi % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
+                          letterSpacing: '0.05em',
+                        }}>
+                          第 {w.weekNum} 周
+                        </div>
+                      ))}
+
+                      {/* Row 2：周起始日期 */}
+                      {weeks.map((w, wi) => (
+                        <div key={wi} style={{
+                          position:   'absolute',
+                          left:       w.startIdx * dayW,
+                          width:      w.count * dayW,
+                          top:        R1,
+                          height:     R2,
+                          display:    'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize:   11,
+                          fontWeight: 500,
+                          color:      T.textMuted,
+                          borderRight: `1px solid ${T.borderStrong}`,
+                          borderBottom: `1px solid ${T.border}`,
+                          boxSizing:  'border-box',
+                          overflow:   'hidden',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {w.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' })}
+                        </div>
+                      ))}
+
+                      {/* Row 3：日期數字 */}
+                      {days.map((d, di) => {
+                        const dow = d.getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        return (
+                          <div key={di} style={{
+                            position:   'absolute',
+                            left:       di * dayW,
+                            width:      dayW,
+                            top:        R1 + R2,
+                            height:     R3,
+                            display:    'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize:   11,
+                            fontWeight: isWeekend ? 600 : 400,
+                            color:      isWeekend ? '#f87171' : T.text,
+                            borderRight: `1px solid ${T.border}`,
+                            borderBottom: `1px solid ${T.border}`,
+                            boxSizing:  'border-box',
+                          }}>
+                            {d.getDate()}
+                          </div>
+                        );
+                      })}
+
+                      {/* Row 4：星期名稱 */}
+                      {days.map((d, di) => {
+                        const dow = d.getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        return (
+                          <div key={di} style={{
+                            position:   'absolute',
+                            left:       di * dayW,
+                            width:      dayW,
+                            top:        R1 + R2 + R3,
+                            height:     R4,
+                            display:    'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize:   10,
+                            fontWeight: isWeekend ? 700 : 400,
+                            color:      isWeekend ? '#f87171' : T.textMuted,
+                            borderRight: `1px solid ${T.border}`,
+                            boxSizing:  'border-box',
+                          }}>
+                            {DOW_LABEL[dow]}
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()
+              ) : dayW >= 12 ? (
+                /* ── 3 行標頭（3個月縮放）─────────────────── */
+                (() => {
+                  const R1 = 22; // 周次＋起始日
+                  const R2 = 20; // 日期數字
+                  const R3 = 18; // 星期名
+                  const DOW_LABEL = ['日','一','二','三','四','五','六'];
+                  return (
+                    <>
+                      {/* Row 1：周次（以週為單位） */}
+                      {weeks.map((w, wi) => (
+                        <div key={wi} style={{
+                          position:   'absolute',
+                          left:       w.startIdx * dayW,
+                          width:      w.count * dayW,
+                          top:        0,
+                          height:     R1,
+                          display:    'flex',
+                          alignItems: 'center',
+                          padding:    '0 4px',
+                          fontSize:   11,
+                          fontWeight: 600,
+                          color:      T.textMuted,
+                          borderRight: `1px solid ${T.borderStrong}`,
+                          borderBottom: `1px solid ${T.border}`,
+                          boxSizing:  'border-box',
+                          overflow:   'hidden',
+                          whiteSpace: 'nowrap',
+                          gap:        4,
+                        }}>
+                          <span style={{ color: '#94a3b8', marginRight: 4 }}>W{w.weekNum}</span>
+                          {w.date.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })}
+                        </div>
+                      ))}
+                      {/* Row 2：日期數字 */}
+                      {days.map((d, di) => {
+                        const dow = d.getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        return (
+                          <div key={di} style={{
+                            position:   'absolute',
+                            left:       di * dayW,
+                            width:      dayW,
+                            top:        R1,
+                            height:     R2,
+                            display:    'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize:   10,
+                            fontWeight: isWeekend ? 700 : 400,
+                            color:      isWeekend ? '#f87171' : T.text,
+                            borderRight: `1px solid ${T.border}`,
+                            borderBottom: `1px solid ${T.border}`,
+                            boxSizing:  'border-box',
+                          }}>
+                            {d.getDate()}
+                          </div>
+                        );
+                      })}
+                      {/* Row 3：星期名稱 */}
+                      {days.map((d, di) => {
+                        const dow = d.getDay();
+                        const isWeekend = dow === 0 || dow === 6;
+                        return (
+                          <div key={di} style={{
+                            position:   'absolute',
+                            left:       di * dayW,
+                            width:      dayW,
+                            top:        R1 + R2,
+                            height:     R3,
+                            display:    'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize:   9,
+                            fontWeight: isWeekend ? 700 : 400,
+                            color:      isWeekend ? '#f87171' : T.textMuted,
+                            borderRight: `1px solid ${T.border}`,
+                            boxSizing:  'border-box',
+                          }}>
+                            {DOW_LABEL[dow]}
+                          </div>
+                        );
+                      })}
+                    </>
+                  );
+                })()
+              ) : (
+                /* ── 1 行標頭（6個月 / 全部縮放）──────────── */
+                months.map((m, mi) => {
+                  const cellW = m.count * dayW;
+                  return (
+                    <div key={mi} style={{
+                      position:   'absolute',
+                      left:       m.startIdx * dayW,
+                      width:      cellW,
+                      height:     headerH,
+                      display:    'flex',
+                      alignItems: 'center',
+                      padding:    '0 8px',
+                      fontSize:   cellW < 80 ? 11 : 13,
+                      fontWeight: 600,
+                      color:      T.text,
+                      borderRight: `1px solid ${T.borderStrong}`,
+                      boxSizing:  'border-box',
+                      overflow:   'hidden',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {/* 寬度太窄時的简短標籤 */}
+                      {cellW < 40 ? '' : cellW < 80
+                        ? `${m.date.getMonth() + 1}月`
+                        : m.label}
+                    </div>
+                  );
+                })
+              )}
 
               {/* 今日線（標頭部分） */}
               {todayX >= 0 && (
@@ -1067,7 +1312,7 @@ export default function GanttPage() {
                         top:        BAR_TOP,
                         height:     BAR_H,
                         borderRadius: 5,
-                        background: `${pColor}20`,
+                        background: `${pColor}30`,
                         border:     `2px solid ${pColor}`,
                         zIndex:     3,
                         overflow:   'hidden',
@@ -1079,26 +1324,9 @@ export default function GanttPage() {
                           top:       0,
                           bottom:    0,
                           width:     `${pct}%`,
-                          background: `${pColor}40`,
+                          background: `${pColor}50`,
                           transition: 'width 0.3s',
                         }} />
-                        {/* 進度文字 */}
-                        <div style={{
-                          position: 'absolute',
-                          inset:    0,
-                          display:  'flex',
-                          alignItems: 'center',
-                          padding:  '0 7px',
-                        }}>
-                          <span style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color:      pColor,
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {pct}% 完成 · {PROJECT_STATUS_LABEL[project.status] || project.status}
-                          </span>
-                        </div>
                       </div>
                     )}
 
@@ -1258,31 +1486,54 @@ export default function GanttPage() {
 
                         {/* 計劃條（主要甘特條） */}
                         {tBar && (
-                          <div style={{
-                            position:     'absolute',
-                            left:         tBar.left,
-                            width:        Math.max(dayW * 1.5, tBar.width),
-                            top:          BAR_TOP,
-                            height:       BAR_H,
-                            borderRadius: 4,
-                            background:   tc,
-                            opacity:      isDone ? 0.55 : 1,
-                            zIndex:       3,
-                            display:      'flex',
-                            alignItems:   'center',
-                            padding:      '0 7px',
-                            overflow:     'hidden',
-                          }}>
-                            <span style={{
-                              fontSize: 11,
-                              color:      'white',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                              overflow:   'hidden',
-                              textOverflow: 'ellipsis',
-                            }}>
-                              {isDone ? '✓ ' : ''}{task.title}
-                            </span>
+                          <div
+                            style={{
+                              position:     'absolute',
+                              left:         tBar.left,
+                              width:        Math.max(dayW * 1.5, tBar.width),
+                              top:          BAR_TOP,
+                              height:       BAR_H,
+                              borderRadius: 4,
+                              background:   tc,
+                              opacity:      isDone ? 0.55 : 1,
+                              zIndex:       3,
+                              display:      'flex',
+                              alignItems:   'center',
+                              padding:      '0 7px',
+                              overflow:     'hidden',
+                              cursor:       'pointer',
+                              transition:   'filter 0.15s, box-shadow 0.15s',
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.filter = 'brightness(1.25)';
+                              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+                              setBarTooltip({ task, project, x: e.clientX, y: e.clientY });
+                            }}
+                            onMouseMove={e => {
+                              setBarTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.filter = '';
+                              e.currentTarget.style.boxShadow = '';
+                              setBarTooltip(null);
+                            }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setBarTooltip(null);
+                              setEditTask({ task, project });
+                            }}
+                          >
+                            {/* 進度填充條 */}
+                            {task.progress > 0 && (
+                              <div style={{
+                                position:   'absolute',
+                                left:       0, top: 0, bottom: 0,
+                                width:      `${Math.min(task.progress, 100)}%`,
+                                background: 'rgba(255,255,255,0.25)',
+                                borderRadius: 4,
+                                pointerEvents: 'none',
+                              }} />
+                            )}
                           </div>
                         )}
 
@@ -1363,6 +1614,57 @@ export default function GanttPage() {
             : '—'}
         </span>
       </div>
+
+      {/* ══ 任務條浮動詳情卡 ══════════════════════════════════ */}
+      {barTooltip && (() => {
+        const { task: t, project: p, x, y } = barTooltip;
+        const tipW = 280;
+        const tipH = 210;
+        const vw   = window.innerWidth;
+        const vh   = window.innerHeight;
+        const left = x + 16 + tipW > vw ? x - tipW - 8 : x + 16;
+        const top  = y + 20 + tipH > vh ? y - tipH - 8 : y + 20;
+        const assigneeName  = t.assignee?.name || t.assigneeName || '未指派';
+        const statusLabel   = TASK_STATUS_LABEL[t.status]  || t.status  || '-';
+        const priorityLabel = PRIORITY_LABEL[t.priority]   || t.priority || '-';
+        const tc2 = TASK_STATUS_COLOR[t.status] || '#9ca3af';
+        const rows = [
+          ['專案',   p.name],
+          ['狀態',   statusLabel],
+          ['優先級', priorityLabel],
+          ['負責人', assigneeName],
+          ['開始',   t.planStart  || t.actualStart || '-'],
+          ['截止',   t.planEnd    || '-'],
+          ['進度',   t.progress != null ? `${t.progress}%` : '-'],
+        ];
+        return (
+          <div style={{
+            position: 'fixed', left, top, zIndex: 99998,
+            width: tipW,
+            background: '#1e293b',
+            color: '#f1f5f9',
+            borderRadius: 10,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+            padding: '14px 16px',
+            pointerEvents: 'none',
+            fontSize: 13,
+            border: `1.5px solid ${tc2}`,
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {t.title}
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>
+              {rows.map(([label, val], i) => (
+                <tr key={i}>
+                  <td style={{ color: '#94a3b8', paddingRight: 10, paddingBottom: 5, whiteSpace: 'nowrap', verticalAlign: 'top', fontSize: 12 }}>{label}</td>
+                  <td style={{ color: '#e2e8f0', paddingBottom: 5 }}>{val}</td>
+                </tr>
+              ))}
+            </tbody></table>
+            <div style={{ marginTop: 8, fontSize: 11, color: '#64748b', borderTop: '1px solid #334155', paddingTop: 6 }}>點擊即可編輯</div>
+          </div>
+        );
+      })()}
 
       {/* ══ 模態框 ══════════════════════════════════════════ */}
       {editProject && (

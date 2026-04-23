@@ -121,13 +121,23 @@ const redisClient = redis.createClient({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT) || 6379,
     tls:  process.env.REDIS_TLS === 'true',
+    // 閒置斷線後自動重連：第 n 次重試等待 min(n*200ms, 5s)
+    reconnectStrategy: (retries) => Math.min(retries * 200, 5000),
+    // 每 30 秒發送 TCP keepalive，防止 NAT/防火牆閒置斷線
+    keepAlive: 30000,
   },
   password: process.env.REDIS_PASSWORD || undefined,
 });
 
-// Redis 連線錯誤處理
+// Redis 連線錯誤處理（斷線後 reconnectStrategy 會自動重試，此處僅 log）
 redisClient.on('error', (err) => {
   console.error('❌ Redis 連線錯誤:', err.message);
+});
+redisClient.on('reconnecting', () => {
+  console.log('🔄 Redis 重新連線中...');
+});
+redisClient.on('ready', () => {
+  console.log('✅ Redis 已就緒');
 });
 
 // 非同步啟動 Redis 連線
