@@ -82,6 +82,8 @@ export interface TaskDetailRecord {
   status?: string | null;
   assignee?: TaskPanelMember | null;
   assignees?: TaskPanelMember[];
+  planStart?: string | null;
+  planEnd?: string | null;
   dueDate?: string | null;
   dueEndDate?: string | null;
   dueTime?: string | null;
@@ -95,6 +97,8 @@ export interface TaskDetailRecord {
 export interface TaskDetailSavePayload {
   title: string;
   assigneeIds: EntityId[];
+  planStart: string | null;
+  planEnd: string | null;
   dueDate: string | null;
   dueEndDate: string | null;
   dueTime: string | null;
@@ -896,6 +900,8 @@ export default function TaskDetailPanel({
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
   const assigneeRef = useRef<HTMLDivElement | null>(null);
+  const [planStart, setPlanStart] = useState('');
+  const [planEnd, setPlanEnd] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueEndDate, setDueEndDate] = useState('');
   const [dueTime, setDueTime] = useState('');
@@ -925,6 +931,8 @@ export default function TaskDetailPanel({
         : task.assignee ? [toKey(task.assignee.id)] : []
     );
     setAssigneeDropdownOpen(false);
+    setPlanStart(formatDateInputValue(task.planStart));
+    setPlanEnd(formatDateInputValue(task.planEnd));
     setDueDate(formatDateInputValue(task.dueDate));
     setDueEndDate(formatDateInputValue(task.dueEndDate));
     setDueTime(task.dueTime || '');
@@ -1046,7 +1054,9 @@ export default function TaskDetailPanel({
     await onSave({
       title: title.trim(),
       assigneeIds: assigneeIds,
-      dueDate: dueDate || null,
+      planStart: planStart || null,
+      planEnd: planEnd || null,
+      dueDate: planEnd || dueDate || null,
       dueEndDate: dueEndDate || null,
       dueTime: dueTime || null,
       dueEndTime: dueEndTime || null,
@@ -1256,10 +1266,12 @@ export default function TaskDetailPanel({
 
             <div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,.72)', marginBottom: 4 }}>
-                截止日期
+                {(planStart || task.planStart) ? '計劃日期' : '截止日期'}
               </div>
               <span style={{ fontSize: 15, fontWeight: 700 }}>
-                {formatHumanDate(dueDate || task.dueDate)}
+                {(planStart || task.planStart)
+                  ? `${formatHumanDate(planStart || task.planStart)} ~ ${formatHumanDate(planEnd || task.planEnd)}`
+                  : formatHumanDate(dueDate || task.dueDate)}
               </span>
             </div>
           </div>
@@ -1499,7 +1511,31 @@ export default function TaskDetailPanel({
 
               <div style={{ display: 'grid', gap: 8 }}>
                 <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
-                  日期
+                  計劃日期（甘特圖）
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="date"
+                    value={planStart}
+                    onChange={(event) => setPlanStart(event.target.value)}
+                    placeholder="開始"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <span style={{ color: BRAND.muted, fontSize: 14, flexShrink: 0 }}>~</span>
+                  <input
+                    type="date"
+                    value={planEnd}
+                    min={planStart || undefined}
+                    onChange={(event) => setPlanEnd(event.target.value)}
+                    placeholder="結束"
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
+                  截止日期
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
