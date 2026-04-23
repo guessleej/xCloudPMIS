@@ -823,7 +823,9 @@ router.post('/:id/tasks', async (req, res) => {
   const {
     title, description = '',
     priority = 'medium',
-    estimatedHours, dueDate, dueEndDate, dueTime, dueEndTime, assigneeId, assigneeIds, parentTaskId,
+    estimatedHours, dueDate, dueEndDate, dueTime, dueEndTime,
+    planStart, planEnd,
+    assigneeId, assigneeIds, parentTaskId,
   } = req.body;
 
   if (!title?.trim()) return err(res, '任務標題為必填', 400);
@@ -858,6 +860,8 @@ router.post('/:id/tasks', async (req, res) => {
           dueEndDate:     dueEndDate ? new Date(dueEndDate) : null,
           dueTime:        dueTime || null,
           dueEndTime:     dueEndTime || null,
+          planStart:      planStart ? new Date(planStart) : null,
+          planEnd:        planEnd   ? new Date(planEnd)   : null,
           assigneeId:     normalizedAssigneeId,
           parentTaskId:   normalizedParentTaskId,
           position:       nextPosition,

@@ -521,6 +521,8 @@ function EditTaskModal({ task, project, users, onClose, onSaved, authFetch }) {
           assigneeId: form.assigneeId ? parseInt(form.assigneeId) : null,
           planStart:  form.planStart || null,
           planEnd:    form.planEnd   || null,
+          // 同步 dueDate，讓健康度計算與看板保持一致
+          dueDate:    form.planEnd   || null,
         }),
       });
       if (!res.ok) {
@@ -1178,10 +1180,6 @@ export default function GanttPage() {
             const isExpanded  = expanded.has(project.id);
             const hasTasks    = project.tasks.length > 0;
             const pColor      = PROJECT_STATUS_COLOR[project.status] || '#6b7280';
-            const pBar        = calcBar(project.startDate, project.endDate, data.range.start, dayW);
-            const pct         = project.taskCount > 0
-              ? Math.round(project.doneCount / project.taskCount * 100)
-              : 0;
             const rowBg       = pi % 2 === 0 ? T.surfaceSoft : T.surfaceStrong;
             const isProjHover = hoveredRow?.type === 'project' && hoveredRow?.id === project.id;
 
@@ -1302,33 +1300,6 @@ export default function GanttPage() {
 
                   {/* 右欄：甘特條區 */}
                   <div style={{ flex: 1, position: 'relative', height: '100%', ...weekendBg }}>
-
-                    {/* 專案進度條 */}
-                    {pBar && (
-                      <div style={{
-                        position:   'absolute',
-                        left:       pBar.left,
-                        width:      pBar.width,
-                        top:        BAR_TOP,
-                        height:     BAR_H,
-                        borderRadius: 5,
-                        background: `${pColor}30`,
-                        border:     `2px solid ${pColor}`,
-                        zIndex:     3,
-                        overflow:   'hidden',
-                      }}>
-                        {/* 完成率填充 */}
-                        <div style={{
-                          position:  'absolute',
-                          left:      0,
-                          top:       0,
-                          bottom:    0,
-                          width:     `${pct}%`,
-                          background: `${pColor}50`,
-                          transition: 'width 0.3s',
-                        }} />
-                      </div>
-                    )}
 
                     {/* 里程碑菱形 */}
                     {project.milestones.map(m => {

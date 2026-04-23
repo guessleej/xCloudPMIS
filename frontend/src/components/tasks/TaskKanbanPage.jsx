@@ -970,7 +970,8 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
   const [form, setForm] = useState({
     title: '', description: '',
     status: defaultStatus || 'todo', priority: 'medium',
-    projectId: defaultProjectId || projects[0]?.id || '', assigneeIds: [], dueDate: '',
+    projectId: defaultProjectId || projects[0]?.id || '', assigneeIds: [],
+    planStart: '', dueDate: '',
   });
   const [saving, setSaving] = useState(false);
   const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
@@ -996,8 +997,11 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) return alert('請輸入任務名稱');
-    if (!form.projectId)    return alert('請選擇專案');
+    if (!form.title.trim())   return alert('請輸入任務名稱');
+    if (!form.projectId)       return alert('請選擇專案');
+    if (!form.planStart)       return alert('請填入開始日期');
+    if (!form.dueDate)         return alert('請填入截止日期');
+    if (form.dueDate < form.planStart) return alert('截止日期不能早於開始日期');
     setSaving(true);
     try {
       const res = await authFetch(`${API}/${form.projectId}/tasks`, {
@@ -1009,7 +1013,9 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
           priority:   form.priority,
           assigneeIds: form.assigneeIds,
           assigneeId: form.assigneeIds.length > 0 ? form.assigneeIds[0] : undefined,
-          dueDate:    form.dueDate || undefined,
+          planStart:  form.planStart  || undefined,
+          planEnd:    form.dueDate    || undefined,
+          dueDate:    form.dueDate    || undefined,
         }),
       });
       const data = await res.json();
@@ -1077,7 +1083,7 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div ref={memberRef} style={{ position: 'relative' }}>
+              <div ref={memberRef} style={{ position: 'relative', gridColumn: '1 / -1' }}>
                 <label style={labelStyle}>指派成員</label>
                 <div
                   onClick={() => setMemberDropdownOpen(v => !v)}
@@ -1132,10 +1138,19 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
                   </div>
                 )}
               </div>
+            </div>
+            {/* 開始 / 截止日期 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={labelStyle}>截止日期</label>
-                <input type="date" style={inputStyle} value={form.dueDate}
-                  onChange={e => set('dueDate', e.target.value)} />
+                <label style={labelStyle}>開始日期 *</label>
+                <input type="date" style={{ ...inputStyle, borderColor: !form.planStart ? '#f59e0b' : undefined }}
+                  value={form.planStart} onChange={e => set('planStart', e.target.value)} />
+              </div>
+              <div>
+                <label style={labelStyle}>截止日期 *</label>
+                <input type="date" style={{ ...inputStyle, borderColor: !form.dueDate ? '#f59e0b' : undefined }}
+                  min={form.planStart || undefined}
+                  value={form.dueDate} onChange={e => set('dueDate', e.target.value)} />
               </div>
             </div>
           </div>
