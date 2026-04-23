@@ -1042,6 +1042,9 @@ export default function TaskDetailPanel({
   };
 
   const handleSave = async () => {
+    if (!planStart) { alert('請填入開始日期'); return; }
+    if (!planEnd)   { alert('請填入截止日期'); return; }
+    if (planEnd < planStart) { alert('截止日期不能早於開始日期'); return; }
     const normalizedValues: TaskCustomFieldValueMap = {};
 
     customFields.forEach((field) => {
@@ -1511,45 +1514,24 @@ export default function TaskDetailPanel({
 
               <div style={{ display: 'grid', gap: 8 }}>
                 <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
-                  計劃日期（甘特圖）
+                  日期 <span style={{ color: BRAND.crimson, fontWeight: 800 }}>*</span>
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
                     type="date"
                     value={planStart}
+                    required
                     onChange={(event) => setPlanStart(event.target.value)}
-                    placeholder="開始"
-                    style={{ ...inputStyle, flex: 1 }}
+                    style={{ ...inputStyle, flex: 1, borderColor: !planStart ? BRAND.crimson : undefined }}
                   />
                   <span style={{ color: BRAND.muted, fontSize: 14, flexShrink: 0 }}>~</span>
                   <input
                     type="date"
                     value={planEnd}
                     min={planStart || undefined}
+                    required
                     onChange={(event) => setPlanEnd(event.target.value)}
-                    placeholder="結束"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gap: 8 }}>
-                <label style={{ fontSize: 14, fontWeight: 700, color: BRAND.muted }}>
-                  截止日期
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(event) => setDueDate(event.target.value)}
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <span style={{ color: BRAND.muted, fontSize: 14, flexShrink: 0 }}>~</span>
-                  <input
-                    type="date"
-                    value={dueEndDate}
-                    onChange={(event) => setDueEndDate(event.target.value)}
-                    style={{ ...inputStyle, flex: 1 }}
+                    style={{ ...inputStyle, flex: 1, borderColor: !planEnd ? BRAND.crimson : undefined }}
                   />
                 </div>
               </div>
