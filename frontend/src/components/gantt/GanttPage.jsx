@@ -700,6 +700,7 @@ export default function GanttPage() {
   const [editTask,      setEditTask]      = useState(null);       // {task, project}
   const [deleteTask,    setDeleteTask]    = useState(null);       // {task, project}
   const [barTooltip,    setBarTooltip]    = useState(null);       // {task, project, x, y}
+  const [crosshair,     setCrosshair]     = useState(null);       // {x, label} 垂直輔助線
   const [toast,         setToast]         = useState('');         // Toast 訊息
   const containerRef = useRef(null);
 
@@ -892,6 +893,20 @@ export default function GanttPage() {
       <div
         ref={containerRef}
         style={{ flex: 1, overflow: 'auto', minHeight: 0, position: 'relative' }}
+        onMouseMove={e => {
+          if (!containerRef.current || days.length === 0) return;
+          const rect      = containerRef.current.getBoundingClientRect();
+          const scrollLeft = containerRef.current.scrollLeft;
+          const mouseX    = e.clientX - rect.left + scrollLeft;
+          const gridX     = mouseX - LEFT_W;
+          if (gridX < 0 || gridX > days.length * dayW) { setCrosshair(null); return; }
+          const dayIdx    = Math.max(0, Math.min(days.length - 1, Math.floor(gridX / dayW)));
+          const d         = days[dayIdx];
+          const label     = d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' });
+          const lineX     = LEFT_W + dayIdx * dayW + Math.floor(dayW / 2);
+          setCrosshair({ x: lineX, label });
+        }}
+        onMouseLeave={() => setCrosshair(null)}
       >
         {/* 最小寬度 = 左欄 + 時間軸總寬 */}
         <div style={{ minWidth: LEFT_W + totalW }}>
@@ -1531,6 +1546,41 @@ export default function GanttPage() {
 
           {/* 底部留白 */}
           <div style={{ height: 48 }} />
+
+          {/* ── 垂直日期輔助線 ─────────────────────────── */}
+          {crosshair && (
+            <div style={{
+              position:      'absolute',
+              left:          crosshair.x,
+              top:           0,
+              bottom:        0,
+              width:         1,
+              background:    'rgba(99,102,241,0.55)',
+              borderLeft:    '1px dashed rgba(99,102,241,0.8)',
+              zIndex:        15,
+              pointerEvents: 'none',
+            }}>
+              {/* 日期標籤 — 貼在標頭底部邊界 */}
+              <div style={{
+                position:    'absolute',
+                top:         headerH + 4,
+                left:        '50%',
+                transform:   'translateX(-50%)',
+                background:  '#6366f1',
+                color:       '#fff',
+                fontSize:    11,
+                fontWeight:  700,
+                padding:     '2px 7px',
+                borderRadius: 99,
+                whiteSpace:  'nowrap',
+                boxShadow:   '0 2px 8px rgba(99,102,241,.4)',
+                pointerEvents: 'none',
+                lineHeight:  '16px',
+              }}>
+                {crosshair.label}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
