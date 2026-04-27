@@ -363,8 +363,8 @@ function mergeMissingDateFields(nextKanban, prevKanban) {
         planStart: task.planStart ?? previous?.planStart ?? null,
         planEnd: task.planEnd ?? previous?.planEnd ?? null,
         dueDate: task.dueDate ?? previous?.dueDate ?? null,
-        dueTime: task.dueTime ?? previous?.dueTime ?? '',
-        dueEndTime: task.dueEndTime ?? previous?.dueEndTime ?? '',
+        dueTime: task.dueTime !== undefined ? (task.dueTime || '') : (previous?.dueTime || ''),
+        dueEndTime: task.dueEndTime !== undefined ? (task.dueEndTime || '') : (previous?.dueEndTime || ''),
       };
     });
     return acc;

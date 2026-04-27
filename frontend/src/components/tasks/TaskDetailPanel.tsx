@@ -635,22 +635,51 @@ function SubtaskTree({
   items: TaskSubtaskNode[];
   level?: number;
   onToggle?: (item: TaskSubtaskNode) => void;
-  onEdit?: (item: TaskSubtaskNode) => void;
+  onEdit?: (item: TaskSubtaskNode, title: string) => Promise<void> | void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const startEdit = (item: TaskSubtaskNode) => {
+    setEditingId(toKey(item.id));
+    setDraftTitle(item.title);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraftTitle('');
+  };
+
+  const saveEdit = async (item: TaskSubtaskNode) => {
+    const nextTitle = draftTitle.trim();
+    if (!nextTitle || nextTitle === item.title) { cancelEdit(); return; }
+    setSavingId(toKey(item.id));
+    try {
+      await onEdit?.(item, nextTitle);
+      cancelEdit();
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            borderRadius: 16,
-            border: `1px solid ${BRAND.line}`,
-            background: BRAND.white,
-            padding: '12px 14px',
-            marginLeft: level * 18,
-            boxShadow: level === 0 ? 'var(--xc-shadow)' : 'none',
-          }}
-        >
+      {items.map((item) => {
+        const itemKey = toKey(item.id);
+        const isEditing = editingId === itemKey;
+        return (
+          <div
+            key={item.id}
+            style={{
+              borderRadius: 16,
+              border: `1px solid ${BRAND.line}`,
+              background: BRAND.white,
+              padding: '12px 14px',
+              marginLeft: level * 18,
+              boxShadow: level === 0 ? 'var(--xc-shadow)' : 'none',
+            }}
+          >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <button
               type="button"
@@ -676,18 +705,68 @@ function SubtaskTree({
             </button>
 
             <div style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  lineHeight: 1.4,
-                  color: BRAND.ink,
-                  textDecoration: item.completed ? 'line-through' : 'none',
-                  opacity: item.completed ? 0.58 : 1,
-                }}
-              >
-                {item.title}
-              </div>
+              {isEditing ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={draftTitle}
+                    onChange={(event) => setDraftTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void saveEdit(item);
+                      if (event.key === 'Escape') cancelEdit();
+                    }}
+                    autoFocus
+                    style={{ ...inputStyle, minHeight: 36, padding: '7px 10px', flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveEdit(item)}
+                    disabled={savingId === itemKey || !draftTitle.trim()}
+                    style={{
+                      border: 'none',
+                      background: BRAND.crimson,
+                      color: '#fff',
+                      borderRadius: 10,
+                      cursor: savingId === itemKey ? 'wait' : 'pointer',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      padding: '7px 10px',
+                      opacity: !draftTitle.trim() ? 0.55 : 1,
+                    }}
+                  >
+                    儲存
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    style={{
+                      border: `1px solid ${BRAND.line}`,
+                      background: BRAND.surface,
+                      color: BRAND.carbon,
+                      borderRadius: 10,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 800,
+                      padding: '6px 9px',
+                    }}
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    lineHeight: 1.4,
+                    color: BRAND.ink,
+                    textDecoration: item.completed ? 'line-through' : 'none',
+                    opacity: item.completed ? 0.58 : 1,
+                  }}
+                >
+                  {item.title}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                 <span
@@ -741,14 +820,14 @@ function SubtaskTree({
                 </div>
               ) : null}
             </div>
-            {onEdit ? (
+            {onEdit && !isEditing ? (
               <button
                 type="button"
-                onClick={() => onEdit(item)}
+                onClick={() => startEdit(item)}
                 style={{
                   border: 'none',
-                  background: BRAND.surfaceSoft,
-                  color: BRAND.carbon,
+                  background: BRAND.crimson,
+                  color: '#fff',
                   borderRadius: 10,
                   cursor: 'pointer',
                   fontSize: 13,
@@ -762,8 +841,9 @@ function SubtaskTree({
               </button>
             ) : null}
           </div>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -944,6 +1024,9 @@ export default function TaskDetailPanel({
   const [commentText, setCommentText] = useState('');
   const [checklistInput, setChecklistInput] = useState('');
   const [checklistPending, setChecklistPending] = useState(false);
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
+  const [checklistDraft, setChecklistDraft] = useState('');
+  const [checklistEditPending, setChecklistEditPending] = useState(false);
   const [approvalComment, setApprovalComment] = useState('');
   const [approvalPending, setApprovalPending] = useState(false);
 
@@ -973,6 +1056,8 @@ export default function TaskDetailPanel({
     setSubtaskInput('');
     setCommentText('');
     setChecklistInput('');
+    setEditingChecklistId(null);
+    setChecklistDraft('');
     setShowProjectPicker(false);
     setIsEditingTitle(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1124,18 +1209,32 @@ export default function TaskDetailPanel({
     }
   };
 
-  const handleEditSubtaskTitle = async (item: TaskSubtaskNode) => {
+  const handleEditSubtaskTitle = async (item: TaskSubtaskNode, nextTitle: string) => {
     if (!onUpdateSubtask) return;
-    const nextTitle = window.prompt('編輯子任務名稱', item.title)?.trim();
-    if (!nextTitle || nextTitle === item.title) return;
     await onUpdateSubtask({ subtaskId: item.id, title: nextTitle });
   };
 
-  const handleEditChecklistTitle = async (item: TaskChecklistItem) => {
+  const startEditChecklist = (item: TaskChecklistItem) => {
+    setEditingChecklistId(toKey(item.id));
+    setChecklistDraft(item.title);
+  };
+
+  const cancelEditChecklist = () => {
+    setEditingChecklistId(null);
+    setChecklistDraft('');
+  };
+
+  const saveChecklistTitle = async (item: TaskChecklistItem) => {
     if (!onUpdateChecklistItem) return;
-    const nextTitle = window.prompt('編輯待辦項目', item.title)?.trim();
-    if (!nextTitle || nextTitle === item.title) return;
-    await onUpdateChecklistItem(item.id, nextTitle);
+    const nextTitle = checklistDraft.trim();
+    if (!nextTitle || nextTitle === item.title) { cancelEditChecklist(); return; }
+    setChecklistEditPending(true);
+    try {
+      await onUpdateChecklistItem(item.id, nextTitle);
+      cancelEditChecklist();
+    } finally {
+      setChecklistEditPending(false);
+    }
   };
 
   const handleAddComment = async () => {
@@ -1833,7 +1932,7 @@ export default function TaskDetailPanel({
                             })
                         : undefined
                     }
-                    onEdit={onUpdateSubtask ? (item) => void handleEditSubtaskTitle(item) : undefined}
+                    onEdit={onUpdateSubtask ? (item, nextTitle) => void handleEditSubtaskTitle(item, nextTitle) : undefined}
                   />
                 ) : (
                   <div
@@ -1906,9 +2005,12 @@ export default function TaskDetailPanel({
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-                  {checklistItems.map((item) => (
-                    <div
-                      key={item.id}
+                  {checklistItems.map((item) => {
+                    const itemKey = toKey(item.id);
+                    const isEditing = editingChecklistId === itemKey;
+                    return (
+                      <div
+                        key={item.id}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1941,26 +2043,78 @@ export default function TaskDetailPanel({
                       >
                         {item.isDone ? '✓' : ''}
                       </button>
-                      <span
-                        style={{
-                          flex: 1,
-                          fontSize: 15,
-                          fontWeight: 600,
-                          color: item.isDone ? BRAND.muted : BRAND.ink,
-                          textDecoration: item.isDone ? 'line-through' : 'none',
-                          opacity: item.isDone ? 0.7 : 1,
-                        }}
-                      >
-                        {item.title}
-                      </span>
-                      {onUpdateChecklistItem ? (
+                      {isEditing ? (
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="text"
+                            value={checklistDraft}
+                            onChange={(event) => setChecklistDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') void saveChecklistTitle(item);
+                              if (event.key === 'Escape') cancelEditChecklist();
+                            }}
+                            autoFocus
+                            style={{ ...inputStyle, minHeight: 34, padding: '6px 10px', flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void saveChecklistTitle(item)}
+                            disabled={checklistEditPending || !checklistDraft.trim()}
+                            style={{
+                              border: 'none',
+                              background: BRAND.crimson,
+                              color: '#fff',
+                              borderRadius: 9,
+                              cursor: checklistEditPending ? 'wait' : 'pointer',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              padding: '6px 9px',
+                              opacity: !checklistDraft.trim() ? 0.55 : 1,
+                              flexShrink: 0,
+                            }}
+                          >
+                            儲存
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditChecklist}
+                            style={{
+                              border: `1px solid ${BRAND.line}`,
+                              background: BRAND.surface,
+                              color: BRAND.carbon,
+                              borderRadius: 9,
+                              cursor: 'pointer',
+                              fontSize: 12,
+                              fontWeight: 800,
+                              padding: '5px 8px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            取消
+                          </button>
+                        </div>
+                      ) : (
+                        <span
+                          style={{
+                            flex: 1,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: item.isDone ? BRAND.muted : BRAND.ink,
+                            textDecoration: item.isDone ? 'line-through' : 'none',
+                            opacity: item.isDone ? 0.7 : 1,
+                          }}
+                        >
+                          {item.title}
+                        </span>
+                      )}
+                      {onUpdateChecklistItem && !isEditing ? (
                         <button
                           type="button"
-                          onClick={() => void handleEditChecklistTitle(item)}
+                          onClick={() => startEditChecklist(item)}
                           style={{
                             border: 'none',
-                            background: BRAND.surfaceSoft,
-                            color: BRAND.carbon,
+                            background: BRAND.crimson,
+                            color: '#fff',
                             borderRadius: 9,
                             cursor: 'pointer',
                             fontSize: 12,
@@ -1990,8 +2144,9 @@ export default function TaskDetailPanel({
                       >
                         ×
                       </button>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
