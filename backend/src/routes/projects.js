@@ -163,6 +163,13 @@ function valuesEqualForLog(field, left, right) {
   return String(left ?? '') === String(right ?? '');
 }
 
+function sameIdSet(left = [], right = []) {
+  const normalize = (items) => [...new Set(items.map(Number).filter(Boolean))].sort((a, b) => a - b);
+  const a = normalize(left);
+  const b = normalize(right);
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
 async function createActivityLog(tx, { taskId, userId, action, oldValue = null, newValue = null }) {
   if (!taskId || !userId) return;
   try {
@@ -193,16 +200,27 @@ function buildTaskUpdateLogs(before, data, body) {
 
   for (const field of ['title', 'description', 'status', 'priority', 'assigneeId', 'dueDate', 'dueEndDate', 'dueTime', 'dueEndTime', 'planStart', 'planEnd']) {
     if (field === 'assigneeId' && Array.isArray(body.assigneeIds)) continue;
+    if (
+      field === 'planEnd'
+      && Object.prototype.hasOwnProperty.call(data, 'dueDate')
+      && valuesEqualForLog('dueDate', before.planEnd, before.dueDate)
+      && valuesEqualForLog('dueDate', data.planEnd, data.dueDate)
+    ) continue;
     if (Object.prototype.hasOwnProperty.call(data, field)) {
       add(field, before[field], data[field]);
     }
   }
 
   if (Array.isArray(body.assigneeIds)) {
+    const beforeAssigneeIds = Array.isArray(before.taskAssigneeLinks) && before.taskAssigneeLinks.length > 0
+      ? before.taskAssigneeLinks.map((link) => link.userId)
+      : (before.assigneeId ? [before.assigneeId] : []);
+    const nextAssigneeIds = body.assigneeIds.map(Number).filter(Boolean);
+    if (sameIdSet(beforeAssigneeIds, nextAssigneeIds)) return logs;
     logs.push({
       action: 'assigneeIds_changed',
-      oldValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: before.assigneeId ? [before.assigneeId] : [] },
-      newValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: body.assigneeIds.map(Number).filter(Boolean) },
+      oldValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: beforeAssigneeIds },
+      newValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: nextAssigneeIds },
     });
   }
 
@@ -239,6 +257,27 @@ function activityLogText(log) {
   if (log.action === 'assigneeIds_changed') return '更新了任務負責人。';
 
   return `將${label}由「${displayLogValue(newField, oldValue)}」改為「${displayLogValue(newField, newValue)}」。`;
+}
+
+function isNoopActivityLog(log) {
+  const field = log.newValue?.field || log.oldValue?.field;
+  if (!field) return false;
+  if (field === 'assigneeIds') {
+    return sameIdSet(log.oldValue?.value || [], log.newValue?.value || []);
+  }
+  return valuesEqualForLog(field, log.oldValue?.value, log.newValue?.value);
+}
+
+function isDuplicatePlanEndLog(log, logs) {
+  if (log.action !== 'planEnd_changed') return false;
+  return logs.some((candidate) => (
+    candidate.id !== log.id
+    && candidate.userId === log.userId
+    && candidate.action === 'dueDate_changed'
+    && Math.abs(new Date(candidate.createdAt).getTime() - new Date(log.createdAt).getTime()) <= 3000
+    && valuesEqualForLog('dueDate', candidate.oldValue?.value, log.oldValue?.value)
+    && valuesEqualForLog('dueDate', candidate.newValue?.value, log.newValue?.value)
+  ));
 }
 
 // ── 自訂欄位值寫入 helper ──────────────────────────────────
@@ -1179,6 +1218,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
         dueEndTime: true,
         planStart: true,
         planEnd: true,
+        taskAssigneeLinks: { select: { userId: true } },
       },
     });
 
@@ -1474,7 +1514,9 @@ router.get('/tasks/:taskId/activity', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    ok(res, logs.map((log) => ({
+    const visibleLogs = logs.filter((log) => !isNoopActivityLog(log) && !isDuplicatePlanEndLog(log, logs));
+
+    ok(res, visibleLogs.map((log) => ({
       id: `activity-${log.id}`,
       type: 'history',
       actor: {
