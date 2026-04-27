@@ -25,6 +25,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie, AreaChart, Area, Legend,
@@ -917,18 +918,21 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                   無資料
                 </td>
               </tr>
-            ) : pageRows.map((row, i) => (
+            ) : pageRows.map((row, i) => {
+              const canEditRow = onEditRow && (!onEditRow.can || onEditRow.can(row));
+              const canDeleteRow = onDeleteRow && (!onDeleteRow.can || onDeleteRow.can(row));
+              return (
               <tr
                 key={row.id ?? i}
                 style={{
                   borderBottom: `1px solid ${THEME.border}`,
                   background:   hoveredRow === i ? THEME.rowHover : i % 2 === 0 ? THEME.surfaceStrong : THEME.rowAlt,
                   transition:   'background 0.1s',
-                  cursor:       onEditRow && row.id ? 'pointer' : 'default',
+                  cursor:       canEditRow && row.id ? 'pointer' : 'default',
                 }}
                 onMouseEnter={() => setHoveredRow(i)}
                 onMouseLeave={() => setHoveredRow(null)}
-                onClick={() => onEditRow && row.id && onEditRow(row)}
+                onClick={() => canEditRow && row.id && onEditRow(row)}
               >
                 {columns.map(col => (
                   <td key={col.key} style={{
@@ -946,7 +950,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                         opacity:    hoveredRow === i ? 1 : 0,
                         transition: 'opacity 0.15s',
                       }}>
-                        {onEditRow && (
+                        {canEditRow && (
                           <button
                             onClick={e => { e.stopPropagation(); onEditRow(row); }}
                             title="編輯"
@@ -961,7 +965,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                             ✏️
                           </button>
                         )}
-                        {onDeleteRow && (
+                        {canDeleteRow && (
                           <button
                             onClick={e => { e.stopPropagation(); onDeleteRow(row); }}
                             title="刪除"
@@ -981,7 +985,7 @@ function DataTable({ columns, rows, currentPage, onPageChange, onEditRow, onDele
                   </td>
                 )}
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
@@ -1567,6 +1571,7 @@ function ReportDashboard({ companyId, authFetch: authFetchProp }) {
 export default function ReportsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
+  const { canEditProjectRecord, canDeleteProjectRecord } = usePermissions();
   const COMPANY_ID = user?.companyId;
 
   const [activeType,  setActiveType]  = useState('dashboard');
@@ -1714,8 +1719,12 @@ export default function ReportsPage() {
 
   // 工時報表為彙總資料，不提供行級操作
   const canEditRow   = reportData && reportData.type !== 'timelog';
-  const handleEditRow   = canEditRow ? (row) => setEditItem(row)   : undefined;
-  const handleDeleteRow = canEditRow ? (row) => setDeleteItem(row) : undefined;
+  const handleEditRow = canEditRow
+    ? Object.assign((row) => setEditItem(row), { can: (row) => reportData?.type !== 'projects' || canEditProjectRecord(row) })
+    : undefined;
+  const handleDeleteRow = canEditRow
+    ? Object.assign((row) => setDeleteItem(row), { can: (row) => reportData?.type !== 'projects' || canDeleteProjectRecord(row) })
+    : undefined;
 
   // ════════════════════════════════════════════════════════
   // 渲染

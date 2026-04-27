@@ -832,10 +832,10 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       </div>
       {/* 任務數 */}
       <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
-      {/* 操作（僅 admin/pm 可編輯、刪除） */}
-      {(onEdit || onDelete) && <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-        {onEdit && <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
-        {onDelete && <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
+      {/* 操作（admin/pm 可管理全部；成員可管理自己的專案） */}
+      {((onEdit && onEdit.can(p)) || (onDelete && onDelete.can(p))) && <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
+        {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
+        {onDelete?.can(p) && <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
       </div>}
     </div>
   );
@@ -915,11 +915,11 @@ function BoardView({ projects, onOpen, onEdit, onDelete }) {
                         </span>
                       )}
                     </div>
-                    {/* 操作按鈕（懸停時，僅 admin/pm） */}
-                    {(onEdit || onDelete) && <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
+                    {/* 操作按鈕（admin/pm 可管理全部；成員可管理自己的專案） */}
+                    {((onEdit && onEdit.can(p)) || (onDelete && onDelete.can(p))) && <div style={{ marginTop: '8px', display: 'flex', gap: '4px', justifyContent: 'flex-end' }}
                       onClick={e => e.stopPropagation()}>
-                      {onEdit && <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
-                      {onDelete && <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
+                      {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '3px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
+                      {onDelete?.can(p) && <button onClick={() => onDelete(p)} style={{ padding: '3px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '4px', fontSize: '12px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
                     </div>}
                   </div>
                 );
@@ -1040,7 +1040,7 @@ function CalendarView({ projects }) {
 export default function ProjectsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
-  const { canCreateProject, canDeleteProject } = usePermissions();
+  const { canCreateProject, canEditProjectRecord, canDeleteProjectRecord, canPermanentDelete } = usePermissions();
   const COMPANY_ID = user?.companyId;
 
   const [projects,      setProjects]      = useState([]);
@@ -1064,6 +1064,8 @@ export default function ProjectsPage() {
   const [hardDeleting,     setHardDeleting]    = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3200); };
+  const editProjectAction = Object.assign((project) => setEditProject(project), { can: canEditProjectRecord });
+  const deleteProjectAction = Object.assign((project) => setDeleteProject(project), { can: canDeleteProjectRecord });
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -1293,7 +1295,7 @@ export default function ProjectsPage() {
                           {p.taskTotal > 0 && ` · ${p.taskTotal} 個任務`}
                         </div>
                       </div>
-                      <button
+                      {canDeleteProjectRecord(p) && <button
                         onClick={() => restoreProject(p.id)}
                         disabled={restoringId === p.id}
                         style={{
@@ -1304,8 +1306,8 @@ export default function ProjectsPage() {
                         }}
                       >
                         {restoringId === p.id ? '還原中…' : '↩ 還原'}
-                      </button>
-                      <button
+                      </button>}
+                      {canPermanentDelete && <button
                         onClick={() => setPermanentDelete(p)}
                         style={{
                           background: 'none', color: '#DC2626', border: '1px solid #FECACA',
@@ -1315,7 +1317,7 @@ export default function ProjectsPage() {
                         title="永久刪除（不可復原）"
                       >
                         🗑️
-                      </button>
+                      </button>}
                     </div>
                   );
                 })}
@@ -1355,9 +1357,9 @@ export default function ProjectsPage() {
             )}
           </div>
         ) : view === 'list' ? (
-          <ListView projects={filtered} onOpen={setActiveProject} onEdit={canDeleteProject ? setEditProject : null} onDelete={canDeleteProject ? setDeleteProject : null} />
+          <ListView projects={filtered} onOpen={setActiveProject} onEdit={editProjectAction} onDelete={deleteProjectAction} />
         ) : view === 'board' ? (
-          <BoardView projects={filtered} onOpen={setActiveProject} onEdit={canDeleteProject ? setEditProject : null} onDelete={canDeleteProject ? setDeleteProject : null} />
+          <BoardView projects={filtered} onOpen={setActiveProject} onEdit={editProjectAction} onDelete={deleteProjectAction} />
         ) : (
           <CalendarView projects={filtered} />
         )}

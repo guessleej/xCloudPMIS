@@ -136,6 +136,8 @@ router.get('/', async (req, res) => {
         status:    p.status,
         startDate: toDateStr(p.startDate),
         endDate:   toDateStr(p.endDate),
+        ownerId:   p.ownerId,
+        createdById: p.createdById,
         owner:     p.owner,
         taskCount: tasks.length,
         doneCount: tasks.filter(t => t.status === 'done').length,

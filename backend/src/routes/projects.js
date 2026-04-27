@@ -54,6 +54,42 @@ function calcHealth(dueDate, status, manualOverride) {
 const err = (res, message, status = 500) =>
   res.status(status).json({ success: false, error: message });
 
+const getActorId = (req) => {
+  const raw = req.user?.id || req.user?.userId;
+  const id = parseInt(raw);
+  return Number.isFinite(id) ? id : null;
+};
+
+async function requireProjectWriteAccess(req, res, next) {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return err(res, '無效的專案 ID', 400);
+
+  try {
+    const role = req.user?.role || 'member';
+    if (role === 'admin' || role === 'pm') return next();
+
+    const actorId = getActorId(req);
+    if (!actorId) return err(res, '無法辨識目前使用者', 401);
+
+    const project = await prisma.project.findFirst({
+      where: {
+        id,
+        OR: [
+          { ownerId: actorId },
+          { createdById: actorId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!project) return err(res, '此操作僅限管理員、PM 或專案建立/負責人', 403);
+    return next();
+  } catch (e) {
+    console.error('[projects requireProjectWriteAccess]', e.message);
+    return err(res, '權限檢查失敗', 500);
+  }
+}
+
 // 狀態中文對照
 const STATUS_LABEL = {
   planning:  '規劃中',
@@ -229,6 +265,8 @@ router.get('/', async (req, res) => {
         budget:       p.budget ? parseFloat(p.budget.toString()) : null,
         startDate:    p.startDate,
         endDate:      p.endDate,
+        ownerId:      p.ownerId,
+        createdById:  p.createdById,
         owner:        p.owner,
         members:      (p.members || []).map(m => ({ id: m.user.id, name: m.user.name, role: m.role })),
         taskTotal:    total,
@@ -251,9 +289,9 @@ router.get('/', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // POST /api/projects
-// 建立新專案（需要 admin 或 pm 角色）
+// 建立新專案（所有角色皆可；member 預設成為負責人）
 // ════════════════════════════════════════════════════════════
-router.post('/', requireRole('admin', 'pm'), async (req, res) => {
+router.post('/', async (req, res) => {
   const companyId = req.user?.companyId || parseInt(req.body.companyId);
   const {
     name, description = '',
@@ -265,6 +303,11 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
   if (!name?.trim()) return err(res, '專案名稱為必填', 400);
 
   try {
+    const actorId = getActorId(req);
+    const isAdminOrPm = req.user?.role === 'admin' || req.user?.role === 'pm';
+    const requestedOwnerId = ownerId ? parseInt(ownerId) : null;
+    const normalizedOwnerId = isAdminOrPm ? requestedOwnerId : actorId;
+
     const project = await prisma.project.create({
       data: {
         companyId,
@@ -274,8 +317,8 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
         budget:      budget   ? parseFloat(budget)   : null,
         startDate:   startDate ? new Date(startDate) : null,
         endDate:     endDate   ? new Date(endDate)   : null,
-        ownerId:     ownerId   ? parseInt(ownerId)   : null,
-        createdById: req.user?.id ? parseInt(req.user.id) : (req.user?.userId ? parseInt(req.user.userId) : null),
+        ownerId:     normalizedOwnerId,
+        createdById: actorId,
       },
       include: {
         owner: { select: { id: true, name: true } },
@@ -284,9 +327,10 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
 
     // 建立專案成員關聯
     const mIds = Array.isArray(memberIds) ? memberIds.map(Number).filter(Boolean) : [];
+    if (normalizedOwnerId && !mIds.includes(normalizedOwnerId)) mIds.unshift(normalizedOwnerId);
     if (mIds.length > 0) {
       await prisma.projectMember.createMany({
-        data: mIds.map(uid => ({ projectId: project.id, userId: uid, role: uid === parseInt(ownerId) ? 'owner' : 'editor' })),
+        data: mIds.map(uid => ({ projectId: project.id, userId: uid, role: uid === normalizedOwnerId ? 'owner' : 'editor' })),
         skipDuplicates: true,
       });
     }
@@ -307,12 +351,11 @@ router.post('/', requireRole('admin', 'pm'), async (req, res) => {
     }
 
     // 專案負責人指派通知
-    if (ownerId) {
-      const actorId = req.user?.id || req.user?.userId;
+    if (normalizedOwnerId) {
       createProjectAssignmentNotifications(prisma, {
         projectId:   project.id,
         projectName: project.name,
-        recipientId: parseInt(ownerId),
+        recipientId: normalizedOwnerId,
         actorId:     actorId ? parseInt(actorId) : null,
       }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
     }
@@ -543,6 +586,8 @@ router.get('/:id', async (req, res) => {
       budget:      project.budget ? parseFloat(project.budget.toString()) : null,
       startDate:   project.startDate,
       endDate:     project.endDate,
+      ownerId:     project.ownerId,
+      createdById: project.createdById,
       owner:       project.owner,
       members:     (project.members || []).map(m => ({ id: m.user.id, name: m.user.name, role: m.role })),
       milestones:  project.milestones,
@@ -569,7 +614,7 @@ router.get('/:id', async (req, res) => {
 // PATCH /api/projects/:id
 // 更新專案資訊
 // ════════════════════════════════════════════════════════════
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireProjectWriteAccess, async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
@@ -675,9 +720,9 @@ router.patch('/:id', async (req, res) => {
 
 // ════════════════════════════════════════════════════════════
 // DELETE /api/projects/:id
-// 軟刪除專案（需要 admin 或 pm 角色）
+// 軟刪除專案（admin/pm 可刪所有；member 可刪自己建立或負責的專案）
 // ════════════════════════════════════════════════════════════
-router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
+router.delete('/:id', requireProjectWriteAccess, async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 
@@ -704,7 +749,7 @@ router.delete('/:id', requireRole('admin', 'pm'), async (req, res) => {
 // PATCH /api/projects/:id/restore
 // 復原已封存的專案（清除 deletedAt）
 // ════════════════════════════════════════════════════════════
-router.patch('/:id/restore', async (req, res) => {
+router.patch('/:id/restore', requireProjectWriteAccess, async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return err(res, '無效的專案 ID', 400);
 

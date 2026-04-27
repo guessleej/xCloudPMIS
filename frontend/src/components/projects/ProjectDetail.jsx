@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { TaskSidePanel } from '../tasks/TaskKanbanPage';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   DndContext, DragOverlay, PointerSensor, KeyboardSensor,
   useSensor, useSensors, closestCorners,
@@ -1025,6 +1026,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const { isDark } = useTheme();
+  const { canEditProjectRecord } = usePermissions();
 
   const [project,        setProject]        = useState(null);
   const [users,          setUsers]          = useState([]);
@@ -1264,12 +1266,12 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
               border: isDark ? 'none' : '1px solid rgba(255,255,255,.28)',
               color: '#ffffff', borderRadius: 10, padding: '9px 18px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
             }}>+ 新增任務</button>
-            <button onClick={() => setEditOpen(true)} style={{
+            {canEditProjectRecord(proj) && <button onClick={() => setEditOpen(true)} style={{
               background: isDark ? 'var(--xc-surface)' : 'rgba(255,255,255,.10)',
               border: isDark ? `1px solid var(--xc-border)` : '1px solid rgba(255,255,255,.2)',
               color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.9)',
               borderRadius: 10, padding: '9px 14px', fontSize: 15, cursor: 'pointer',
-            }} title="編輯專案">編輯</button>
+            }} title="編輯專案">編輯</button>}
           </div>
         </div>
       </div>

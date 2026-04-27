@@ -28,6 +28,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useIsMobile } from '../../hooks/useResponsive';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const T = {
   pageBg: 'var(--xc-bg)',
@@ -686,6 +687,7 @@ export default function GanttPage() {
   const isMobile = useIsMobile();
   const LEFT_W = isMobile ? 140 : LEFT_COL;
   const { user, authFetch } = useAuth();
+  const { canEditProjectRecord, canDeleteProjectRecord } = usePermissions();
   const companyId = user?.companyId;
 
   const [data,          setData]          = useState(null);
@@ -1275,9 +1277,9 @@ export default function GanttPage() {
                     </span>
 
                     {/* 懸停時顯示操作按鈕，否則顯示任務完成數 */}
-                    {isProjHover ? (
+                    {isProjHover && (canEditProjectRecord(project) || canDeleteProjectRecord(project)) ? (
                       <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                        <button
+                        {canEditProjectRecord(project) && <button
                           onClick={e => { e.stopPropagation(); setEditProject(project); }}
                           title="編輯專案"
                           style={{
@@ -1290,8 +1292,8 @@ export default function GanttPage() {
                             cursor:       'pointer',
                             fontWeight:   600,
                           }}
-                        >✏️</button>
-                        <button
+                        >✏️</button>}
+                        {canDeleteProjectRecord(project) && <button
                           onClick={e => { e.stopPropagation(); setDeleteProject(project); }}
                           title="刪除專案"
                           style={{
@@ -1304,7 +1306,7 @@ export default function GanttPage() {
                             cursor:       'pointer',
                             fontWeight:   600,
                           }}
-                        >🗑️</button>
+                        >🗑️</button>}
                       </div>
                     ) : (
                       <span style={{ fontSize: 12, color: T.textMuted, flexShrink: 0 }}>

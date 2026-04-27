@@ -13,7 +13,8 @@
  * ┌──────────────────┬───────┬──────┬────────┐
  * │ 功能             │ admin │  pm  │ member │
  * ├──────────────────┼───────┼──────┼────────┤
- * │ 建立/刪除專案     │  ✓    │  ✓   │   ✗    │
+ * │ 建立專案          │  ✓    │  ✓   │   ✓    │
+ * │ 編輯/刪除專案     │  ✓    │  ✓   │ 自己的 │
  * │ 永久刪除專案      │  ✓    │  ✗   │   ✗    │
  * │ 管理規則          │  ✓    │  ✓   │   ✗    │
  * │ 管理自訂欄位      │  ✓    │  ✓   │   ✗    │
@@ -40,6 +41,14 @@ export function usePermissions() {
     const isAdmin  = role === 'admin';
     const isPm     = role === 'pm';
     const isAdminOrPm = isAdmin || isPm;
+    const currentUserId = user?.id || user?.userId;
+    const isOwnProject = (project) => {
+      if (!project || !currentUserId) return false;
+      const uid = Number(currentUserId);
+      return Number(project.ownerId) === uid
+        || Number(project.createdById) === uid
+        || Number(project.owner?.id) === uid;
+    };
 
     return {
       // ── 角色判斷 ────────────────────────
@@ -50,8 +59,10 @@ export function usePermissions() {
       isAdminOrPm,
 
       // ── 專案 ────────────────────────────
-      canCreateProject:    isAdminOrPm,
+      canCreateProject:    true,
       canDeleteProject:    isAdminOrPm,
+      canEditProjectRecord:   (project) => isAdminOrPm || isOwnProject(project),
+      canDeleteProjectRecord: (project) => isAdminOrPm || isOwnProject(project),
       canPermanentDelete:  isAdmin,        // 永久刪除僅限 admin
 
       // ── 自動化規則 ──────────────────────
@@ -81,5 +92,5 @@ export function usePermissions() {
       // ── 報表（所有角色） ────────────────
       canViewReports:      true,
     };
-  }, [user?.role]);
+  }, [user?.role, user?.id, user?.userId]);
 }

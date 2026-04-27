@@ -229,7 +229,7 @@ router.get('/projects', async (req, res) => {
     const projects = await prisma.project.findMany({
       where: { companyId, deletedAt: null },
       include: {
-        owner: { select: { name: true } },
+        owner: { select: { id: true, name: true } },
         tasks: {
           where: { deletedAt: null },
           select: {
@@ -268,7 +268,10 @@ router.get('/projects', async (req, res) => {
         name:            p.name,
         status:          PROJECT_STATUS[p.status] || p.status,
         statusRaw:       p.status,
+        ownerId:         p.ownerId,
+        createdById:     p.createdById,
         owner:           p.owner?.name || '未指定',
+        ownerRef:        p.owner,
         startDate:       fmtDate(p.startDate),
         endDate:         fmtDate(p.endDate),
         budget:          p.budget ? Number(p.budget) : null,
