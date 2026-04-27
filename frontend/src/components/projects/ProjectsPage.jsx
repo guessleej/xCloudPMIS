@@ -304,9 +304,22 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
   const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const memberRef = useRef(null);
+  const colorRef  = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const pal = getPalette(form.colorId);
+
+  // 點擊顏色選擇器外部關閉
+  useEffect(() => {
+    const handler = (e) => {
+      if (colorRef.current && !colorRef.current.contains(e.target)) {
+        setColorPickerOpen(false);
+      }
+    };
+    if (colorPickerOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [colorPickerOpen]);
 
   // ── 自動暫存至 localStorage ─────────────────────────────
   useEffect(() => {
@@ -418,21 +431,75 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 專案顏色
               </label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {PALETTE.map(p => (
-                  <button
-                    key={p.id} type="button" onClick={() => set('colorId', p.id)}
-                    title={p.name}
-                    style={{
-                      width: '28px', height: '28px', borderRadius: '50%', border: 'none',
-                      background: p.hex, cursor: 'pointer',
-                      outline: form.colorId === p.id ? `3px solid ${p.hex}` : '3px solid transparent',
-                      outlineOffset: '2px',
-                      transform: form.colorId === p.id ? 'scale(1.2)' : 'scale(1)',
-                      transition: 'all 0.15s',
-                    }}
-                  />
-                ))}
+              {/* 可收折調色盤 */}
+              <div ref={colorRef} style={{ position: 'relative', display: 'inline-block' }}>
+                {/* 觸發按鈕：顯示目前顏色 */}
+                <button
+                  type="button"
+                  onClick={() => setColorPickerOpen(v => !v)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                    border: `1.5px solid ${pal.hex}44`,
+                    background: pal.light,
+                    transition: 'all .15s',
+                  }}
+                >
+                  <span style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: pal.hex, flexShrink: 0,
+                    boxShadow: `0 0 0 2px ${pal.hex}33`,
+                  }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: pal.hex }}>{pal.name}</span>
+                  <span style={{ fontSize: 11, color: pal.hex, opacity: 0.7, marginLeft: 2 }}>
+                    {colorPickerOpen ? '▴' : '▾'}
+                  </span>
+                </button>
+
+                {/* 展開的調色盤 */}
+                {colorPickerOpen && (
+                  <div style={{
+                    position: 'absolute', top: '110%', left: 0, zIndex: 300,
+                    background: C.white, border: `1px solid ${C.line}`,
+                    borderRadius: 12, padding: '12px 14px',
+                    boxShadow: '0 12px 36px rgba(0,0,0,.15)',
+                    animation: 'fadeDown .15s ease',
+                  }}>
+                    <style>{`@keyframes fadeDown { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }`}</style>
+                    {/* 光譜漸層條 */}
+                    <div style={{
+                      height: 6, borderRadius: 99, marginBottom: 12,
+                      background: 'linear-gradient(to right, #C41230, #EA580C, #D97706, #16A34A, #0D9488, #2563EB, #7C3AED, #DB2777)',
+                    }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {PALETTE.map(p => (
+                        <button
+                          key={p.id} type="button"
+                          onClick={() => { set('colorId', p.id); setColorPickerOpen(false); }}
+                          title={p.name}
+                          style={{
+                            width: 30, height: 30, borderRadius: '50%', border: 'none',
+                            background: p.hex, cursor: 'pointer', flexShrink: 0,
+                            outline: form.colorId === p.id ? `3px solid ${p.hex}` : '3px solid transparent',
+                            outlineOffset: '2px',
+                            transform: form.colorId === p.id ? 'scale(1.22)' : 'scale(1)',
+                            transition: 'all 0.15s',
+                            boxShadow: form.colorId === p.id ? `0 0 0 4px ${p.hex}22` : 'none',
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                      {PALETTE.map(p => (
+                        <div key={p.id} style={{
+                          width: 30, textAlign: 'center',
+                          fontSize: 10, color: form.colorId === p.id ? p.hex : C.ink4,
+                          fontWeight: form.colorId === p.id ? 700 : 400,
+                        }}>{p.name}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
