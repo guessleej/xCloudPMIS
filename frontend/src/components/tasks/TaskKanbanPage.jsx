@@ -1465,8 +1465,8 @@ export function TaskSidePanel({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      onSaved();
       setSubtaskRefreshKey(k => k + 1);
+      await reloadActivityLogs();
     } catch (error) {
       alert(`新增子任務失敗：${error.message}`);
     }
@@ -1494,8 +1494,8 @@ export function TaskSidePanel({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      onSaved();
       setSubtaskRefreshKey(k => k + 1);
+      await reloadActivityLogs();
     } catch (error) {
       alert(`更新子任務失敗：${error.message}`);
     }
@@ -1509,8 +1509,8 @@ export function TaskSidePanel({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      onSaved();
       setSubtaskRefreshKey(k => k + 1);
+      await reloadActivityLogs();
     } catch (error) {
       alert(`編輯子任務失敗：${error.message}`);
     }

@@ -979,6 +979,170 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
   );
 }
 
+function ActivityLogModal({
+  items,
+  commentText,
+  commentError,
+  commentSaving,
+  onCommentTextChange,
+  onSubmitComment,
+  onClose,
+}: {
+  items: TaskActivityItem[];
+  commentText: string;
+  commentError?: string | null;
+  commentSaving?: boolean;
+  onCommentTextChange: (value: string) => void;
+  onSubmitComment: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(17, 24, 39, .45)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1200,
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="活動紀錄"
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(560px, 94vw)',
+          maxHeight: '86vh',
+          background: BRAND.surface,
+          borderRadius: 18,
+          boxShadow: '0 28px 90px rgba(0,0,0,.32)',
+          zIndex: 1201,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 20px',
+            borderBottom: `1px solid ${BRAND.line}`,
+            background: `linear-gradient(135deg, ${BRAND.ink}, ${BRAND.crimson})`,
+            color: BRAND.white,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900 }}>活動紀錄</div>
+            <div style={{ marginTop: 3, fontSize: 13, opacity: 0.78 }}>所有評論與歷史操作集中顯示於此</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              border: '1px solid rgba(255,255,255,.22)',
+              background: 'rgba(255,255,255,.12)',
+              color: BRAND.white,
+              cursor: 'pointer',
+              fontSize: 20,
+              fontWeight: 800,
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ padding: 18, overflowY: 'auto' }}>
+          <div
+            style={{
+              marginBottom: 18,
+              border: `1px solid ${BRAND.line}`,
+              borderRadius: 20,
+              background: BRAND.white,
+              padding: 18,
+              boxShadow: 'var(--xc-shadow)',
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
+              新增留言
+            </div>
+            <div style={{ marginTop: 6, fontSize: 14, color: BRAND.muted, lineHeight: 1.6 }}>
+              可直接輸入工作更新，使用 @姓名 提及團隊成員。
+            </div>
+
+            <textarea
+              value={commentText}
+              onChange={(event) => onCommentTextChange(event.target.value)}
+              placeholder="輸入留言內容..."
+              rows={4}
+              style={{
+                ...inputStyle,
+                marginTop: 14,
+                minHeight: 116,
+                resize: 'vertical',
+                fontFamily: 'inherit',
+                lineHeight: 1.7,
+              }}
+            />
+
+            {commentError ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  borderRadius: 14,
+                  background: BRAND.dangerSoft,
+                  color: BRAND.crimsonDeep,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                {commentError}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={onSubmitComment}
+                disabled={!commentText.trim() || commentSaving}
+                style={{
+                  borderRadius: 14,
+                  border: 'none',
+                  background: !commentText.trim() || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
+                  color: BRAND.white,
+                  padding: '11px 16px',
+                  fontSize: 15,
+                  fontWeight: 800,
+                  cursor: !commentText.trim() || commentSaving ? 'not-allowed' : 'pointer',
+                  minWidth: 118,
+                }}
+              >
+                {commentSaving ? '送出中...' : '送出留言'}
+              </button>
+            </div>
+          </div>
+
+          <ActivityTimeline items={items} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function TaskDetailPanel({
   open,
   task,
@@ -1029,6 +1193,7 @@ export default function TaskDetailPanel({
   const [checklistEditPending, setChecklistEditPending] = useState(false);
   const [approvalComment, setApprovalComment] = useState('');
   const [approvalPending, setApprovalPending] = useState(false);
+  const [showActivityModal, setShowActivityModal] = useState(false);
 
   // ── 根本修正：task 物件每次由父層 inline 建立，ref 不同但 id 相同
   //    只在 task.id 真正改變時重設所有欄位，避免父層 re-render 覆蓋使用者編輯中的值
@@ -1058,6 +1223,7 @@ export default function TaskDetailPanel({
     setChecklistInput('');
     setEditingChecklistId(null);
     setChecklistDraft('');
+    setShowActivityModal(false);
     setShowProjectPicker(false);
     setIsEditingTitle(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1097,7 +1263,12 @@ export default function TaskDetailPanel({
     document.body.style.overflow = 'hidden';
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Escape') return;
+      if (showActivityModal) {
+        setShowActivityModal(false);
+        return;
+      }
+      onClose();
     };
 
     window.addEventListener('keydown', handleEscape);
@@ -1105,7 +1276,7 @@ export default function TaskDetailPanel({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [open, onClose]);
+  }, [open, onClose, showActivityModal]);
 
   // 指派成員 dropdown 點擊外部關閉
   useEffect(() => {
@@ -1326,6 +1497,27 @@ export default function TaskDetailPanel({
                 >
                   {statusTone.label}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setShowActivityModal(true)}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 999,
+                    border: '1px solid rgba(255,255,255,.24)',
+                    background: 'rgba(255,255,255,.12)',
+                    color: BRAND.white,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                  title="查看所有活動紀錄"
+                >
+                  🕘 活動紀錄
+                  <span style={{ opacity: 0.72 }}>{activityFeed.length}</span>
+                </button>
               </div>
 
               {isEditingTitle ? (
@@ -1932,7 +2124,7 @@ export default function TaskDetailPanel({
                             })
                         : undefined
                     }
-                    onEdit={onUpdateSubtask ? (item, nextTitle) => void handleEditSubtaskTitle(item, nextTitle) : undefined}
+                    onEdit={onUpdateSubtask ? (item, nextTitle) => handleEditSubtaskTitle(item, nextTitle) : undefined}
                   />
                 ) : (
                   <div
@@ -2194,81 +2386,6 @@ export default function TaskDetailPanel({
             </div>
           </Section>
 
-          <Section kicker="Activity" title="活動紀錄">
-            <div
-              style={{
-                marginBottom: 18,
-                border: `1px solid ${BRAND.line}`,
-                borderRadius: 20,
-                background: BRAND.white,
-                padding: 18,
-                boxShadow: 'var(--xc-shadow)',
-              }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
-                新增留言
-              </div>
-              <div style={{ marginTop: 6, fontSize: 14, color: BRAND.muted, lineHeight: 1.6 }}>
-                可直接輸入工作更新，使用 @姓名 提及團隊成員。
-              </div>
-
-              <textarea
-                value={commentText}
-                onChange={(event) => setCommentText(event.target.value)}
-                placeholder="輸入留言內容..."
-                rows={4}
-                style={{
-                  ...inputStyle,
-                  marginTop: 14,
-                  minHeight: 116,
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  lineHeight: 1.7,
-                }}
-              />
-
-              {commentError ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    borderRadius: 14,
-                    background: BRAND.dangerSoft,
-                    color: BRAND.crimsonDeep,
-                    padding: '10px 12px',
-                    fontSize: 14,
-                    fontWeight: 700,
-                  }}
-                >
-                  {commentError}
-                </div>
-              ) : null}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-                <button
-                  type="button"
-                  onClick={() => void handleAddComment()}
-                  disabled={!commentText.trim() || commentSaving || !onAddComment}
-                  style={{
-                    borderRadius: 14,
-                    border: 'none',
-                    background:
-                      !commentText.trim() || !onAddComment || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
-                    color: BRAND.white,
-                    padding: '11px 16px',
-                    fontSize: 15,
-                    fontWeight: 800,
-                    cursor:
-                      !commentText.trim() || !onAddComment || commentSaving ? 'not-allowed' : 'pointer',
-                    minWidth: 118,
-                  }}
-                >
-                  {commentSaving ? '送出中...' : '送出留言'}
-                </button>
-              </div>
-            </div>
-
-            <ActivityTimeline items={activityFeed} />
-          </Section>
         </div>
 
         <div
@@ -2338,6 +2455,18 @@ export default function TaskDetailPanel({
           </div>
         </div>
       </aside>
+
+      {showActivityModal ? (
+        <ActivityLogModal
+          items={activityFeed}
+          commentText={commentText}
+          commentError={commentError}
+          commentSaving={commentSaving}
+          onCommentTextChange={setCommentText}
+          onSubmitComment={() => void handleAddComment()}
+          onClose={() => setShowActivityModal(false)}
+        />
+      ) : null}
 
       <style>{`
         @keyframes taskDetailPanelSlide {
