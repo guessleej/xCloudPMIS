@@ -431,7 +431,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 專案顏色
               </label>
-              {/* 可收折調色盤 */}
+              {/* 可收折圓形色環 */}
               <div ref={colorRef} style={{ position: 'relative', display: 'inline-block' }}>
                 {/* 觸發按鈕：顯示目前顏色 */}
                 <button
@@ -456,47 +456,70 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
                   </span>
                 </button>
 
-                {/* 展開的調色盤 */}
+                {/* 展開的圓形色環 */}
                 {colorPickerOpen && (
                   <div style={{
-                    position: 'absolute', top: '110%', left: 0, zIndex: 300,
-                    background: C.white, border: `1px solid ${C.line}`,
-                    borderRadius: 12, padding: '12px 14px',
-                    boxShadow: '0 12px 36px rgba(0,0,0,.15)',
+                    position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 300, background: C.white, border: `1px solid ${C.line}`,
+                    borderRadius: 16, padding: '16px',
+                    boxShadow: '0 12px 36px rgba(0,0,0,.18)',
                     animation: 'fadeDown .15s ease',
                   }}>
-                    <style>{`@keyframes fadeDown { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }`}</style>
-                    {/* 光譜漸層條 */}
-                    <div style={{
-                      height: 6, borderRadius: 99, marginBottom: 12,
-                      background: 'linear-gradient(to right, #C41230, #EA580C, #D97706, #16A34A, #0D9488, #2563EB, #7C3AED, #DB2777)',
-                    }} />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {PALETTE.map(p => (
-                        <button
-                          key={p.id} type="button"
-                          onClick={() => { set('colorId', p.id); setColorPickerOpen(false); }}
-                          title={p.name}
-                          style={{
-                            width: 30, height: 30, borderRadius: '50%', border: 'none',
-                            background: p.hex, cursor: 'pointer', flexShrink: 0,
-                            outline: form.colorId === p.id ? `3px solid ${p.hex}` : '3px solid transparent',
-                            outlineOffset: '2px',
-                            transform: form.colorId === p.id ? 'scale(1.22)' : 'scale(1)',
-                            transition: 'all 0.15s',
-                            boxShadow: form.colorId === p.id ? `0 0 0 4px ${p.hex}22` : 'none',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                      {PALETTE.map(p => (
-                        <div key={p.id} style={{
-                          width: 30, textAlign: 'center',
-                          fontSize: 10, color: form.colorId === p.id ? p.hex : C.ink4,
-                          fontWeight: form.colorId === p.id ? 700 : 400,
-                        }}>{p.name}</div>
-                      ))}
+                    <style>{`@keyframes fadeDown { from { opacity:0; transform: translateX(-50%) translateY(-6px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }`}</style>
+                    {/* 色環圓盤 */}
+                    <div style={{ position: 'relative', width: 200, height: 200 }}>
+                      {/* 光譜圓環 */}
+                      <div style={{
+                        width: 200, height: 200, borderRadius: '50%',
+                        background: 'conic-gradient(from -90deg, #C41230, #EA580C, #D97706, #16A34A, #0D9488, #2563EB, #7C3AED, #DB2777, #C41230)',
+                        position: 'absolute', inset: 0,
+                      }} />
+                      {/* 內圈遮罩（環形效果） */}
+                      <div style={{
+                        position: 'absolute', top: '50%', left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: 96, height: 96, borderRadius: '50%',
+                        background: C.white,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexDirection: 'column', gap: 2,
+                        boxShadow: '0 0 0 3px rgba(0,0,0,.06)',
+                      }}>
+                        <div style={{
+                          width: 34, height: 34, borderRadius: '50%',
+                          background: pal.hex,
+                          boxShadow: `0 0 0 3px ${pal.hex}40`,
+                        }} />
+                        <div style={{ fontSize: 10, fontWeight: 700, color: pal.hex, lineHeight: 1 }}>{pal.name}</div>
+                      </div>
+                      {/* 8 個顏色選擇點 */}
+                      {PALETTE.map((p, i) => {
+                        const deg = (-90 + i * 45) * (Math.PI / 180);
+                        const r = 72;
+                        const cx = 100 + r * Math.cos(deg);
+                        const cy = 100 + r * Math.sin(deg);
+                        const isSelected = form.colorId === p.id;
+                        return (
+                          <button
+                            key={p.id} type="button"
+                            onClick={() => { set('colorId', p.id); setColorPickerOpen(false); }}
+                            title={p.name}
+                            style={{
+                              position: 'absolute',
+                              left: cx - 14, top: cy - 14,
+                              width: 28, height: 28, borderRadius: '50%',
+                              background: p.hex,
+                              border: `3px solid ${isSelected ? 'white' : p.hex}`,
+                              cursor: 'pointer',
+                              boxShadow: isSelected
+                                ? `0 0 0 3px ${p.hex}, 0 2px 8px rgba(0,0,0,.3)`
+                                : '0 1px 5px rgba(0,0,0,.35)',
+                              transform: isSelected ? 'scale(1.25)' : 'scale(1)',
+                              transition: 'all 0.15s',
+                              zIndex: isSelected ? 2 : 1,
+                            }}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 )}

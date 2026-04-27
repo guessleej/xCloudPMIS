@@ -381,6 +381,8 @@ router.get('/tasks', async (req, res) => {
       estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours.toString()) : null,
       actualHours:    t.actualHours    ? parseFloat(t.actualHours.toString())    : null,
       dueDate:        t.dueDate,
+      planStart:      t.planStart ? t.planStart.toISOString().split('T')[0] : null,
+      planEnd:        t.planEnd   ? t.planEnd.toISOString().split('T')[0]   : null,
       dueEndDate:     t.dueEndDate || null,
       dueTime:        t.dueTime || null,
       dueEndTime:     t.dueEndTime || null,
