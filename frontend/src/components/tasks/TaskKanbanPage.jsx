@@ -323,6 +323,50 @@ function mapPanelFieldOptions(field) {
   });
 }
 
+function toInputDate(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeTaskDates(task) {
+  if (!task) return task;
+  const dueDate = toInputDate(task.dueDate);
+  const planEnd = toInputDate(task.planEnd) || dueDate;
+  return {
+    ...task,
+    planStart: toInputDate(task.planStart),
+    planEnd,
+    dueDate: dueDate || planEnd,
+    dueEndDate: toInputDate(task.dueEndDate),
+  };
+}
+
+function mergeMissingDateFields(nextKanban, prevKanban) {
+  const previousById = new Map();
+  COLUMNS.forEach((column) => {
+    (prevKanban[column.id] || []).forEach((task) => previousById.set(String(task.id), task));
+  });
+
+  return COLUMNS.reduce((acc, column) => {
+    acc[column.id] = (nextKanban[column.id] || []).map((task) => {
+      const previous = previousById.get(String(task.id));
+      return {
+        ...task,
+        planStart: task.planStart ?? previous?.planStart ?? null,
+        planEnd: task.planEnd ?? previous?.planEnd ?? null,
+        dueDate: task.dueDate ?? previous?.dueDate ?? null,
+      };
+    });
+    return acc;
+  }, {});
+}
+
 function buildSubtaskTree(allTasks, parentTaskId) {
   return allTasks
     .filter((item) => String(item.parentTaskId) === String(parentTaskId))
@@ -1370,7 +1414,7 @@ export function TaskSidePanel({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      onSaved();
+      await onSaved(normalizeTaskDates({ ...task, ...data.data, ...payload }));
     } catch (error) {
       alert(`更新失敗：${error.message}`);
     }
@@ -1640,20 +1684,25 @@ export default function TaskKanbanPage() {
       if (!tasksData.success) throw new Error(tasksData.error);
       // 防禦性過濾：確保子任務（parentTaskId != null）不出現在主看板各欄
       const rawKanban = tasksData.data.kanban || {};
+      const normalizedKanban = COLUMNS.reduce((acc, column) => {
+        acc[column.id] = (rawKanban[column.id] || []).map(normalizeTaskDates);
+        return acc;
+      }, {});
       const filterTopLevel = (arr) => (arr || []).filter(t => !t.parentTaskId);
       // 保留所有任務（含子任務）供 buildSubtaskTree 使用
       setAllRawTasks([
-        ...(rawKanban.todo        || []),
-        ...(rawKanban.in_progress || []),
-        ...(rawKanban.review      || []),
-        ...(rawKanban.done        || []),
+        ...(normalizedKanban.todo        || []),
+        ...(normalizedKanban.in_progress || []),
+        ...(normalizedKanban.review      || []),
+        ...(normalizedKanban.done        || []),
       ]);
-      setKanban({
-        todo:        filterTopLevel(rawKanban.todo),
-        in_progress: filterTopLevel(rawKanban.in_progress),
-        review:      filterTopLevel(rawKanban.review),
-        done:        filterTopLevel(rawKanban.done),
-      });
+      const nextKanban = {
+        todo:        filterTopLevel(normalizedKanban.todo),
+        in_progress: filterTopLevel(normalizedKanban.in_progress),
+        review:      filterTopLevel(normalizedKanban.review),
+        done:        filterTopLevel(normalizedKanban.done),
+      };
+      setKanban(prev => mergeMissingDateFields(nextKanban, prev));
       setDragPreviewKanban(null);
       setProjects(tasksData.data.projects || []);
       setUsers(usersData.data || []);
@@ -1734,6 +1783,23 @@ export default function TaskKanbanPage() {
   const persistedTasks = COLUMNS.flatMap(c => kanban[c.id] || []);
   const selectedTask = persistedTasks.find((task) => task.id === selectedTaskId) || panelTask;
   const automationDepth = automationFeed?.parentProgress?.ancestorChain?.length || 0;
+
+  const applyUpdatedTask = useCallback((updatedTask) => {
+    if (!updatedTask?.id) return;
+    const normalized = normalizeTaskDates(updatedTask);
+    setKanban(prev => {
+      const next = { ...prev };
+      for (const column of COLUMNS) {
+        next[column.id] = (next[column.id] || []).map((item) => (
+          String(item.id) === String(normalized.id) ? { ...item, ...normalized } : item
+        ));
+      }
+      return next;
+    });
+    setPanelTask(current => (
+      current && String(current.id) === String(normalized.id) ? { ...current, ...normalized } : current
+    ));
+  }, []);
 
   const openTaskPanel = (task) => {
     setSelectedTaskId(task.id);
@@ -2289,7 +2355,11 @@ export default function TaskKanbanPage() {
             allTasks={allRawTasks}
             customFieldDefs={customFieldDefs}
             onClose={() => setPanelTask(null)}
-            onSaved={() => { fetchData(); showToast('任務已更新', 'neutral'); }}
+            onSaved={async (updatedTask) => {
+              applyUpdatedTask(updatedTask);
+              await fetchData();
+              showToast('任務已更新', 'neutral');
+            }}
             onDeleteRequest={(task) => { setPanelTask(null); setDeleteTask(task); }}
             currentUser={currentUser}
             authFetch={authFetch}

@@ -977,6 +977,17 @@ export default function TaskDetailPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, task?.id]);
 
+  // 若面板已開啟後父層才刷新到日期，補進目前仍為空白的日期欄位。
+  useEffect(() => {
+    if (!open || !task) return;
+    const nextPlanStart = formatDateInputValue(task.planStart);
+    const nextPlanEnd = formatDateInputValue(task.planEnd || task.dueDate);
+    const nextDueDate = formatDateInputValue(task.dueDate || task.planEnd);
+    if (!planStart && nextPlanStart) setPlanStart(nextPlanStart);
+    if (!planEnd && nextPlanEnd) setPlanEnd(nextPlanEnd);
+    if (!dueDate && nextDueDate) setDueDate(nextDueDate);
+  }, [open, task, task?.planStart, task?.planEnd, task?.dueDate, planStart, planEnd, dueDate]);
+
   // 當父層非同步載入自訂欄位值時（第一次載入），同步更新本地狀態；
   // 但若使用者已開始編輯（cfvFromParentRef 已經不同），則不覆蓋
   useEffect(() => {
