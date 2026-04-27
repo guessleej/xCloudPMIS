@@ -192,12 +192,13 @@ export default function CalendarPage({ onNavigate }) {
         style={{
           fontSize: 12, lineHeight: '16px', padding: '2px 6px',
           borderRadius: 6, marginBottom: 2, cursor: 'pointer',
-          background: isRangeDay ? `${color}0C` : `${color}18`,
+          background: isRangeDay ? `${color}10` : `${color}18`,
           color: color,
           fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          borderLeft: `3px solid ${isDueDay ? prioColor : isRangeDay ? `${color}60` : prioColor}`,
+          border: `1px solid ${isRangeDay ? `${color}24` : `${prioColor}24`}`,
+          borderLeft: `3px solid ${isDueDay ? prioColor : isRangeDay ? color : prioColor}`,
+          boxShadow: isRangeDay ? `inset 0 0 0 1px ${color}08` : 'none',
           transition: 'transform 0.1s',
-          ...(isRangeDay ? { borderStyle: 'dashed', borderLeftStyle: 'dashed' } : {}),
         }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
