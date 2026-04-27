@@ -1405,6 +1405,20 @@ export function TaskSidePanel({
     }
   };
 
+  const handleUpdateChecklistItem = async (itemId, title) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${task.id}/checklist/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setChecklistItems(prev => prev.map(item => item.id === itemId ? data.data : item));
+    } catch (error) {
+      alert(`編輯待辦項目失敗：${error.message}`);
+    }
+  };
+
   const handleDeleteChecklistItem = async (itemId) => {
     try {
       await authFetch(`${API}/tasks/${task.id}/checklist/${itemId}`, { method: 'DELETE' });
@@ -1466,6 +1480,21 @@ export function TaskSidePanel({
     }
   };
 
+  const handleUpdateSubtask = async ({ subtaskId, title }) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${subtaskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      onSaved();
+      setSubtaskRefreshKey(k => k + 1);
+    } catch (error) {
+      alert(`編輯子任務失敗：${error.message}`);
+    }
+  };
+
   const handleAddComment = async ({ content, parentId = null }) => {
     setCommentSaving(true);
     setCommentError('');
@@ -1523,10 +1552,12 @@ export function TaskSidePanel({
       commentSaving={commentSaving}
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
+      onUpdateSubtask={handleUpdateSubtask}
       checklistItems={checklistItems}
       checklistLoading={checklistLoading}
       onAddChecklistItem={handleAddChecklistItem}
       onToggleChecklistItem={handleToggleChecklistItem}
+      onUpdateChecklistItem={handleUpdateChecklistItem}
       onDeleteChecklistItem={handleDeleteChecklistItem}
       onApprovalAction={handleApprovalAction}
     />

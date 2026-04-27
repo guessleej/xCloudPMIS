@@ -47,7 +47,65 @@ const PALETTE = [
 ];
 const DEFAULT_COLOR = PALETTE[5]; // 深藍
 
-function getPalette(id) { return PALETTE.find(p => p.id === id) || DEFAULT_COLOR; }
+function isHexColor(value) { return /^#[0-9A-F]{6}$/i.test(value || ''); }
+function getPalette(id) {
+  if (isHexColor(id)) {
+    return {
+      id,
+      hex: id,
+      light: `color-mix(in srgb, ${id} 12%, var(--xc-surface))`,
+      name: id.toUpperCase(),
+    };
+  }
+  return PALETTE.find(p => p.id === id) || DEFAULT_COLOR;
+}
+
+function hslToHex(h, s, l) {
+  const sat = s / 100;
+  const light = l / 100;
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = light - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function hexToHsl(hex) {
+  if (!isHexColor(hex)) return { h: 217, s: 82, l: 53 };
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 217, s: 0, l: l * 100 };
+  const d = max - min;
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (max === r) h = 60 * (((g - b) / d) % 6);
+  else if (max === g) h = 60 * ((b - r) / d + 2);
+  else h = 60 * ((r - g) / d + 4);
+  return { h: (h + 360) % 360, s: s * 100, l: l * 100 };
+}
+
+function colorFromWheelPointer(event, el) {
+  const rect = el.getBoundingClientRect();
+  const x = event.clientX - rect.left - rect.width / 2;
+  const y = event.clientY - rect.top - rect.height / 2;
+  const radius = rect.width / 2;
+  const distance = Math.min(Math.sqrt(x * x + y * y), radius);
+  const hue = (Math.atan2(y, x) * 180 / Math.PI + 450) % 360;
+  const saturation = Math.round((distance / radius) * 100);
+  const lightness = Math.round(50 + (1 - saturation / 100) * 48);
+  return hslToHex(hue, saturation, lightness);
+}
 
 // 取/存 localStorage 中的顏色對應
 function loadColors()           { try { return JSON.parse(localStorage.getItem(LS_COLOR) || '{}'); } catch { return {}; } }
@@ -307,8 +365,20 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const memberRef = useRef(null);
   const colorRef  = useRef(null);
+  const colorWheelRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const pal = getPalette(form.colorId);
+  const selectedHsl = hexToHsl(pal.hex);
+  const selectedSat = Math.min(100, Math.max(0, selectedHsl.s));
+  const selectedAngle = (selectedHsl.h - 90) * Math.PI / 180;
+  const selectedRadius = (selectedSat / 100) * 88;
+  const selectedX = 100 + Math.cos(selectedAngle) * selectedRadius;
+  const selectedY = 100 + Math.sin(selectedAngle) * selectedRadius;
+
+  const selectWheelColor = (event) => {
+    if (!colorWheelRef.current) return;
+    set('colorId', colorFromWheelPointer(event, colorWheelRef.current));
+  };
 
   // 點擊顏色選擇器外部關閉
   useEffect(() => {
@@ -456,70 +526,70 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
                   </span>
                 </button>
 
-                {/* 展開的圓形色環 */}
+                {/* 展開的 360° 色環圓盤 */}
                 {colorPickerOpen && (
                   <div style={{
-                    position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%)',
+                    position: 'absolute', top: '110%', left: 0,
                     zIndex: 300, background: C.white, border: `1px solid ${C.line}`,
                     borderRadius: 16, padding: '16px',
                     boxShadow: '0 12px 36px rgba(0,0,0,.18)',
                     animation: 'fadeDown .15s ease',
+                    overflow: 'visible',
                   }}>
-                    <style>{`@keyframes fadeDown { from { opacity:0; transform: translateX(-50%) translateY(-6px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }`}</style>
-                    {/* 色環圓盤 */}
-                    <div style={{ position: 'relative', width: 200, height: 200 }}>
-                      {/* 光譜圓環 */}
+                    <style>{`@keyframes fadeDown { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }`}</style>
+                    {/* 色彩圓盤：角度 = 色相、離中心距離 = 飽和度 */}
+                    <div
+                      ref={colorWheelRef}
+                      onPointerDown={(event) => {
+                        event.currentTarget.setPointerCapture?.(event.pointerId);
+                        selectWheelColor(event);
+                      }}
+                      onPointerMove={(event) => {
+                        if (event.buttons === 1) selectWheelColor(event);
+                      }}
+                      style={{ position: 'relative', width: 200, height: 200, cursor: 'crosshair', touchAction: 'none' }}
+                    >
                       <div style={{
                         width: 200, height: 200, borderRadius: '50%',
-                        background: 'conic-gradient(from -90deg, #C41230, #EA580C, #D97706, #16A34A, #0D9488, #2563EB, #7C3AED, #DB2777, #C41230)',
+                        background: 'radial-gradient(circle, #fff 0%, rgba(255,255,255,.92) 10%, rgba(255,255,255,0) 62%), conic-gradient(from -90deg, #ff004c, #ff7a00, #ffd400, #00c853, #00bcd4, #2962ff, #7c4dff, #ff00aa, #ff004c)',
                         position: 'absolute', inset: 0,
+                        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.08)',
                       }} />
-                      {/* 內圈遮罩（環形效果） */}
+                      {/* 目前選取位置 */}
                       <div style={{
-                        position: 'absolute', top: '50%', left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: 96, height: 96, borderRadius: '50%',
-                        background: C.white,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexDirection: 'column', gap: 2,
-                        boxShadow: '0 0 0 3px rgba(0,0,0,.06)',
-                      }}>
-                        <div style={{
-                          width: 34, height: 34, borderRadius: '50%',
-                          background: pal.hex,
-                          boxShadow: `0 0 0 3px ${pal.hex}40`,
-                        }} />
-                        <div style={{ fontSize: 10, fontWeight: 700, color: pal.hex, lineHeight: 1 }}>{pal.name}</div>
-                      </div>
-                      {/* 8 個顏色選擇點 */}
-                      {PALETTE.map((p, i) => {
-                        const deg = (-90 + i * 45) * (Math.PI / 180);
-                        const r = 72;
-                        const cx = 100 + r * Math.cos(deg);
-                        const cy = 100 + r * Math.sin(deg);
-                        const isSelected = form.colorId === p.id;
-                        return (
-                          <button
-                            key={p.id} type="button"
-                            onClick={() => { set('colorId', p.id); setColorPickerOpen(false); }}
-                            title={p.name}
-                            style={{
-                              position: 'absolute',
-                              left: cx - 14, top: cy - 14,
-                              width: 28, height: 28, borderRadius: '50%',
-                              background: p.hex,
-                              border: `3px solid ${isSelected ? 'white' : p.hex}`,
-                              cursor: 'pointer',
-                              boxShadow: isSelected
-                                ? `0 0 0 3px ${p.hex}, 0 2px 8px rgba(0,0,0,.3)`
-                                : '0 1px 5px rgba(0,0,0,.35)',
-                              transform: isSelected ? 'scale(1.25)' : 'scale(1)',
-                              transition: 'all 0.15s',
-                              zIndex: isSelected ? 2 : 1,
-                            }}
-                          />
-                        );
-                      })}
+                        position: 'absolute',
+                        left: selectedX - 10,
+                        top: selectedY - 10,
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        background: pal.hex,
+                        border: '3px solid white',
+                        boxShadow: `0 0 0 2px ${pal.hex}, 0 2px 8px rgba(0,0,0,.32)`,
+                        pointerEvents: 'none',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: pal.hex,
+                        boxShadow: `0 0 0 2px ${pal.hex}33`,
+                        flexShrink: 0,
+                      }} />
+                      <input
+                        type="text"
+                        value={pal.hex}
+                        onChange={(event) => {
+                          const next = event.target.value.trim();
+                          if (isHexColor(next)) set('colorId', next.toUpperCase());
+                        }}
+                        style={{ ...inputSt, width: 112, padding: '6px 8px', fontSize: 13, fontWeight: 700, color: pal.hex }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setColorPickerOpen(false)}
+                        style={{ ...btnP, padding: '6px 12px', fontSize: 13 }}
+                      >完成</button>
                     </div>
                   </div>
                 )}

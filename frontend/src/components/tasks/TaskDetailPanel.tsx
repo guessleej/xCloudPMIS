@@ -134,11 +134,16 @@ export interface TaskDetailPanelProps {
     subtaskId: EntityId;
     completed: boolean;
   }) => Promise<void> | void;
+  onUpdateSubtask?: (input: {
+    subtaskId: EntityId;
+    title: string;
+  }) => Promise<void> | void;
   // Checklist
   checklistItems?: TaskChecklistItem[];
   checklistLoading?: boolean;
   onAddChecklistItem?: (title: string) => Promise<void> | void;
   onToggleChecklistItem?: (itemId: EntityId, isDone: boolean) => Promise<void> | void;
+  onUpdateChecklistItem?: (itemId: EntityId, title: string) => Promise<void> | void;
   onDeleteChecklistItem?: (itemId: EntityId) => Promise<void> | void;
   // Approval
   onApprovalAction?: (input: { action: 'approve' | 'reject' | 'request_review'; comment?: string }) => Promise<void> | void;
@@ -624,10 +629,12 @@ function SubtaskTree({
   items,
   level = 0,
   onToggle,
+  onEdit,
 }: {
   items: TaskSubtaskNode[];
   level?: number;
   onToggle?: (item: TaskSubtaskNode) => void;
+  onEdit?: (item: TaskSubtaskNode) => void;
 }) {
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -729,10 +736,30 @@ function SubtaskTree({
 
               {item.children && item.children.length > 0 ? (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BRAND.mist}` }}>
-                  <SubtaskTree items={item.children} level={level + 1} onToggle={onToggle} />
+                  <SubtaskTree items={item.children} level={level + 1} onToggle={onToggle} onEdit={onEdit} />
                 </div>
               ) : null}
             </div>
+            {onEdit ? (
+              <button
+                type="button"
+                onClick={() => onEdit(item)}
+                style={{
+                  border: 'none',
+                  background: BRAND.surfaceSoft,
+                  color: BRAND.carbon,
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  padding: '6px 9px',
+                  flexShrink: 0,
+                }}
+                title="編輯子任務名稱"
+              >
+                編輯
+              </button>
+            ) : null}
           </div>
         </div>
       ))}
@@ -887,10 +914,12 @@ export default function TaskDetailPanel({
   commentSaving = false,
   commentError = null,
   onToggleSubtask,
+  onUpdateSubtask,
   checklistItems = [],
   checklistLoading = false,
   onAddChecklistItem,
   onToggleChecklistItem,
+  onUpdateChecklistItem,
   onDeleteChecklistItem,
   onApprovalAction,
 }: TaskDetailPanelProps) {
@@ -1079,6 +1108,20 @@ export default function TaskDetailPanel({
     } finally {
       setSubtaskPending(false);
     }
+  };
+
+  const handleEditSubtaskTitle = async (item: TaskSubtaskNode) => {
+    if (!onUpdateSubtask) return;
+    const nextTitle = window.prompt('編輯子任務名稱', item.title)?.trim();
+    if (!nextTitle || nextTitle === item.title) return;
+    await onUpdateSubtask({ subtaskId: item.id, title: nextTitle });
+  };
+
+  const handleEditChecklistTitle = async (item: TaskChecklistItem) => {
+    if (!onUpdateChecklistItem) return;
+    const nextTitle = window.prompt('編輯待辦項目', item.title)?.trim();
+    if (!nextTitle || nextTitle === item.title) return;
+    await onUpdateChecklistItem(item.id, nextTitle);
   };
 
   const handleAddComment = async () => {
@@ -1776,6 +1819,7 @@ export default function TaskDetailPanel({
                             })
                         : undefined
                     }
+                    onEdit={onUpdateSubtask ? (item) => void handleEditSubtaskTitle(item) : undefined}
                   />
                 ) : (
                   <div
@@ -1895,6 +1939,26 @@ export default function TaskDetailPanel({
                       >
                         {item.title}
                       </span>
+                      {onUpdateChecklistItem ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleEditChecklistTitle(item)}
+                          style={{
+                            border: 'none',
+                            background: BRAND.surfaceSoft,
+                            color: BRAND.carbon,
+                            borderRadius: 9,
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            fontWeight: 800,
+                            padding: '5px 8px',
+                            flexShrink: 0,
+                          }}
+                          title="編輯待辦項目"
+                        >
+                          編輯
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => void onDeleteChecklistItem?.(item.id)}
