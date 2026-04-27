@@ -344,6 +344,8 @@ function normalizeTaskDates(task) {
     planEnd,
     dueDate: dueDate || planEnd,
     dueEndDate: toInputDate(task.dueEndDate),
+    dueTime: task.dueTime || '',
+    dueEndTime: task.dueEndTime || '',
   };
 }
 
@@ -361,6 +363,8 @@ function mergeMissingDateFields(nextKanban, prevKanban) {
         planStart: task.planStart ?? previous?.planStart ?? null,
         planEnd: task.planEnd ?? previous?.planEnd ?? null,
         dueDate: task.dueDate ?? previous?.dueDate ?? null,
+        dueTime: task.dueTime ?? previous?.dueTime ?? '',
+        dueEndTime: task.dueEndTime ?? previous?.dueEndTime ?? '',
       };
     });
     return acc;
@@ -1575,6 +1579,9 @@ export function TaskSidePanel({
         planStart: task.planStart,
         planEnd: task.planEnd,
         dueDate: task.dueDate,
+        dueEndDate: task.dueEndDate,
+        dueTime: task.dueTime,
+        dueEndTime: task.dueEndTime,
         projects: linkedProjects,
         customFieldValues,
         subtasks,

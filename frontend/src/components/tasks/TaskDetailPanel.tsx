@@ -986,7 +986,9 @@ export default function TaskDetailPanel({
     if (!planStart && nextPlanStart) setPlanStart(nextPlanStart);
     if (!planEnd && nextPlanEnd) setPlanEnd(nextPlanEnd);
     if (!dueDate && nextDueDate) setDueDate(nextDueDate);
-  }, [open, task, task?.planStart, task?.planEnd, task?.dueDate, planStart, planEnd, dueDate]);
+    if (!dueTime && task.dueTime) setDueTime(task.dueTime);
+    if (!dueEndTime && task.dueEndTime) setDueEndTime(task.dueEndTime);
+  }, [open, task, task?.planStart, task?.planEnd, task?.dueDate, task?.dueTime, task?.dueEndTime, planStart, planEnd, dueDate, dueTime, dueEndTime]);
 
   // 當父層非同步載入自訂欄位值時（第一次載入），同步更新本地狀態；
   // 但若使用者已開始編輯（cfvFromParentRef 已經不同），則不覆蓋

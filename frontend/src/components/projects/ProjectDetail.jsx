@@ -78,6 +78,10 @@ const inputSt = {
 };
 const btnP = { background: 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)', color: '#ffffff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
 const btnO = { background: C.white, color: C.ink2, border: `1px solid ${C.line}`, borderRadius: 8, padding: '9px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+const LS_COLOR = 'xcloud_project_colors';
+function loadProjectColors() { try { return JSON.parse(localStorage.getItem(LS_COLOR) || '{}'); } catch { return {}; } }
+function saveProjectColor(pid, color) { const m = loadProjectColors(); m[pid] = color; localStorage.setItem(LS_COLOR, JSON.stringify(m)); }
+function getSavedProjectColor(pid) { return loadProjectColors()[pid] || '#2563EB'; }
 
 // ─────────────────────────────────────────────────────────
 // 小元件
@@ -287,18 +291,39 @@ function AddTaskModal({ projectId, users, defaultStatus = 'todo', onSaved, onClo
 // ─────────────────────────────────────────────────────────
 // Modal：編輯專案
 // ─────────────────────────────────────────────────────────
-function EditProjectModal({ project, onSaved, onClose, authFetch }) {
+function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) {
   const isMobile = useIsMobile();
+  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const memberRef = useRef(null);
   const [form, setForm] = useState({
     name:        project.name        || '',
     description: project.description || '',
     status:      project.status      || 'active',
     startDate:   project.startDate   ? project.startDate.slice(0, 10) : '',
     endDate:     project.endDate     ? project.endDate.slice(0, 10)   : '',
+    budget:      project.budget      ? String(project.budget) : '',
+    color:       getSavedProjectColor(project.id),
+    memberIds:   (project.members || []).map(m => m.id),
   });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  useEffect(() => {
+    if (!memberDropdownOpen) return;
+    const close = (e) => { if (!memberRef.current?.contains(e.target)) setMemberDropdownOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [memberDropdownOpen]);
+
+  const toggleMember = (uid) => {
+    setForm(f => ({
+      ...f,
+      memberIds: f.memberIds.includes(uid)
+        ? f.memberIds.filter(id => id !== uid)
+        : [...f.memberIds, uid],
+    }));
+  };
 
   const submit = async e => {
     e.preventDefault();
@@ -311,12 +336,16 @@ function EditProjectModal({ project, onSaved, onClose, authFetch }) {
           name:        form.name.trim(),
           description: form.description,
           status:      form.status,
+          budget:      form.budget || null,
           startDate:   form.startDate || null,
           endDate:     form.endDate   || null,
+          ownerId:     form.memberIds.length > 0 ? form.memberIds[0] : null,
+          memberIds:   form.memberIds,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
+      saveProjectColor(project.id, form.color);
       onSaved(data.data);
     } catch (err) { setError(err.message); }
     finally { setSaving(false); }
@@ -325,44 +354,91 @@ function EditProjectModal({ project, onSaved, onClose, authFetch }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.48)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 480, maxWidth: '96vw', padding: isMobile ? '14px 16px' : '28px 32px', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.ink }}>編輯專案</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.ink3 }}>✕</button>
-        </div>
-
-        {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 15 }}>{error}</div>}
-
-        <div style={{ display: 'grid', gap: 14 }}>
-          <div>
-            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>專案名稱 *</label>
-            <input style={inputSt} value={form.name} onChange={set('name')} autoFocus />
-          </div>
-          <div>
-            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>描述</label>
-            <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 80, lineHeight: 1.6 }} value={form.description} onChange={set('description')} rows={3} />
-          </div>
-          <div>
-            <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>狀態</label>
-            <select style={inputSt} value={form.status} onChange={set('status')}>
-              {Object.entries(PROJ_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <form onSubmit={submit} style={{ background: C.white, borderRadius: 18, width: 540, maxWidth: '96vw', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,.22)' }}>
+        <div style={{ height: 6, background: form.color, borderRadius: '18px 18px 0 0' }} />
+        <div style={{ padding: isMobile ? '14px 16px 12px' : '24px 28px 28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <div style={{ fontSize: 30 }}>📁</div>
             <div>
-              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>開始日期</label>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.ink }}>編輯專案</h3>
+              <p style={{ margin: 0, fontSize: 14, color: C.ink3 }}>修改專案詳細資訊</p>
+            </div>
+            <button type="button" onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.ink3 }}>✕</button>
+          </div>
+
+          {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 15 }}>{error}</div>}
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>專案名稱 *</label>
+            <input style={{ ...inputSt, fontSize: 17, padding: '10px 14px', fontWeight: 600 }} value={form.name} onChange={set('name')} autoFocus />
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>專案顏色</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 8, cursor: 'pointer', border: `1.5px solid ${form.color}44`, background: `color-mix(in srgb, ${form.color} 14%, var(--xc-surface))`, position: 'relative' }}>
+              <span style={{ width: 18, height: 18, borderRadius: '50%', background: form.color, boxShadow: `0 0 0 2px ${form.color}33` }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: form.color }}>{form.color.toUpperCase()}</span>
+              <input type="color" value={form.color} onChange={set('color')} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+            </label>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>目標說明</label>
+            <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 76, lineHeight: 1.6 }} value={form.description} onChange={set('description')} rows={3} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div ref={memberRef} style={{ position: 'relative' }}>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>專案成員</label>
+              <div onClick={() => setMemberDropdownOpen(v => !v)} style={{ ...inputSt, cursor: 'pointer', minHeight: 38, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 10px' }}>
+                {form.memberIds.length === 0 && <span style={{ color: C.ink3, fontSize: 14, lineHeight: '28px' }}>— 點擊指派成員 —</span>}
+                {form.memberIds.map((uid, idx) => {
+                  const u = users.find(x => x.id === uid);
+                  if (!u) return null;
+                  return <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: idx === 0 ? `color-mix(in srgb, ${form.color} 14%, var(--xc-surface))` : C.surfaceSoft, border: `1px solid ${idx === 0 ? `${form.color}40` : C.line}`, borderRadius: 99, padding: '2px 8px 2px 4px', fontSize: 13, fontWeight: 500, color: C.ink }}>
+                    <Avatar name={u.name} size={20} />{u.name}{idx === 0 && <span style={{ fontSize: 10, color: form.color, fontWeight: 700, marginLeft: 2 }}>主</span>}
+                    <span onClick={e => { e.stopPropagation(); toggleMember(uid); }} style={{ cursor: 'pointer', marginLeft: 2, color: C.ink3, fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
+                  </span>;
+                })}
+              </div>
+              {memberDropdownOpen && <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50, background: C.white, border: `1px solid ${C.line}`, borderRadius: 8, boxShadow: C.shadowStrong, maxHeight: 200, overflowY: 'auto', padding: 6 }}>
+                {users.map(u => {
+                  const selected = form.memberIds.includes(u.id);
+                  return <div key={u.id} onClick={() => toggleMember(u.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 6, cursor: 'pointer', background: selected ? `color-mix(in srgb, ${form.color} 10%, var(--xc-surface))` : 'transparent' }}>
+                    <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${selected ? form.color : C.line}`, background: selected ? form.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{selected ? '✓' : ''}</span>
+                    <Avatar name={u.name} size={22} /><span style={{ fontSize: 14, color: C.ink }}>{u.name}</span>
+                  </div>;
+                })}
+              </div>}
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>狀態</label>
+              <select style={inputSt} value={form.status} onChange={set('status')}>
+                {Object.entries(PROJ_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>開始日期</label>
               <input type="date" style={inputSt} value={form.startDate} onChange={set('startDate')} />
             </div>
             <div>
-              <label style={{ fontSize: 14, fontWeight: 700, color: C.ink3, display: 'block', marginBottom: 6 }}>截止日期</label>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>截止日期</label>
               <input type="date" style={inputSt} value={form.endDate} onChange={set('endDate')} />
             </div>
           </div>
-        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
-          <button type="button" style={btnO} onClick={onClose}>取消</button>
-          <button type="submit" style={btnP} disabled={saving}>{saving ? '儲存中…' : '儲存變更'}</button>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>預算（元）</label>
+            <input type="number" style={inputSt} value={form.budget} onChange={set('budget')} placeholder="例如：500000" />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
+            <button type="button" style={btnO} onClick={onClose}>取消</button>
+            <button type="submit" style={{ ...btnP, background: form.color }} disabled={saving}>{saving ? '儲存中…' : '💾 儲存變更'}</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1298,6 +1374,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
       {editOpen && proj && (
         <EditProjectModal
           project={proj}
+          users={users}
           authFetch={authFetch}
           onSaved={async () => {
             setEditOpen(false);
