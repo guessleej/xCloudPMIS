@@ -892,8 +892,7 @@ export default function ProjectsPage() {
   const [view,          setView]          = useState('list');  // list|board|calendar
   const [toast,         setToast]         = useState('');
   // 建立流程（2步驟）
-  const [showTplPicker, setShowTplPicker] = useState(false);
-  const [selectedTpl,   setSelectedTpl]   = useState(null);   // 選定範本後進入 form
+  const [selectedTpl,   setSelectedTpl]   = useState(null);   // 新增專案：開啟表單
   const [editProject,   setEditProject]   = useState(null);
   const [deleteProject, setDeleteProject] = useState(null);
   // 封存區
@@ -1042,8 +1041,8 @@ export default function ProjectsPage() {
             >
               🗄️ 封存區{showArchived ? '' : ''}
             </button>
-            {/* 新增按鈕 → 開範本選擇器（僅 admin/pm） */}
-            {canCreateProject && <button onClick={() => setShowTplPicker(true)} style={btnP}>
+            {/* 新增按鈕 → 直接開空白表單（僅 admin/pm） */}
+            {canCreateProject && <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={btnP}>
               ＋ 新增專案
             </button>}
           </div>
@@ -1189,9 +1188,9 @@ export default function ProjectsPage() {
             {filter === 'all' && canCreateProject && (
               <>
                 <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
-                  選擇範本或從空白開始，建立你的第一個專案
+                  點擊下方按鈕建立你的第一個專案
                 </div>
-                <button onClick={() => setShowTplPicker(true)} style={btnP}>🚀 選擇範本</button>
+                <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={btnP}>＋ 新增專案</button>
               </>
             )}
           </div>
@@ -1205,14 +1204,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* ── Modals ── */}
-      {/* 步驟 1：範本選擇器 */}
-      {showTplPicker && (
-        <TemplatePickerModal
-          onSelect={tpl => { setShowTplPicker(false); setSelectedTpl(tpl); }}
-          onClose={() => setShowTplPicker(false)}
-        />
-      )}
-      {/* 步驟 2：專案設定 */}
+      {/* 新增專案表單 */}
       {selectedTpl && (
         <ProjectFormModal users={users} project={null} template={selectedTpl} onClose={() => setSelectedTpl(null)} onSaved={onCreated} />
       )}
