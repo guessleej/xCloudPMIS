@@ -113,6 +113,134 @@ const normalizeTaskStatus = (status, fallback = 'todo') => {
   return status === 'completed' ? 'done' : status;
 };
 
+const TASK_FIELD_LABELS = {
+  title: '任務標題',
+  description: '任務說明',
+  status: '任務狀態',
+  priority: '優先度',
+  assigneeId: '負責人',
+  assigneeIds: '負責人',
+  dueDate: '截止日期',
+  dueEndDate: '結束日期',
+  dueTime: '開始時間',
+  dueEndTime: '結束時間',
+  planStart: '計劃開始日',
+  planEnd: '計劃結束日',
+};
+
+const TASK_STATUS_LABELS = {
+  todo: '待辦',
+  in_progress: '進行中',
+  review: '審核中',
+  done: '已完成',
+  completed: '已完成',
+};
+
+const PRIORITY_LABELS = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  urgent: '緊急',
+};
+
+function toLogValue(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof value.toISOString === 'function') return value.toISOString();
+  if (value === undefined) return null;
+  return value;
+}
+
+function normalizeDateOnlyForLog(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function valuesEqualForLog(field, left, right) {
+  if (['dueDate', 'dueEndDate', 'planStart', 'planEnd'].includes(field)) {
+    return normalizeDateOnlyForLog(left) === normalizeDateOnlyForLog(right);
+  }
+  return String(left ?? '') === String(right ?? '');
+}
+
+async function createActivityLog(tx, { taskId, userId, action, oldValue = null, newValue = null }) {
+  if (!taskId || !userId) return;
+  try {
+    await tx.activityLog.create({
+      data: {
+        taskId,
+        userId,
+        action,
+        oldValue,
+        newValue,
+      },
+    });
+  } catch (e) {
+    console.warn(`[projects] 活動紀錄寫入失敗 task=${taskId}: ${e.message}`);
+  }
+}
+
+function buildTaskUpdateLogs(before, data, body) {
+  const logs = [];
+  const add = (field, from, to) => {
+    if (valuesEqualForLog(field, from, to)) return;
+    logs.push({
+      action: `${field}_changed`,
+      oldValue: { field, label: TASK_FIELD_LABELS[field] || field, value: toLogValue(from) },
+      newValue: { field, label: TASK_FIELD_LABELS[field] || field, value: toLogValue(to) },
+    });
+  };
+
+  for (const field of ['title', 'description', 'status', 'priority', 'assigneeId', 'dueDate', 'dueEndDate', 'dueTime', 'dueEndTime', 'planStart', 'planEnd']) {
+    if (field === 'assigneeId' && Array.isArray(body.assigneeIds)) continue;
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      add(field, before[field], data[field]);
+    }
+  }
+
+  if (Array.isArray(body.assigneeIds)) {
+    logs.push({
+      action: 'assigneeIds_changed',
+      oldValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: before.assigneeId ? [before.assigneeId] : [] },
+      newValue: { field: 'assigneeIds', label: TASK_FIELD_LABELS.assigneeIds, value: body.assigneeIds.map(Number).filter(Boolean) },
+    });
+  }
+
+  return logs;
+}
+
+function displayLogValue(field, value) {
+  if (value === null || value === undefined || value === '') return '未設定';
+  if (field === 'status') return TASK_STATUS_LABELS[value] || value;
+  if (field === 'priority') return PRIORITY_LABELS[value] || value;
+  if (['dueDate', 'dueEndDate', 'planStart', 'planEnd'].includes(field)) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: 'numeric', day: 'numeric' }).format(date);
+  }
+  return String(value);
+}
+
+function activityLogText(log) {
+  const oldField = log.oldValue?.field;
+  const newField = log.newValue?.field || oldField;
+  const label = log.newValue?.label || log.oldValue?.label || TASK_FIELD_LABELS[newField] || '任務內容';
+  const oldValue = log.oldValue?.value;
+  const newValue = log.newValue?.value;
+
+  if (log.action === 'task_created') return `建立了任務「${newValue?.title || '未命名任務'}」。`;
+  if (log.action === 'task_deleted') return '刪除了任務。';
+  if (log.action === 'checklist_created') return `新增待辦項目「${newValue?.title || ''}」。`;
+  if (log.action === 'checklist_deleted') return `刪除待辦項目「${oldValue?.title || ''}」。`;
+  if (log.action === 'checklist_isDone_changed') return newValue
+    ? `完成待辦項目「${log.newValue?.title || log.oldValue?.title || ''}」。`
+    : `取消完成待辦項目「${log.newValue?.title || log.oldValue?.title || ''}」。`;
+  if (log.action === 'checklist_title_changed') return `將待辦項目由「${oldValue || ''}」改為「${newValue || ''}」。`;
+  if (log.action === 'assigneeIds_changed') return '更新了任務負責人。';
+
+  return `將${label}由「${displayLogValue(newField, oldValue)}」改為「${displayLogValue(newField, newValue)}」。`;
+}
+
 // ── 自訂欄位值寫入 helper ──────────────────────────────────
 // customFieldValues = { definitionId: value, ... }
 async function saveProjectCustomFieldValues(projectId, customFieldValues) {
@@ -401,6 +529,7 @@ router.get('/tasks', async (req, res) => {
         { createdAt:'asc'  },
       ],
       include: {
+        createdBy:    { select: { id: true, name: true } },
         assignee:     { select: { id: true, name: true } },
         project:      { select: { id: true, name: true } },
         taskTags:     { include: { tag: { select: { id: true, name: true, color: true } } } },
@@ -431,6 +560,9 @@ router.get('/tasks', async (req, res) => {
       dueEndTime:     t.dueEndTime || null,
       startedAt:      t.startedAt,
       completedAt:    t.completedAt,
+      createdAt:      t.createdAt,
+      updatedAt:      t.updatedAt,
+      createdBy:      t.createdBy,
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
@@ -824,6 +956,7 @@ router.get('/:id/tasks', async (req, res) => {
       where: { projectId, deletedAt: null },
       orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
       include: {
+        createdBy: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true } },
         _count:   { select: { subtasks: true, comments: true } },
         taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
@@ -846,6 +979,9 @@ router.get('/:id/tasks', async (req, res) => {
       planEnd:        t.planEnd,
       startedAt:      t.startedAt,
       completedAt:    t.completedAt,
+      createdAt:      t.createdAt,
+      updatedAt:      t.updatedAt,
+      createdBy:      t.createdBy,
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
@@ -960,6 +1096,13 @@ router.post('/:id/tasks', async (req, res) => {
         });
       }
 
+      await createActivityLog(tx, {
+        taskId: createdTask.id,
+        userId: actorId,
+        action: 'task_created',
+        newValue: { title: createdTask.title, status: createdTask.status, projectId },
+      });
+
       return tx.task.findUnique({
         where: { id: createdTask.id },
         include: {
@@ -1028,6 +1171,14 @@ router.patch('/tasks/:taskId', async (req, res) => {
         parentTaskId: true,
         projectId: true,
         assigneeId: true,
+        description: true,
+        priority: true,
+        dueDate: true,
+        dueEndDate: true,
+        dueTime: true,
+        dueEndTime: true,
+        planStart: true,
+        planEnd: true,
       },
     });
 
@@ -1152,6 +1303,11 @@ router.patch('/tasks/:taskId', async (req, res) => {
         }
       }
 
+      const activityLogs = buildTaskUpdateLogs(existingTask, data, req.body);
+      for (const log of activityLogs) {
+        await createActivityLog(tx, { taskId, userId: actorId, ...log });
+      }
+
       // 重新查詢以取得最新的 assigneeLinks
       return tx.task.findUnique({
         where: { id: taskId },
@@ -1227,9 +1383,18 @@ router.delete('/tasks/:taskId', async (req, res) => {
     });
     if (!existing) return err(res, `找不到任務 #${taskId}`, 404);
 
-    await prisma.task.update({
-      where: { id: taskId },
-      data:  { deletedAt: new Date() },
+    const actorId = getActorId(req);
+    await prisma.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id: taskId },
+        data:  { deletedAt: new Date() },
+      });
+      await createActivityLog(tx, {
+        taskId,
+        userId: actorId,
+        action: 'task_deleted',
+        oldValue: { title: existing.title },
+      });
     });
 
     res.json({ success: true, message: `任務「${existing.title}」已刪除` });
@@ -1287,6 +1452,39 @@ router.get('/tasks/:taskId/comments', async (req, res) => {
       mentions: (Array.isArray(comment.mentions) ? comment.mentions : [])
         .map((id) => mentionMap.get(parseInt(id, 10)))
         .filter(Boolean),
+    })));
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/projects/tasks/:taskId/activity
+// 取得任務真實操作紀錄（操作者與時間皆來自後端 activity_logs）
+// ════════════════════════════════════════════════════════════
+router.get('/tasks/:taskId/activity', async (req, res) => {
+  const taskId = parseInt(req.params.taskId, 10);
+  if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
+
+  try {
+    const logs = await prisma.activityLog.findMany({
+      where: { taskId },
+      include: { user: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    ok(res, logs.map((log) => ({
+      id: `activity-${log.id}`,
+      type: 'history',
+      actor: {
+        id: log.user?.id || `user-${log.userId}`,
+        name: log.user?.name || '未知成員',
+        email: log.user?.email,
+      },
+      createdAt: log.createdAt.toISOString(),
+      text: activityLogText(log),
+      meta: [log.newValue?.label || log.oldValue?.label || log.action].filter(Boolean),
     })));
   } catch (e) {
     console.error(e);
@@ -1503,6 +1701,14 @@ router.post('/tasks/:taskId/checklist', async (req, res) => {
         position: (maxPos._max.position || 0) + 1,
       },
     });
+    await prisma.$transaction(async (tx) => {
+      await createActivityLog(tx, {
+        taskId,
+        userId: getActorId(req),
+        action: 'checklist_created',
+        newValue: { title: item.title, itemId: item.id },
+      });
+    });
     ok(res, item);
   } catch (e) {
     console.error(e);
@@ -1535,6 +1741,26 @@ router.patch('/tasks/:taskId/checklist/:itemId', async (req, res) => {
       where: { id: itemId },
       data,
     });
+    await prisma.$transaction(async (tx) => {
+      if (title !== undefined && existing.title !== updated.title) {
+        await createActivityLog(tx, {
+          taskId,
+          userId: getActorId(req),
+          action: 'checklist_title_changed',
+          oldValue: { field: 'checklistTitle', label: '待辦項目', value: existing.title, title: existing.title },
+          newValue: { field: 'checklistTitle', label: '待辦項目', value: updated.title, title: updated.title },
+        });
+      }
+      if (isDone !== undefined && existing.isDone !== updated.isDone) {
+        await createActivityLog(tx, {
+          taskId,
+          userId: getActorId(req),
+          action: 'checklist_isDone_changed',
+          oldValue: { field: 'checklistDone', label: '待辦項目', value: existing.isDone, title: updated.title },
+          newValue: { field: 'checklistDone', label: '待辦項目', value: updated.isDone, title: updated.title },
+        });
+      }
+    });
     ok(res, updated);
   } catch (e) {
     console.error(e);
@@ -1557,7 +1783,15 @@ router.delete('/tasks/:taskId/checklist/:itemId', async (req, res) => {
     });
     if (!existing) return err(res, '找不到此項目', 404);
 
-    await prisma.checklistItem.delete({ where: { id: itemId } });
+    await prisma.$transaction(async (tx) => {
+      await tx.checklistItem.delete({ where: { id: itemId } });
+      await createActivityLog(tx, {
+        taskId,
+        userId: getActorId(req),
+        action: 'checklist_deleted',
+        oldValue: { title: existing.title, itemId },
+      });
+    });
     res.json({ success: true, message: '項目已刪除' });
   } catch (e) {
     console.error(e);
@@ -1787,7 +2021,8 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
             taskId,
             userId: actorId,
             action: `approval_${action}`,
-            details: { action, comment: comment || null, fromStatus: task.status, toStatus: newStatus },
+            oldValue: { field: 'status', label: '任務狀態', value: task.status },
+            newValue: { field: 'status', label: '任務狀態', value: newStatus, action, comment: comment || null },
           },
         });
       } catch { /* 活動記錄失敗不阻斷 */ }

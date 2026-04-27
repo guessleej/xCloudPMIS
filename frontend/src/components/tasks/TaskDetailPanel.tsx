@@ -244,6 +244,7 @@ function formatActivityTime(value: string) {
   if (Number.isNaN(date.getTime())) return value;
 
   return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',

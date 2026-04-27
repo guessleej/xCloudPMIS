@@ -398,70 +398,26 @@ function createActivityActor(source, fallbackName = '系統') {
   };
 }
 
-function buildTaskActivity(task, linkedProjects, comments, currentUser, users) {
+function buildTaskActivity(task, comments, activityLogs, users) {
+  const userById = new Map(users.map((user) => [String(user.id), user]));
   const userByName = new Map(users.map((user) => [user.name, user]));
-  const actor = createActivityActor(currentUser, '系統');
-  const now = new Date().toISOString();
-  const statusMeta = getStatusMeta(task.status);
 
-  const history = [
-    {
-      id: `history-status-${task.id}`,
-      type: 'history',
-      actor,
-      createdAt: task.completedAt || task.startedAt || now,
-      text: `任務目前位於「${statusMeta.label}」階段。`,
-      meta: [statusMeta.label],
-    },
-    ...(task.assignee
-      ? [{
-          id: `history-assignee-${task.id}`,
-          type: 'history',
-          actor,
-          createdAt: now,
-          text: `目前負責人為 ${task.assignee.name}。`,
-          meta: ['已指派'],
-        }]
-      : []),
-    ...(task.dueDate
-      ? [{
-          id: `history-due-${task.id}`,
-          type: 'history',
-          actor,
-          createdAt: task.dueDate,
-          text: `截止日期設定為 ${new Date(task.dueDate).toLocaleDateString('zh-TW')}。`,
-          meta: ['截止日期'],
-        }]
-      : []),
-    ...(linkedProjects.length > 1
-      ? [{
-          id: `history-projects-${task.id}`,
-          type: 'history',
-          actor,
-          createdAt: now,
-          text: `此任務同步歸屬於 ${linkedProjects.length} 個專案。`,
-          meta: linkedProjects.map((project) => project.name),
-        }]
-      : []),
-    ...(task.numSubtasks > 0
-      ? [{
-          id: `history-subtasks-${task.id}`,
-          type: 'history',
-          actor,
-          createdAt: now,
-          text: `目前共有 ${task.numSubtasks} 個子任務，父任務進度為 ${task.progressPercent || 0}%。`,
-          meta: [`${task.numSubtasks} subtasks`],
-        }]
-      : []),
-  ];
+  const history = (activityLogs || []).map((log, index) => ({
+    id: log.id || `activity-${task.id}-${index}`,
+    type: 'history',
+    actor: createActivityActor(log.actor, '系統'),
+    createdAt: log.createdAt,
+    text: log.text || '',
+    meta: log.meta || [],
+  }));
 
   const commentItems = comments.map((comment, index) => {
-    const knownActor = userByName.get(comment.author);
+    const knownActor = userById.get(String(comment.authorId)) || userByName.get(comment.author);
     return {
       id: comment.id || `comment-${task.id}-${index}`,
       type: 'comment',
       actor: createActivityActor(knownActor || { id: `commenter-${index}`, name: comment.author }, comment.author),
-      createdAt: comment.ts || now,
+      createdAt: comment.ts || new Date().toISOString(),
       text: comment.text || '',
       mentions: (comment.mentions || []).map((mention) => ({
         id: mention.id || mention.name,
@@ -1348,13 +1304,21 @@ export function TaskSidePanel({
   const [comments, setComments] = useState([]);
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState('');
+  const [activityLogs, setActivityLogs] = useState([]);
   // Checklist
   const [checklistItems, setChecklistItems] = useState([]);
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [subtasks,         setSubtasks]         = useState([]);
   const [subtaskRefreshKey, setSubtaskRefreshKey] = useState(0);
 
-  const activity = buildTaskActivity(task, linkedProjects, comments, currentUser, users);
+  const activity = buildTaskActivity(task, comments, activityLogs, users);
+
+  const reloadActivityLogs = useCallback(async () => {
+    if (!authFetch || !task.id) return;
+    const res = await authFetch(`${API}/tasks/${task.id}/activity`);
+    const payload = await res.json();
+    setActivityLogs(Array.isArray(payload.data) ? payload.data : []);
+  }, [authFetch, task.id]);
 
   // 使用 prop 傳入的 customFieldDefs（從主元件 API 載入），不再用 localStorage
   const customFieldDefinitions = (customFieldDefs || []).map(mapApiFieldToPanelField);
@@ -1365,19 +1329,22 @@ export function TaskSidePanel({
 
     const loadData = async () => {
       try {
-        const [commentsRes, cfvRes, clRes, subtasksRes] = await Promise.all([
+        const [commentsRes, cfvRes, clRes, subtasksRes, activityRes] = await Promise.all([
           authFetch(`${API}/tasks/${task.id}/comments`),
           authFetch(`${API}/tasks/${task.id}/custom-field-values`),
           authFetch(`${API}/tasks/${task.id}/checklist`),
           authFetch(`${API}/tasks/${task.id}/subtasks`),
+          authFetch(`${API}/tasks/${task.id}/activity`),
         ]);
         const commentsPayload = await commentsRes.json();
         const cfvPayload      = await cfvRes.json();
         const clPayload       = await clRes.json();
         const subtasksPayload = await subtasksRes.json();
+        const activityPayload = await activityRes.json();
         if (cancelled) return;
 
         setComments(Array.isArray(commentsPayload.data) ? commentsPayload.data : []);
+        setActivityLogs(Array.isArray(activityPayload.data) ? activityPayload.data : []);
         setCommentError('');
         if (cfvPayload.success) setCustomFieldValues(cfvPayload.data || {});
         setChecklistItems(Array.isArray(clPayload.data) ? clPayload.data : []);
@@ -1385,6 +1352,7 @@ export function TaskSidePanel({
       } catch (error) {
         if (cancelled) return;
         setComments([]);
+        setActivityLogs([]);
         setCommentError(`資料載入失敗：${error.message}`);
       }
     };
@@ -1419,6 +1387,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       await onSaved(normalizeTaskDates({ ...task, ...data.data, ...payload }));
+      await reloadActivityLogs();
     } catch (error) {
       alert(`更新失敗：${error.message}`);
     }
@@ -1434,6 +1403,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setChecklistItems(prev => [...prev, data.data]);
+      await reloadActivityLogs();
     } catch (error) {
       alert(`新增待辦項目失敗：${error.message}`);
     }
@@ -1448,6 +1418,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setChecklistItems(prev => prev.map(item => item.id === itemId ? data.data : item));
+      await reloadActivityLogs();
     } catch (error) {
       alert(`更新待辦項目失敗：${error.message}`);
     }
@@ -1462,6 +1433,7 @@ export function TaskSidePanel({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setChecklistItems(prev => prev.map(item => item.id === itemId ? data.data : item));
+      await reloadActivityLogs();
     } catch (error) {
       alert(`編輯待辦項目失敗：${error.message}`);
     }
@@ -1471,6 +1443,7 @@ export function TaskSidePanel({
     try {
       await authFetch(`${API}/tasks/${task.id}/checklist/${itemId}`, { method: 'DELETE' });
       setChecklistItems(prev => prev.filter(item => item.id !== itemId));
+      await reloadActivityLogs();
     } catch (error) {
       alert(`刪除待辦項目失敗：${error.message}`);
     }

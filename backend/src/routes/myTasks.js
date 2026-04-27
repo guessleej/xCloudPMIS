@@ -33,6 +33,53 @@ function calcHealth(dueDate, status) {
   return 'on_track';
 }
 
+const ACTIVITY_FIELD_LABELS = {
+  title: '任務標題',
+  description: '任務說明',
+  status: '任務狀態',
+  priority: '優先度',
+  dueDate: '截止日期',
+  dueEndDate: '結束日期',
+  dueTime: '開始時間',
+  dueEndTime: '結束時間',
+};
+
+function toActivityValue(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof value.toISOString === 'function') return value.toISOString();
+  if (value === undefined) return null;
+  return value;
+}
+
+function normalizeActivityDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function activityValuesEqual(field, left, right) {
+  if (['dueDate', 'dueEndDate'].includes(field)) {
+    return normalizeActivityDate(left) === normalizeActivityDate(right);
+  }
+  return String(left ?? '') === String(right ?? '');
+}
+
+async function createActivityLog(tx, { taskId, userId, action, oldValue = null, newValue = null }) {
+  if (!taskId || !userId) return;
+  await tx.activityLog.create({ data: { taskId, userId, action, oldValue, newValue } });
+}
+
+function buildActivityLogs(before, data) {
+  return Object.keys(ACTIVITY_FIELD_LABELS)
+    .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
+    .filter((field) => !activityValuesEqual(field, before[field], data[field]))
+    .map((field) => ({
+      action: `${field}_changed`,
+      oldValue: { field, label: ACTIVITY_FIELD_LABELS[field], value: toActivityValue(before[field]) },
+      newValue: { field, label: ACTIVITY_FIELD_LABELS[field], value: toActivityValue(data[field]) },
+    }));
+}
+
 function formatTask(t) {
   const dueDateStr = t.dueDate ? t.dueDate.toISOString().split('T')[0] : null;
   return {
@@ -162,13 +209,19 @@ router.patch('/:id', async (req, res) => {
       if (existing.status === 'done' && s !== 'done') { data.completedAt = null; data.progressPercent = 0; }
     }
 
-    const updated = await prisma.task.update({
-      where:   { id },
-      data,
-      include: {
-        assignee: { select: { id: true, name: true } },
-        project:  { select: { id: true, name: true } },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const task = await tx.task.update({
+        where:   { id },
+        data,
+        include: {
+          assignee: { select: { id: true, name: true } },
+          project:  { select: { id: true, name: true } },
+        },
+      });
+      for (const log of buildActivityLogs(existing, data)) {
+        await createActivityLog(tx, { taskId: id, userId, ...log });
+      }
+      return task;
     });
 
     return ok(res, formatTask(updated));
@@ -193,9 +246,17 @@ router.delete('/:id', async (req, res) => {
     });
     if (!existing) return err(res, '找不到任務', 404);
 
-    await prisma.task.update({
-      where: { id },
-      data:  { deletedAt: new Date() },
+    await prisma.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id },
+        data:  { deletedAt: new Date() },
+      });
+      await createActivityLog(tx, {
+        taskId: id,
+        userId,
+        action: 'task_deleted',
+        oldValue: { title: existing.title },
+      });
     });
 
     return ok(res, { id, deleted: true });
