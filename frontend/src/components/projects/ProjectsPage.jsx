@@ -180,6 +180,8 @@ function getHealth(p) {
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
 const fmtDate  = (iso) => iso ? new Date(iso).toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' }) : '—';
 const daysLeft = (iso) => iso ? Math.ceil((new Date(iso) - new Date()) / 864e5) : null;
+const riskRank = (project) => ({ off_track: 0, at_risk: 1, on_track: 2, completed: 3 }[getHealth(project)] ?? 4);
+const dateValue = (iso) => iso ? new Date(iso).getTime() : 0;
 
 // ── 共用樣式 ─────────────────────────────────────────────
 const inputSt = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: '8px', padding: '8px 12px', fontSize: '15px', color: C.ink, outline: 'none', background: C.white, fontFamily: 'inherit' };
@@ -844,19 +846,21 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
 function ListView({ projects, onOpen, onEdit, onDelete }) {
   const isMobile = useIsMobile();
   return (
-    <div style={{ background: C.surface }}>
-      <div style={{
-        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
-        padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
-        position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
-      }}>
-        {['', '', '專案名稱', '成員', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
-          <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+    <div style={{ padding: isMobile ? '14px' : '20px 24px' }}>
+      <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, overflowX: isMobile ? 'auto' : 'visible', overflowY: 'hidden', boxShadow: C.shadow }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
+          padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
+          position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
+        }}>
+          {['', '', '專案名稱', '成員', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
+            <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+          ))}
+        </div>
+        {projects.map((p, i) => (
+          <ListRow key={p.id} p={p} isLast={i === projects.length - 1} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
         ))}
       </div>
-      {projects.map((p, i) => (
-        <ListRow key={p.id} p={p} isLast={i === projects.length - 1} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
-      ))}
     </div>
   );
 }
@@ -1049,6 +1053,8 @@ export default function ProjectsPage() {
   const [error,         setError]         = useState(null);
   const [activeProject, setActiveProject] = useState(null);
   const [filter,        setFilter]        = useState('all');
+  const [search,        setSearch]        = useState('');
+  const [sortBy,        setSortBy]        = useState('risk');
   const [view,          setView]          = useState('list');  // list|board|calendar
   const [toast,         setToast]         = useState('');
   // 建立流程（2步驟）
@@ -1139,11 +1145,29 @@ export default function ProjectsPage() {
     return <ProjectDetail projectId={activeProject.id} projectName={activeProject.name} onBack={() => { setActiveProject(null); load(); }} />;
   }
 
-  // 篩選
+  // 篩選、搜尋、排序
+  const searchTerm = search.trim().toLowerCase();
   const filtered = projects.filter(p => {
     if (filter === 'all')     return true;
     if (filter === 'at_risk') return ['at_risk', 'off_track'].includes(getHealth(p));
     return p.status === filter;
+  }).filter(p => {
+    if (!searchTerm) return true;
+    const haystack = [
+      p.name,
+      p.description,
+      STATUS[p.status]?.label,
+      HEALTH[getHealth(p)]?.label,
+      p.owner?.name,
+      ...(p.members || []).map(m => m.name),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(searchTerm);
+  }).sort((a, b) => {
+    if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+    if (sortBy === 'progress') return (b.completion || 0) - (a.completion || 0);
+    if (sortBy === 'deadline') return (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity);
+    if (sortBy === 'updated') return dateValue(b.updatedAt || b.createdAt) - dateValue(a.updatedAt || a.createdAt);
+    return riskRank(a) - riskRank(b) || (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity);
   });
 
   // 統計
@@ -1169,6 +1193,20 @@ export default function ProjectsPage() {
     { key: 'calendar', icon: '🗓', label: '日曆' },
   ];
 
+  const SORTS = [
+    { key: 'risk', label: '風險優先' },
+    { key: 'deadline', label: '截止日近到遠' },
+    { key: 'progress', label: '進度高到低' },
+    { key: 'updated', label: '最近更新' },
+    { key: 'name', label: '名稱 A-Z' },
+  ];
+
+  const resetFilters = () => {
+    setFilter('all');
+    setSearch('');
+    setSortBy('risk');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: 'system-ui, -apple-system, sans-serif', background: C.bg }}>
 
@@ -1179,85 +1217,108 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* ── 頁首 ── */}
-      <div style={{ padding: '18px 24px 14px', background: C.surface, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
-        {/* 標題行 */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      {/* ── 頁首：現代化專案工作台 ── */}
+      <div style={{ padding: isMobile ? '14px 14px 12px' : '20px 24px 16px', background: `linear-gradient(135deg, color-mix(in srgb, var(--xc-brand) 12%, ${C.surface}) 0%, ${C.surface} 46%, ${C.surfaceSoft} 100%)`, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(260px, 1fr) auto', gap: 16, alignItems: 'start', marginBottom: 16 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: C.ink }}>專案管理</h1>
-            <p style={{ margin: '3px 0 0', fontSize: '14px', color: C.ink4 }}>
-              How Asana Works · {stats.total} 個專案
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 999, background: 'color-mix(in srgb, var(--xc-brand) 10%, var(--xc-surface))', color: C.brand, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
+              📁 Project Workspace
+            </div>
+            <h1 style={{ margin: 0, fontSize: isMobile ? 24 : 30, fontWeight: 900, letterSpacing: '-0.04em', color: C.ink }}>專案管理</h1>
+            <p style={{ margin: '6px 0 0', fontSize: 14, color: C.ink3, lineHeight: 1.6 }}>
+              集中檢視專案狀態、風險、進度與截止日；可用搜尋、排序與視圖切換快速找到要處理的專案。
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* 封存區切換 */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowArchived(!showArchived)}
               style={{
                 ...btnO,
-                background: showArchived ? 'var(--xc-warning-soft)' : C.white,
+                background: showArchived ? 'var(--xc-warning-soft)' : 'color-mix(in srgb, var(--xc-surface) 82%, transparent)',
                 color: showArchived ? '#A16207' : C.ink2,
                 border: showArchived ? '1px solid #FDE68A' : `1px solid ${C.line}`,
-                display: 'flex', alignItems: 'center', gap: '6px',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                boxShadow: C.shadow,
               }}
             >
-              🗄️ 封存區{showArchived ? '' : ''}
+              🗄️ 封存區
             </button>
-            {/* 新增按鈕 → 直接開空白表單（僅 admin/pm） */}
-            {canCreateProject && <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={btnP}>
+            {canCreateProject && <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={{ ...btnP, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 12, boxShadow: '0 12px 28px color-mix(in srgb, var(--xc-brand) 28%, transparent)' }}>
               ＋ 新增專案
             </button>}
           </div>
         </div>
 
         {/* KPI 統計列 */}
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '8px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
           {[
-            { label: '全部專案', value: stats.total,     bg: C.surfaceMuted, vc: C.ink2,    dot: C.ink3 },
-            { label: '進行中',   value: stats.active,    bg: C.successSoft,  vc: '#15803D', dot: '#16A34A' },
-            { label: '有風險',   value: stats.at_risk,   bg: C.warningSoft,  vc: '#B45309', dot: '#D97706' },
-            { label: '已完成',   value: stats.completed, bg: C.surfaceSoft,  vc: 'var(--xc-text-muted)', dot: '#64748B' },
+            { label: '全部專案', value: stats.total,     bg: C.surface,      vc: C.ink2,    dot: C.ink3, icon: '📁' },
+            { label: '進行中',   value: stats.active,    bg: C.successSoft,  vc: '#15803D', dot: '#16A34A', icon: '▶' },
+            { label: '有風險',   value: stats.at_risk,   bg: C.warningSoft,  vc: '#B45309', dot: '#D97706', icon: '⚠' },
+            { label: '已完成',   value: stats.completed, bg: C.surfaceSoft,  vc: C.ink3,    dot: '#64748B', icon: '✓' },
           ].map(s => (
-            <div key={s.label} style={{ background: s.bg, borderRadius: '10px', padding: '11px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
+            <div key={s.label} style={{ background: s.bg, border: `1px solid ${C.line}`, borderRadius: 16, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: C.shadow }}>
+              <div style={{ width: 34, height: 34, borderRadius: 12, background: s.dot, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, flexShrink: 0 }}>{s.icon}</div>
               <div>
-                <div style={{ fontSize: '23px', fontWeight: '800', color: s.vc, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: '12px', color: C.ink4, marginTop: '2px' }}>{s.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: s.vc, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: C.ink4, marginTop: 3, fontWeight: 700 }}>{s.label}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* 篩選 + 視圖切換 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ display: 'flex', gap: '4px', flex: 1, flexWrap: 'wrap' }}>
+        {/* 搜尋、排序、篩選 + 視圖切換 */}
+        <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, padding: 10, boxShadow: C.shadow }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(240px, 1fr) 180px auto', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.ink4, fontSize: 15 }}>🔎</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜尋專案、成員、狀態或說明..."
+                style={{ ...inputSt, paddingLeft: 36, height: 40, borderRadius: 12, background: C.surfaceSoft }}
+              />
+            </div>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} style={{ ...inputSt, height: 40, borderRadius: 12, background: C.surfaceSoft }}>
+              {SORTS.map(option => <option key={option.key} value={option.key}>排序：{option.label}</option>)}
+            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+              <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {stats.total}</span>
+              {(filter !== 'all' || search || sortBy !== 'risk') && (
+                <button type="button" onClick={resetFilters} style={{ ...btnO, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
+                  重置
+                </button>
+              )}
+              <div style={{ display: 'flex', background: C.lineL, borderRadius: 10, padding: 3, gap: 2 }}>
+                {VIEWS.map(v => (
+                  <button key={v.key} onClick={() => setView(v.key)} title={v.label} style={{
+                    padding: '7px 11px', borderRadius: 8, border: 'none',
+                    background: view === v.key ? C.surface : 'transparent',
+                    color: view === v.key ? C.ink : C.ink4, cursor: 'pointer',
+                    fontSize: 15,
+                    boxShadow: view === v.key ? C.shadow : 'none',
+                    transition: 'all 0.15s', fontFamily: 'inherit',
+                  }}>{v.icon}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                background: filter === f.key ? 'var(--xc-text)' : C.surface,
+                background: filter === f.key ? 'var(--xc-text)' : C.surfaceSoft,
                 color: filter === f.key ? 'var(--xc-bg)' : C.ink2,
                 border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
-                borderRadius: '99px', padding: '5px 13px',
-                fontSize: '14px', fontWeight: '500', cursor: 'pointer',
+                borderRadius: 999, padding: '6px 12px',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 transition: 'all 0.15s', fontFamily: 'inherit',
               }}>
                 {f.label}
-                <span style={{ marginLeft: '5px', fontSize: '12px', background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.lineL, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: '99px', padding: '1px 6px' }}>
+                <span style={{ marginLeft: 6, fontSize: 12, background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.surfaceMuted, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
                   {f.count}
                 </span>
               </button>
-            ))}
-          </div>
-          {/* 視圖切換 */}
-          <div style={{ display: 'flex', background: C.lineL, borderRadius: '8px', padding: '3px', gap: '2px' }}>
-            {VIEWS.map(v => (
-              <button key={v.key} onClick={() => setView(v.key)} title={v.label} style={{
-                padding: '5px 11px', borderRadius: '6px', border: 'none',
-                background: view === v.key ? C.surface : 'transparent',
-                color: view === v.key ? C.ink : C.ink4, cursor: 'pointer',
-                fontSize: '16px',
-                boxShadow: view === v.key ? C.shadow : 'none',
-                transition: 'all 0.15s', fontFamily: 'inherit',
-              }}>{v.icon}</button>
             ))}
           </div>
         </div>
