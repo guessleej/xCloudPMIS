@@ -23,6 +23,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyb
 import { CSS } from '@dnd-kit/utilities';
 import TaskDetailPanel from './TaskDetailPanel';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useIsMobile } from '../../hooks/useResponsive';
 
 // ── 常數 ─────────────────────────────────────────────────────
@@ -1045,7 +1046,7 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
         overflow: 'auto', padding: 28,
         boxShadow: '0 20px 60px rgba(0,0,0,.25)',
       }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ margin: '0 0 20px', fontSize: '17px', color: BRAND.ink }}>✏️ 新增任務</h2>
+        <h2 style={{ margin: '0 0 20px', fontSize: '17px', color: BRAND.ink }}>新增任務</h2>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
@@ -1312,6 +1313,7 @@ export function TaskSidePanel({
   const [subtaskRefreshKey, setSubtaskRefreshKey] = useState(0);
 
   const activity = buildTaskActivity(task, comments, activityLogs, users);
+  const { isAdminOrPm } = usePermissions();
 
   const reloadActivityLogs = useCallback(async () => {
     if (!authFetch || !task.id) return;
@@ -1581,21 +1583,21 @@ export function TaskSidePanel({
       customFields={customFieldDefinitions}
       lockedProjectIds={currentProject ? [currentProject.id] : []}
       onClose={onClose}
-      onSave={handleSave}
-      onDelete={() => onDeleteRequest(task)}
-      onQuickAddSubtask={handleQuickAddSubtask}
+      onSave={isAdminOrPm ? handleSave : async () => {}}
+      onDelete={isAdminOrPm ? () => onDeleteRequest(task) : undefined}
+      onQuickAddSubtask={isAdminOrPm ? handleQuickAddSubtask : undefined}
       onAddComment={handleAddComment}
       commentSaving={commentSaving}
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
-      onUpdateSubtask={handleUpdateSubtask}
-      onDeleteSubtask={handleDeleteSubtask}
+      onUpdateSubtask={isAdminOrPm ? handleUpdateSubtask : undefined}
+      onDeleteSubtask={isAdminOrPm ? handleDeleteSubtask : undefined}
       checklistItems={checklistItems}
       checklistLoading={checklistLoading}
-      onAddChecklistItem={handleAddChecklistItem}
+      onAddChecklistItem={isAdminOrPm ? handleAddChecklistItem : undefined}
       onToggleChecklistItem={handleToggleChecklistItem}
-      onUpdateChecklistItem={handleUpdateChecklistItem}
-      onDeleteChecklistItem={handleDeleteChecklistItem}
+      onUpdateChecklistItem={isAdminOrPm ? handleUpdateChecklistItem : undefined}
+      onDeleteChecklistItem={isAdminOrPm ? handleDeleteChecklistItem : undefined}
       onApprovalAction={handleApprovalAction}
     />
   );

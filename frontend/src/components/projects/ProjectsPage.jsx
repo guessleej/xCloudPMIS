@@ -368,6 +368,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
       startDate:   project?.startDate   ? project.startDate.slice(0, 10) : '',
       endDate:     project?.endDate     ? project.endDate.slice(0, 10)   : '',
       memberIds:   initMemberIds(),
+      ownerId:     project?.owner?.id || project?.ownerId || project?.createdById || (!isEdit ? user?.id : null) || (project?.members?.[0]?.id ?? null),
       colorId:     defColor,
     };
   };
@@ -453,7 +454,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
       const payload = {
         ...form,
         companyId: COMPANY_ID,
-        ownerId: form.memberIds.length > 0 ? form.memberIds[0] : null,
+        ownerId: form.ownerId || null,
         memberIds: form.memberIds,
       };
       const res  = await authFetch(url, {
@@ -485,7 +486,6 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
         <div style={{ padding: isMobile ? '14px 16px 12px' : '24px 28px 28px' }}>
           {/* 標題 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '30px' }}>{template?.icon || '📁'}</div>
             <div>
               <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: C.ink }}>
                 {isEdit ? '編輯專案' : template?.name || '新專案'}
@@ -622,6 +622,19 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               />
             </div>
 
+            {/* 負責人 */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>負責人</label>
+              <select
+                value={form.ownerId || ''}
+                onChange={e => set('ownerId', e.target.value ? Number(e.target.value) : null)}
+                style={inputSt}
+              >
+                <option value=''>— 未指派 —</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+
             {/* 2欄：成員指派 + 狀態 */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
               <div ref={memberRef} style={{ position: 'relative' }}>
@@ -637,22 +650,21 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
                     padding: '4px 10px',
                   }}
                 >
-                  {form.memberIds.length === 0 && (
+                  {form.memberIds.filter(uid => uid !== form.ownerId && uid !== Number(form.ownerId)).length === 0 && (
                     <span style={{ color: C.ink4, fontSize: '14px', lineHeight: '28px' }}>— 點擊指派成員 —</span>
                   )}
-                  {form.memberIds.map((uid, idx) => {
+                  {form.memberIds.filter(uid => uid !== form.ownerId && uid !== Number(form.ownerId)).map((uid) => {
                     const u = users.find(x => x.id === uid);
                     if (!u) return null;
                     return (
                       <span key={uid} style={{
                         display: 'inline-flex', alignItems: 'center', gap: '4px',
-                        background: idx === 0 ? `${pal.hex}18` : C.surfaceSoft,
-                        border: `1px solid ${idx === 0 ? `${pal.hex}40` : C.line}`,
+                        background: C.surfaceSoft,
+                        border: `1px solid ${C.line}`,
                         borderRadius: '99px', padding: '2px 8px 2px 4px', fontSize: '13px', fontWeight: '500', color: C.ink,
                       }}>
-                        <Avatar name={u.name} size={20} color={idx === 0 ? pal.hex : C.brand} />
+                        <Avatar name={u.name} size={20} color={C.brand} />
                         {u.name}
-                        {idx === 0 && <span style={{ fontSize: '10px', color: pal.hex, fontWeight: '700', marginLeft: '2px' }}>主</span>}
                         <span
                           onClick={e => { e.stopPropagation(); toggleMember(uid); }}
                           style={{ cursor: 'pointer', marginLeft: '2px', color: C.ink4, fontWeight: '700', fontSize: '14px', lineHeight: 1 }}
@@ -730,7 +742,7 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
             {template?.sections?.length > 0 && !isEdit && (
               <div style={{ background: `${pal.hex}0D`, border: `1px solid ${pal.hex}30`, borderRadius: '10px', padding: '12px 14px', marginBottom: '18px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: pal.hex, marginBottom: '8px' }}>
-                  📋 範本將自動建立以下分節
+                  範本將自動建立以下分節
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                   {template.sections.map((s, i) => (
@@ -742,12 +754,12 @@ function ProjectFormModal({ users, project, template, onClose, onSaved }) {
               </div>
             )}
 
-            {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', marginBottom: '14px' }}>⚠️ {error}</div>}
+            {error && <div style={{ background: C.dangerSoft, color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '15px', marginBottom: '14px' }}>{error}</div>}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button type="button" onClick={handleClose} style={btnO}>取消</button>
               <button type="submit" disabled={saving} style={{ ...btnP, background: pal.hex, opacity: saving ? 0.6 : 1 }}>
-                {saving ? (isEdit ? '儲存中…' : '建立中…') : (isEdit ? '💾 儲存變更' : '🚀 建立專案')}
+                {saving ? (isEdit ? '儲存中…' : '建立中…') : (isEdit ? '儲存變更' : '建立專案')}
               </button>
             </div>
           </form>
@@ -1058,7 +1070,7 @@ function CalendarView({ projects }) {
 // ══════════════════════════════════════════════════════════════
 // 主元件：ProjectsPage
 // ══════════════════════════════════════════════════════════════
-export default function ProjectsPage() {
+export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專案管理', pageSubtitle = '集中檢視專案狀態、風險、進度與截止日；可用搜尋、排序與視圖切換快速找到要處理的專案。' }) {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const { canCreateProject, canEditProjectRecord, canDeleteProjectRecord, canPermanentDelete } = usePermissions();
@@ -1069,7 +1081,7 @@ export default function ProjectsPage() {
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(null);
   const [activeProject, setActiveProject] = useState(null);
-  const [filter,        setFilter]        = useState('all');
+  const [filter,        setFilter]        = useState(initialFilter);
   const [search,        setSearch]        = useState('');
   const [sortBy,        setSortBy]        = useState('risk');
   const [view,          setView]          = useState('list');  // list|board|calendar
@@ -1161,6 +1173,7 @@ export default function ProjectsPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (showArchived) loadArchived(); }, [showArchived, loadArchived]);
+  useEffect(() => { setFilter(initialFilter); }, [initialFilter]);
 
   const onCreated  = (saved) => { setSelectedTpl(null); load(); showToast('✅ 專案已建立'); };
   const onEdited   = (upd)   => { setEditProject(null); setProjects(prev => prev.map(p => p.id !== upd.id ? p : { ...p, ...upd })); showToast('✅ 已更新'); };
@@ -1197,9 +1210,13 @@ export default function ProjectsPage() {
     return haystack.includes(searchTerm);
   };
   const matchesProjectFilter = (p, key = filter) => {
+    const currentUserId = Number(user?.id);
+    const isCreatedByMe = Number(p.createdById) === currentUserId;
+    const isAssignedToMe = Number(p.owner?.id ?? p.ownerId) === currentUserId || (p.members || []).some(m => Number(m.id) === currentUserId);
     if (key === 'all') return true;
     if (key === 'attention') return isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p));
-    if (key === 'mine') return p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id);
+    if (key === 'mine') return isCreatedByMe;
+    if (key === 'assigned') return !isCreatedByMe && isAssignedToMe;
     return p.status === key;
   };
   const searchedProjects = projects.filter(matchesSearch);
@@ -1228,6 +1245,7 @@ export default function ProjectsPage() {
     { key: 'all',       label: '全部' },
     { key: 'attention', label: '需處理' },
     { key: 'mine',      label: '我的專案' },
+    { key: 'assigned',  label: '被指派' },
     { key: 'active',    label: '進行中' },
     { key: 'planning',  label: '規劃中' },
     { key: 'completed', label: '已完成' },
@@ -1248,7 +1266,7 @@ export default function ProjectsPage() {
   ];
 
   const resetFilters = () => {
-    setFilter('all');
+    setFilter(initialFilter);
     setSearch('');
     setSortBy('risk');
   };
@@ -1270,9 +1288,9 @@ export default function ProjectsPage() {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 999, background: 'color-mix(in srgb, var(--xc-brand) 10%, var(--xc-surface))', color: C.brand, fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
               📁 Project Workspace
             </div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? 24 : 30, fontWeight: 900, letterSpacing: '-0.04em', color: C.ink }}>專案管理</h1>
+            <h1 style={{ margin: 0, fontSize: isMobile ? 24 : 30, fontWeight: 900, letterSpacing: '-0.04em', color: C.ink }}>{pageTitle}</h1>
             <p style={{ margin: '6px 0 0', fontSize: 14, color: C.ink3, lineHeight: 1.6 }}>
-              集中檢視專案狀態、風險、進度與截止日；可用搜尋、排序與視圖切換快速找到要處理的專案。
+              {pageSubtitle}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
@@ -1330,7 +1348,7 @@ export default function ProjectsPage() {
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
               <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {stats.total}</span>
-              {(filter !== 'all' || search || sortBy !== 'risk') && (
+              {(filter !== initialFilter || search || sortBy !== 'risk') && (
                 <button type="button" onClick={resetFilters} style={{ ...btnO, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
                   重置
                 </button>

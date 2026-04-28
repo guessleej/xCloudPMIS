@@ -396,18 +396,25 @@ router.get('/', async (req, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
     const deletedFilter  = onlyDeleted ? { not: null } : includeDeleted ? undefined : null;
 
-    // 支援 ?mine=true → 僅回傳自己擁有或參與的專案
+    // 支援 ?mine=true → 僅回傳自己建立的專案
+    // 支援 ?assigned=true → 僅回傳不是自己建立、但自己是負責人或成員的專案
     const mine = req.query.mine === 'true';
+    const assigned = req.query.assigned === 'true';
     const userId = req.user?.id || req.user?.userId;
-    const mineFilter = mine && userId ? {
-      OR: [
-        { ownerId: parseInt(userId) },
-        { members: { some: { userId: parseInt(userId) } } },
+    const uid = userId ? parseInt(userId) : null;
+    const mineFilter = mine && uid ? { createdById: uid } : {};
+    const assignedFilter = assigned && uid ? {
+      AND: [
+        { OR: [{ createdById: { not: uid } }, { createdById: null }] },
+        { OR: [
+          { ownerId: uid },
+          { members: { some: { userId: uid } } },
+        ] },
       ],
     } : {};
 
     const projects = await prisma.project.findMany({
-      where:   { companyId, ...mineFilter, ...(deletedFilter !== undefined ? { deletedAt: deletedFilter } : {}) },
+      where:   { companyId, ...mineFilter, ...assignedFilter, ...(deletedFilter !== undefined ? { deletedAt: deletedFilter } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
         owner: { select: { id: true, name: true } },

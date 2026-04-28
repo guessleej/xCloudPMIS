@@ -180,7 +180,7 @@ function MoreMenu({ onWeeklyReport, onRemove }) {
             width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
             background: 'transparent', textAlign: 'left', fontSize: 14,
             color: 'var(--xc-text)',
-          }}>📝 填寫週報</button>
+          }}>填寫週報</button>
           <button onClick={() => { onRemove(); setOpen(false); }} style={{
             width: '100%', padding: '9px 14px', border: 'none', cursor: 'pointer',
             background: 'transparent', textAlign: 'left', fontSize: 14,
@@ -210,7 +210,7 @@ function WeeklyReportModal({ project, onClose, onSave }) {
         <style>{`@keyframes modalIn { from { opacity:0; transform: translate(-50%,-50%) scale(.95); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }`}</style>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>📝 本週狀態更新</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>本週狀態更新</div>
             <div style={{ fontSize: 14, color: 'var(--xc-text-muted)', marginTop: 2 }}>{project.name}</div>
           </div>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 16, color: 'var(--xc-text-soft)' }}>✕</button>
@@ -281,7 +281,7 @@ function CreatePortfolioModal({ onClose, onCreate, allProjects }) {
         animation: 'modalIn .2s ease',
       }}>
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--xc-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>➕ 新增組合</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>新增組合</div>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: 'var(--xc-surface-strong)', cursor: 'pointer', fontSize: 16, color: 'var(--xc-text-soft)' }}>✕</button>
         </div>
 
@@ -582,7 +582,7 @@ export default function PortfoliosPage({ onNavigate }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '28px 32px' }}>
         {!active ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
-            <div style={{ fontSize: 50 }}>📁</div>
+            <div style={{ fontSize: 50, color: 'var(--xc-text-muted)' }}>📁</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--xc-text)' }}>
               {portfolios.length === 0 ? '建立你的第一個組合' : '選擇一個組合'}
             </div>

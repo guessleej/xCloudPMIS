@@ -86,6 +86,7 @@ const PAGE_TITLES = {
   inbox:           { title: '收件匣',      sub: '通知 · @提及 · 任務指派' },
   'my-tasks':      { title: '我的任務',    sub: '個人任務總覽 · 跨專案統一檢視' },
   projects:        { title: '專案',        sub: '管理所有進行中的專案' },
+  'my-projects':   { title: '我的專案',    sub: '由我建立的專案' },
   tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤' },
   gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
   analytics:       { title: '分析總覽',    sub: 'KPI 圖表 · 趨勢 · 健康狀態' },
@@ -119,7 +120,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 
 // ── 全部有效路由 ──────────────────────────────────────────────
 const ALL_NAV_IDS = [
-  'home','inbox','my-tasks','projects','tasks','gantt','calendar',
+  'home','inbox','my-tasks','projects','my-projects','tasks','gantt','calendar',
   'analytics','reports','portfolios','goals','workload',
   'rules','forms','custom-fields',
   'time','team','settings','user-management','profile',
@@ -434,14 +435,14 @@ function TopNavBar({
   const NAV_DROPS = [
     { groupId: 'insights', label: '解析', icon: Ic.analytics, items: [
       { navId: 'analytics',  label: '分析總覽', icon: Ic.analytics },
-      { navId: 'reports',    label: '報告',     icon: Ic.reports },
+      ...(currentUser?.role !== 'member' ? [{ navId: 'reports', label: '報告', icon: Ic.reports }] : []),
       { navId: 'portfolios', label: '專案集',   icon: Ic.portfolios },
       { navId: 'goals',      label: '目標',     icon: Ic.goals },
       { navId: 'workload',   label: '工作負載', icon: Ic.workload },
     ]},
     { groupId: 'projects', label: '專案', icon: Ic.projects, items: [
       { navId: 'projects', label: '所有專案', icon: Ic.projects },
-      { navId: 'tasks',    label: '任務看板', icon: Ic.tasks },
+      { navId: 'my-projects', label: '我的專案', icon: Ic.tasks },
       { navId: 'gantt',    label: '時程規劃', icon: Ic.gantt },
       { navId: 'calendar', label: '行事曆',   icon: Ic.gantt },
     ], showProjects: true },
@@ -841,7 +842,7 @@ function TopNavBar({
           <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
           <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>深入解析</div>
           <NavItem id="analytics"  icon={Ic.analytics}  label="分析總覽" active={active} onClick={mobileNav} indent />
-          <NavItem id="reports"    icon={Ic.reports}    label="報告"     active={active} onClick={mobileNav} indent />
+          {currentUser?.role !== 'member' && <NavItem id="reports"    icon={Ic.reports}    label="報告"     active={active} onClick={mobileNav} indent />}
           <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"   active={active} onClick={mobileNav} indent />
           <NavItem id="goals"      icon={Ic.goals}      label="目標"     active={active} onClick={mobileNav} indent />
           <NavItem id="workload"   icon={Ic.workload}   label="工作負載" active={active} onClick={mobileNav} indent />
@@ -849,7 +850,7 @@ function TopNavBar({
           <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
           <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>專案</div>
           <NavItem id="projects" icon={Ic.projects} label="所有專案" active={active} onClick={mobileNav} indent />
-          <NavItem id="tasks"    icon={Ic.tasks}    label="任務看板" active={active} onClick={mobileNav} indent />
+          <NavItem id="my-projects" icon={Ic.tasks} label="我的專案" active={active} onClick={mobileNav} indent />
           <NavItem id="gantt"    icon={Ic.gantt}    label="時程規劃" active={active} onClick={mobileNav} indent />
           {apiProjects.map(p => (
             <button
@@ -2665,6 +2666,7 @@ export default function Dashboard() {
     if (activeNav === 'my-tasks')      return <MyTasksPage />;
     if (activeNav === 'project-detail' && navState?.projectId) return <ProjectDetail projectId={navState.projectId} projectName={navState.projectName || ''} onBack={() => navigate('projects')} />;
     if (activeNav === 'projects')      return <ProjectsPage />;
+    if (activeNav === 'my-projects')   return <ProjectsPage initialFilter="mine" pageTitle="我的專案" pageSubtitle="只顯示建立者是你的專案。" />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
     if (activeNav === 'rules')         return <RulesPage />;

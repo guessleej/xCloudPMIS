@@ -10,24 +10,27 @@
  *
  * 角色層級（高→低）：admin > pm > member
  *
- * ┌──────────────────┬───────┬──────┬────────┐
- * │ 功能             │ admin │  pm  │ member │
- * ├──────────────────┼───────┼──────┼────────┤
- * │ 建立專案          │  ✓    │  ✓   │   ✓    │
- * │ 編輯/刪除專案     │  ✓    │  ✓   │ 自己的 │
- * │ 永久刪除專案      │  ✓    │  ✗   │   ✗    │
- * │ 管理規則          │  ✓    │  ✓   │   ✗    │
- * │ 管理自訂欄位      │  ✓    │  ✓   │   ✗    │
- * │ 管理表單          │  ✓    │  ✓   │   ✗    │
- * │ 管理組合          │  ✓    │  ✓   │   ✗    │
- * │ 管理 OKR 目標     │  ✓    │  ✓   │   ✗    │
- * │ 變更團隊角色      │  ✓    │  ✗   │   ✗    │
- * │ 編輯團隊成員      │  ✓    │  ✓   │   ✗    │
- * │ 停用/啟用成員     │  ✓    │  ✗   │   ✗    │
- * │ 提交表單          │  ✓    │  ✓   │   ✓    │
- * │ 任務 CRUD         │  ✓    │  ✓   │   ✓    │
- * │ 檢視報表          │  ✓    │  ✓   │   ✓    │
- * └──────────────────┴───────┴──────┴────────┘
+ * ┌────────────────────────┬───────┬────────┬────────┐
+ * │ 功能                   │ admin │   pm   │ member │
+ * ├────────────────────────┼───────┼────────┼────────┤
+ * │ 建立專案              │  ✓    │   ✓    │   ✓    │
+ * │ 編輯專案              │  ✓    │ 自己的 │ 自己的 │
+ * │ 刪除專案              │  ✓    │ 自己的 │ 自己的 │
+ * │ 永久刪除專案         │  ✓    │   ✗    │   ✗    │
+ * │ 管理專案成員          │  ✓    │ 自己的 │   ✗    │
+ * │ 管理規則              │  ✓    │   ✓    │   ✗    │
+ * │ 管理自訂欄位         │  ✓    │   ✓    │   ✗    │
+ * │ 管理表單              │  ✓    │   ✓    │   ✗    │
+ * │ 管理組合              │  ✓    │   ✓    │   ✗    │
+ * │ 管理 OKR 目標        │  ✓    │   ✓    │   ✗    │
+ * │ 變更團隊角色         │  ✓    │   ✗    │   ✗    │
+ * │ 編輯團隊成員         │  ✓    │   ✓    │   ✗    │
+ * │ 停用/啟用成員        │  ✓    │   ✗    │   ✗    │
+ * │ 提交表單              │  ✓    │   ✓    │   ✓    │
+ * │ 建立/編輯/刪除任務    │  ✓    │   ✓    │   ✗    │
+ * │ 完成任務/留言           │  ✓    │   ✓    │   ✓    │
+ * │ 檢視報表（自己專案）     │  ✓    │   ✓    │   ✗    │
+ * └────────────────────────┴───────┴────────┴────────┘
  */
 import { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -60,9 +63,10 @@ export function usePermissions() {
 
       // ── 專案 ────────────────────────────
       canCreateProject:    true,
-      canDeleteProject:    isAdminOrPm,
-      canEditProjectRecord:   (project) => isAdminOrPm || isOwnProject(project),
-      canDeleteProjectRecord: (project) => isAdminOrPm || isOwnProject(project),
+      canDeleteProject:    isAdminOrPm,    // 顯示删除入口（实際是否可删由 canDeleteProjectRecord 控制）
+      canEditProjectRecord:   (project) => isAdmin || isOwnProject(project),   // 僅限 admin 或自己的專案
+      canDeleteProjectRecord: (project) => isAdmin || isOwnProject(project),  // 僅限 admin 或自己的專案
+      canManageProjectMembers:(project) => isAdmin || isOwnProject(project),  // 補充成員/PM 管理專案成員
       canPermanentDelete:  isAdmin,        // 永久刪除僅限 admin
 
       // ── 自動化規則 ──────────────────────
@@ -86,11 +90,25 @@ export function usePermissions() {
       canManageTeamRoles:  isAdmin,        // 變更角色（僅 admin）
       canToggleActive:     isAdmin,        // 停用/啟用帳號（僅 admin）
 
-      // ── 任務（所有角色） ────────────────
-      canManageTasks:      true,
+      // ── 任務 ─────────────────────────────
+      canManageTasks:         isAdminOrPm,    // 建立/編輯/刪除（admin/pm）
+      canCreateTask:          isAdminOrPm,
+      canEditTask:            isAdminOrPm,
+      canDeleteTask:          isAdminOrPm,
+      canCompleteTask:        true,            // 所有角色可完成任務
+      canCommentTask:         true,            // 所有角色可留言
+      canAddChecklistItem:    isAdminOrPm,
+      canEditChecklistItem:   isAdminOrPm,
+      canDeleteChecklistItem: isAdminOrPm,
+      canToggleChecklistItem: true,            // 所有角色可勾選待辦
+      canAddSubtask:          isAdminOrPm,
+      canEditSubtask:         isAdminOrPm,
+      canDeleteSubtask:       isAdminOrPm,
+      canToggleSubtask:       true,            // 所有角色可完成子任務
 
-      // ── 報表（所有角色） ────────────────
-      canViewReports:      true,
+      // ── 報表 ────────────────────────────
+      canViewReports:         isAdminOrPm,  // admin 全部；pm 限自己的專案（配合 canViewOwnReportsOnly）
+      canViewOwnReportsOnly:  isPm,         // true 時報表頁僅顯示本人擁有的專案
     };
   }, [user?.role, user?.id, user?.userId]);
 }

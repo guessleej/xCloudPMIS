@@ -479,8 +479,9 @@ const HELP_DATA = [
         icon: '🔧',
         items: [
           { label: '開啟詳情', desc: '點擊專案名稱列可跳轉至專案詳情頁，查看所有任務、里程碑與統計。' },
-          { label: '編輯專案', desc: '滑鼠移至專案列，右側出現「編輯」按鈕，可修改名稱、截止日、負責人等基本資訊。' },
-          { label: '刪除專案', desc: '點擊「刪除」按鈕後需確認。系統執行軟刪除，專案資料不會永久消失，管理員可從後台復原。' },
+          { label: '編輯專案', desc: '滑鼠移至專案列，右側出現「編輯」按鈕，可修改名稱、截止日、負責人等基本資訊。權限：admin 全部；PM 僅限自己建立的專案。' },
+          { label: '專案成員管理', desc: '在專案詳情頁頂部標題列右側，顯示所有成員的頭像 pill。admin 與專案擁有者（PM）可點「＋ 加入成員」新增成員，或點擊 pill 上的 × 移除成員。' },
+          { label: '刪除專案', desc: '點擊「刪除」按鈕後需確認。系統執行軟刪除，專案資料不會永久消失，管理員可從後台復原。權限：admin 全部；PM 僅限自己建立的專案。' },
         ],
       },
     ],
@@ -863,36 +864,44 @@ const HELP_DATA = [
         title: '專案經理（PM）',
         icon: '📋',
         items: [
-          { label: '專案與任務管理', desc: '可建立與管理專案、新增/編輯/刪除任務、指派任務給成員、管理里程碑。' },
-          { label: '團隊協作', desc: '可查看工作負載、調整任務分配，以及查看所有成員參與的專案。' },
-          { label: '不可使用', desc: '無法管理成員帳號（邀請/角色變更）、無法修改系統層級設定。' },
+          { label: '僅限自己的專案', desc: 'PM 只能編輯、刪除、管理「自己建立」的專案（ownerId / createdById = 當前帳號），其他人的專案僅可讀取。' },
+          { label: '任務管理', desc: '在自己的專案內可新增、編輯、刪除任務，以及指派任務給成員、管理子任務與待辦清單。' },
+          { label: '專案成員管理', desc: '在自己的專案詳情頁，可透過「＋ 加入成員」按鈕新增成員，或點擊成員 pill 上的 × 移除成員。' },
+          { label: '報告（自己的專案）', desc: '可進入報告頁，但「所屬專案」篩選僅列出本人負責的專案，不顯示其他人的資料。' },
+          { label: '多專案組合', desc: '可建立、管理與刪除多專案組合（Portfolio），以及填寫專案週報、切換健康度。' },
+          { label: '不可使用', desc: '無法管理成員帳號（邀請/角色變更）、無法永久刪除專案、無法修改系統層級設定。' },
         ],
       },
       {
         title: '一般成員（Member）',
         icon: '👤',
         items: [
-          { label: '專案與任務', desc: '可建立新專案、編輯/封存自己建立或負責的專案，並可新增/編輯任務與查看被加入的所有專案。' },
-          { label: '我的任務', desc: '可在「我的任務」中管理個人任務清單、調整排序、更新進度與狀態。' },
+          { label: '查看與參與', desc: '可查看被加入的所有專案及其任務，但無法建立、編輯或刪除任務。' },
+          { label: '完成任務', desc: '可將自己負責的任務標記為完成（推進狀態），勾選子任務與待辦事項。' },
+          { label: '留言與協作', desc: '可在任意任務中留言、@提及成員、查看活動紀錄。' },
+          { label: '我的任務', desc: '可在「我的任務」中查看指派給自己的任務清單、調整排序、更新進度。' },
           { label: '工時記錄', desc: '可對自己被指派的任務記錄工時、編輯自己的工時紀錄。' },
-          { label: '收件匣與通知', desc: '可接收並管理個人通知、回覆討論串、標記已讀。' },
-          { label: '不可使用', desc: '無法管理成員帳號（邀請/停用）、無法修改系統設定。' },
+          { label: '不可使用', desc: '無法建立/編輯/刪除任務、無法查看報告、無法管理專案成員、無法管理成員帳號或修改系統設定。' },
         ],
       },
       {
         title: '功能權限對照表',
         icon: '📋',
+        tableMode: true,
         items: [
-          { label: '建立專案', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅' },
-          { label: '編輯/刪除專案', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅（僅自己的）' },
-          { label: '建立/編輯任務', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅' },
-          { label: '指派任務給他人', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅' },
-          { label: '管理成員帳號', desc: '管理員 ✅ ｜ PM ❌ ｜ 成員 ❌' },
-          { label: '系統與工作區設定', desc: '管理員 ✅ ｜ PM ❌ ｜ 成員 ❌' },
-          { label: '自訂欄位管理', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ❌' },
-          { label: '自動化規則', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ❌' },
-          { label: '工時記錄', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅' },
-          { label: '查看報告', desc: '管理員 ✅ ｜ PM ✅ ｜ 成員 ✅' },
+          { label: '建立專案',                   cols: ['✅', '✅', '✅'] },
+          { label: '編輯 / 刪除專案',            cols: ['✅ 全部', '✅ 僅自己的', '❌'] },
+          { label: '永久刪除專案',              cols: ['✅', '❌', '❌'] },
+          { label: '管理專案成員',              cols: ['✅ 全部', '✅ 僅自己的', '❌'] },
+          { label: '建立 / 編輯 / 刪除任務',   cols: ['✅', '✅', '❌'] },
+          { label: '完成任務 / 勾選待辦',     cols: ['✅', '✅', '✅'] },
+          { label: '任務留言',                   cols: ['✅', '✅', '✅'] },
+          { label: '查看報告',                   cols: ['✅ 全公司', '✅ 僅自己的', '❌'] },
+          { label: '多專案組合（Portfolio）', cols: ['✅', '✅', '❌'] },
+          { label: '自動化規則 / 自訂欄位',   cols: ['✅', '✅', '❌'] },
+          { label: '工時記錄',                   cols: ['✅', '✅', '✅'] },
+          { label: '管理成員帳號',              cols: ['✅', '❌', '❌'] },
+          { label: '系統與工作區設定',        cols: ['✅', '❌', '❌'] },
         ],
       },
       {
@@ -906,7 +915,8 @@ const HELP_DATA = [
       },
     ],
     tips: [
-      '建議設定 1–2 位管理員，對需要跨專案管理的人指派 PM 角色，其餘使用成員角色即可，避免誤改系統設定。',
+      '建議設定 1–2 位管理員，對需要跨專案管理的人指派 PM 角色。PM 僅能操作自己建立的專案，其餘用成員角色即可。',
+      '成員無法建立任務，但可完成任務、勾選待辦事項與留言，PM 可指派具體工作給成員執行。',
       '管理員可在「權限管理」頁面隨時調整角色，角色變更即時生效。',
     ],
   },
@@ -1115,32 +1125,63 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                       border: '1px solid var(--xc-border)', borderTop: 'none',
                       borderRadius: '0 0 10px 10px', overflow: 'hidden',
                     }}>
-                      {section.items.map((item, ii) => (
-                        <div
-                          key={ii}
-                          style={{
-                            padding: '11px 16px',
-                            borderBottom: ii < section.items.length - 1 ? '1px solid var(--xc-border)' : 'none',
-                            display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12,
-                            alignItems: 'start',
-                            background: ii % 2 === 0 ? 'var(--xc-surface)' : 'var(--xc-surface-soft)',
-                          }}
-                        >
+                      {section.tableMode ? (
+                        <>
+                          {/* 表頭 */}
                           <div style={{
-                            fontSize: 14, fontWeight: 700,
-                            color: 'var(--xc-text)',
-                            paddingTop: 1,
+                            display: 'grid', gridTemplateColumns: '1fr 72px 72px 60px',
+                            gap: 0, padding: '8px 16px',
+                            background: 'var(--xc-surface-muted)',
+                            borderBottom: '1px solid var(--xc-border)',
                           }}>
-                            {item.label}
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)' }}>功能</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)', textAlign: 'center' }}>管理員</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)', textAlign: 'center' }}>PM</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)', textAlign: 'center' }}>成員</div>
                           </div>
-                          <div style={{
-                            fontSize: 14, color: 'var(--xc-text-soft)',
-                            lineHeight: 1.6,
-                          }}>
-                            {item.desc}
+                          {section.items.map((item, ii) => (
+                            <div key={ii} style={{
+                              display: 'grid', gridTemplateColumns: '1fr 72px 72px 60px',
+                              gap: 0, padding: '9px 16px',
+                              borderBottom: ii < section.items.length - 1 ? '1px solid var(--xc-border)' : 'none',
+                              background: ii % 2 === 0 ? 'var(--xc-surface)' : 'var(--xc-surface-soft)',
+                              alignItems: 'center',
+                            }}>
+                              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--xc-text)' }}>{item.label}</div>
+                              {(item.cols || []).map((col, ci) => {
+                                const [icon, note] = col.split(' ');
+                                const isOk = icon === '✅';
+                                return (
+                                  <div key={ci} style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                    <span style={{ fontSize: 15 }}>{icon}</span>
+                                    {note && <span style={{ fontSize: 10, fontWeight: 600, color: isOk ? 'var(--xc-brand)' : 'var(--xc-text-muted)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{note}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        section.items.map((item, ii) => (
+                          <div
+                            key={ii}
+                            style={{
+                              padding: '11px 16px',
+                              borderBottom: ii < section.items.length - 1 ? '1px solid var(--xc-border)' : 'none',
+                              display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12,
+                              alignItems: 'start',
+                              background: ii % 2 === 0 ? 'var(--xc-surface)' : 'var(--xc-surface-soft)',
+                            }}
+                          >
+                            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--xc-text)', paddingTop: 1 }}>
+                              {item.label}
+                            </div>
+                            <div style={{ fontSize: 14, color: 'var(--xc-text-soft)', lineHeight: 1.6 }}>
+                              {item.desc}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   )}
                 </div>

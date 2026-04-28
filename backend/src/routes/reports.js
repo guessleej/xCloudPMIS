@@ -799,7 +799,7 @@ router.get('/filter-options', async (req, res) => {
     const [projects, users] = await Promise.all([
       prisma.project.findMany({
         where: { companyId, deletedAt: null },
-        select: { id: true, name: true, status: true },
+        select: { id: true, name: true, status: true, ownerId: true, createdById: true },
         orderBy: { name: 'asc' },
       }),
       prisma.user.findMany({

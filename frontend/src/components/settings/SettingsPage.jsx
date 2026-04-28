@@ -414,7 +414,7 @@ function CompanyTab() {
           {editing ? (
             <>
               <PrimaryBtn onClick={handleSave} loading={saving} disabled={!newName.trim()}>
-                💾 儲存變更
+                儲存變更
               </PrimaryBtn>
               <button
                 onClick={handleCancel}
@@ -433,7 +433,7 @@ function CompanyTab() {
             </>
           ) : (
             <PrimaryBtn onClick={() => setEditing(true)}>
-              ✏️ 編輯公司資訊
+              編輯公司資訊
             </PrimaryBtn>
           )}
         </div>
@@ -814,7 +814,7 @@ function ProfileTab({ onGoToCompany }) {
                 infoForm.email === profile.email
               }
             >
-              💾 儲存基本資料
+              儲存基本資料
             </PrimaryBtn>
           </div>
         </div>
@@ -1094,7 +1094,7 @@ function SystemStatsTab({ activeTab }) {
       {/* 專案 & 任務 */}
       <div style={{ marginBottom: 20 }}>
         <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
-          📁 專案 & 任務
+          專案 & 任務
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
           <StatCard icon="📁" label="專案總數" value={stats.projects.total} color="#7c3aed" />

@@ -304,6 +304,7 @@ function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) 
     endDate:     project.endDate     ? project.endDate.slice(0, 10)   : '',
     budget:      project.budget      ? String(project.budget) : '',
     color:       getSavedProjectColor(project.id),
+    ownerId:     project.owner?.id || project.ownerId || project.createdById || (project.members?.[0]?.id ?? null),
     memberIds:   (project.members || []).map(m => m.id),
   });
   const [saving, setSaving] = useState(false);
@@ -340,7 +341,7 @@ function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) 
           budget:      form.budget || null,
           startDate:   form.startDate || null,
           endDate:     form.endDate   || null,
-          ownerId:     form.memberIds.length > 0 ? form.memberIds[0] : null,
+          ownerId:     form.ownerId || null,
           memberIds:   form.memberIds,
         }),
       });
@@ -359,7 +360,6 @@ function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) 
         <div style={{ height: 6, background: form.color, borderRadius: '18px 18px 0 0' }} />
         <div style={{ padding: isMobile ? '14px 16px 12px' : '24px 28px 28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <div style={{ fontSize: 30 }}>📁</div>
             <div>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.ink }}>編輯專案</h3>
               <p style={{ margin: 0, fontSize: 14, color: C.ink3 }}>修改專案詳細資訊</p>
@@ -388,16 +388,29 @@ function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) 
             <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 76, lineHeight: 1.6 }} value={form.description} onChange={set('description')} rows={3} />
           </div>
 
+          {/* 負責人 */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>負責人</label>
+            <select
+              value={form.ownerId || ''}
+              onChange={e => setForm(f => ({ ...f, ownerId: e.target.value ? Number(e.target.value) : null }))}
+              style={inputSt}
+            >
+              <option value=''>— 未指派 —</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div ref={memberRef} style={{ position: 'relative' }}>
               <label style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.ink3, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>專案成員</label>
               <div onClick={() => setMemberDropdownOpen(v => !v)} style={{ ...inputSt, cursor: 'pointer', minHeight: 38, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center', padding: '4px 10px' }}>
-                {form.memberIds.length === 0 && <span style={{ color: C.ink3, fontSize: 14, lineHeight: '28px' }}>— 點擊指派成員 —</span>}
-                {form.memberIds.map((uid, idx) => {
+                {form.memberIds.filter(uid => uid !== form.ownerId && uid !== Number(form.ownerId)).length === 0 && <span style={{ color: C.ink3, fontSize: 14, lineHeight: '28px' }}>— 點擊指派成員 —</span>}
+                {form.memberIds.filter(uid => uid !== form.ownerId && uid !== Number(form.ownerId)).map((uid) => {
                   const u = users.find(x => x.id === uid);
                   if (!u) return null;
-                  return <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: idx === 0 ? `color-mix(in srgb, ${form.color} 14%, var(--xc-surface))` : C.surfaceSoft, border: `1px solid ${idx === 0 ? `${form.color}40` : C.line}`, borderRadius: 99, padding: '2px 8px 2px 4px', fontSize: 13, fontWeight: 500, color: C.ink }}>
-                    <Avatar name={u.name} size={20} />{u.name}{idx === 0 && <span style={{ fontSize: 10, color: form.color, fontWeight: 700, marginLeft: 2 }}>主</span>}
+                  return <span key={uid} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.surfaceSoft, border: `1px solid ${C.line}`, borderRadius: 99, padding: '2px 8px 2px 4px', fontSize: 13, fontWeight: 500, color: C.ink }}>
+                    <Avatar name={u.name} size={20} />{u.name}
                     <span onClick={e => { e.stopPropagation(); toggleMember(uid); }} style={{ cursor: 'pointer', marginLeft: 2, color: C.ink3, fontWeight: 700, fontSize: 14, lineHeight: 1 }}>×</span>
                   </span>;
                 })}
@@ -438,7 +451,7 @@ function EditProjectModal({ project, users = [], onSaved, onClose, authFetch }) 
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
             <button type="button" style={btnO} onClick={onClose}>取消</button>
-            <button type="submit" style={{ ...btnP, background: form.color }} disabled={saving}>{saving ? '儲存中…' : '💾 儲存變更'}</button>
+            <button type="submit" style={{ ...btnP, background: form.color }} disabled={saving}>{saving ? '儲存中…' : '儲存變更'}</button>
           </div>
         </div>
       </form>
@@ -735,9 +748,9 @@ function TaskCard({ task, onMoveNext, onDelete, onTaskClick,
             style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: `1px solid ${C.line}`,
               background: C.white, color: C.ink3, cursor: 'pointer' }}>⋯</button>
           {/* 刪除 */}
-          <button onClick={e => { e.stopPropagation(); onDelete(task); }} title="刪除"
+          {onDelete && <button onClick={e => { e.stopPropagation(); onDelete(task); }} title="刪除"
             style={{ fontSize: 14, padding: '4px 6px', borderRadius: 6, border: 'none',
-              background: 'transparent', color: C.ink3, cursor: 'pointer' }}>✕</button>
+              background: 'transparent', color: C.ink3, cursor: 'pointer' }}>✕</button>}
         </div>
       </div>
     </div>
@@ -792,10 +805,10 @@ function DroppableKanbanColumn({ col, tasks, onMoveNext, onDelete, onAddTask, on
             {tasks.length}
           </span>
         </div>
-        <button onClick={() => onAddTask(col.id)}
+        {onAddTask && <button onClick={() => onAddTask(col.id)}
           style={{ fontSize: 20, lineHeight: 1, padding: '0 2px', border: 'none',
             background: 'transparent', color: col.accent, cursor: 'pointer' }}
-          title={`在「${col.label}」新增任務`}>+</button>
+          title={`在「${col.label}」新增任務`}>+</button>}
       </div>
 
       <div ref={setNodeRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 80, flex: 1 }}>
@@ -922,10 +935,10 @@ function TaskListView({ tasks, onMoveNext, onDelete, onTaskClick }) {
                   cursor: 'pointer', fontWeight: 700 }}>
                 {st.nextLabel}
               </button>
-              <button onClick={e => { e.stopPropagation(); onDelete(task); }}
+              {onDelete && <button onClick={e => { e.stopPropagation(); onDelete(task); }}
                 style={{ fontSize: 14, padding: '4px 6px', borderRadius: 6, border: 'none', background: 'transparent', color: C.ink3, cursor: 'pointer' }}>
                 ✕
-              </button>
+              </button>}
             </div>
           </div>
         );
@@ -1026,7 +1039,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const { isDark } = useTheme();
-  const { canEditProjectRecord } = usePermissions();
+  const { canEditProjectRecord, canCreateTask, canDeleteTask, canManageProjectMembers } = usePermissions();
 
   const [project,        setProject]        = useState(null);
   const [users,          setUsers]          = useState([]);
@@ -1044,10 +1057,40 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
   // TaskSidePanel state
   const [selectedTask,   setSelectedTask]   = useState(null);
 
+  // Member management state
+  const [memberMgmtOpen, setMemberMgmtOpen] = useState(false);
+  const memberMgmtRef = useRef(null);
+
   // Milestone CRUD state
   const [milestoneModal, setMilestoneModal] = useState(null); // null | 'new' | milestone-object
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(''), 2800); };
+
+  // ── 成員管理（加入 / 移除）─────────────────────────
+  useEffect(() => {
+    if (!memberMgmtOpen) return;
+    const close = (e) => { if (!memberMgmtRef.current?.contains(e.target)) setMemberMgmtOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [memberMgmtOpen]);
+
+  const handleMemberToggle = async (userId) => {
+    const proj = project;
+    const currentIds = (proj?.members || []).map(m => m.id);
+    const newIds = currentIds.includes(userId)
+      ? currentIds.filter(id => id !== userId)
+      : [...currentIds, userId];
+    try {
+      const res = await authFetch(`${API}/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ memberIds: newIds }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      await load();
+      showToast(currentIds.includes(userId) ? '已移除成員' : '已加入成員');
+    } catch (e) { showToast('操作失敗：' + e.message); }
+  };
 
   const load = useCallback(async () => {
     if (!authFetch || !projectId) return;
@@ -1260,18 +1303,70 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
           </div>
 
           {/* 操作按鈕 */}
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-            <button onClick={() => setAddStatus('todo')} style={{
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+            {canCreateTask && <button onClick={() => setAddStatus('todo')} style={{
               background: isDark ? 'color-mix(in srgb, var(--xc-brand) 82%, #000000 18%)' : 'rgba(255,255,255,.15)',
               border: isDark ? 'none' : '1px solid rgba(255,255,255,.28)',
               color: '#ffffff', borderRadius: 10, padding: '9px 18px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-            }}>+ 新增任務</button>
+            }}>+ 新增任務</button>}
             {canEditProjectRecord(proj) && <button onClick={() => setEditOpen(true)} style={{
               background: isDark ? 'var(--xc-surface)' : 'rgba(255,255,255,.10)',
               border: isDark ? `1px solid var(--xc-border)` : '1px solid rgba(255,255,255,.2)',
               color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.9)',
               borderRadius: 10, padding: '9px 14px', fontSize: 15, cursor: 'pointer',
             }} title="編輯專案">編輯</button>}
+            </div>
+
+            {/* 成員列 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {(proj?.members || []).map(m => (
+                <div key={m.id} title={m.name} style={{ display: 'flex', alignItems: 'center', gap: 5,
+                  background: isDark ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.15)',
+                  borderRadius: 99, padding: '3px 10px 3px 4px', fontSize: 13, color: isDark ? 'var(--xc-text-soft)' : 'rgba(255,255,255,.9)' }}>
+                  <Avatar name={m.name} size={20} url={m.avatarUrl} />
+                  <span>{m.name}</span>
+                  {canManageProjectMembers(proj) && (
+                    <span onClick={() => handleMemberToggle(m.id)} title="移除成員"
+                      style={{ marginLeft: 2, cursor: 'pointer', opacity: .6, fontSize: 13, fontWeight: 700 }}>×</span>
+                  )}
+                </div>
+              ))}
+              {canManageProjectMembers(proj) && (
+                <div ref={memberMgmtRef} style={{ position: 'relative' }}>
+                  <button onClick={() => setMemberMgmtOpen(v => !v)} style={{
+                    background: isDark ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.18)',
+                    border: isDark ? '1px solid rgba(255,255,255,.15)' : '1px solid rgba(255,255,255,.3)',
+                    color: isDark ? 'var(--xc-text-soft)' : 'white',
+                    borderRadius: 99, padding: '4px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  }}>＋ 加入成員</button>
+                  {memberMgmtOpen && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200,
+                      background: 'var(--xc-surface-strong)', border: '1px solid var(--xc-border)',
+                      borderRadius: 10, boxShadow: 'var(--xc-shadow-strong)', minWidth: 180, maxHeight: 240, overflowY: 'auto', padding: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--xc-text-muted)', padding: '4px 8px 6px', textTransform: 'uppercase', letterSpacing: '.06em' }}>選擇成員</div>
+                      {users.map(u => {
+                        const isMember = (proj?.members || []).some(m => m.id === u.id);
+                        return (
+                          <div key={u.id} onClick={() => handleMemberToggle(u.id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px',
+                              borderRadius: 6, cursor: 'pointer',
+                              background: isMember ? 'var(--xc-brand-soft)' : 'transparent' }}>
+                            <span style={{ width: 16, height: 16, borderRadius: 4,
+                              border: `1.5px solid ${isMember ? 'var(--xc-brand)' : 'var(--xc-border)'}`,
+                              background: isMember ? 'var(--xc-brand)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{isMember ? '✓' : ''}</span>
+                            <Avatar name={u.name} size={22} />
+                            <span style={{ fontSize: 14, color: 'var(--xc-text)' }}>{u.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1318,9 +1413,9 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             }}>{tab.label}</button>
           ))}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => setAddStatus('todo')} style={{
+            {canCreateTask && <button onClick={() => setAddStatus('todo')} style={{
               ...btnP, padding: '7px 16px', fontSize: 14,
-            }}>+ 新增任務</button>
+            }}>+ 新增任務</button>}
             <button onClick={load} style={{ ...btnO, padding: '7px 12px', fontSize: 14 }} title="重新整理">↻</button>
           </div>
         </div>
@@ -1330,8 +1425,8 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
           <TaskKanbanView
             kanban={proj?.kanban || {}}
             onMoveNext={handleMoveNext}
-            onDelete={handleDeleteTask}
-            onAddTask={status => setAddStatus(status)}
+            onDelete={canDeleteTask ? handleDeleteTask : undefined}
+            onAddTask={canCreateTask ? status => setAddStatus(status) : undefined}
             onTaskClick={handleTaskClick}
             onDragStatusChange={handleDragStatusChange}
           />
@@ -1342,7 +1437,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
             <TaskListView
               tasks={allTasks}
               onMoveNext={handleMoveNext}
-              onDelete={handleDeleteTask}
+              onDelete={canDeleteTask ? handleDeleteTask : undefined}
               onTaskClick={handleTaskClick}
             />
           </div>
@@ -1409,7 +1504,7 @@ export default function ProjectDetail({ projectId, projectName, onBack }) {
           customFieldDefs={customFieldDefs}
           onClose={() => setSelectedTask(null)}
           onSaved={() => { setSelectedTask(null); load(); showToast('任務已更新'); }}
-          onDeleteRequest={task => { setSelectedTask(null); handleDeleteTask(task); }}
+          onDeleteRequest={canDeleteTask ? task => { setSelectedTask(null); handleDeleteTask(task); } : undefined}
           currentUser={user}
           authFetch={authFetch}
         />

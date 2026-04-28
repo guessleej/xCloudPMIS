@@ -1571,8 +1571,9 @@ function ReportDashboard({ companyId, authFetch: authFetchProp }) {
 export default function ReportsPage() {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
-  const { canEditProjectRecord, canDeleteProjectRecord } = usePermissions();
+  const { canEditProjectRecord, canDeleteProjectRecord, canViewReports, canViewOwnReportsOnly } = usePermissions();
   const COMPANY_ID = user?.companyId;
+  const currentUserId = user?.id || user?.userId;
 
   const [activeType,  setActiveType]  = useState('dashboard');
   const [reportData,  setReportData]  = useState(null);
@@ -1600,7 +1601,14 @@ export default function ReportsPage() {
     fetcher(`${API_BASE}/api/reports/filter-options?companyId=${COMPANY_ID}`)
       .then(r => r.json())
       .then(d => {
-        setProjects(d.projects || []);
+        const allProjects = d.projects || [];
+        // PM 僅顯示自己擁有的專案
+        const visibleProjects = canViewOwnReportsOnly
+          ? allProjects.filter(p =>
+              Number(p.ownerId) === Number(currentUserId) ||
+              Number(p.createdById) === Number(currentUserId))
+          : allProjects;
+        setProjects(visibleProjects);
         setUsers(d.users || []);
       })
       .catch(() => {});
@@ -1725,6 +1733,15 @@ export default function ReportsPage() {
   const handleDeleteRow = canEditRow
     ? Object.assign((row) => setDeleteItem(row), { can: (row) => reportData?.type !== 'projects' || canDeleteProjectRecord(row) })
     : undefined;
+
+  // 等待 user 載入完成再檢查權限（避免閃爍）
+  if (user && !canViewReports) {
+    return (
+      <div style={{ padding: 64, textAlign: 'center', fontSize: 16, color: '#888' }}>
+        🔒 此頁面僅限管理員與專案經理存取
+      </div>
+    );
+  }
 
   // ════════════════════════════════════════════════════════
   // 渲染
