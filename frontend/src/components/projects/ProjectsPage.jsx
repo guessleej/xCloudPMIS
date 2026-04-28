@@ -182,6 +182,18 @@ const fmtDate  = (iso) => iso ? new Date(iso).toLocaleDateString('zh-TW', { mont
 const daysLeft = (iso) => iso ? Math.ceil((new Date(iso) - new Date()) / 864e5) : null;
 const riskRank = (project) => ({ off_track: 0, at_risk: 1, on_track: 2, completed: 3 }[getHealth(project)] ?? 4);
 const dateValue = (iso) => iso ? new Date(iso).getTime() : 0;
+const isOverdueProject = (p) => { const dl = daysLeft(p.endDate); return dl !== null && dl < 0 && (p.completion || 0) < 100; };
+const isDueSoonProject = (p) => { const dl = daysLeft(p.endDate); return dl !== null && dl >= 0 && dl <= 7 && (p.completion || 0) < 100; };
+function nextAction(project) {
+  const health = getHealth(project);
+  const dl = daysLeft(project.endDate);
+  if (isOverdueProject(project)) return { label: `逾期 ${Math.abs(dl)} 天，優先處理`, color: '#DC2626', bg: 'color-mix(in srgb,#DC2626 10%,var(--xc-surface))' };
+  if (health === 'off_track') return { label: '進度落後，檢查阻塞', color: '#DC2626', bg: 'color-mix(in srgb,#DC2626 10%,var(--xc-surface))' };
+  if (health === 'at_risk') return { label: '有風險，更新計畫', color: '#D97706', bg: 'color-mix(in srgb,#D97706 12%,var(--xc-surface))' };
+  if (isDueSoonProject(project)) return { label: dl === 0 ? '今天截止' : `${dl} 天內截止`, color: '#2563EB', bg: 'color-mix(in srgb,#2563EB 10%,var(--xc-surface))' };
+  if (!project.owner && !project.members?.length) return { label: '尚未指派負責人', color: '#64748B', bg: 'var(--xc-surface-muted)' };
+  return { label: '開啟任務清單', color: 'var(--xc-text-soft)', bg: 'var(--xc-surface-soft)' };
+}
 
 // ── 共用樣式 ─────────────────────────────────────────────
 const inputSt = { width: '100%', boxSizing: 'border-box', border: `1px solid ${C.line}`, borderRadius: '8px', padding: '8px 12px', fontSize: '15px', color: C.ink, outline: 'none', background: C.white, fontFamily: 'inherit' };
@@ -796,12 +808,13 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
   const dl  = daysLeft(p.endDate);
   const dlC = dl === null ? C.ink4 : dl < 0 ? '#DC2626' : dl <= 7 ? '#D97706' : C.ink3;
   const st  = STATUS[p.status] || STATUS.active;
+  const action = nextAction(p);
   return (
     <div
       onMouseOver={() => setHov(true)} onMouseOut={() => setHov(false)}
       style={{
-        display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
-        padding: '9px 18px', borderBottom: isLast ? 'none' : `1px solid ${C.lineL}`,
+        display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 172px', minWidth: isMobile ? '880px' : undefined,
+        padding: '10px 18px', borderBottom: isLast ? 'none' : `1px solid ${C.lineL}`,
         background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
         alignItems: 'center',
       }}>
@@ -812,9 +825,12 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       {/* 名稱 */}
       <div onClick={() => onOpen(p)} style={{ cursor: 'pointer' }}>
         <div style={{ fontSize: '15px', fontWeight: '600', color: C.ink }}>{p.name}</div>
-        {p.description && (
-          <div style={{ fontSize: '13px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '260px' }}>{p.description}</div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3, minWidth: 0 }}>
+          <span style={{ fontSize: 12, color: action.color, background: action.bg, borderRadius: 999, padding: '2px 7px', fontWeight: 700, whiteSpace: 'nowrap' }}>{action.label}</span>
+          {p.description && (
+            <span style={{ fontSize: '13px', color: C.ink4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>{p.description}</span>
+          )}
+        </div>
       </div>
       {/* 成員 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -835,10 +851,11 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       {/* 任務數 */}
       <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
       {/* 操作（admin/pm 可管理全部；成員可管理自己的專案） */}
-      {((onEdit && onEdit.can(p)) || (onDelete && onDelete.can(p))) && <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', opacity: hov ? 1 : 0, transition: 'opacity 0.15s' }}>
-        {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '4px 8px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
-        {onDelete?.can(p) && <button onClick={() => onDelete(p)} style={{ padding: '4px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: '5px', fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>刪除</button>}
-      </div>}
+      <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <button onClick={() => onOpen(p)} style={{ padding: '5px 10px', background: pal.hex, border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 700, fontFamily: 'inherit' }}>開啟</button>
+        {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '5px 9px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
+        {onDelete?.can(p) && <button onClick={() => onDelete(p)} title="封存專案" style={{ padding: '5px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>封存</button>}
+      </div>
     </div>
   );
 }
@@ -849,7 +866,7 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
     <div style={{ padding: isMobile ? '14px' : '20px 24px' }}>
       <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, overflowX: isMobile ? 'auto' : 'visible', overflowY: 'hidden', boxShadow: C.shadow }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: '14px 16px 1fr 110px 90px 70px 80px 62px 80px', minWidth: isMobile ? '720px' : undefined,
+          display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 172px', minWidth: isMobile ? '880px' : undefined,
           padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
           position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
         }}>
@@ -1053,6 +1070,7 @@ export default function ProjectsPage() {
   const [error,         setError]         = useState(null);
   const [activeProject, setActiveProject] = useState(null);
   const [filter,        setFilter]        = useState('all');
+  const [quickFilter,   setQuickFilter]   = useState('all');
   const [search,        setSearch]        = useState('');
   const [sortBy,        setSortBy]        = useState('risk');
   const [view,          setView]          = useState('list');  // list|board|calendar
@@ -1152,6 +1170,12 @@ export default function ProjectsPage() {
     if (filter === 'at_risk') return ['at_risk', 'off_track'].includes(getHealth(p));
     return p.status === filter;
   }).filter(p => {
+    if (quickFilter === 'attention') return isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p));
+    if (quickFilter === 'due_soon')  return isDueSoonProject(p);
+    if (quickFilter === 'mine')      return p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id);
+    if (quickFilter === 'unassigned') return !p.owner && !(p.members || []).length;
+    return true;
+  }).filter(p => {
     if (!searchTerm) return true;
     const haystack = [
       p.name,
@@ -1178,6 +1202,10 @@ export default function ProjectsPage() {
     completed: projects.filter(p => p.status === 'completed').length,
     planning:  projects.filter(p => p.status === 'planning').length,
   };
+  const attentionProjects = projects
+    .filter(p => isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p)) || isDueSoonProject(p))
+    .sort((a, b) => riskRank(a) - riskRank(b) || (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity))
+    .slice(0, 3);
 
   const FILTERS = [
     { key: 'all',       label: '全部',   count: stats.total },
@@ -1201,8 +1229,17 @@ export default function ProjectsPage() {
     { key: 'name', label: '名稱 A-Z' },
   ];
 
+  const QUICK_FILTERS = [
+    { key: 'all', label: '全部工作', count: projects.length },
+    { key: 'attention', label: '需處理', count: projects.filter(p => isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p))).length },
+    { key: 'due_soon', label: '7天內到期', count: projects.filter(isDueSoonProject).length },
+    { key: 'mine', label: '我的專案', count: projects.filter(p => p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id)).length },
+    { key: 'unassigned', label: '未指派', count: projects.filter(p => !p.owner && !(p.members || []).length).length },
+  ];
+
   const resetFilters = () => {
     setFilter('all');
+    setQuickFilter('all');
     setSearch('');
     setSortBy('risk');
   };
@@ -1284,7 +1321,7 @@ export default function ProjectsPage() {
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
               <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {stats.total}</span>
-              {(filter !== 'all' || search || sortBy !== 'risk') && (
+              {(filter !== 'all' || quickFilter !== 'all' || search || sortBy !== 'risk') && (
                 <button type="button" onClick={resetFilters} style={{ ...btnO, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
                   重置
                 </button>
@@ -1302,6 +1339,24 @@ export default function ProjectsPage() {
                 ))}
               </div>
             </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {QUICK_FILTERS.map(f => (
+              <button key={f.key} onClick={() => setQuickFilter(f.key)} style={{
+                background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 14%, var(--xc-surface))' : C.surfaceSoft,
+                color: quickFilter === f.key ? C.brand : C.ink2,
+                border: `1px solid ${quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 36%, var(--xc-border))' : C.line}`,
+                borderRadius: 12, padding: '7px 10px',
+                fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                transition: 'all 0.15s', fontFamily: 'inherit',
+              }}>
+                {f.label}
+                <span style={{ marginLeft: 6, fontSize: 12, background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 18%, var(--xc-surface))' : C.surfaceMuted, color: quickFilter === f.key ? C.brand : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
+                  {f.count}
+                </span>
+              </button>
+            ))}
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -1323,6 +1378,32 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── 操作焦點：先處理最急的專案 ── */}
+      {!loading && attentionProjects.length > 0 && (
+        <div style={{ padding: isMobile ? '10px 14px' : '12px 24px', background: C.bg, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '150px repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'stretch' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: '11px 12px', boxShadow: C.shadow }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: C.ink }}>下一步</div>
+              <div style={{ fontSize: 12, color: C.ink4, marginTop: 4, lineHeight: 1.5 }}>依風險、逾期與截止日自動排序</div>
+            </div>
+            {attentionProjects.map(project => {
+              const pal = getProjectColor(project.id);
+              const action = nextAction(project);
+              return (
+                <button key={project.id} onClick={() => setActiveProject(project)} style={{
+                  textAlign: 'left', background: C.surface, border: `1px solid ${C.line}`, borderLeft: `4px solid ${pal.hex}`,
+                  borderRadius: 14, padding: '11px 12px', cursor: 'pointer', boxShadow: C.shadow,
+                  display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'inherit', minWidth: 0,
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: action.color, background: action.bg, borderRadius: 999, padding: '3px 8px', alignSelf: 'flex-start' }}>{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── 封存區 ── */}
       {showArchived && (
@@ -1406,14 +1487,21 @@ export default function ProjectsPage() {
           <div style={{ padding: '80px', textAlign: 'center' }}>
             <div style={{ fontSize: '50px', marginBottom: '14px' }}>📭</div>
             <div style={{ fontSize: '17px', fontWeight: '700', color: C.ink, marginBottom: '8px' }}>
-              {filter === 'all' ? '還沒有任何專案' : '沒有符合條件的專案'}
+              {projects.length === 0 ? '還沒有任何專案' : '沒有符合條件的專案'}
             </div>
-            {filter === 'all' && canCreateProject && (
+            {projects.length === 0 && canCreateProject ? (
               <>
                 <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
                   點擊下方按鈕建立你的第一個專案
                 </div>
                 <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={btnP}>＋ 新增專案</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
+                  目前搜尋、快捷篩選或狀態篩選沒有符合結果。
+                </div>
+                <button type="button" onClick={resetFilters} style={btnP}>清除所有條件</button>
               </>
             )}
           </div>
