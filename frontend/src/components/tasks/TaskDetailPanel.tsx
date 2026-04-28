@@ -138,6 +138,7 @@ export interface TaskDetailPanelProps {
     subtaskId: EntityId;
     title: string;
   }) => Promise<void> | void;
+  onDeleteSubtask?: (subtaskId: EntityId) => Promise<void> | void;
   // Checklist
   checklistItems?: TaskChecklistItem[];
   checklistLoading?: boolean;
@@ -631,15 +632,18 @@ function SubtaskTree({
   level = 0,
   onToggle,
   onEdit,
+  onDelete,
 }: {
   items: TaskSubtaskNode[];
   level?: number;
   onToggle?: (item: TaskSubtaskNode) => void;
   onEdit?: (item: TaskSubtaskNode, title: string) => Promise<void> | void;
+  onDelete?: (item: TaskSubtaskNode) => Promise<void> | void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const startEdit = (item: TaskSubtaskNode) => {
     setEditingId(toKey(item.id));
@@ -660,6 +664,17 @@ function SubtaskTree({
       cancelEdit();
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const deleteItem = async (item: TaskSubtaskNode) => {
+    if (!onDelete) return;
+    const itemKey = toKey(item.id);
+    setDeletingId(itemKey);
+    try {
+      await onDelete(item);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -816,7 +831,7 @@ function SubtaskTree({
 
               {item.children && item.children.length > 0 ? (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${BRAND.mist}` }}>
-                  <SubtaskTree items={item.children} level={level + 1} onToggle={onToggle} onEdit={onEdit} />
+                  <SubtaskTree items={item.children} level={level + 1} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
                 </div>
               ) : null}
             </div>
@@ -838,6 +853,27 @@ function SubtaskTree({
                 title="編輯子任務名稱"
               >
                 編輯
+              </button>
+            ) : null}
+            {onDelete ? (
+              <button
+                type="button"
+                onClick={() => void deleteItem(item)}
+                disabled={deletingId === itemKey}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: BRAND.muted,
+                  cursor: deletingId === itemKey ? 'wait' : 'pointer',
+                  fontSize: 18,
+                  lineHeight: 1,
+                  padding: '5px 2px',
+                  flexShrink: 0,
+                  opacity: deletingId === itemKey ? 0.5 : 1,
+                }}
+                title="刪除此子任務"
+              >
+                ×
               </button>
             ) : null}
           </div>
@@ -1160,6 +1196,7 @@ export default function TaskDetailPanel({
   commentError = null,
   onToggleSubtask,
   onUpdateSubtask,
+  onDeleteSubtask,
   checklistItems = [],
   checklistLoading = false,
   onAddChecklistItem,
@@ -1383,6 +1420,11 @@ export default function TaskDetailPanel({
   const handleEditSubtaskTitle = async (item: TaskSubtaskNode, nextTitle: string) => {
     if (!onUpdateSubtask) return;
     await onUpdateSubtask({ subtaskId: item.id, title: nextTitle });
+  };
+
+  const handleDeleteSubtask = async (item: TaskSubtaskNode) => {
+    if (!onDeleteSubtask) return;
+    await onDeleteSubtask(item.id);
   };
 
   const startEditChecklist = (item: TaskChecklistItem) => {
@@ -2125,6 +2167,7 @@ export default function TaskDetailPanel({
                         : undefined
                     }
                     onEdit={onUpdateSubtask ? (item, nextTitle) => handleEditSubtaskTitle(item, nextTitle) : undefined}
+                    onDelete={onDeleteSubtask ? (item) => handleDeleteSubtask(item) : undefined}
                   />
                 ) : (
                   <div

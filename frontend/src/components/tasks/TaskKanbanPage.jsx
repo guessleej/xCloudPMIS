@@ -1516,6 +1516,18 @@ export function TaskSidePanel({
     }
   };
 
+  const handleDeleteSubtask = async (subtaskId) => {
+    try {
+      const res = await authFetch(`${API}/tasks/${subtaskId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setSubtaskRefreshKey(k => k + 1);
+      await reloadActivityLogs();
+    } catch (error) {
+      alert(`刪除子任務失敗：${error.message}`);
+    }
+  };
+
   const handleAddComment = async ({ content, parentId = null }) => {
     setCommentSaving(true);
     setCommentError('');
@@ -1577,6 +1589,7 @@ export function TaskSidePanel({
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
       onUpdateSubtask={handleUpdateSubtask}
+      onDeleteSubtask={handleDeleteSubtask}
       checklistItems={checklistItems}
       checklistLoading={checklistLoading}
       onAddChecklistItem={handleAddChecklistItem}
