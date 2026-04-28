@@ -143,6 +143,16 @@ const PRIORITY_LABELS = {
   urgent: '緊急',
 };
 
+const ACTIVITY_ACTION_LABELS = {
+  task_created: '任務',
+  task_deleted: '任務',
+  subtask_deleted: '子任務',
+  checklist_created: '待辦項目',
+  checklist_deleted: '待辦項目',
+  checklist_isDone_changed: '待辦項目',
+  checklist_title_changed: '待辦項目',
+};
+
 function toLogValue(value) {
   if (value instanceof Date) return value.toISOString();
   if (value && typeof value.toISOString === 'function') return value.toISOString();
@@ -239,17 +249,27 @@ function displayLogValue(field, value) {
   return String(value);
 }
 
-function activityLogText(log) {
+function logPayloadTitle(payload) {
+  if (!payload) return '';
+  if (typeof payload.title === 'string') return payload.title;
+  if (payload.value && typeof payload.value === 'object' && typeof payload.value.title === 'string') return payload.value.title;
+  if (typeof payload.value === 'string') return payload.value;
+  return '';
+}
+
+function activityLogText(log, contextTaskId = null) {
   const oldField = log.oldValue?.field;
   const newField = log.newValue?.field || oldField;
   const label = log.newValue?.label || log.oldValue?.label || TASK_FIELD_LABELS[newField] || '任務內容';
   const oldValue = log.oldValue?.value;
   const newValue = log.newValue?.value;
 
-  if (log.action === 'task_created') return `建立了任務「${newValue?.title || '未命名任務'}」。`;
-  if (log.action === 'task_deleted') return '刪除了任務。';
-  if (log.action === 'checklist_created') return `新增待辦項目「${newValue?.title || ''}」。`;
-  if (log.action === 'checklist_deleted') return `刪除待辦項目「${oldValue?.title || ''}」。`;
+  if (log.action === 'task_created') return `建立了任務「${logPayloadTitle(log.newValue) || '未命名任務'}」。`;
+  if (log.action === 'task_deleted' && contextTaskId && Number(log.taskId) !== Number(contextTaskId)) return `刪除子任務「${logPayloadTitle(log.oldValue) || '未命名子任務'}」。`;
+  if (log.action === 'task_deleted') return `刪除了任務「${logPayloadTitle(log.oldValue) || '未命名任務'}」。`;
+  if (log.action === 'subtask_deleted') return `刪除子任務「${logPayloadTitle(log.oldValue) || '未命名子任務'}」。`;
+  if (log.action === 'checklist_created') return `新增待辦項目「${logPayloadTitle(log.newValue)}」。`;
+  if (log.action === 'checklist_deleted') return `刪除待辦項目「${logPayloadTitle(log.oldValue)}」。`;
   if (log.action === 'checklist_isDone_changed') return newValue
     ? `完成待辦項目「${log.newValue?.title || log.oldValue?.title || ''}」。`
     : `取消完成待辦項目「${log.newValue?.title || log.oldValue?.title || ''}」。`;
@@ -1419,7 +1439,7 @@ router.delete('/tasks/:taskId', async (req, res) => {
   try {
     const existing = await prisma.task.findFirst({
       where: { id: taskId, deletedAt: null },
-      select: { id: true, title: true },
+      select: { id: true, title: true, parentTaskId: true },
     });
     if (!existing) return err(res, `找不到任務 #${taskId}`, 404);
 
@@ -1430,10 +1450,14 @@ router.delete('/tasks/:taskId', async (req, res) => {
         data:  { deletedAt: new Date() },
       });
       await createActivityLog(tx, {
-        taskId,
+        taskId: existing.parentTaskId || taskId,
         userId: actorId,
-        action: 'task_deleted',
-        oldValue: { title: existing.title },
+        action: existing.parentTaskId ? 'subtask_deleted' : 'task_deleted',
+        oldValue: {
+          title: existing.title,
+          taskId,
+          ...(existing.parentTaskId ? { parentTaskId: existing.parentTaskId, label: '子任務' } : {}),
+        },
       });
     });
 
@@ -1508,8 +1532,13 @@ router.get('/tasks/:taskId/activity', async (req, res) => {
   if (isNaN(taskId)) return err(res, '無效的任務 ID', 400);
 
   try {
+    const childTasks = await prisma.task.findMany({
+      where: { parentTaskId: taskId },
+      select: { id: true },
+    });
+    const activityTaskIds = [taskId, ...childTasks.map((task) => task.id)];
     const logs = await prisma.activityLog.findMany({
-      where: { taskId },
+      where: { taskId: { in: activityTaskIds } },
       include: { user: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -1525,8 +1554,8 @@ router.get('/tasks/:taskId/activity', async (req, res) => {
         email: log.user?.email,
       },
       createdAt: log.createdAt.toISOString(),
-      text: activityLogText(log),
-      meta: [log.newValue?.label || log.oldValue?.label || log.action].filter(Boolean),
+      text: activityLogText(log, taskId),
+      meta: [log.newValue?.label || log.oldValue?.label || ACTIVITY_ACTION_LABELS[log.action] || log.action].filter(Boolean),
     })));
   } catch (e) {
     console.error(e);
@@ -1748,7 +1777,7 @@ router.post('/tasks/:taskId/checklist', async (req, res) => {
         taskId,
         userId: getActorId(req),
         action: 'checklist_created',
-        newValue: { title: item.title, itemId: item.id },
+        newValue: { field: 'checklistItem', label: '待辦項目', value: item.title, title: item.title, itemId: item.id },
       });
     });
     ok(res, item);
@@ -1831,7 +1860,7 @@ router.delete('/tasks/:taskId/checklist/:itemId', async (req, res) => {
         taskId,
         userId: getActorId(req),
         action: 'checklist_deleted',
-        oldValue: { title: existing.title, itemId },
+        oldValue: { field: 'checklistItem', label: '待辦項目', value: existing.title, title: existing.title, itemId },
       });
     });
     res.json({ success: true, message: '項目已刪除' });
