@@ -1070,7 +1070,6 @@ export default function ProjectsPage() {
   const [error,         setError]         = useState(null);
   const [activeProject, setActiveProject] = useState(null);
   const [filter,        setFilter]        = useState('all');
-  const [quickFilter,   setQuickFilter]   = useState('all');
   const [search,        setSearch]        = useState('');
   const [sortBy,        setSortBy]        = useState('risk');
   const [view,          setView]          = useState('list');  // list|board|calendar
@@ -1185,16 +1184,7 @@ export default function ProjectsPage() {
 
   // 篩選、搜尋、排序
   const searchTerm = search.trim().toLowerCase();
-  const filtered = projects.filter(p => {
-    if (filter === 'all')     return true;
-    if (filter === 'at_risk') return ['at_risk', 'off_track'].includes(getHealth(p));
-    return p.status === filter;
-  }).filter(p => {
-    if (quickFilter === 'attention') return isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p));
-    if (quickFilter === 'due_soon')  return isDueSoonProject(p);
-    if (quickFilter === 'mine')      return p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id);
-    return true;
-  }).filter(p => {
+  const matchesSearch = (p) => {
     if (!searchTerm) return true;
     const haystack = [
       p.name,
@@ -1205,7 +1195,15 @@ export default function ProjectsPage() {
       ...(p.members || []).map(m => m.name),
     ].filter(Boolean).join(' ').toLowerCase();
     return haystack.includes(searchTerm);
-  }).sort((a, b) => {
+  };
+  const matchesProjectFilter = (p, key = filter) => {
+    if (key === 'all') return true;
+    if (key === 'attention') return isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p));
+    if (key === 'mine') return p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id);
+    return p.status === key;
+  };
+  const searchedProjects = projects.filter(matchesSearch);
+  const filtered = searchedProjects.filter(p => matchesProjectFilter(p)).sort((a, b) => {
     if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'zh-TW');
     if (sortBy === 'progress') return (b.completion || 0) - (a.completion || 0);
     if (sortBy === 'deadline') return (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity);
@@ -1227,11 +1225,12 @@ export default function ProjectsPage() {
     .slice(0, 3);
 
   const FILTERS = [
-    { key: 'all',       label: '全部',   count: stats.total },
-    { key: 'active',    label: '進行中', count: stats.active },
-    { key: 'planning',  label: '規劃中', count: stats.planning },
-    { key: 'at_risk',   label: '有風險', count: stats.at_risk },
-    { key: 'completed', label: '已完成', count: stats.completed },
+    { key: 'all',       label: '全部' },
+    { key: 'attention', label: '需處理' },
+    { key: 'mine',      label: '我的專案' },
+    { key: 'active',    label: '進行中' },
+    { key: 'planning',  label: '規劃中' },
+    { key: 'completed', label: '已完成' },
   ];
 
   const VIEWS = [
@@ -1248,15 +1247,8 @@ export default function ProjectsPage() {
     { key: 'name', label: '名稱 A-Z' },
   ];
 
-  const QUICK_FILTERS = [
-    { key: 'attention', label: '需處理', count: projects.filter(p => isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p))).length },
-    { key: 'due_soon', label: '7天內到期', count: projects.filter(isDueSoonProject).length },
-    { key: 'mine', label: '我的專案', count: projects.filter(p => p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id)).length },
-  ];
-
   const resetFilters = () => {
     setFilter('all');
-    setQuickFilter('all');
     setSearch('');
     setSortBy('risk');
   };
@@ -1338,7 +1330,7 @@ export default function ProjectsPage() {
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
               <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {stats.total}</span>
-              {(filter !== 'all' || quickFilter !== 'all' || search || sortBy !== 'risk') && (
+              {(filter !== 'all' || search || sortBy !== 'risk') && (
                 <button type="button" onClick={resetFilters} style={{ ...btnO, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
                   重置
                 </button>
@@ -1359,22 +1351,6 @@ export default function ProjectsPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
-            {QUICK_FILTERS.map(f => (
-              <button key={f.key} onClick={() => setQuickFilter(current => current === f.key ? 'all' : f.key)} style={{
-                background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 14%, var(--xc-surface))' : C.surfaceSoft,
-                color: quickFilter === f.key ? C.brand : C.ink2,
-                border: `1px solid ${quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 36%, var(--xc-border))' : C.line}`,
-                borderRadius: 12, padding: '7px 10px',
-                fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>
-                {f.label}
-                <span style={{ marginLeft: 6, fontSize: 12, background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 18%, var(--xc-surface))' : C.surfaceMuted, color: quickFilter === f.key ? C.brand : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
-                  {f.count}
-                </span>
-              </button>
-            ))}
-            <div style={{ width: 1, alignSelf: 'stretch', background: C.line, margin: '3px 4px', flexShrink: 0 }} />
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)} style={{
                 background: filter === f.key ? 'var(--xc-text)' : C.surfaceSoft,
@@ -1386,7 +1362,7 @@ export default function ProjectsPage() {
               }}>
                 {f.label}
                 <span style={{ marginLeft: 6, fontSize: 12, background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.surfaceMuted, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
-                  {f.count}
+                  {searchedProjects.filter(p => matchesProjectFilter(p, f.key)).length}
                 </span>
               </button>
             ))}
