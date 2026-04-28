@@ -884,7 +884,7 @@ function SubtaskTree({
   );
 }
 
-function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
+function ActivityTimeline({ items, emptyText = '尚無評論與操作紀錄。' }: { items: TaskActivityItem[]; emptyText?: string }) {
   if (items.length === 0) {
     return (
       <div
@@ -897,7 +897,7 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
           fontSize: 15,
         }}
       >
-        尚無評論與操作紀錄。
+        {emptyText}
       </div>
     );
   }
@@ -1017,19 +1017,9 @@ function ActivityTimeline({ items }: { items: TaskActivityItem[] }) {
 
 function ActivityLogModal({
   items,
-  commentText,
-  commentError,
-  commentSaving,
-  onCommentTextChange,
-  onSubmitComment,
   onClose,
 }: {
   items: TaskActivityItem[];
-  commentText: string;
-  commentError?: string | null;
-  commentSaving?: boolean;
-  onCommentTextChange: (value: string) => void;
-  onSubmitComment: () => void;
   onClose: () => void;
 }) {
   return (
@@ -1079,7 +1069,7 @@ function ActivityLogModal({
         >
           <div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>活動紀錄</div>
-            <div style={{ marginTop: 3, fontSize: 13, opacity: 0.78 }}>所有評論與歷史操作集中顯示於此</div>
+            <div style={{ marginTop: 3, fontSize: 13, opacity: 0.78 }}>僅顯示任務欄位、子任務、待辦等操作紀錄</div>
           </div>
           <button
             type="button"
@@ -1102,77 +1092,7 @@ function ActivityLogModal({
         </div>
 
         <div style={{ padding: 18, overflowY: 'auto' }}>
-          <div
-            style={{
-              marginBottom: 18,
-              border: `1px solid ${BRAND.line}`,
-              borderRadius: 20,
-              background: BRAND.white,
-              padding: 18,
-              boxShadow: 'var(--xc-shadow)',
-            }}
-          >
-            <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
-              新增留言
-            </div>
-            <div style={{ marginTop: 6, fontSize: 14, color: BRAND.muted, lineHeight: 1.6 }}>
-              可直接輸入工作更新，使用 @姓名 提及團隊成員。
-            </div>
-
-            <textarea
-              value={commentText}
-              onChange={(event) => onCommentTextChange(event.target.value)}
-              placeholder="輸入留言內容..."
-              rows={4}
-              style={{
-                ...inputStyle,
-                marginTop: 14,
-                minHeight: 116,
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                lineHeight: 1.7,
-              }}
-            />
-
-            {commentError ? (
-              <div
-                style={{
-                  marginTop: 10,
-                  borderRadius: 14,
-                  background: BRAND.dangerSoft,
-                  color: BRAND.crimsonDeep,
-                  padding: '10px 12px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                }}
-              >
-                {commentError}
-              </div>
-            ) : null}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-              <button
-                type="button"
-                onClick={onSubmitComment}
-                disabled={!commentText.trim() || commentSaving}
-                style={{
-                  borderRadius: 14,
-                  border: 'none',
-                  background: !commentText.trim() || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
-                  color: BRAND.white,
-                  padding: '11px 16px',
-                  fontSize: 15,
-                  fontWeight: 800,
-                  cursor: !commentText.trim() || commentSaving ? 'not-allowed' : 'pointer',
-                  minWidth: 118,
-                }}
-              >
-                {commentSaving ? '送出中...' : '送出留言'}
-              </button>
-            </div>
-          </div>
-
-          <ActivityTimeline items={items} />
+          <ActivityTimeline items={items} emptyText="尚無操作紀錄。" />
         </div>
       </div>
     </>
@@ -1359,6 +1279,14 @@ export default function TaskDetailPanel({
           new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
       ),
     [task]
+  );
+  const logFeed = useMemo(
+    () => activityFeed.filter((item) => item.type !== 'comment'),
+    [activityFeed]
+  );
+  const commentFeed = useMemo(
+    () => activityFeed.filter((item) => item.type === 'comment'),
+    [activityFeed]
   );
   const lockedProjectKeys = useMemo(
     () => new Set(lockedProjectIds.map((projectId) => toKey(projectId))),
@@ -1558,7 +1486,7 @@ export default function TaskDetailPanel({
                   title="查看所有活動紀錄"
                 >
                   🕘 活動紀錄
-                  <span style={{ opacity: 0.72 }}>{activityFeed.length}</span>
+                  <span style={{ opacity: 0.72 }}>{logFeed.length}</span>
                 </button>
               </div>
 
@@ -2429,6 +2357,83 @@ export default function TaskDetailPanel({
             </div>
           </Section>
 
+          <Section kicker="Comments" title="留言">
+            <div
+              style={{
+                border: `1px solid ${BRAND.line}`,
+                borderRadius: 20,
+                background: BRAND.white,
+                padding: 18,
+                boxShadow: 'var(--xc-shadow)',
+              }}
+            >
+              <div style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
+                新增留言
+              </div>
+              <div style={{ marginTop: 6, fontSize: 14, color: BRAND.muted, lineHeight: 1.6 }}>
+                可直接輸入工作更新，使用 @姓名 提及團隊成員。
+              </div>
+
+              <textarea
+                value={commentText}
+                onChange={(event) => setCommentText(event.target.value)}
+                placeholder="輸入留言內容..."
+                rows={4}
+                style={{
+                  ...inputStyle,
+                  marginTop: 14,
+                  minHeight: 116,
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  lineHeight: 1.7,
+                }}
+              />
+
+              {commentError ? (
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 14,
+                    background: BRAND.dangerSoft,
+                    color: BRAND.crimsonDeep,
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
+                  {commentError}
+                </div>
+              ) : null}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => void handleAddComment()}
+                  disabled={!commentText.trim() || commentSaving || !onAddComment}
+                  style={{
+                    borderRadius: 14,
+                    border: 'none',
+                    background:
+                      !commentText.trim() || !onAddComment || commentSaving ? 'var(--xc-brand-soft)' : BRAND.crimson,
+                    color: BRAND.white,
+                    padding: '11px 16px',
+                    fontSize: 15,
+                    fontWeight: 800,
+                    cursor:
+                      !commentText.trim() || !onAddComment || commentSaving ? 'not-allowed' : 'pointer',
+                    minWidth: 118,
+                  }}
+                >
+                  {commentSaving ? '送出中...' : '送出留言'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <ActivityTimeline items={commentFeed} emptyText="尚無留言。" />
+            </div>
+          </Section>
+
         </div>
 
         <div
@@ -2501,12 +2506,7 @@ export default function TaskDetailPanel({
 
       {showActivityModal ? (
         <ActivityLogModal
-          items={activityFeed}
-          commentText={commentText}
-          commentError={commentError}
-          commentSaving={commentSaving}
-          onCommentTextChange={setCommentText}
-          onSubmitComment={() => void handleAddComment()}
+          items={logFeed}
           onClose={() => setShowActivityModal(false)}
         />
       ) : null}
