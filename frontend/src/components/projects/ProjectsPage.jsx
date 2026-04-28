@@ -801,7 +801,7 @@ function DeleteModal({ project, onClose, onDeleted, authFetch }) {
 // ══════════════════════════════════════════════════════════════
 
 /** 單行元件 — 各行獨立管理 hover 狀態，避免在 map 中使用 hooks */
-function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
+function ListRow({ p, isLast, onOpen, onEdit, onComplete, onDelete }) {
   const isMobile = useIsMobile();
   const [hov, setHov] = useState(false);
   const pal = getProjectColor(p.id);
@@ -813,7 +813,7 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
     <div
       onMouseOver={() => setHov(true)} onMouseOut={() => setHov(false)}
       style={{
-        display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 172px', minWidth: isMobile ? '880px' : undefined,
+        display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 160px', minWidth: isMobile ? '860px' : undefined,
         padding: '10px 18px', borderBottom: isLast ? 'none' : `1px solid ${C.lineL}`,
         background: hov ? C.surfaceSoft : C.surface, transition: 'background 0.1s', gap: '8px',
         alignItems: 'center',
@@ -823,7 +823,7 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       {/* 健康點 */}
       <HealthDot project={p} />
       {/* 名稱 */}
-      <div onClick={() => onOpen(p)} style={{ cursor: 'pointer' }}>
+      <div onClick={() => onOpen(p)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(p); }} style={{ cursor: 'pointer', minWidth: 0, padding: '3px 0' }} title="點擊進入專案看板">
         <div style={{ fontSize: '15px', fontWeight: '600', color: C.ink }}>{p.name}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3, minWidth: 0 }}>
           <span style={{ fontSize: 12, color: action.color, background: action.bg, borderRadius: 999, padding: '2px 7px', fontWeight: 700, whiteSpace: 'nowrap' }}>{action.label}</span>
@@ -852,7 +852,7 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
       <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
       {/* 操作（admin/pm 可管理全部；成員可管理自己的專案） */}
       <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
-        <button onClick={() => onOpen(p)} style={{ padding: '5px 10px', background: pal.hex, border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 700, fontFamily: 'inherit' }}>開啟</button>
+        {onComplete?.can(p) && <button onClick={() => onComplete(p)} style={{ padding: '5px 9px', background: '#16A34A', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 700, fontFamily: 'inherit' }}>完成</button>}
         {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '5px 9px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
         {onDelete?.can(p) && <button onClick={() => onDelete(p)} title="封存專案" style={{ padding: '5px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>封存</button>}
       </div>
@@ -860,13 +860,13 @@ function ListRow({ p, isLast, onOpen, onEdit, onDelete }) {
   );
 }
 
-function ListView({ projects, onOpen, onEdit, onDelete }) {
+function ListView({ projects, onOpen, onEdit, onComplete, onDelete }) {
   const isMobile = useIsMobile();
   return (
     <div style={{ padding: isMobile ? '14px' : '20px 24px' }}>
       <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 16, overflowX: isMobile ? 'auto' : 'visible', overflowY: 'hidden', boxShadow: C.shadow }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 172px', minWidth: isMobile ? '880px' : undefined,
+          display: 'grid', gridTemplateColumns: '14px 16px minmax(240px,1fr) 110px 90px 70px 92px 62px 160px', minWidth: isMobile ? '860px' : undefined,
           padding: '8px 18px', borderBottom: `2px solid ${C.line}`,
           position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
         }}>
@@ -875,7 +875,7 @@ function ListView({ projects, onOpen, onEdit, onDelete }) {
           ))}
         </div>
         {projects.map((p, i) => (
-          <ListRow key={p.id} p={p} isLast={i === projects.length - 1} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+          <ListRow key={p.id} p={p} isLast={i === projects.length - 1} onOpen={onOpen} onEdit={onEdit} onComplete={onComplete} onDelete={onDelete} />
         ))}
       </div>
     </div>
@@ -1141,12 +1141,32 @@ export default function ProjectsPage() {
     finally { setHardDeleting(false); }
   };
 
+  const completeProject = async (project) => {
+    const previous = projects;
+    setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: 'completed' } : p));
+    try {
+      const res = await authFetch(`${API}/api/projects/${project.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'completed' }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || '更新失敗');
+      const saved = json.data || json;
+      setProjects(prev => prev.map(p => p.id === project.id ? { ...p, ...saved, status: saved.status || 'completed' } : p));
+      showToast('✅ 專案已標記完成');
+    } catch (e) {
+      setProjects(previous);
+      showToast(`❌ ${e.message}`);
+    }
+  };
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (showArchived) loadArchived(); }, [showArchived, loadArchived]);
 
   const onCreated  = (saved) => { setSelectedTpl(null); load(); showToast('✅ 專案已建立'); };
   const onEdited   = (upd)   => { setEditProject(null); setProjects(prev => prev.map(p => p.id !== upd.id ? p : { ...p, ...upd })); showToast('✅ 已更新'); };
   const onDeleted  = (id)    => { setDeleteProject(null); setProjects(prev => prev.filter(p => p.id !== id)); if (showArchived) loadArchived(); showToast('🗑️ 已封存'); };
+  const completeProjectAction = Object.assign((project) => completeProject(project), { can: (project) => canEditProjectRecord(project) && !['completed', 'cancelled'].includes(project.status) });
 
   // 從工作流程圖跳轉過來時，自動開啟指定專案
   useEffect(() => {
@@ -1173,7 +1193,6 @@ export default function ProjectsPage() {
     if (quickFilter === 'attention') return isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p));
     if (quickFilter === 'due_soon')  return isDueSoonProject(p);
     if (quickFilter === 'mine')      return p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id);
-    if (quickFilter === 'unassigned') return !p.owner && !(p.members || []).length;
     return true;
   }).filter(p => {
     if (!searchTerm) return true;
@@ -1230,11 +1249,9 @@ export default function ProjectsPage() {
   ];
 
   const QUICK_FILTERS = [
-    { key: 'all', label: '全部工作', count: projects.length },
     { key: 'attention', label: '需處理', count: projects.filter(p => isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p))).length },
     { key: 'due_soon', label: '7天內到期', count: projects.filter(isDueSoonProject).length },
     { key: 'mine', label: '我的專案', count: projects.filter(p => p.owner?.id === user?.id || (p.members || []).some(m => m.id === user?.id)).length },
-    { key: 'unassigned', label: '未指派', count: projects.filter(p => !p.owner && !(p.members || []).length).length },
   ];
 
   const resetFilters = () => {
@@ -1343,7 +1360,7 @@ export default function ProjectsPage() {
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {QUICK_FILTERS.map(f => (
-              <button key={f.key} onClick={() => setQuickFilter(f.key)} style={{
+              <button key={f.key} onClick={() => setQuickFilter(current => current === f.key ? 'all' : f.key)} style={{
                 background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 14%, var(--xc-surface))' : C.surfaceSoft,
                 color: quickFilter === f.key ? C.brand : C.ink2,
                 border: `1px solid ${quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 36%, var(--xc-border))' : C.line}`,
@@ -1506,7 +1523,7 @@ export default function ProjectsPage() {
             )}
           </div>
         ) : view === 'list' ? (
-          <ListView projects={filtered} onOpen={setActiveProject} onEdit={editProjectAction} onDelete={deleteProjectAction} />
+          <ListView projects={filtered} onOpen={setActiveProject} onEdit={editProjectAction} onComplete={completeProjectAction} onDelete={deleteProjectAction} />
         ) : view === 'board' ? (
           <BoardView projects={filtered} onOpen={setActiveProject} onEdit={editProjectAction} onDelete={deleteProjectAction} />
         ) : (
