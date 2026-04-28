@@ -851,7 +851,7 @@ function ListRow({ p, isLast, onOpen, onEdit, onComplete, onDelete }) {
       {/* 任務數 */}
       <div style={{ fontSize: '14px', color: C.ink3 }}>{p.taskDone ?? 0}/{p.taskTotal ?? 0}</div>
       {/* 操作（admin/pm 可管理全部；成員可管理自己的專案） */}
-      <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 5, justifyContent: 'center', alignItems: 'center', whiteSpace: 'nowrap' }}>
         {onComplete?.can(p) && <button onClick={() => onComplete(p)} style={{ padding: '5px 9px', background: '#16A34A', border: 'none', borderRadius: 7, fontSize: 13, cursor: 'pointer', color: '#fff', fontWeight: 700, fontFamily: 'inherit' }}>完成</button>}
         {onEdit?.can(p) && <button onClick={() => onEdit(p)} style={{ padding: '5px 9px', background: C.surface, border: `1px solid ${C.line}`, borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: C.ink2, fontFamily: 'inherit' }}>編輯</button>}
         {onDelete?.can(p) && <button onClick={() => onDelete(p)} title="封存專案" style={{ padding: '5px 8px', background: C.surface, border: '1px solid #FECACA', borderRadius: 7, fontSize: '13px', cursor: 'pointer', color: 'var(--xc-danger)', fontFamily: 'inherit' }}>封存</button>}
@@ -871,7 +871,7 @@ function ListView({ projects, onOpen, onEdit, onComplete, onDelete }) {
           position: 'sticky', top: 0, background: C.surfaceSoft, zIndex: 5, gap: '8px',
         }}>
           {['', '', '專案名稱', '成員', '狀態', '進度', '截止日', '任務', '操作'].map((h, i) => (
-            <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</div>
+            <div key={i} style={{ fontSize: '12px', fontWeight: '700', color: C.ink4, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: i === 8 ? 'center' : 'left' }}>{h}</div>
           ))}
         </div>
         {projects.map((p, i) => (
@@ -1358,7 +1358,7 @@ export default function ProjectsPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
             {QUICK_FILTERS.map(f => (
               <button key={f.key} onClick={() => setQuickFilter(current => current === f.key ? 'all' : f.key)} style={{
                 background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 14%, var(--xc-surface))' : C.surfaceSoft,
@@ -1366,7 +1366,7 @@ export default function ProjectsPage() {
                 border: `1px solid ${quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 36%, var(--xc-border))' : C.line}`,
                 borderRadius: 12, padding: '7px 10px',
                 fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                transition: 'all 0.15s', fontFamily: 'inherit',
+                transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
               }}>
                 {f.label}
                 <span style={{ marginLeft: 6, fontSize: 12, background: quickFilter === f.key ? 'color-mix(in srgb, var(--xc-brand) 18%, var(--xc-surface))' : C.surfaceMuted, color: quickFilter === f.key ? C.brand : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
@@ -1374,9 +1374,7 @@ export default function ProjectsPage() {
                 </span>
               </button>
             ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ width: 1, alignSelf: 'stretch', background: C.line, margin: '3px 4px', flexShrink: 0 }} />
             {FILTERS.map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)} style={{
                 background: filter === f.key ? 'var(--xc-text)' : C.surfaceSoft,
@@ -1384,7 +1382,7 @@ export default function ProjectsPage() {
                 border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
                 borderRadius: 999, padding: '6px 12px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                transition: 'all 0.15s', fontFamily: 'inherit',
+                transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
               }}>
                 {f.label}
                 <span style={{ marginLeft: 6, fontSize: 12, background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.surfaceMuted, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
