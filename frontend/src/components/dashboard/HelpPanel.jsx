@@ -615,6 +615,7 @@ const HELP_DATA = [
   // ══════════════════════════════════════════════════════
   {
     id: 'automation',
+    upcoming: true,
     icon: '⚡',
     title: '自動化規則',
     subtitle: '工作流程自動化引擎',
@@ -667,6 +668,7 @@ const HELP_DATA = [
   // ══════════════════════════════════════════════════════
   {
     id: 'forms',
+    upcoming: true,
     icon: '📝',
     title: '表單',
     subtitle: '需求收集與流程入口',
@@ -699,6 +701,7 @@ const HELP_DATA = [
   // ══════════════════════════════════════════════════════
   {
     id: 'custom-fields',
+    upcoming: true,
     icon: '🏷️',
     title: '自訂欄位',
     subtitle: '擴充任務資料結構',
@@ -1050,12 +1053,21 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                 }}
               >
                 <span style={{ fontSize: 16, lineHeight: 1 }}>{page.icon}</span>
-                <div>
-                  <div style={{
-                    fontSize: 14, fontWeight: activeId === page.id ? 700 : 500,
-                    color: activeId === page.id ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
-                    lineHeight: 1.3,
-                  }}>{page.title}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{
+                      fontSize: 14, fontWeight: activeId === page.id ? 700 : 500,
+                      color: activeId === page.id ? 'var(--xc-brand)' : 'var(--xc-text-soft)',
+                      lineHeight: 1.3,
+                    }}>{page.title}</div>
+                    {page.upcoming && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '1px 5px',
+                        borderRadius: 4, background: 'rgba(245,158,11,0.12)', color: '#d97706',
+                        border: '1px solid rgba(245,158,11,0.35)', lineHeight: 1.6, whiteSpace: 'nowrap',
+                      }}>開發中</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--xc-text-muted)', marginTop: 1, lineHeight: 1.3 }}>
                     {page.subtitle}
                   </div>
@@ -1079,6 +1091,20 @@ export default function HelpPanel({ open, onClose, currentPage }) {
                   </div>
                 </div>
               </div>
+              {activePage.upcoming && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '10px 14px', marginBottom: 10,
+                  background: 'rgba(254,243,199,0.4)', border: '1px solid rgba(245,158,11,0.35)',
+                  borderRadius: 10, borderLeft: '3px solid #f59e0b',
+                }}>
+                  <span style={{ fontSize: 16, marginTop: 1 }}>🚧</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#d97706' }}>此功能目前仍在開發中</div>
+                    <div style={{ fontSize: 13, color: '#92400e', marginTop: 2 }}>以下為規劃功能介紹，實際上線時間請關注系統公告。</div>
+                  </div>
+                </div>
+              )}
               <p style={{
                 margin: 0, fontSize: 15, color: 'var(--xc-text-soft)',
                 lineHeight: 1.7, padding: '12px 14px',

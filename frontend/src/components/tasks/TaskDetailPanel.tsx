@@ -1143,6 +1143,10 @@ export default function TaskDetailPanel({
   const [subtaskInput, setSubtaskInput] = useState('');
   const [subtaskPending, setSubtaskPending] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionVisible, setMentionVisible] = useState(false);
+  const [mentionActiveIdx, setMentionActiveIdx] = useState(0);
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [checklistInput, setChecklistInput] = useState('');
   const [checklistPending, setChecklistPending] = useState(false);
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
@@ -1384,6 +1388,39 @@ export default function TaskDetailPanel({
 
     await onAddComment({ content: nextComment });
     setCommentText('');
+    setMentionVisible(false);
+  };
+
+  const handleCommentChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = event.target.value;
+    setCommentText(val);
+    const cursor = event.target.selectionStart ?? val.length;
+    const textBefore = val.slice(0, cursor);
+    const atMatch = textBefore.match(/@([^\s@]*)$/);
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setMentionVisible(true);
+      setMentionActiveIdx(0);
+    } else {
+      setMentionVisible(false);
+    }
+  };
+
+  const handleMentionSelect = (member: TaskPanelMember) => {
+    const textarea = commentTextareaRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? commentText.length;
+    const textBefore = commentText.slice(0, cursor);
+    const textAfter = commentText.slice(cursor);
+    const replaced = textBefore.replace(/@([^\s@]*)$/, `@${member.name} `);
+    const newText = replaced + textAfter;
+    setCommentText(newText);
+    setMentionVisible(false);
+    setTimeout(() => {
+      textarea.focus();
+      const newCursor = replaced.length;
+      textarea.setSelectionRange(newCursor, newCursor);
+    }, 0);
   };
 
   return (
@@ -2374,20 +2411,97 @@ export default function TaskDetailPanel({
                 可直接輸入工作更新，使用 @姓名 提及團隊成員。
               </div>
 
-              <textarea
-                value={commentText}
-                onChange={(event) => setCommentText(event.target.value)}
-                placeholder="輸入留言內容..."
-                rows={4}
-                style={{
-                  ...inputStyle,
-                  marginTop: 14,
-                  minHeight: 116,
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  lineHeight: 1.7,
-                }}
-              />
+              <div style={{ position: 'relative', marginTop: 14 }}>
+                <textarea
+                  ref={commentTextareaRef}
+                  value={commentText}
+                  onChange={handleCommentChange}
+                  onKeyDown={(e) => {
+                    if (!mentionVisible) return;
+                    const filtered = members.filter(m =>
+                      m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+                    );
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setMentionActiveIdx(i => Math.min(i + 1, filtered.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setMentionActiveIdx(i => Math.max(i - 1, 0));
+                    } else if (e.key === 'Enter' || e.key === 'Tab') {
+                      if (filtered[mentionActiveIdx]) {
+                        e.preventDefault();
+                        handleMentionSelect(filtered[mentionActiveIdx]);
+                      }
+                    } else if (e.key === 'Escape') {
+                      setMentionVisible(false);
+                    }
+                  }}
+                  placeholder="輸入留言內容..."
+                  rows={4}
+                  style={{
+                    ...inputStyle,
+                    minHeight: 116,
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.7,
+                  }}
+                />
+                {mentionVisible && (() => {
+                  const filtered = members.filter(m =>
+                    m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+                  );
+                  if (filtered.length === 0) return null;
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: 0,
+                      zIndex: 500,
+                      background: 'var(--xc-surface)',
+                      border: '1px solid var(--xc-border)',
+                      borderRadius: 10,
+                      boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+                      minWidth: 200,
+                      maxHeight: 220,
+                      overflowY: 'auto',
+                      marginBottom: 4,
+                    }}>
+                      {filtered.map((m, idx) => (
+                        <button
+                          key={String(m.id)}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(m); }}
+                          style={{
+                            width: '100%',
+                            padding: '9px 14px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            background: idx === mentionActiveIdx ? 'color-mix(in srgb, var(--xc-brand) 10%, var(--xc-surface))' : 'transparent',
+                            textAlign: 'left',
+                            fontSize: 14,
+                            fontWeight: idx === mentionActiveIdx ? 700 : 400,
+                            color: 'var(--xc-text)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                          }}
+                        >
+                          <span style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: 'var(--xc-brand)', color: '#fff',
+                            fontSize: 13, fontWeight: 700,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            {m.name.charAt(0).toUpperCase()}
+                          </span>
+                          {m.name}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
 
               {commentError ? (
                 <div
