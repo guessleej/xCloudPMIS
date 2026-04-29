@@ -70,6 +70,7 @@ export interface TaskActivityItem {
   id: EntityId;
   type: 'comment' | 'history';
   actor: TaskPanelMember;
+  authorId?: EntityId;
   createdAt: string;
   text: string;
   mentions?: TaskActivityMention[];
@@ -128,6 +129,10 @@ export interface TaskDetailPanelProps {
     title: string;
   }) => Promise<void> | void;
   onAddComment?: (input: TaskCommentCreatePayload) => Promise<void> | void;
+  onDeleteComment?: (commentId: EntityId) => Promise<void> | void;
+  onEditComment?: (commentId: EntityId, content: string) => Promise<void> | void;
+  currentUserId?: EntityId;
+  currentUserIsAdmin?: boolean;
   commentSaving?: boolean;
   commentError?: string | null;
   onToggleSubtask?: (input: {
@@ -884,7 +889,26 @@ function SubtaskTree({
   );
 }
 
-function ActivityTimeline({ items, emptyText = '尚無評論與操作紀錄。' }: { items: TaskActivityItem[]; emptyText?: string }) {
+function ActivityTimeline({
+  items,
+  emptyText = '尚無評論與操作紀錄。',
+  currentUserId,
+  currentUserIsAdmin,
+  onDeleteComment,
+  onEditComment,
+}: {
+  items: TaskActivityItem[];
+  emptyText?: string;
+  currentUserId?: EntityId;
+  currentUserIsAdmin?: boolean;
+  onDeleteComment?: (commentId: EntityId) => Promise<void> | void;
+  onEditComment?: (commentId: EntityId, content: string) => Promise<void> | void;
+}) {
+  const [editingId, setEditingId] = useState<EntityId | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<EntityId | null>(null);
+
   if (items.length === 0) {
     return (
       <div
@@ -957,37 +981,85 @@ function ActivityTimeline({ items, emptyText = '尚無評論與操作紀錄。' 
               </span>
             </div>
 
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 15,
-                lineHeight: 1.7,
-                color: BRAND.carbon,
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {item.text}
-            </div>
-
-            {item.mentions && item.mentions.length > 0 ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                {item.mentions.map((mention) => (
-                  <span
-                    key={mention.id}
-                    style={{
-                      padding: '5px 8px',
-                      borderRadius: 999,
-                      background: BRAND.infoSoft,
-                      color: '#2563EB',
-                      fontSize: 13,
-                      fontWeight: 700,
+            {/* 編輯模式 */}
+            {editingId === item.id ? (
+              <div style={{ marginTop: 10 }}>
+                <textarea
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: '100%', borderRadius: 8, border: `1px solid ${BRAND.crimson}`,
+                    padding: '8px 10px', fontSize: 14, background: BRAND.surface,
+                    color: BRAND.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                    fontFamily: 'inherit', lineHeight: 1.6,
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingId(null); setEditDraft(''); }}
+                    style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: BRAND.surface, cursor: 'pointer', fontSize: 13, color: BRAND.muted }}
+                  >取消</button>
+                  <button
+                    type="button"
+                    disabled={editSaving || !editDraft.trim()}
+                    onClick={async () => {
+                      if (!onEditComment) return;
+                      setEditSaving(true);
+                      await onEditComment(item.id, editDraft.trim());
+                      setEditSaving(false);
+                      setEditingId(null);
                     }}
-                  >
-                    @{mention.name}
-                  </span>
-                ))}
+                    style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: BRAND.crimson, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
+                  >{editSaving ? '儲存中…' : '儲存'}</button>
+                </div>
               </div>
-            ) : null}
+            ) : (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 15,
+                  lineHeight: 1.7,
+                  color: BRAND.carbon,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {item.text}
+              </div>
+            )}
+
+            {/* 評論操作按鈕（編輯/刪除） */}
+            {item.type === 'comment' && editingId !== item.id && (() => {
+              const isOwner = currentUserId !== undefined && String(item.authorId ?? item.actor.id) === String(currentUserId);
+              const canDelete = isOwner || currentUserIsAdmin;
+              const canEdit = isOwner;
+              if (!canDelete && !canEdit) return null;
+              return (
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  {canEdit && onEditComment && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(item.id); setEditDraft(item.text); }}
+                      style={{ padding: '3px 10px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: BRAND.muted, fontWeight: 600 }}
+                    >編輯</button>
+                  )}
+                  {canDelete && onDeleteComment && (
+                    <button
+                      type="button"
+                      disabled={deletingId === item.id}
+                      onClick={async () => {
+                        if (!confirm('確定要刪除這則評論？')) return;
+                        setDeletingId(item.id);
+                        await onDeleteComment(item.id);
+                        setDeletingId(null);
+                      }}
+                      style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,.25)', background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600, opacity: deletingId === item.id ? 0.5 : 1 }}
+                    >{deletingId === item.id ? '刪除中…' : '刪除'}</button>
+                  )}
+                </div>
+              );
+            })()}
 
             {item.meta && item.meta.length > 0 ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
@@ -1112,6 +1184,10 @@ export default function TaskDetailPanel({
   onDelete,
   onQuickAddSubtask,
   onAddComment,
+  onDeleteComment,
+  onEditComment,
+  currentUserId,
+  currentUserIsAdmin = false,
   commentSaving = false,
   commentError = null,
   onToggleSubtask,
@@ -2544,7 +2620,14 @@ export default function TaskDetailPanel({
             </div>
 
             <div style={{ marginTop: 18 }}>
-              <ActivityTimeline items={commentFeed} emptyText="尚無留言。" />
+              <ActivityTimeline
+                items={commentFeed}
+                emptyText="尚無留言。"
+                currentUserId={currentUserId}
+                currentUserIsAdmin={currentUserIsAdmin}
+                onDeleteComment={onDeleteComment}
+                onEditComment={onEditComment}
+              />
             </div>
           </Section>
 

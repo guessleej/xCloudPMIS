@@ -1660,6 +1660,65 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// PATCH /api/projects/tasks/:taskId/comments/:commentId
+// 編輯評論（僅留言作者可操作）
+// ════════════════════════════════════════════════════════════
+router.patch('/tasks/:taskId/comments/:commentId', async (req, res) => {
+  const taskId     = parseInt(req.params.taskId, 10);
+  const commentId  = parseInt(req.params.commentId, 10);
+  const content    = String(req.body.content || '').trim();
+  const requestorId = req.user?.id ? parseInt(req.user.id, 10) : parseInt(req.body.userId || '0', 10);
+
+  if (isNaN(commentId)) return err(res, '無效的評論 ID', 400);
+  if (!content)         return err(res, '內容不可為空', 400);
+  if (!requestorId)     return err(res, '需要登入', 401);
+
+  try {
+    const comment = await prisma.comment.findFirst({ where: { id: commentId, taskId } });
+    if (!comment) return err(res, '找不到評論', 404);
+    if (comment.userId !== requestorId) return err(res, '僅留言作者可編輯', 403);
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data:  { content },
+    });
+    ok(res, { id: updated.id, text: updated.content });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// DELETE /api/projects/tasks/:taskId/comments/:commentId
+// 刪除評論（作者本人或 admin 可操作）
+// ════════════════════════════════════════════════════════════
+router.delete('/tasks/:taskId/comments/:commentId', async (req, res) => {
+  const taskId     = parseInt(req.params.taskId, 10);
+  const commentId  = parseInt(req.params.commentId, 10);
+  const requestorId = req.user?.id ? parseInt(req.user.id, 10) : parseInt(req.body.userId || '0', 10);
+  const requestorRole = req.user?.role || 'member';
+
+  if (isNaN(commentId)) return err(res, '無效的評論 ID', 400);
+  if (!requestorId)     return err(res, '需要登入', 401);
+
+  try {
+    const comment = await prisma.comment.findFirst({ where: { id: commentId, taskId } });
+    if (!comment) return err(res, '找不到評論', 404);
+
+    const isOwner = comment.userId === requestorId;
+    const isAdmin = requestorRole === 'admin';
+    if (!isOwner && !isAdmin) return err(res, '無權限刪除此評論', 403);
+
+    await prisma.comment.delete({ where: { id: commentId } });
+    ok(res, { id: commentId });
+  } catch (e) {
+    console.error(e);
+    err(res, e.message);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
 // GET /api/projects/tasks/:taskId/custom-field-values
 // 取得任務的自訂欄位值（回傳 { [definitionId]: value } 物件）
 // ════════════════════════════════════════════════════════════

@@ -418,6 +418,7 @@ function buildTaskActivity(task, comments, activityLogs, users) {
       id: comment.id || `comment-${task.id}-${index}`,
       type: 'comment',
       actor: createActivityActor(knownActor || { id: `commenter-${index}`, name: comment.author }, comment.author),
+      authorId: comment.authorId,
       createdAt: comment.ts || new Date().toISOString(),
       text: comment.text || '',
       mentions: (comment.mentions || []).map((mention) => ({
@@ -1313,7 +1314,7 @@ export function TaskSidePanel({
   const [subtaskRefreshKey, setSubtaskRefreshKey] = useState(0);
 
   const activity = buildTaskActivity(task, comments, activityLogs, users);
-  const { isAdminOrPm } = usePermissions();
+  const { isAdminOrPm, isAdmin } = usePermissions();
 
   const reloadActivityLogs = useCallback(async () => {
     if (!authFetch || !task.id) return;
@@ -1554,6 +1555,31 @@ export function TaskSidePanel({
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await authFetch(`${API}/tasks/${task.id}/comments/${commentId}`, { method: 'DELETE' });
+      setComments((current) => current.filter((c) => c.id !== commentId));
+    } catch (error) {
+      console.error('[deleteComment]', error);
+    }
+  };
+
+  const handleEditComment = async (commentId, content) => {
+    try {
+      const response = await authFetch(`${API}/tasks/${task.id}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      });
+      const payload = await response.json();
+      if (!payload.success) throw new Error(payload.error || '編輯失敗');
+      setComments((current) =>
+        current.map((c) => c.id === commentId ? { ...c, text: content } : c)
+      );
+    } catch (error) {
+      console.error('[editComment]', error);
+    }
+  };
+
   return (
     <TaskDetailPanel
       open={Boolean(task)}
@@ -1587,6 +1613,10 @@ export function TaskSidePanel({
       onDelete={isAdminOrPm ? () => onDeleteRequest(task) : undefined}
       onQuickAddSubtask={isAdminOrPm ? handleQuickAddSubtask : undefined}
       onAddComment={handleAddComment}
+      onDeleteComment={handleDeleteComment}
+      onEditComment={handleEditComment}
+      currentUserId={currentUser?.id}
+      currentUserIsAdmin={isAdmin}
       commentSaving={commentSaving}
       commentError={commentError}
       onToggleSubtask={handleToggleSubtask}
