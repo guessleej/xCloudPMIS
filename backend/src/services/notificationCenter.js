@@ -82,10 +82,14 @@ async function dispatchEmailNotifications(opts = {}) {
   if (!recipientIds.length) return;
 
   try {
-    const users = await prisma.user.findMany({
-      where:  { id: { in: recipientIds } },
-      select: { id: true, email: true, name: true, settings: true },
-    });
+    const [users, senderUser] = await Promise.all([
+      prisma.user.findMany({
+        where:  { id: { in: recipientIds } },
+        select: { id: true, email: true, name: true, settings: true },
+      }),
+      senderUserId ? prisma.user.findUnique({ where: { id: senderUserId }, select: { name: true } }) : Promise.resolve(null),
+    ]);
+    const senderName = senderUser?.name || null;
 
     const emailJobs = [];
     const prefix      = TYPE_TO_EMAIL_SUBJECT_PREFIX[type] || '🔔';
@@ -102,6 +106,9 @@ async function dispatchEmailNotifications(opts = {}) {
 
       const subject = `${prefix} ${title}`;
       const htmlMessage = (message || '').replace(/\n/g, '<br>');
+      const senderBadge = senderName
+        ? `<p style="margin:0 0 12px;font-size:13px;color:#6b7280;">來自：<strong style="color:#374151;">${senderName}</strong></p>`
+        : '';
       const htmlBody = `
         <h2 style="margin:0 0 8px;font-size:20px;color:#1a202c;font-weight:700;">
           ${title}
@@ -113,6 +120,7 @@ async function dispatchEmailNotifications(opts = {}) {
           ${user.name} 您好，
         </p>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px;margin-bottom:20px;">
+          ${senderBadge}
           <p style="margin:0;font-size:14px;color:#374151;line-height:1.75;">
             ${htmlMessage || '（無詳細說明）'}
           </p>
@@ -309,16 +317,18 @@ async function createTaskAssignmentNotifications(prisma, opts = {}) {
   const { taskId, projectId, recipientId, actorId } = opts;
   if (!recipientId) return [];
   try {
-    const task = await prisma.task.findUnique({
-      where:   { id: taskId },
-      select:  { title: true },
-    });
+    const [task, actor] = await Promise.all([
+      prisma.task.findUnique({ where: { id: taskId }, select: { title: true } }),
+      actorId ? prisma.user.findUnique({ where: { id: actorId }, select: { name: true } }) : null,
+    ]);
+    const actorName = actor?.name || '系統';
+    const taskTitle = task?.title || `#${taskId}`;
     return createNotifications({
       prisma,
       recipients:   [recipientId],
       type:         'task_assigned',
-      title:        `已被指派任務：${task?.title || `#${taskId}`}`,
-      message:      `你已被指派到任務「${task?.title || `#${taskId}`}」`,
+      title:        `${actorName} 指派任務給你：${taskTitle}`,
+      message:      `${actorName} 將任務「${taskTitle}」指派給你`,
       resourceType: 'task',
       resourceId:   taskId,
       senderUserId: actorId || null,
@@ -337,10 +347,10 @@ async function createTaskAssignmentNotifications(prisma, opts = {}) {
 async function createTaskCommentNotifications(prisma, opts = {}) {
   const { taskId, authorId, content, commentId, parentId } = opts;
   try {
-    const task = await prisma.task.findUnique({
-      where:   { id: taskId },
-      select:  { title: true, assigneeId: true },
-    });
+    const [task, author] = await Promise.all([
+      prisma.task.findUnique({ where: { id: taskId }, select: { title: true, assigneeId: true } }),
+      authorId ? prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }) : null,
+    ]);
 
     const recipientSet = new Set();
 
@@ -362,14 +372,17 @@ async function createTaskCommentNotifications(prisma, opts = {}) {
 
     if (!recipientSet.size) return [];
 
+    const authorName = author?.name || '某人';
+    const taskTitle = task?.title || `#${taskId}`;
     return createNotifications({
       prisma,
       recipients:   [...recipientSet],
       type:         'comment_added',
-      title:        `任務「${task?.title || `#${taskId}`}」有新留言`,
-      message:      content ? content.slice(0, 80) : '',
+      title:        `${authorName} 在任務「${taskTitle}」留言`,
+      message:      content ? `${authorName}：${content.slice(0, 70)}` : '',
       resourceType: 'task',
       resourceId:   taskId,
+      senderUserId: authorId || null,
     });
   } catch (e) {
     console.warn('[notificationCenter] createTaskCommentNotifications 失敗:', e.message);
@@ -388,18 +401,21 @@ async function createMentionNotifications(prisma, opts = {}) {
   const recipients = mentionIds.filter(id => id !== authorId);
   if (!recipients.length) return [];
   try {
-    const task = await prisma.task.findUnique({
-      where:  { id: taskId },
-      select: { title: true },
-    });
+    const [task, author] = await Promise.all([
+      prisma.task.findUnique({ where: { id: taskId }, select: { title: true } }),
+      authorId ? prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }) : null,
+    ]);
+    const authorName = author?.name || '某人';
+    const taskTitle = task?.title || `#${taskId}`;
     return createNotifications({
       prisma,
       recipients,
       type:         'mentioned',
-      title:        `你在「${task?.title || `#${taskId}`}」被提及`,
-      message:      content ? content.slice(0, 80) : '',
+      title:        `${authorName} 在「${taskTitle}」提到了你`,
+      message:      content ? `${authorName}：${content.slice(0, 70)}` : '',
       resourceType: 'task',
       resourceId:   taskId,
+      senderUserId: authorId || null,
     });
   } catch (e) {
     console.warn('[notificationCenter] createMentionNotifications 失敗:', e.message);
