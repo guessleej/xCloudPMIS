@@ -419,6 +419,7 @@ function buildTaskActivity(task, comments, activityLogs, users) {
       type: 'comment',
       actor: createActivityActor(knownActor || { id: `commenter-${index}`, name: comment.author }, comment.author),
       authorId: comment.authorId,
+      parentId: comment.parentId ?? null,
       createdAt: comment.ts || new Date().toISOString(),
       text: comment.text || '',
       mentions: (comment.mentions || []).map((mention) => ({

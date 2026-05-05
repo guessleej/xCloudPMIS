@@ -340,7 +340,7 @@ async function createTaskAssignmentNotifications(prisma, opts = {}) {
 }
 
 /**
- * 任務評論通知（提及 + 任務負責人）
+ * 任務評論通知（專案負責人 + 任務負責人 + 回覆原留言者）
  * @param {object} prisma
  * @param {object} opts - { taskId, authorId, content, commentId, parentId }
  */
@@ -348,11 +348,23 @@ async function createTaskCommentNotifications(prisma, opts = {}) {
   const { taskId, authorId, content, commentId, parentId } = opts;
   try {
     const [task, author] = await Promise.all([
-      prisma.task.findUnique({ where: { id: taskId }, select: { title: true, assigneeId: true } }),
+      prisma.task.findUnique({
+        where: { id: taskId },
+        select: {
+          title: true,
+          assigneeId: true,
+          project: { select: { ownerId: true } },
+        },
+      }),
       authorId ? prisma.user.findUnique({ where: { id: authorId }, select: { name: true } }) : null,
     ]);
 
     const recipientSet = new Set();
+
+    // 通知專案負責人（非留言者）
+    if (task?.project?.ownerId && task.project.ownerId !== authorId) {
+      recipientSet.add(task.project.ownerId);
+    }
 
     // 通知任務負責人（非留言者）
     if (task?.assigneeId && task.assigneeId !== authorId) {

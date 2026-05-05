@@ -71,6 +71,7 @@ export interface TaskActivityItem {
   type: 'comment' | 'history';
   actor: TaskPanelMember;
   authorId?: EntityId;
+  parentId?: EntityId | null;
   createdAt: string;
   text: string;
   mentions?: TaskActivityMention[];
@@ -896,6 +897,8 @@ function ActivityTimeline({
   currentUserIsAdmin,
   onDeleteComment,
   onEditComment,
+  onAddComment,
+  commentSaving = false,
 }: {
   items: TaskActivityItem[];
   emptyText?: string;
@@ -903,11 +906,44 @@ function ActivityTimeline({
   currentUserIsAdmin?: boolean;
   onDeleteComment?: (commentId: EntityId) => Promise<void> | void;
   onEditComment?: (commentId: EntityId, content: string) => Promise<void> | void;
+  onAddComment?: (input: TaskCommentCreatePayload) => Promise<void> | void;
+  commentSaving?: boolean;
 }) {
   const [editingId, setEditingId] = useState<EntityId | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<EntityId | null>(null);
+  const [replyParentId, setReplyParentId] = useState<EntityId | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [replySavingId, setReplySavingId] = useState<EntityId | null>(null);
+
+  const itemIds = new Set(items.map((item) => toKey(item.id)));
+  const repliesByParent = new Map<string, TaskActivityItem[]>();
+  const rootItems: TaskActivityItem[] = [];
+
+  items.forEach((item) => {
+    const parentKey = item.parentId === undefined || item.parentId === null ? null : toKey(item.parentId);
+    if (item.type === 'comment' && parentKey && itemIds.has(parentKey)) {
+      const current = repliesByParent.get(parentKey) || [];
+      current.push(item);
+      repliesByParent.set(parentKey, current);
+    } else {
+      rootItems.push(item);
+    }
+  });
+
+  const submitReply = async (parentId: EntityId) => {
+    const content = replyDraft.trim();
+    if (!content || !onAddComment) return;
+    setReplySavingId(parentId);
+    try {
+      await onAddComment({ content, parentId });
+      setReplyDraft('');
+      setReplyParentId(null);
+    } finally {
+      setReplySavingId(null);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -928,161 +964,220 @@ function ActivityTimeline({
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      {items.map((item) => (
+      {rootItems.map((item) => {
+        const renderItem = (entry: TaskActivityItem, level = 0): ReactNode => {
+          const isReplying = replyParentId !== null && toKey(replyParentId) === toKey(entry.id);
+          const childReplies = repliesByParent.get(toKey(entry.id)) || [];
+
+          return (
         <div
-          key={item.id}
+          key={entry.id}
           style={{
             display: 'grid',
             gridTemplateColumns: '40px 1fr',
             gap: 12,
             alignItems: 'start',
+            marginLeft: level > 0 ? Math.min(level, 4) * 34 : 0,
           }}
         >
-          <Avatar user={item.actor} size={34} />
+          <Avatar user={entry.actor} size={34} />
 
-          <div
-            style={{
-              borderRadius: 18,
-              border: `1px solid ${BRAND.line}`,
-              background: BRAND.white,
-              padding: '14px 16px',
-              boxShadow: 'var(--xc-shadow)',
-            }}
-          >
+          <div>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                flexWrap: 'wrap',
+                borderRadius: 18,
+                border: `1px solid ${BRAND.line}`,
+                background: BRAND.white,
+                padding: '14px 16px',
+                boxShadow: 'var(--xc-shadow)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
-                  {item.actor.name}
-                </span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    borderRadius: 999,
-                    padding: '4px 8px',
-                    background: item.type === 'comment' ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
-                    color: item.type === 'comment' ? BRAND.crimsonDeep : BRAND.muted,
-                  }}
-                >
-                  {item.type === 'comment' ? '評論' : '歷史操作'}
-                </span>
-              </div>
-
-              <span style={{ fontSize: 13, color: BRAND.muted, fontWeight: 700 }}>
-                {formatActivityTime(item.createdAt)}
-              </span>
-            </div>
-
-            {/* 編輯模式 */}
-            {editingId === item.id ? (
-              <div style={{ marginTop: 10 }}>
-                <textarea
-                  value={editDraft}
-                  onChange={(e) => setEditDraft(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: '100%', borderRadius: 8, border: `1px solid ${BRAND.crimson}`,
-                    padding: '8px 10px', fontSize: 14, background: BRAND.surface,
-                    color: BRAND.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
-                    fontFamily: 'inherit', lineHeight: 1.6,
-                  }}
-                />
-                <div style={{ display: 'flex', gap: 8, marginTop: 6, justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    onClick={() => { setEditingId(null); setEditDraft(''); }}
-                    style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: BRAND.surface, cursor: 'pointer', fontSize: 13, color: BRAND.muted }}
-                  >取消</button>
-                  <button
-                    type="button"
-                    disabled={editSaving || !editDraft.trim()}
-                    onClick={async () => {
-                      if (!onEditComment) return;
-                      setEditSaving(true);
-                      await onEditComment(item.id, editDraft.trim());
-                      setEditSaving(false);
-                      setEditingId(null);
-                    }}
-                    style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: BRAND.crimson, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
-                  >{editSaving ? '儲存中…' : '儲存'}</button>
-                </div>
-              </div>
-            ) : (
               <div
                 style={{
-                  marginTop: 10,
-                  fontSize: 15,
-                  lineHeight: 1.7,
-                  color: BRAND.carbon,
-                  whiteSpace: 'pre-wrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  flexWrap: 'wrap',
                 }}
               >
-                {item.text}
-              </div>
-            )}
-
-            {/* 評論操作按鈕（編輯/刪除） */}
-            {item.type === 'comment' && editingId !== item.id && (() => {
-              const isOwner = currentUserId !== undefined && String(item.authorId ?? item.actor.id) === String(currentUserId);
-              const canDelete = isOwner || currentUserIsAdmin;
-              const canEdit = isOwner;
-              if (!canDelete && !canEdit) return null;
-              return (
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  {canEdit && onEditComment && (
-                    <button
-                      type="button"
-                      onClick={() => { setEditingId(item.id); setEditDraft(item.text); }}
-                      style={{ padding: '3px 10px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: BRAND.muted, fontWeight: 600 }}
-                    >編輯</button>
-                  )}
-                  {canDelete && onDeleteComment && (
-                    <button
-                      type="button"
-                      disabled={deletingId === item.id}
-                      onClick={async () => {
-                        if (!confirm('確定要刪除這則評論？')) return;
-                        setDeletingId(item.id);
-                        await onDeleteComment(item.id);
-                        setDeletingId(null);
-                      }}
-                      style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,.25)', background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600, opacity: deletingId === item.id ? 0.5 : 1 }}
-                    >{deletingId === item.id ? '刪除中…' : '刪除'}</button>
-                  )}
-                </div>
-              );
-            })()}
-
-            {item.meta && item.meta.length > 0 ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                {item.meta.map((entry) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: BRAND.ink }}>
+                    {entry.actor.name}
+                  </span>
                   <span
-                    key={entry}
                     style={{
-                      padding: '5px 8px',
-                      borderRadius: 999,
-                      background: BRAND.surfaceSoft,
-                      color: BRAND.muted,
                       fontSize: 13,
                       fontWeight: 700,
+                      borderRadius: 999,
+                      padding: '4px 8px',
+                      background: entry.type === 'comment' ? 'var(--xc-brand-soft)' : BRAND.surfaceMuted,
+                      color: entry.type === 'comment' ? BRAND.crimsonDeep : BRAND.muted,
                     }}
                   >
-                    {entry}
+                    {entry.type === 'comment' ? (level > 0 ? '回覆' : '評論') : '歷史操作'}
                   </span>
-                ))}
+                </div>
+
+                <span style={{ fontSize: 13, color: BRAND.muted, fontWeight: 700 }}>
+                  {formatActivityTime(entry.createdAt)}
+                </span>
+              </div>
+
+              {/* 編輯模式 */}
+              {editingId === entry.id ? (
+                <div style={{ marginTop: 10 }}>
+                  <textarea
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%', borderRadius: 8, border: `1px solid ${BRAND.crimson}`,
+                      padding: '8px 10px', fontSize: 14, background: BRAND.surface,
+                      color: BRAND.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                      fontFamily: 'inherit', lineHeight: 1.6,
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(null); setEditDraft(''); }}
+                      style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: BRAND.surface, cursor: 'pointer', fontSize: 13, color: BRAND.muted }}
+                    >取消</button>
+                    <button
+                      type="button"
+                      disabled={editSaving || !editDraft.trim()}
+                      onClick={async () => {
+                        if (!onEditComment) return;
+                        setEditSaving(true);
+                        await onEditComment(entry.id, editDraft.trim());
+                        setEditSaving(false);
+                        setEditingId(null);
+                      }}
+                      style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: BRAND.crimson, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
+                    >{editSaving ? '儲存中…' : '儲存'}</button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 15,
+                    lineHeight: 1.7,
+                    color: BRAND.carbon,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {entry.text}
+                </div>
+              )}
+
+              {/* 評論操作按鈕（回覆 / 編輯 / 刪除） */}
+              {entry.type === 'comment' && editingId !== entry.id && (() => {
+                const isOwner = currentUserId !== undefined && String(entry.authorId ?? entry.actor.id) === String(currentUserId);
+                const canDelete = isOwner || currentUserIsAdmin;
+                const canEdit = isOwner;
+                const hasAnyAction = !!onAddComment || (canEdit && !!onEditComment) || (canDelete && !!onDeleteComment);
+                if (!hasAnyAction) return null;
+                return (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    {onAddComment && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyParentId(isReplying ? null : entry.id);
+                          setReplyDraft('');
+                        }}
+                        style={{ padding: '3px 10px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: BRAND.crimsonDeep, fontWeight: 700 }}
+                      >{isReplying ? '取消回覆' : '回覆'}</button>
+                    )}
+                    {canEdit && onEditComment && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingId(entry.id); setEditDraft(entry.text); }}
+                        style={{ padding: '3px 10px', borderRadius: 6, border: `1px solid ${BRAND.line}`, background: 'transparent', cursor: 'pointer', fontSize: 12, color: BRAND.muted, fontWeight: 600 }}
+                      >編輯</button>
+                    )}
+                    {canDelete && onDeleteComment && (
+                      <button
+                        type="button"
+                        disabled={deletingId === entry.id}
+                        onClick={async () => {
+                          if (!confirm('確定要刪除這則評論？')) return;
+                          setDeletingId(entry.id);
+                          await onDeleteComment(entry.id);
+                          setDeletingId(null);
+                        }}
+                        style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,.25)', background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600, opacity: deletingId === entry.id ? 0.5 : 1 }}
+                      >{deletingId === entry.id ? '刪除中…' : '刪除'}</button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {isReplying && onAddComment ? (
+                <div style={{ marginTop: 12, borderTop: `1px solid ${BRAND.mist}`, paddingTop: 12 }}>
+                  <textarea
+                    value={replyDraft}
+                    onChange={(event) => setReplyDraft(event.target.value)}
+                    rows={3}
+                    placeholder={`回覆 ${entry.actor.name}...`}
+                    style={{
+                      width: '100%', borderRadius: 12, border: `1px solid ${BRAND.line}`,
+                      padding: '9px 11px', fontSize: 14, background: BRAND.surface,
+                      color: BRAND.ink, resize: 'vertical', outline: 'none', boxSizing: 'border-box',
+                      fontFamily: 'inherit', lineHeight: 1.6,
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => { setReplyParentId(null); setReplyDraft(''); }}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${BRAND.line}`, background: 'transparent', color: BRAND.muted, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
+                    >取消</button>
+                    <button
+                      type="button"
+                      disabled={!replyDraft.trim() || commentSaving || replySavingId === entry.id}
+                      onClick={() => void submitReply(entry.id)}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: !replyDraft.trim() || commentSaving || replySavingId === entry.id ? 'var(--xc-brand-soft)' : BRAND.crimson, color: BRAND.white, cursor: !replyDraft.trim() || commentSaving || replySavingId === entry.id ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 800 }}
+                    >{replySavingId === entry.id ? '送出中…' : '送出回覆'}</button>
+                  </div>
+                </div>
+              ) : null}
+
+              {entry.meta && entry.meta.length > 0 ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                  {entry.meta.map((metaEntry) => (
+                    <span
+                      key={metaEntry}
+                      style={{
+                        padding: '5px 8px',
+                        borderRadius: 999,
+                        background: BRAND.surfaceSoft,
+                        color: BRAND.muted,
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {metaEntry}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {childReplies.length > 0 ? (
+              <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+                {childReplies.map((reply) => renderItem(reply, level + 1))}
               </div>
             ) : null}
           </div>
         </div>
-      ))}
+          );
+        };
+
+        return renderItem(item);
+      })}
     </div>
   );
 }
@@ -2627,6 +2722,8 @@ export default function TaskDetailPanel({
                 currentUserIsAdmin={currentUserIsAdmin}
                 onDeleteComment={onDeleteComment}
                 onEditComment={onEditComment}
+                onAddComment={onAddComment}
+                commentSaving={commentSaving}
               />
             </div>
           </Section>

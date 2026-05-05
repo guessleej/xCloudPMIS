@@ -585,7 +585,10 @@ router.get('/tasks', async (req, res) => {
         projectId:    { in: projectIds },
         deletedAt:    null,
         parentTaskId: null,          // 排除子任務，只取頂層任務
-        ...(assigneeId ? { assigneeId } : {}),
+        ...(assigneeId ? { OR: [
+          { assigneeId },
+          { taskAssigneeLinks: { some: { userId: assigneeId } } },
+        ] } : {}),
         ...(priority   ? { priority }   : {}),
         ...(status     ? { status }     : {}),
       },
@@ -1594,6 +1597,14 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
       },
     });
     if (!task) return err(res, `找不到任務 #${taskId}`, 404);
+
+    if (parentId) {
+      const parentComment = await prisma.comment.findFirst({
+        where: { id: parentId, taskId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!parentComment) return err(res, '找不到可回覆的原始留言', 404);
+    }
 
     const companyUsers = await prisma.user.findMany({
       where: {

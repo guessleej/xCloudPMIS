@@ -119,8 +119,11 @@ router.get('/', async (req, res) => {
 
     const where = {
       deletedAt:  null,
-      assigneeId: userId,
       ...(projectIds ? { projectId: { in: projectIds } } : {}),
+      OR: [
+        { assigneeId: userId },
+        { taskAssigneeLinks: { some: { userId } } },
+      ],
     };
 
     const tasks = await prisma.task.findMany({

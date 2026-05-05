@@ -212,7 +212,7 @@ export default function MyTasksPage() {
   const [panelUsers, setPanelUsers] = useState([]);
   const [panelProjects, setPanelProjects] = useState([]);
   const [panelCFDefs, setPanelCFDefs] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('active'); // all | active | done
+  const [filterStatus, setFilterStatus] = useState('todo'); // todo | in_progress | all | done
   const [filterPri,    setFilterPri]    = useState('all');
   const [search,       setSearch]       = useState('');
   const [groupBy,      setGroupBy]      = useState('status'); // status | project | priority
@@ -282,6 +282,7 @@ export default function MyTasksPage() {
   // ── Derived stats ──
   const stats = useMemo(() => ({
     total:      tasks.length,
+    todo:       tasks.filter(t => t.status === 'todo').length,
     active:     tasks.filter(t => !['done','cancelled'].includes(t.status)).length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     overdue:    tasks.filter(t => isOverdue(t.dueDate) && t.status !== 'done').length,
@@ -296,7 +297,8 @@ export default function MyTasksPage() {
     let list = tasks;
     // 搜尋時跨所有狀態查找，否則依狀態篩選
     if (!isSearching) {
-      if (filterStatus === 'active') list = list.filter(t => !['done','cancelled'].includes(t.status));
+      if (filterStatus === 'todo')   list = list.filter(t => t.status === 'todo');
+      if (filterStatus === 'in_progress') list = list.filter(t => t.status === 'in_progress');
       if (filterStatus === 'done')   list = list.filter(t => t.status === 'done');
     }
     if (filterPri !== 'all')       list = list.filter(t => t.priority === filterPri);
@@ -422,7 +424,8 @@ export default function MyTasksPage() {
         {/* 狀態篩選 */}
         <div style={{ display: 'flex', gap: 4 }}>
           {[
-            { k: 'active', label: '進行中' },
+            { k: 'todo',   label: '待辦' },
+            { k: 'in_progress', label: '進行中' },
             { k: 'all',    label: '全部' },
             { k: 'done',   label: '已完成' },
           ].map(({ k, label }) => (
@@ -502,7 +505,8 @@ export default function MyTasksPage() {
               <div style={{ fontSize: 16, color: BRAND.muted }}>
                 {isSearching
                   ? `找不到「${search.trim()}」的相關任務`
-                  : filterStatus === 'active' ? '沒有進行中的任務' : '找不到符合的任務'
+                  : filterStatus === 'todo' ? '沒有待辦任務'
+                  : filterStatus === 'in_progress' ? '沒有進行中的任務' : '找不到符合的任務'
                 }
               </div>
               {isSearching && (

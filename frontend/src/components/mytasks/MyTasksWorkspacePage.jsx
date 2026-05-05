@@ -37,6 +37,7 @@ const TABS = [
 
 const QUICK_FILTERS = [
   { key: 'all', label: '全部' },
+  { key: 'todo', label: '待辦' },
   { key: 'today', label: '今天' },
   { key: 'due_soon', label: '七日內' },
   { key: 'overdue', label: '逾期' },
@@ -175,6 +176,7 @@ function buildTaskSearchText(task) {
 function matchesQuickFilter(task, quickFilter) {
   if (quickFilter === 'done') return Boolean(task.isDone);
   if (task.isDone) return false;
+  if (quickFilter === 'todo') return task.status === 'todo';
   if (quickFilter === 'today') return isToday(task.dueDate);
   if (quickFilter === 'due_soon') return isDueSoon(task.dueDate);
   if (quickFilter === 'overdue') return isOverdue(task.dueDate);
@@ -1399,6 +1401,7 @@ export default function MyTasksWorkspacePage() {
 
   const quickFilterCounts = {
     all: activeTasks.length,
+    todo: activeTasks.filter(task => task.status === 'todo').length,
     today: activeTasks.filter(task => isToday(task.dueDate)).length,
     due_soon: activeTasks.filter(task => isDueSoon(task.dueDate)).length,
     overdue: activeTasks.filter(task => isOverdue(task.dueDate)).length,
