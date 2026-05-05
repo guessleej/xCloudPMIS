@@ -2494,6 +2494,7 @@ export default function Dashboard() {
 
   const [activeNav,       setActiveNav]       = useState(readHashNav);
   const [navState,        setNavState]        = useState(null);
+  const [navResetKey,     setNavResetKey]     = useState(0);
   const [settingsState,   setSettingsState]   = useState(null);
   const [inboxCount,      setInboxCount]      = useState(0);
   const [showDarkPanel,   setShowDarkPanel]   = useState(false);
@@ -2559,7 +2560,10 @@ export default function Dashboard() {
   }, [setThemeMode]);
 
   useEffect(() => {
-    const sync = () => setActiveNav(readHashNav());
+    const sync = () => {
+      setActiveNav(readHashNav());
+      setNavResetKey((key) => key + 1);
+    };
     window.addEventListener('popstate',   sync);   // pushState 後退/前進
     window.addEventListener('hashchange', sync);   // location.hash = '...' 或 <a href="#...">
     return () => {
@@ -2571,6 +2575,7 @@ export default function Dashboard() {
   const navigate = useCallback((id, state) => {
     setActiveNav(id);
     setNavState(state || null);
+    setNavResetKey((key) => key + 1);
     setShowDarkPanel(false);
     setMobileMenuOpen(false);
     writeHashNav(id);
@@ -2665,8 +2670,8 @@ export default function Dashboard() {
     if (activeNav === 'inbox')         return <InboxPage onNavigate={navigate} />;
     if (activeNav === 'my-tasks')      return <MyTasksPage />;
     if (activeNav === 'project-detail' && navState?.projectId) return <ProjectDetail projectId={navState.projectId} projectName={navState.projectName || ''} onBack={() => navigate('projects')} />;
-    if (activeNav === 'projects')      return <ProjectsPage />;
-    if (activeNav === 'my-projects')   return <ProjectsPage initialFilter="mine" pageTitle="我的專案" pageSubtitle="只顯示建立者是你的專案。" />;
+    if (activeNav === 'projects')      return <ProjectsPage navResetKey={navResetKey} />;
+    if (activeNav === 'my-projects')   return <ProjectsPage navResetKey={navResetKey} initialFilter="mine" pageTitle="我的專案" pageSubtitle="只顯示建立者是你的專案。" />;
     if (activeNav === 'tasks')         return <TaskKanbanPage />;
     if (activeNav === 'gantt')         return <GanttPage />;
     if (activeNav === 'rules')         return <RulesPage />;
