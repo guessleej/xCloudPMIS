@@ -16,6 +16,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma = require('../lib/prisma');
+const { resolveDueEndTime } = require('../lib/taskDeadline');
 
 // ── 健康度自動計算 ────────────────────────────────────────────
 // 僅對未完成任務計算；已完成任務固定回傳 null
@@ -64,6 +65,7 @@ function formatTask(t) {
     dueDate:      dueDateStr,
     planStart:    planStartStr,
     planEnd:      planEndStr,
+    dueEndTime:   resolveDueEndTime(t.dueDate, t.dueEndTime),
     createdAt:    t.createdAt ? t.createdAt.toISOString().split('T')[0] : null,
     estimatedHours: t.estimatedHours ? parseFloat(t.estimatedHours) : null,
     progressPercent: t.progressPercent ?? 0,

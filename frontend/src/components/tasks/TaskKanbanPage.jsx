@@ -87,6 +87,8 @@ const STATUS_NEXT_LABEL = {
   done:        '重新開啟',
 };
 
+const DEFAULT_DUE_END_TIME = '23:59';
+
 // Avatar colour palette (deterministic from name)
 const AVATAR_COLORS = ['#C70018', '#8F0013', '#2B2B2B', '#6B6461', '#A63746', '#7A5B61', '#595959', '#B35810'];
 function avatarColor(name) {
@@ -1023,6 +1025,7 @@ function AddTaskModal({ defaultStatus, defaultProjectId, projects, users, onSave
           planStart:  form.planStart  || undefined,
           planEnd:    form.dueDate    || undefined,
           dueDate:    form.dueDate    || undefined,
+          dueEndTime: form.dueDate ? DEFAULT_DUE_END_TIME : undefined,
         }),
       });
       const data = await res.json();

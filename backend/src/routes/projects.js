@@ -23,6 +23,7 @@ const prisma = require('../lib/prisma');
 const requireRole = require('../middleware/requireRole');
 const { taskController } = require('../controllers/task.controller');
 const { taskRuleEngine } = require('../services/taskRuleEngine');
+const { toDateOrNull, resolveDueEndTime } = require('../lib/taskDeadline');
 const {
   createProjectAssignmentNotifications,
   createTaskAssignmentNotifications,
@@ -626,7 +627,7 @@ router.get('/tasks', async (req, res) => {
       planEnd:        t.planEnd   ? t.planEnd.toISOString().split('T')[0]   : null,
       dueEndDate:     t.dueEndDate || null,
       dueTime:        t.dueTime || null,
-      dueEndTime:     t.dueEndTime || null,
+      dueEndTime:     resolveDueEndTime(t.dueDate, t.dueEndTime),
       startedAt:      t.startedAt,
       completedAt:    t.completedAt,
       createdAt:      t.createdAt,
@@ -743,7 +744,7 @@ router.get('/:id', async (req, res) => {
       planEnd:        t.planEnd   ? t.planEnd.toISOString().split('T')[0]   : null,
       dueEndDate:     t.dueEndDate || null,
       dueTime:        t.dueTime || null,
-      dueEndTime:     t.dueEndTime || null,
+      dueEndTime:     resolveDueEndTime(t.dueDate, t.dueEndTime),
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
       numSubtasks:    t._count?.subtasks || 0,
@@ -1043,7 +1044,7 @@ router.get('/:id/tasks', async (req, res) => {
       dueDate:        t.dueDate,
       dueEndDate:     t.dueEndDate || null,
       dueTime:        t.dueTime || null,
-      dueEndTime:     t.dueEndTime || null,
+      dueEndTime:     resolveDueEndTime(t.dueDate, t.dueEndTime),
       planStart:      t.planStart,
       planEnd:        t.planEnd,
       startedAt:      t.startedAt,
@@ -1110,12 +1111,12 @@ router.post('/:id/tasks', async (req, res) => {
           priority,
           status:         normalizedStatus,
           estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
-          dueDate:        dueDate ? new Date(dueDate) : null,
-          dueEndDate:     dueEndDate ? new Date(dueEndDate) : null,
+          dueDate:        toDateOrNull(dueDate),
+          dueEndDate:     toDateOrNull(dueEndDate),
           dueTime:        dueTime || null,
-          dueEndTime:     dueEndTime || null,
-          planStart:      planStart ? new Date(planStart) : null,
-          planEnd:        planEnd   ? new Date(planEnd)   : null,
+          dueEndTime:     resolveDueEndTime(dueDate, dueEndTime),
+          planStart:      toDateOrNull(planStart),
+          planEnd:        toDateOrNull(planEnd),
           assigneeId:     normalizedAssigneeId,
           parentTaskId:   normalizedParentTaskId,
           position:       nextPosition,
@@ -1276,12 +1277,13 @@ router.patch('/tasks/:taskId', async (req, res) => {
     }
     if (priority    !== undefined) data.priority    = priority;
     if (assigneeId  !== undefined) data.assigneeId  = normalizedAssigneeId;
-    if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
-    if (dueEndDate  !== undefined) data.dueEndDate  = dueEndDate ? new Date(dueEndDate) : null;
+    if (dueDate     !== undefined) data.dueDate     = toDateOrNull(dueDate);
+    if (dueEndDate  !== undefined) data.dueEndDate  = toDateOrNull(dueEndDate);
     if (dueTime     !== undefined) data.dueTime     = dueTime || null;
     if (dueEndTime  !== undefined) data.dueEndTime  = dueEndTime || null;
-    if (planStart   !== undefined) data.planStart   = planStart ? new Date(planStart) : null;
-    if (planEnd     !== undefined) data.planEnd     = planEnd   ? new Date(planEnd)   : null;
+    else if (dueDate !== undefined) data.dueEndTime = resolveDueEndTime(dueDate, null);
+    if (planStart   !== undefined) data.planStart   = toDateOrNull(planStart);
+    if (planEnd     !== undefined) data.planEnd     = toDateOrNull(planEnd);
 
     const task = await prisma.$transaction(async (tx) => {
       const updatedTask = await tx.task.update({

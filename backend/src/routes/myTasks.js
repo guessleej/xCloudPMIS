@@ -10,6 +10,7 @@
 const express = require('express');
 const router  = express.Router();
 const prisma = require('../lib/prisma');
+const { toDateOrNull, resolveDueEndTime } = require('../lib/taskDeadline');
 
 const ok  = (res, data, meta = {}) => res.json({ success: true, data, meta, timestamp: new Date().toISOString() });
 const err = (res, msg, status = 500) => res.status(status).json({ success: false, error: msg });
@@ -92,7 +93,7 @@ function formatTask(t) {
     dueDate:         dueDateStr,
     dueEndDate:      t.dueEndDate ? t.dueEndDate.toISOString().split('T')[0] : null,
     dueTime:         t.dueTime || null,
-    dueEndTime:      t.dueEndTime || null,
+    dueEndTime:      resolveDueEndTime(t.dueDate, t.dueEndTime),
     progressPercent: t.progressPercent ?? 0,
     project:         t.project  ? { id: t.project.id, name: t.project.name }   : null,
     assignee:        t.assignee ? { id: t.assignee.id, name: t.assignee.name } : null,
@@ -200,10 +201,11 @@ router.patch('/:id', async (req, res) => {
     if (title       !== undefined) data.title       = String(title).trim();
     if (description !== undefined) data.description = description;
     if (priority    !== undefined) data.priority    = priority;
-    if (dueDate     !== undefined) data.dueDate     = dueDate ? new Date(dueDate) : null;
-    if (dueEndDate  !== undefined) data.dueEndDate  = dueEndDate ? new Date(dueEndDate) : null;
+    if (dueDate     !== undefined) data.dueDate     = toDateOrNull(dueDate);
+    if (dueEndDate  !== undefined) data.dueEndDate  = toDateOrNull(dueEndDate);
     if (dueTime     !== undefined) data.dueTime     = dueTime || null;
     if (dueEndTime  !== undefined) data.dueEndTime  = dueEndTime || null;
+    else if (dueDate !== undefined) data.dueEndTime = resolveDueEndTime(dueDate, null);
     if (status      !== undefined) {
       const s = normalizeStatus(status, existing.status);
       data.status = s;

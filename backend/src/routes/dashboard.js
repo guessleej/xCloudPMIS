@@ -9,6 +9,7 @@
 const express      = require('express');
 const router       = express.Router();
 const prisma       = require('../lib/prisma');
+const { getTaskDeadlineAt } = require('../lib/taskDeadline');
 
 const ok  = (res, data) => res.json({ success: true, data, timestamp: new Date().toISOString() });
 const err = (res, msg, status = 500) => res.status(status).json({ success: false, error: msg });
@@ -36,6 +37,7 @@ router.get('/summary', async (req, res) => {
           id: true,
           status: true,
           dueDate: true,
+          dueEndTime: true,
           completedAt: true,
           projectId: true,
           assigneeId: true,
@@ -48,7 +50,7 @@ router.get('/summary', async (req, res) => {
         include: {
           tasks: {
             where: { deletedAt: null },
-            select: { id: true, status: true, dueDate: true, completedAt: true, assigneeId: true },
+            select: { id: true, status: true, dueDate: true, dueEndTime: true, completedAt: true, assigneeId: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -61,15 +63,16 @@ router.get('/summary', async (req, res) => {
     const totalTasks     = allTasks.length;
     const doneTasks      = allTasks.filter(t => t.status === 'done').length;
     const overdueTasks   = allTasks.filter(
-      t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now
+      t => t.status !== 'done' && getTaskDeadlineAt(t) && getTaskDeadlineAt(t) < now
     ).length;
     const completionRate = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
     // 本月到期（未完成）
     const dueThisMonth = allTasks.filter(
-      t => t.status !== 'done' && t.dueDate
-        && new Date(t.dueDate) >= now
-        && new Date(t.dueDate) <= monthEnd
+      t => {
+        const deadlineAt = getTaskDeadlineAt(t);
+        return t.status !== 'done' && deadlineAt && deadlineAt >= now && deadlineAt <= monthEnd;
+      }
     ).length;
 
     // 活躍專案
@@ -84,7 +87,7 @@ router.get('/summary', async (req, res) => {
       const todo      = tasks.filter(t => t.status === 'todo').length;
       const review    = tasks.filter(t => t.status === 'review').length;
       const overdue   = tasks.filter(
-        t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now
+        t => t.status !== 'done' && getTaskDeadlineAt(t) && getTaskDeadlineAt(t) < now
       ).length;
       const rate      = total > 0 ? Math.round((done / total) * 100) : 0;
 
@@ -124,7 +127,7 @@ router.get('/summary', async (req, res) => {
       }
       const u = userMap[t.assigneeId];
       u[t.status] = (u[t.status] || 0) + 1;
-      if (t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now) u.overdue++;
+      if (t.status !== 'done' && getTaskDeadlineAt(t) && getTaskDeadlineAt(t) < now) u.overdue++;
     }
 
     // 取成員名稱
@@ -234,7 +237,7 @@ router.get('/my-impact', async (req, res) => {
       prisma.task.findMany({
         where: { assigneeId: userId, deletedAt: null, project: { companyId } },
         select: {
-          id: true, title: true, status: true, priority: true, dueDate: true,
+          id: true, title: true, status: true, priority: true, dueDate: true, dueEndTime: true,
           completedAt: true, createdAt: true, projectId: true,
           project: { select: { id: true, name: true } },
         },
@@ -248,7 +251,7 @@ router.get('/my-impact', async (req, res) => {
     const completedThisMonth = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= monthStart).length;
     const completedLastMonth = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= prevMonthStart && new Date(t.completedAt) <= prevMonthEnd).length;
     const completedThisWeek  = myTasks.filter(t => t.completedAt && new Date(t.completedAt) >= weekAgo).length;
-    const overdueCount       = myTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < now).length;
+    const overdueCount       = myTasks.filter(t => t.status !== 'done' && getTaskDeadlineAt(t) && getTaskDeadlineAt(t) < now).length;
     const activeCount        = myTasks.filter(t => ['todo','in_progress','review'].includes(t.status)).length;
 
     // 參與專案數（去重）

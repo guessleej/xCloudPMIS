@@ -177,6 +177,8 @@ const BRAND = {
   muted: 'var(--xc-text-muted)',
 };
 
+const DEFAULT_DUE_END_TIME = '23:59';
+
 const STATUS_TONES: Record<string, { label: string; bg: string; color: string }> = {
   todo: { label: '待辦', bg: '#EEE7E2', color: '#6B6461' },
   in_progress: { label: '進行中', bg: '#F8D8DD', color: '#8F0013' },
@@ -1346,7 +1348,7 @@ export default function TaskDetailPanel({
     setDueDate(formatDateInputValue(task.dueDate));
     setDueEndDate(formatDateInputValue(task.dueEndDate));
     setDueTime(task.dueTime || '');
-    setDueEndTime(task.dueEndTime || '');
+    setDueEndTime(task.dueEndTime || (task.dueDate ? DEFAULT_DUE_END_TIME : ''));
     setSelectedProjectIds(task.projects.map((project) => toKey(project.id)));
     setCustomFieldValues(task.customFieldValues || {});
     cfvFromParentRef.current = task.customFieldValues || null;
@@ -1371,7 +1373,7 @@ export default function TaskDetailPanel({
     if (!planEnd && nextPlanEnd) setPlanEnd(nextPlanEnd);
     if (!dueDate && nextDueDate) setDueDate(nextDueDate);
     if (!dueTime && task.dueTime) setDueTime(task.dueTime);
-    if (!dueEndTime && task.dueEndTime) setDueEndTime(task.dueEndTime);
+    if (!dueEndTime && (task.dueEndTime || nextDueDate)) setDueEndTime(task.dueEndTime || DEFAULT_DUE_END_TIME);
   }, [open, task, task?.planStart, task?.planEnd, task?.dueDate, task?.dueTime, task?.dueEndTime, planStart, planEnd, dueDate, dueTime, dueEndTime]);
 
   // 當父層非同步載入自訂欄位值時（第一次載入），同步更新本地狀態；
@@ -1501,7 +1503,7 @@ export default function TaskDetailPanel({
       dueDate: planEnd || dueDate || null,
       dueEndDate: dueEndDate || null,
       dueTime: dueTime || null,
-      dueEndTime: dueEndTime || null,
+      dueEndTime: dueEndTime || ((planEnd || dueDate) ? DEFAULT_DUE_END_TIME : null),
       projectIds: selectedProjectIds,
       customFieldValues: normalizedValues,
     });
