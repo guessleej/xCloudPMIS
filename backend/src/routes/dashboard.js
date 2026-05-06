@@ -46,6 +46,17 @@ const PRIORITY_LABELS = {
   urgent: '緊急',
 };
 
+const DAILY_PROGRESS_HIDDEN_FIELDS = new Set([
+  'dueDate',
+  'dueEndDate',
+  'dueTime',
+  'dueEndTime',
+  'dueStartTime',
+  'dueEndTime',
+  'planStart',
+  'planEnd',
+]);
+
 function parseDateParam(value, fallback) {
   if (!value) return fallback;
   const date = new Date(value);
@@ -112,9 +123,24 @@ function dailyProgressText(log) {
   return '更新了任務';
 }
 
+function shouldShowDailyProgressLog(log) {
+  const field = log.newValue?.field || log.oldValue?.field;
+  if (!field) return true;
+  return !DAILY_PROGRESS_HIDDEN_FIELDS.has(field);
+}
+
+function dailyProgressCommentText(comment) {
+  const raw = String(comment.content || '').replace(/\s+/g, ' ').trim();
+  const preview = raw.length > 70 ? `${raw.slice(0, 70)}…` : raw;
+  return comment.parentId
+    ? `回覆了留言${preview ? `：「${preview}」` : ''}`
+    : `新增了留言${preview ? `：「${preview}」` : ''}`;
+}
+
 function actionTone(action) {
   if (action === 'task_created' || action === 'checklist_created') return 'create';
   if (action === 'task_deleted' || action === 'subtask_deleted' || action === 'checklist_deleted') return 'delete';
+  if (action === 'comment_added' || action === 'comment_replied') return 'comment';
   if (action === 'checklist_isDone_changed') return 'done';
   if (String(action || '').includes('status')) return 'status';
   return 'update';
@@ -156,10 +182,11 @@ router.get('/daily-progress', async (req, res) => {
       where.userId = currentUserId;
     }
 
+    const rawTake = Math.min(take * 3, 1500);
     const logs = await prisma.activityLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take,
+      take: rawTake,
       include: {
         task: {
           select: {
@@ -174,7 +201,40 @@ router.get('/daily-progress', async (req, res) => {
       },
     });
 
-    const records = logs.map(log => ({
+    const commentWhere = {
+      createdAt: { gte: from, lte: to },
+      deletedAt: null,
+      task: {
+        deletedAt: null,
+        project: { companyId, deletedAt: null },
+      },
+    };
+    if (projectId) commentWhere.task.projectId = projectId;
+    if (requestedUserId) {
+      commentWhere.userId = requestedUserId;
+    } else if (scope === 'mine' && currentUserId) {
+      commentWhere.userId = currentUserId;
+    }
+
+    const comments = await prisma.comment.findMany({
+      where: commentWhere,
+      orderBy: { createdAt: 'desc' },
+      take: rawTake,
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            projectId: true,
+            project: { select: { id: true, name: true } },
+          },
+        },
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const logRecords = logs.filter(shouldShowDailyProgressLog).map(log => ({
       id: log.id,
       createdAt: log.createdAt,
       action: log.action,
@@ -192,6 +252,29 @@ router.get('/daily-progress', async (req, res) => {
         name: log.user.name || log.user.email || `使用者 #${log.user.id}`,
       } : null,
     }));
+
+    const commentRecords = comments.map(comment => ({
+      id: `comment-${comment.id}`,
+      createdAt: comment.createdAt,
+      action: comment.parentId ? 'comment_replied' : 'comment_added',
+      tone: actionTone(comment.parentId ? 'comment_replied' : 'comment_added'),
+      text: dailyProgressCommentText(comment),
+      oldValue: null,
+      newValue: { commentId: comment.id, parentId: comment.parentId, value: comment.content },
+      taskId: comment.taskId,
+      taskTitle: comment.task?.title || '未命名任務',
+      taskStatus: comment.task?.status || null,
+      projectId: comment.task?.project?.id || comment.task?.projectId || null,
+      projectName: comment.task?.project?.name || '未命名專案',
+      actor: comment.user ? {
+        id: comment.user.id,
+        name: comment.user.name || comment.user.email || `使用者 #${comment.user.id}`,
+      } : null,
+    }));
+
+    const records = [...logRecords, ...commentRecords]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, take);
 
     return ok(res, {
       records,

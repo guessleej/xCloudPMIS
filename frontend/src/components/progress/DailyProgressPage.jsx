@@ -9,6 +9,7 @@ const toneStyles = {
   status: { bg: '#FEF3C7', color: '#B45309', border: '#FDE68A', dot: '#F59E0B' },
   done:   { bg: '#F0FDF4', color: '#15803D', border: '#BBF7D0', dot: '#22C55E' },
   delete: { bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA', dot: '#EF4444' },
+  comment:{ bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE', dot: '#8B5CF6' },
 };
 
 const statusLabels = {
@@ -88,7 +89,7 @@ export default function DailyProgressPage({ onNavigate }) {
   const companyId = user?.companyId;
   const [records, setRecords] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [scope, setScope] = useState('mine');
+  const [scope, setScope] = useState('all');
   const [projectId, setProjectId] = useState('');
   const [from, setFrom] = useState(defaultFromDate);
   const [to, setTo] = useState(() => toDateInput(new Date()));
@@ -159,7 +160,7 @@ export default function DailyProgressPage({ onNavigate }) {
         <div>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#0F172A', letterSpacing: '-0.03em' }}>每日專案進度更新</div>
           <div style={{ marginTop: 6, color: '#64748B', fontSize: 14 }}>
-            依日期彙整任務異動紀錄，點擊任一紀錄即可直接前往任務看板並開啟該任務。
+            依日期彙整任務異動與留言紀錄；系統已自動排除單純日期 / 時間欄位調整，點擊紀錄可前往任務。
           </div>
         </div>
         <button
