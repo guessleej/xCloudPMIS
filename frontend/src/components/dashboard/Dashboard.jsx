@@ -29,6 +29,7 @@ import TaskKanbanPage        from '../tasks/TaskKanbanPage';
 import GanttPage             from '../gantt/GanttPage';
 import TimeTrackingPage      from '../timetracking/TimeTrackingPage';
 import ReportsPage           from '../reports/ReportsPage';
+import DailyProgressPage     from '../progress/DailyProgressPage';
 import TeamPage              from '../team/TeamPage';
 import SettingsPage          from '../settings/SettingsPage';
 // AI 決策中心、MCP 控制台、工作流程圖 已移除
@@ -90,6 +91,7 @@ const PAGE_TITLES = {
   tasks:           { title: '任務看板',    sub: 'Kanban 任務追蹤' },
   gantt:           { title: '時程規劃',    sub: '甘特圖 · 里程碑管理' },
   analytics:       { title: '分析總覽',    sub: 'KPI 圖表 · 趨勢 · 健康狀態' },
+  'daily-progress':{ title: '每日進度',    sub: '依日期彙整專案與任務更新' },
   reports:         { title: '報告',        sub: '資料分析與匯出' },
   portfolios:      { title: '專案集',      sub: '多專案健康監控 · 進度一覽' },
   goals:           { title: '目標',        sub: 'OKR 目標與關鍵結果追蹤' },
@@ -121,7 +123,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 // ── 全部有效路由 ──────────────────────────────────────────────
 const ALL_NAV_IDS = [
   'home','inbox','my-tasks','projects','my-projects','tasks','gantt','calendar',
-  'analytics','reports','portfolios','goals','workload',
+  'analytics','daily-progress','reports','portfolios','goals','workload',
   'rules','forms','custom-fields',
   'time','team','settings','user-management','profile',
 ];
@@ -238,6 +240,7 @@ const Ic = {
   myTasks: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 14.66V20a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>,
   inbox: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>,
   reports: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  dailyProgress: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 15h3"/><path d="M8 18h6"/></svg>,
   portfolios: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>,
   goals: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
   workload: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
@@ -435,6 +438,7 @@ function TopNavBar({
   const NAV_DROPS = [
     { groupId: 'insights', label: '解析', icon: Ic.analytics, items: [
       { navId: 'analytics',  label: '分析總覽', icon: Ic.analytics },
+      ...(currentUser?.role === 'admin' ? [{ navId: 'daily-progress', label: '每日進度', icon: Ic.dailyProgress }] : []),
       ...(currentUser?.role !== 'member' ? [{ navId: 'reports', label: '報告', icon: Ic.reports }] : []),
       { navId: 'portfolios', label: '專案集',   icon: Ic.portfolios },
       { navId: 'goals',      label: '目標',     icon: Ic.goals },
@@ -842,6 +846,7 @@ function TopNavBar({
           <div style={{ height: '1px', background: T.div, margin: '6px 4px' }} />
           <div style={{ padding: '8px 10px 4px', fontSize: '12px', fontWeight: '700', color: T.t3, letterSpacing: '0.05em' }}>深入解析</div>
           <NavItem id="analytics"  icon={Ic.analytics}  label="分析總覽" active={active} onClick={mobileNav} indent />
+          {currentUser?.role === 'admin' && <NavItem id="daily-progress" icon={Ic.dailyProgress} label="每日進度" active={active} onClick={mobileNav} indent />}
           {currentUser?.role !== 'member' && <NavItem id="reports"    icon={Ic.reports}    label="報告"     active={active} onClick={mobileNav} indent />}
           <NavItem id="portfolios" icon={Ic.portfolios} label="專案集"   active={active} onClick={mobileNav} indent />
           <NavItem id="goals"      icon={Ic.goals}      label="目標"     active={active} onClick={mobileNav} indent />
@@ -2672,7 +2677,7 @@ export default function Dashboard() {
     if (activeNav === 'project-detail' && navState?.projectId) return <ProjectDetail projectId={navState.projectId} projectName={navState.projectName || ''} onBack={() => navigate('projects')} />;
     if (activeNav === 'projects')      return <ProjectsPage navResetKey={navResetKey} />;
     if (activeNav === 'my-projects')   return <ProjectsPage navResetKey={navResetKey} initialFilter="mine" pageTitle="我的專案" pageSubtitle="只顯示建立者是你的專案。" />;
-    if (activeNav === 'tasks')         return <TaskKanbanPage />;
+    if (activeNav === 'tasks')         return <TaskKanbanPage initialTaskId={navState?.taskId} initialProjectId={navState?.projectId} />;
     if (activeNav === 'gantt')         return <GanttPage />;
     if (activeNav === 'rules')         return <RulesPage />;
     if (activeNav === 'time')          return <TimeTrackingPage />;
@@ -2680,6 +2685,7 @@ export default function Dashboard() {
     if (activeNav === 'portfolios')    return <PortfoliosPage onNavigate={navigate} />;
     if (activeNav === 'workload')      return <WorkloadPage onNavigate={navigate} />;
     if (activeNav === 'calendar')      return <CalendarPage onNavigate={navigate} />;
+    if (activeNav === 'daily-progress') return currentUser?.role === 'admin' ? <DailyProgressPage onNavigate={navigate} /> : <AnalyticsPage dashData={dashData} />;
     if (activeNav === 'reports')       return <ReportsPage />;
     if (activeNav === 'team')          return <TeamPage />;
     if (activeNav === 'settings')      return <SettingsPage initialTab={settingsState?.initialTab} callbackState={settingsState} />;

@@ -309,6 +309,35 @@ async function createProjectAssignmentNotifications(prisma, opts = {}) {
 }
 
 /**
+ * 專案成員加入通知 — 只通知新加入的成員，不通知既有成員
+ * @param {object} prisma
+ * @param {object} opts - { projectId, projectName, recipientIds, actorId }
+ */
+async function createProjectMemberAddedNotifications(prisma, opts = {}) {
+  const { projectId, projectName, recipientIds = [], actorId } = opts;
+  const recipients = [...new Set(recipientIds.map(Number).filter(Boolean))]
+    .filter(uid => uid !== actorId);
+  if (!projectId || !recipients.length) return [];
+
+  try {
+    const name = projectName || `專案 #${projectId}`;
+    return createNotifications({
+      prisma,
+      recipients,
+      type:         'milestone_achieved', // 借用 projectUpdate 偏好，不新增 DB enum
+      title:        `你已加入專案：${name}`,
+      message:      `你已被加入「${name}」專案，可以開始查看專案內容與任務。`,
+      resourceType: 'project',
+      resourceId:   projectId,
+      senderUserId: actorId || null,
+    });
+  } catch (e) {
+    console.warn('[notificationCenter] createProjectMemberAddedNotifications 失敗:', e.message);
+    return [];
+  }
+}
+
+/**
  * 任務指派通知
  * @param {object} prisma
  * @param {object} opts - { taskId, projectId, recipientId, actorId }
@@ -958,6 +987,7 @@ module.exports = {
   DEFAULT_NOTIFICATION_SETTINGS,
   createNotifications,
   createProjectAssignmentNotifications,
+  createProjectMemberAddedNotifications,
   createTaskAssignmentNotifications,
   createTaskCompletedNotifications,
   createProjectStatusChangeNotifications,

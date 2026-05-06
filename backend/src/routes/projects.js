@@ -26,6 +26,7 @@ const { taskRuleEngine } = require('../services/taskRuleEngine');
 const { toDateOrNull, resolveDueEndTime } = require('../lib/taskDeadline');
 const {
   createProjectAssignmentNotifications,
+  createProjectMemberAddedNotifications,
   createTaskAssignmentNotifications,
   createTaskCompletedNotifications,
   createProjectStatusChangeNotifications,
@@ -554,6 +555,17 @@ router.post('/', async (req, res) => {
         actorId:     actorId ? parseInt(actorId) : null,
       }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
     }
+
+    // 專案成員加入通知：只通知被加入的成員，不通知其他既有成員
+    const newMemberIds = mIds.filter(uid => uid !== normalizedOwnerId);
+    if (newMemberIds.length > 0) {
+      createProjectMemberAddedNotifications(prisma, {
+        projectId:     project.id,
+        projectName:   project.name,
+        recipientIds:  newMemberIds,
+        actorId:       actorId ? parseInt(actorId) : null,
+      }).catch(e => console.warn(`[projects] 專案成員加入通知失敗: ${e.message}`));
+    }
   } catch (e) {
     console.error(e);
     err(res, e.message);
@@ -835,9 +847,15 @@ router.patch('/:id', requireProjectWriteAccess, async (req, res) => {
 
     if (Object.keys(data).length === 0 && !req.body.customFieldValues && !memberIds) return err(res, '沒有要更新的欄位', 400);
 
-    // 查詢舊的 ownerId 以便偵測是否變更
-    const oldProject = data.ownerId !== undefined
-      ? await prisma.project.findUnique({ where: { id }, select: { ownerId: true } })
+    // 查詢舊的 ownerId / 成員，以便偵測是否變更與哪些成員是新加入
+    const oldProject = (data.ownerId !== undefined || Array.isArray(memberIds))
+      ? await prisma.project.findUnique({
+        where: { id },
+        select: {
+          ownerId: true,
+          members: { select: { userId: true } },
+        },
+      })
       : null;
 
     const project = await prisma.project.update({
@@ -894,6 +912,27 @@ router.patch('/:id', requireProjectWriteAccess, async (req, res) => {
         recipientId: data.ownerId,
         actorId:     actorId ? parseInt(actorId) : null,
       }).catch(e => console.warn(`[projects] 專案指派通知失敗: ${e.message}`));
+    }
+
+    // 專案成員加入通知：只通知本次新增的成員，不通知既有成員，也不通知被設為負責人的人（避免重複）
+    if (Array.isArray(memberIds)) {
+      const actorId = req.user?.id || req.user?.userId;
+      const oldMemberIdSet = new Set((oldProject?.members || []).map(m => Number(m.userId)));
+      const currentOwnerId = data.ownerId || project.ownerId;
+      const addedMemberIds = memberIds
+        .map(Number)
+        .filter(Boolean)
+        .filter(uid => !oldMemberIdSet.has(uid))
+        .filter(uid => uid !== currentOwnerId);
+
+      if (addedMemberIds.length > 0) {
+        createProjectMemberAddedNotifications(prisma, {
+          projectId:     project.id,
+          projectName:   project.name,
+          recipientIds:  addedMemberIds,
+          actorId:       actorId ? parseInt(actorId) : null,
+        }).catch(e => console.warn(`[projects] 專案成員加入通知失敗: ${e.message}`));
+      }
     }
 
     // 專案截止日變更→自動同步到專案負責人的 Outlook 行事曆

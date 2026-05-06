@@ -1640,7 +1640,7 @@ export function TaskSidePanel({
 // ════════════════════════════════════════════════════════════
 // 任務看板主頁面
 // ════════════════════════════════════════════════════════════
-export default function TaskKanbanPage() {
+export default function TaskKanbanPage({ initialTaskId = null, initialProjectId = null } = {}) {
   const isMobile = useIsMobile();
   const { user, authFetch } = useAuth();
   const companyId = user?.companyId;
@@ -1673,6 +1673,7 @@ export default function TaskKanbanPage() {
   const [dropColumnId, setDropColumnId] = useState(null);
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const focusedTaskRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1690,6 +1691,11 @@ export default function TaskKanbanPage() {
       setToast((current) => (current?.id === id ? null : current));
     }, 3200);
   };
+
+  useEffect(() => {
+    if (!initialProjectId) return;
+    setFilterProject(String(initialProjectId));
+  }, [initialProjectId]);
 
   // ── 資料載入 ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -1834,6 +1840,20 @@ export default function TaskKanbanPage() {
     setSelectedTaskId(task.id);
     setPanelTask(task);
   };
+
+  useEffect(() => {
+    if (!initialTaskId || loading) return;
+    const requestKey = `${initialProjectId || ''}:${initialTaskId}`;
+    if (focusedTaskRef.current === requestKey) return;
+
+    const target = allRawTasks.find(task => String(task.id) === String(initialTaskId))
+      || persistedTasks.find(task => String(task.id) === String(initialTaskId));
+    if (!target) return;
+
+    focusedTaskRef.current = requestKey;
+    openTaskPanel(target);
+    showToast(`已開啟「${target.title || '任務'}」`, 'accent');
+  }, [initialTaskId, initialProjectId, loading, allRawTasks, persistedTasks]);
 
   const handleDuplicateTask = useCallback(async (task) => {
     const projectId = task.project?.id || task.projectId;
