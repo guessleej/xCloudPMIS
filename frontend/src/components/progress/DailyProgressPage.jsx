@@ -89,8 +89,10 @@ export default function DailyProgressPage({ onNavigate }) {
   const companyId = user?.companyId;
   const [records, setRecords] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [members, setMembers] = useState([]);
   const [scope, setScope] = useState('all');
   const [projectId, setProjectId] = useState('');
+  const [memberId, setMemberId] = useState('');
   const [from, setFrom] = useState(defaultFromDate);
   const [to, setTo] = useState(() => toDateInput(new Date()));
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,18 @@ export default function DailyProgressPage({ onNavigate }) {
     }
   }, [authFetch, companyId]);
 
+  const fetchMembers = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const res = await authFetch(`${API_BASE}/api/users?companyId=${companyId}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data || data.users || []);
+      setMembers(list);
+    } catch (_) {
+      setMembers([]);
+    }
+  }, [authFetch, companyId]);
+
   const fetchProgress = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
@@ -115,6 +129,7 @@ export default function DailyProgressPage({ onNavigate }) {
     try {
       const params = new URLSearchParams({ companyId, from, to, scope });
       if (projectId) params.set('projectId', projectId);
+      if (memberId) params.set('userId', memberId);
       const res = await authFetch(`${API_BASE}/api/dashboard/daily-progress?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error || '讀取每日進度失敗');
@@ -125,10 +140,17 @@ export default function DailyProgressPage({ onNavigate }) {
     } finally {
       setLoading(false);
     }
-  }, [authFetch, companyId, from, to, projectId, scope]);
+  }, [authFetch, companyId, from, to, memberId, projectId, scope]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+  useEffect(() => { fetchMembers(); }, [fetchMembers]);
   useEffect(() => { fetchProgress(); }, [fetchProgress]);
+
+  const selectedMemberName = useMemo(() => {
+    if (!memberId) return '';
+    const member = members.find(m => String(m.id) === String(memberId));
+    return member?.name || member?.email || '';
+  }, [memberId, members]);
 
   const groups = useMemo(() => groupByDay(records), [records]);
   const dayKeys = useMemo(() => Object.keys(groups).sort((a, b) => b.localeCompare(a)), [groups]);
@@ -217,7 +239,10 @@ export default function DailyProgressPage({ onNavigate }) {
           ].map(([value, label]) => (
             <button
               key={value}
-              onClick={() => setScope(value)}
+              onClick={() => {
+                setScope(value);
+                if (value === 'mine') setMemberId('');
+              }}
               style={{
                 border: 'none',
                 borderRadius: 9,
@@ -244,6 +269,28 @@ export default function DailyProgressPage({ onNavigate }) {
           <option value="">全部專案</option>
           {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
+        <select
+          value={memberId}
+          onChange={e => {
+            const value = e.target.value;
+            setMemberId(value);
+            if (value) setScope('all');
+          }}
+          style={{ ...inputStyle, minWidth: 190 }}
+          title="依成員篩選每日進度"
+        >
+          <option value="">全部成員</option>
+          {members.map(member => (
+            <option key={member.id} value={member.id}>
+              {member.name || member.email || `使用者 #${member.id}`}
+            </option>
+          ))}
+        </select>
+        {selectedMemberName && (
+          <span style={{ ...pillStyle, background: '#F5F3FF', color: '#6D28D9', borderColor: '#DDD6FE' }}>
+            目前篩選：{selectedMemberName}
+          </span>
+        )}
       </div>
 
       {error && (
@@ -266,7 +313,7 @@ export default function DailyProgressPage({ onNavigate }) {
           <div>
             <div style={{ fontSize: 42, marginBottom: 10 }}>📌</div>
             <div style={{ fontSize: 18, fontWeight: 900, color: '#0F172A' }}>這段期間尚無進度紀錄</div>
-            <div style={{ marginTop: 6 }}>可以調整日期、專案或切換到「團隊全部」查看。</div>
+            <div style={{ marginTop: 6 }}>可以調整日期、專案、成員，或切換到「團隊全部」查看。</div>
           </div>
         </div>
       ) : (
