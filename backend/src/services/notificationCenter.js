@@ -18,6 +18,8 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
   taskCompleted:       false,
   mentioned:           true,
   projectUpdate:       true,
+  dailyProgressReminder: true,
+  dailyProgressReminderTime: '14:00',
   weeklyDigest:        true,
   emailNotifications:  false,
   pushNotifications:   true,
@@ -894,6 +896,90 @@ async function generateDigestNotifications(prisma) {
   }
 }
 
+function taipeiDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date).reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
+  return {
+    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
+    minutes: (parseInt(parts.hour, 10) * 60) + parseInt(parts.minute, 10),
+  };
+}
+
+function parseReminderTime(value) {
+  const match = String(value || '14:00').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return 14 * 60;
+  const hh = Math.min(Math.max(parseInt(match[1], 10), 0), 23);
+  const mm = Math.min(Math.max(parseInt(match[2], 10), 0), 59);
+  return hh * 60 + mm;
+}
+
+async function generateDailyProgressReminderNotifications(prisma) {
+  const now = new Date();
+  const { dateKey, minutes } = taipeiDateParts(now);
+  const start = new Date(`${dateKey}T00:00:00+08:00`);
+  const end = new Date(`${dateKey}T23:59:59.999+08:00`);
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, settings: true, companyId: true },
+    });
+
+    let created = 0;
+    for (const user of users) {
+      const settings = {
+        ...DEFAULT_NOTIFICATION_SETTINGS,
+        ...((user.settings && typeof user.settings === 'object')
+          ? (user.settings.notificationSettings || {})
+          : {}),
+      };
+      if (!settings.dailyProgressReminder || !settings.pushNotifications) continue;
+      if (minutes < parseReminderTime(settings.dailyProgressReminderTime)) continue;
+
+      const alreadySent = await prisma.notification.findFirst({
+        where: {
+          recipientId: user.id,
+          type: 'system_digest',
+          resourceType: 'daily_progress_reminder',
+          createdAt: { gte: start, lte: end },
+        },
+        select: { id: true },
+      });
+      if (alreadySent) continue;
+
+      const activityCount = await prisma.activityLog.count({
+        where: {
+          userId: user.id,
+          createdAt: { gte: start, lte: end },
+          task: { deletedAt: null, project: { companyId: user.companyId, deletedAt: null } },
+        },
+      });
+
+      await prisma.notification.create({
+        data: {
+          recipientId: user.id,
+          type: 'system_digest',
+          title: '每日專案任務更新進度提醒',
+          message: activityCount > 0
+            ? `今天已記錄 ${activityCount} 筆專案 / 任務進度更新，記得確認每日進度頁是否完整。`
+            : '今天尚未偵測到你的專案 / 任務進度更新，請記得更新今日工作進度。',
+          resourceType: 'daily_progress_reminder',
+          resourceId: user.id,
+          isRead: false,
+        },
+      });
+      created++;
+    }
+    return created;
+  } catch (e) {
+    console.warn('[notificationCenter] generateDailyProgressReminderNotifications 失敗:', e.message);
+    return 0;
+  }
+}
+
 /**
  * 掃描已逾期任務 — task_overdue
  * 條件：dueDate < 今天、狀態不是 done/cancelled、未刪除
@@ -996,6 +1082,7 @@ module.exports = {
   scanDeadlineApproaching,
   scanTaskOverdue,
   generateDigestNotifications,
+  generateDailyProgressReminderNotifications,
   getUnreadCount,
   getUserNotificationSettings,
   updateUserNotificationSettings,

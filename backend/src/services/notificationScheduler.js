@@ -10,12 +10,14 @@ const {
   scanDeadlineApproaching,
   scanTaskOverdue,
   generateDigestNotifications,
+  generateDailyProgressReminderNotifications,
 } = require('./notificationCenter');
 
 const SCAN_INTERVAL_MS = parseInt(process.env.NOTIF_SCAN_INTERVAL_MS, 10) || 30 * 60 * 1000; // 預設 30 分鐘
 const DIGEST_INTERVAL_MS = parseInt(process.env.DIGEST_SCAN_INTERVAL_MS, 10) || 60 * 60 * 1000; // 預設 60 分鐘
 let intervalId = null;
 let digestIntervalId = null;
+let progressReminderIntervalId = null;
 
 async function runScan() {
   try {
@@ -40,23 +42,38 @@ async function runDigestScan() {
   }
 }
 
+async function runProgressReminderScan() {
+  try {
+    const created = await generateDailyProgressReminderNotifications(prisma);
+    if (created > 0) {
+      console.log(`[notificationScheduler] 每日進度提醒產生完成：${created} 筆`);
+    }
+  } catch (e) {
+    console.warn('[notificationScheduler] 每日進度提醒掃描失敗:', e.message);
+  }
+}
+
 function startNotificationScheduler() {
   if (intervalId) return; // 已在執行
 
   const isDev = process.env.NODE_ENV !== 'production';
 
-  console.log(`⏰ 通知排程器已啟動（每 ${SCAN_INTERVAL_MS / 60000} 分鐘掃描到期/逾期，每 ${DIGEST_INTERVAL_MS / 60000} 分鐘掃描摘要）`);
+  console.log(`⏰ 通知排程器已啟動（每 ${SCAN_INTERVAL_MS / 60000} 分鐘掃描到期/逾期，每 ${DIGEST_INTERVAL_MS / 60000} 分鐘掃描摘要/每日進度提醒）`);
 
   // 到期/逾期掃描：啟動後延遲 10 秒先跑一次
   setTimeout(() => runScan(), 10_000);
   intervalId = setInterval(runScan, SCAN_INTERVAL_MS);
 
   // 摘要掃描：僅正式環境啟動（開發環境不跑，避免重啟時誤寄信件）
+  setTimeout(() => runProgressReminderScan(), 45_000);
+  progressReminderIntervalId = setInterval(runProgressReminderScan, DIGEST_INTERVAL_MS);
+
+  // 摘要掃描：僅正式環境啟動（開發環境不跑，避免重啟時誤寄信件）
   if (!isDev) {
     setTimeout(() => runDigestScan(), 30_000);
     digestIntervalId = setInterval(runDigestScan, DIGEST_INTERVAL_MS);
   } else {
-    console.log('  ℹ️  開發環境：摘要排程已停用（不會寄出摘要郵件）');
+    console.log('  ℹ️  開發環境：摘要排程已停用（每日進度提醒仍會掃描）');
   }
 }
 
@@ -68,6 +85,10 @@ function stopNotificationScheduler() {
   if (digestIntervalId) {
     clearInterval(digestIntervalId);
     digestIntervalId = null;
+  }
+  if (progressReminderIntervalId) {
+    clearInterval(progressReminderIntervalId);
+    progressReminderIntervalId = null;
   }
   console.log('[notificationScheduler] 排程器已停止');
 }

@@ -1,13 +1,11 @@
 /**
  * 系統設定頁面
  *
- * 六個分頁：
+ * 四個分頁：
  *   🏢 公司資訊   — 顯示 / 編輯公司名稱
  *   👤 個人資料   — 編輯姓名、Email
  *   🔔 通知偏好   — 各類通知開關（App / Email / 摘要）
- *   🔗 整合服務   — Microsoft OAuth
- *   📊 系統狀態   — Backend / PostgreSQL / Redis 健康卡片
- *   🗄️ 資料統計   — 各資料表計數總覽
+ *   🧩 系統總覽   — 整合服務、健康狀態與資料統計
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -46,10 +44,13 @@ const TABS = [
   { id: 'company',       icon: '🏢', label: '公司資訊' },
   { id: 'profile',       icon: '👤', label: '個人資料' },
   { id: 'notifications', icon: '🔔', label: '通知偏好' },
-  { id: 'integrations',  icon: '🔗', label: '整合服務' },
-  { id: 'system',        icon: '📊', label: '系統狀態' },
-  { id: 'stats',         icon: '🗄️', label: '資料統計' },
+  { id: 'system-overview', icon: '🧩', label: '系統總覽' },
 ];
+
+function normalizeSettingsTab(tab) {
+  if (['integrations', 'system', 'stats'].includes(tab)) return 'system-overview';
+  return TABS.some(item => item.id === tab) ? tab : 'company';
+}
 
 // ════════════════════════════════════════════════════════════
 // 共用元件
@@ -59,18 +60,23 @@ const TABS = [
 function Card({ title, children, extra }) {
   return (
     <div style={{
+      width:        '100%',
+      maxWidth:     900,
+      boxSizing:    'border-box',
       background:   T.surface,
       border:       `1px solid ${T.border}`,
-      borderRadius: 12,
+      borderRadius: 18,
       padding:      24,
-      marginBottom: 20,
+      margin:       '0 auto 18px',
+      boxShadow:    'var(--xc-shadow)',
     }}>
       {(title || extra) && (
         <div style={{
           display:      'flex',
           alignItems:   'center',
-          justifyContent: 'space-between',
+          justifyContent: extra ? 'space-between' : 'center',
           marginBottom: 18,
+          textAlign:    extra ? 'left' : 'center',
         }}>
           {title && (
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: T.text }}>
@@ -309,7 +315,7 @@ function CompanyTab() {
       <Banner type={banner.type} message={banner.message} onClose={() => setBanner({ type: '', message: '' })} />
 
       <Card title="公司基本資訊">
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, maxWidth: 680, margin: '0 auto' }}>
           {/* 公司名稱 */}
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label="公司名稱" required>
@@ -410,7 +416,7 @@ function CompanyTab() {
         </div>
 
         {/* 操作按鈕 */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 8, justifyContent: 'center' }}>
           {editing ? (
             <>
               <PrimaryBtn onClick={handleSave} loading={saving} disabled={!newName.trim()}>
@@ -441,7 +447,7 @@ function CompanyTab() {
 
       {/* 更新記錄 */}
       <Card title="最後更新">
-        <p style={{ margin: 0, fontSize: 16, color: T.textMuted }}>
+        <p style={{ margin: 0, fontSize: 16, color: T.textMuted, textAlign: 'center' }}>
           {new Date(company.updatedAt).toLocaleString('zh-TW')}
         </p>
       </Card>
@@ -584,7 +590,7 @@ function ProfileTab({ onGoToCompany }) {
 
       {/* 頭像 + 角色 */}
       <Card>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, justifyContent: 'center', flexWrap: 'wrap' }}>
           <div style={{
             width:      68,
             height:     68,
@@ -624,7 +630,7 @@ function ProfileTab({ onGoToCompany }) {
               </span>
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+          <div style={{ marginLeft: isMobile ? 0 : 'auto', textAlign: isMobile ? 'center' : 'right' }}>
             <div style={{ fontSize: 14, color: T.textMuted }}>上次登入</div>
             <div style={{ fontSize: 15, color: T.textMuted }}>
               {profile.lastLoginAt
@@ -641,7 +647,7 @@ function ProfileTab({ onGoToCompany }) {
 
       {/* 基本資料 */}
       <Card title="基本資料">
-        <div style={{ maxWidth: 480 }}>
+        <div style={{ maxWidth: 520, margin: '0 auto' }}>
           <Field label="姓名" required error={infoErrors.name}>
             <Input
               value={infoForm.name}
@@ -806,6 +812,7 @@ function ProfileTab({ onGoToCompany }) {
             <Input value={profile.roleLabel} disabled />
           </Field>
           <div style={{ marginTop: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
             <PrimaryBtn
               onClick={handleInfoSave}
               loading={infoSaving}
@@ -816,13 +823,14 @@ function ProfileTab({ onGoToCompany }) {
             >
               儲存基本資料
             </PrimaryBtn>
+            </div>
           </div>
         </div>
       </Card>
 
       {/* 登出 */}
       <Card title="帳號操作">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 18, textAlign: 'center' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 4 }}>
               登出系統
@@ -866,10 +874,11 @@ function HealthCard({ icon, title, status, version, latency, extra }) {
     <div style={{
       background:   T.surface,
       border:       `1px solid ${isOk ? T.border : T.danger}`,
-      borderRadius: 12,
+      borderRadius: 18,
       padding:      20,
       position:     'relative',
       overflow:     'hidden',
+      boxShadow:    'var(--xc-shadow)',
     }}>
       {/* 左側色條 */}
       <div style={{
@@ -920,9 +929,10 @@ function StatCard({ icon, label, value, sub, color = 'var(--xc-info)' }) {
     <div style={{
       background:   T.surface,
       border:       `1px solid ${T.border}`,
-      borderRadius: 12,
+      borderRadius: 18,
       padding:      18,
       textAlign:    'center',
+      boxShadow:    'var(--xc-shadow)',
     }}>
       <div style={{ fontSize: 28, marginBottom: 6 }}>{icon}</div>
       <div style={{ fontSize: 30, fontWeight: 700, color, marginBottom: 2 }}>
@@ -973,6 +983,120 @@ function SystemStatsTab({ activeTab }) {
   );
 
   const { health, stats, lastActivity, generatedAt } = data;
+
+  if (activeTab === 'overview') {
+    const keyStats = [
+      { icon: '👥', label: '啟用使用者', value: stats.users.active, sub: `共 ${stats.users.total} 人`, color: 'var(--xc-info)' },
+      { icon: '📁', label: '專案總數', value: stats.projects.total, color: '#7c3aed' },
+      { icon: '📋', label: '任務總數', value: stats.tasks.total, color: 'var(--xc-info)' },
+      { icon: '✅', label: '已完成任務', value: stats.tasks.done, sub: `完成率 ${stats.tasks.doneRate}%`, color: 'var(--xc-success)' },
+      { icon: '🏁', label: '里程碑', value: stats.milestones.total, sub: `已達成 ${stats.milestones.achieved}`, color: '#0891b2' },
+      { icon: '⏱️', label: '工時記錄', value: stats.timeEntries.total, sub: `${stats.timeEntries.active} 筆進行中`, color: 'var(--xc-warning)' },
+    ];
+
+    return (
+      <div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 16,
+          flexWrap: 'wrap',
+        }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: T.text }}>系統健康與資料總覽</div>
+            <div style={{ fontSize: 14, color: T.textMuted, marginTop: 4 }}>
+              整合服務、後端健康檢查與資料量統計已集中在同一頁，方便管理員快速巡檢。
+            </div>
+          </div>
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            style={{
+              padding: '8px 14px',
+              background: T.surface,
+              border: `1px solid ${T.borderStrong}`,
+              borderRadius: 12,
+              fontSize: 15,
+              cursor: 'pointer',
+              color: T.textSoft,
+              fontWeight: 700,
+            }}
+          >
+            🔄 重新整理
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 18 }}>
+          <HealthCard
+            icon="⚙️"
+            title="後端服務"
+            status={health.backend.status}
+            version={health.backend.version}
+            latency={health.backend.latencyMs}
+            extra={[
+              { label: 'Node.js', value: health.backend.nodeVersion },
+              { label: '運行時間', value: health.backend.uptime },
+            ]}
+          />
+          <HealthCard
+            icon="🐘"
+            title="PostgreSQL"
+            status={health.database.status}
+            version={health.database.version}
+            latency={health.database.latencyMs}
+          />
+        </div>
+
+        <Card title="最近操作狀態">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {[
+              { label: '最後更新任務', value: lastActivity.taskUpdatedAt },
+              { label: '最後工時記錄', value: lastActivity.timeEntryUpdatedAt },
+              { label: '最後更新專案', value: lastActivity.projectUpdatedAt },
+            ].map(item => (
+              <div key={item.label} style={{
+                padding: '14px 16px',
+                background: T.surfaceSoft,
+                borderRadius: 14,
+                border: `1px solid ${T.border}`,
+              }}>
+                <div style={{ fontSize: 14, color: T.textMuted, marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 15, color: T.textSoft, fontWeight: 700 }}>
+                  {item.value ? new Date(item.value).toLocaleString('zh-TW') : '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <div style={{ marginBottom: 18 }}>
+          <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+            資料統計摘要
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+            {keyStats.map(item => <StatCard key={item.label} {...item} />)}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <h4 style={{ margin: '0 0 12px', fontSize: 15, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+            其他資料
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+            <StatCard icon="🏷️" label="標籤" value={stats.tags} color="var(--xc-text-muted)" />
+            <StatCard icon="💬" label="留言" value={stats.comments} color="var(--xc-text-muted)" />
+            <StatCard icon="📝" label="活動記錄" value={stats.activityLogs} color="var(--xc-text-muted)" />
+          </div>
+        </div>
+
+        <p style={{ fontSize: 14, color: T.textMuted, textAlign: 'right', margin: '12px 0 0' }}>
+          查詢時間：{lastFetch?.toLocaleString('zh-TW') || '-'} · 資料產生時間：{new Date(generatedAt).toLocaleString('zh-TW')}
+        </p>
+      </div>
+    );
+  }
 
   // ── 系統狀態分頁 ──────────────────────────────────────────
   if (activeTab === 'system') {
@@ -1161,6 +1285,7 @@ const NOTIFICATION_TYPES = [
   { key: 'taskCompleted',   label: '任務完成',     desc: '你負責的任務被標記完成時通知', icon: '✅' },
   { key: 'mentioned',       label: '被提及',       desc: '有人在留言或描述中 @提到你',   icon: '💬' },
   { key: 'projectUpdate',   label: '專案更新',     desc: '你參與的專案有重要變更時通知', icon: '📁' },
+  { key: 'dailyProgressReminder', label: '每日進度提醒', desc: '每天提醒你是否已更新當日專案與任務進度', icon: '🗓️' },
 ];
 
 const DIGEST_OPTIONS = [
@@ -1269,7 +1394,7 @@ function NotificationsTab() {
       {/* 通知類型開關 */}
       <Card title="事件通知">
         <p style={{ margin: '0 0 16px', fontSize: 15, color: T.textMuted }}>
-          選擇哪些事件要觸發系統內通知（收件匣）
+          選擇哪些事件要觸發系統內通知（收件匣），每日進度提醒預設於系統時間 14:00 發送。
         </p>
         {NOTIFICATION_TYPES.map((nt, i) => (
           <div key={nt.key} style={{
@@ -1291,6 +1416,43 @@ function NotificationsTab() {
             />
           </div>
         ))}
+
+        {settings.dailyProgressReminder && (
+          <div style={{
+            marginTop: 10,
+            padding: '14px 16px',
+            borderRadius: 14,
+            background: T.infoSoft,
+            border: `1px solid ${T.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>每日進度提醒時間</div>
+              <div style={{ fontSize: 14, color: T.textMuted, marginTop: 3 }}>
+                系統會檢查你今天是否已有專案 / 任務進度更新，未更新時提醒補上。
+              </div>
+            </div>
+            <input
+              type="time"
+              value={settings.dailyProgressReminderTime || '14:00'}
+              onChange={(e) => handleToggle('dailyProgressReminderTime', e.target.value || '14:00')}
+              disabled={saving}
+              style={{
+                padding: '8px 12px',
+                border: `1px solid ${T.borderStrong}`,
+                borderRadius: 10,
+                background: T.surface,
+                color: T.text,
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            />
+          </div>
+        )}
       </Card>
 
       {/* 通知管道 */}
@@ -1741,7 +1903,7 @@ function IntegrationsTab({ callbackState, authToken }) {
                     🔑 填入 Azure 應用程式憑證
                   </p>
 
-                  <div style={{ maxWidth: 480 }}>
+                  <div style={{ maxWidth: 520, margin: '0 auto' }}>
                     <Field
                       label="應用程式 (用戶端) 識別碼"
                       hint="Azure Portal → 應用程式註冊 → 複製「應用程式 (用戶端) 識別碼」"
@@ -1811,13 +1973,39 @@ function IntegrationsTab({ callbackState, authToken }) {
   );
 }
 
+function SystemOverviewTab({ callbackState, authToken }) {
+  return (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div style={{
+        padding: '22px 24px',
+        borderRadius: 22,
+        background: 'linear-gradient(135deg, var(--xc-brand-soft), var(--xc-surface))',
+        border: `1px solid ${T.border}`,
+        boxShadow: 'var(--xc-shadow)',
+      }}>
+        <div style={{ fontSize: 24, fontWeight: 900, color: T.text, marginBottom: 6 }}>🧩 系統總覽</div>
+        <div style={{ fontSize: 15, color: T.textSoft, lineHeight: 1.7 }}>
+          整合服務、系統健康與資料統計已合併在同一頁，避免在多個頁籤間切換，也更貼近目前系統的卡片式管理風格。
+        </div>
+      </div>
+
+      <IntegrationsTab callbackState={callbackState} authToken={authToken} />
+      <SystemStatsTab activeTab="overview" />
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 // 主頁面元件
 // ════════════════════════════════════════════════════════════
 export default function SettingsPage({ initialTab, callbackState }) {
   const isMobile = useIsMobile();
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState(initialTab || 'company');
+  const [activeTab, setActiveTab] = useState(normalizeSettingsTab(initialTab || 'company'));
+
+  useEffect(() => {
+    setActiveTab(normalizeSettingsTab(initialTab || 'company'));
+  }, [initialTab]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg }}>
@@ -1833,27 +2021,34 @@ export default function SettingsPage({ initialTab, callbackState }) {
       `}</style>
 
       {/* 頁面標題 */}
-      <div style={{ padding: isMobile ? '14px 16px 0' : '20px 28px 0', background: T.surface, borderBottom: `1px solid ${T.border}` }}>
-        <h2 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 700, color: T.text }}>
-          ⚙️ 系統設定
-        </h2>
+      <div style={{ padding: isMobile ? '16px 16px 0' : '24px 28px 0', background: T.surface, borderBottom: `1px solid ${T.border}`, boxShadow: '0 8px 24px rgba(15,23,42,0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap', textAlign: 'center' }}>
+          <div style={{ maxWidth: 720 }}>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: T.text, letterSpacing: '-0.03em' }}>
+              ⚙️ 系統設定
+            </h2>
+            <div style={{ marginTop: 5, fontSize: 14, color: T.textMuted }}>
+              集中管理工作區、個人資料、通知與系統服務狀態。
+            </div>
+          </div>
+        </div>
 
         {/* 分頁標籤 */}
-        <div style={{ display: 'flex', gap: 4, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: isMobile ? 'nowrap' : undefined, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: isMobile ? 'flex-start' : 'center', overflowX: isMobile ? 'auto' : 'visible', whiteSpace: isMobile ? 'nowrap' : undefined, WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                padding:       '9px 18px',
-                border:        'none',
-                borderBottom:  activeTab === tab.id ? `2px solid ${T.info}` : '2px solid transparent',
-                background:    'none',
+                padding:       '10px 18px',
+                border:        `1px solid ${activeTab === tab.id ? T.info : T.border}`,
+                borderBottom:  activeTab === tab.id ? `2px solid ${T.info}` : `1px solid ${T.border}`,
+                background:    activeTab === tab.id ? T.surfaceStrong : T.surfaceSoft,
                 cursor:        'pointer',
                 fontSize: 16,
-                fontWeight:    activeTab === tab.id ? 600 : 400,
+                fontWeight:    activeTab === tab.id ? 800 : 500,
                 color:         activeTab === tab.id ? T.info : T.textMuted,
-                borderRadius:  '6px 6px 0 0',
+                borderRadius:  '12px 12px 0 0',
                 display:       'flex',
                 alignItems:    'center',
                 gap:           6,
@@ -1868,15 +2063,12 @@ export default function SettingsPage({ initialTab, callbackState }) {
       </div>
 
       {/* 內容區域 */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 16px' : '24px 28px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '26px 28px' }}>
+        <div style={{ maxWidth: 1040, margin: '0 auto' }}>
           {activeTab === 'company'       && <CompanyTab />}
           {activeTab === 'profile'       && <ProfileTab onGoToCompany={() => setActiveTab('company')} />}
           {activeTab === 'notifications' && <NotificationsTab />}
-          {activeTab === 'integrations'  && <IntegrationsTab callbackState={callbackState} authToken={token} />}
-          {(activeTab === 'system' || activeTab === 'stats') && (
-            <SystemStatsTab activeTab={activeTab} />
-          )}
+          {activeTab === 'system-overview' && <SystemOverviewTab callbackState={callbackState} authToken={token} />}
         </div>
       </div>
     </div>

@@ -114,6 +114,8 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
   taskCompleted:       false,
   mentioned:           true,
   projectUpdate:       true,
+  dailyProgressReminder: true,
+  dailyProgressReminderTime: '14:00',
   weeklyDigest:        true,
   emailNotifications:  false,
   pushNotifications:   true,
