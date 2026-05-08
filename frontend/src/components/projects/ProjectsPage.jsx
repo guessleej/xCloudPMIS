@@ -1092,6 +1092,7 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
   const [deleteProject, setDeleteProject] = useState(null);
   // 封存區
   const [showArchived,    setShowArchived]    = useState(false);
+  const [showCompletedArea,setShowCompletedArea] = useState(false);
   const [archivedProjects,setArchivedProjects]= useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [restoringId,     setRestoringId]     = useState(null);
@@ -1152,6 +1153,15 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
     finally { setHardDeleting(false); }
   };
 
+  const toggleCompletedArea = () => {
+    const next = !showCompletedArea;
+    setShowCompletedArea(next);
+    setShowArchived(false);
+    setFilter(next ? 'completed' : initialFilter);
+    setSearch('');
+    setSortBy(next ? 'updated' : 'risk');
+  };
+
   const completeProject = async (project) => {
     const previous = projects;
     setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: 'completed' } : p));
@@ -1177,6 +1187,7 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
   useEffect(() => {
     setActiveProject(null);
     setShowArchived(false);
+    setShowCompletedArea(false);
     setSelectedTpl(null);
     setEditProject(null);
     setDeleteProject(null);
@@ -1229,8 +1240,11 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
     if (key === 'assigned') return !isCreatedByMe && isAssignedToMe;
     return p.status === key;
   };
-  const searchedProjects = projects.filter(matchesSearch);
-  const filtered = searchedProjects.filter(p => matchesProjectFilter(p)).sort((a, b) => {
+  const activeProjects = projects.filter(p => p.status !== 'completed');
+  const completedProjects = projects.filter(p => p.status === 'completed');
+  const visibleProjects = showCompletedArea ? completedProjects : activeProjects;
+  const searchedProjects = visibleProjects.filter(matchesSearch);
+  const filtered = searchedProjects.filter(p => showCompletedArea ? true : matchesProjectFilter(p)).sort((a, b) => {
     if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '', 'zh-TW');
     if (sortBy === 'progress') return (b.completion || 0) - (a.completion || 0);
     if (sortBy === 'deadline') return (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity);
@@ -1240,13 +1254,13 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
 
   // 統計
   const stats = {
-    total:     projects.length,
-    active:    projects.filter(p => p.status === 'active').length,
-    at_risk:   projects.filter(p => ['at_risk', 'off_track'].includes(getHealth(p))).length,
-    completed: projects.filter(p => p.status === 'completed').length,
-    planning:  projects.filter(p => p.status === 'planning').length,
+    total:     activeProjects.length,
+    active:    activeProjects.filter(p => p.status === 'active').length,
+    at_risk:   activeProjects.filter(p => ['at_risk', 'off_track'].includes(getHealth(p))).length,
+    completed: completedProjects.length,
+    planning:  activeProjects.filter(p => p.status === 'planning').length,
   };
-  const attentionProjects = projects
+  const attentionProjects = activeProjects
     .filter(p => isOverdueProject(p) || ['at_risk', 'off_track'].includes(getHealth(p)) || isDueSoonProject(p))
     .sort((a, b) => riskRank(a) - riskRank(b) || (dateValue(a.endDate) || Infinity) - (dateValue(b.endDate) || Infinity))
     .slice(0, 3);
@@ -1256,9 +1270,6 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
     { key: 'attention', label: '需處理' },
     { key: 'mine',      label: '我的專案' },
     { key: 'assigned',  label: '被指派' },
-    { key: 'active',    label: '進行中' },
-    { key: 'planning',  label: '規劃中' },
-    { key: 'completed', label: '已完成' },
   ];
 
   const VIEWS = [
@@ -1276,6 +1287,7 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
   ];
 
   const resetFilters = () => {
+    setShowCompletedArea(false);
     setFilter(initialFilter);
     setSearch('');
     setSortBy('risk');
@@ -1305,7 +1317,20 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
             <button
-              onClick={() => setShowArchived(!showArchived)}
+              onClick={toggleCompletedArea}
+              style={{
+                ...btnO,
+                background: showCompletedArea ? 'var(--xc-success-soft)' : 'color-mix(in srgb, var(--xc-surface) 82%, transparent)',
+                color: showCompletedArea ? '#15803D' : C.ink2,
+                border: showCompletedArea ? '1px solid #BBF7D0' : `1px solid ${C.line}`,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                boxShadow: C.shadow,
+              }}
+            >
+              ✓ 完成區
+            </button>
+            <button
+              onClick={() => { setShowCompletedArea(false); setShowArchived(!showArchived); }}
               style={{
                 ...btnO,
                 background: showArchived ? 'var(--xc-warning-soft)' : 'color-mix(in srgb, var(--xc-surface) 82%, transparent)',
@@ -1357,8 +1382,8 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
               {SORTS.map(option => <option key={option.key} value={option.key}>排序：{option.label}</option>)}
             </select>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
-              <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {stats.total}</span>
-              {(filter !== initialFilter || search || sortBy !== 'risk') && (
+              <span style={{ fontSize: 13, color: C.ink4, fontWeight: 700, whiteSpace: 'nowrap' }}>顯示 {filtered.length} / {showCompletedArea ? stats.completed : stats.total}</span>
+              {(showCompletedArea || filter !== initialFilter || search || sortBy !== 'risk') && (
                 <button type="button" onClick={resetFilters} style={{ ...btnO, padding: '8px 12px', borderRadius: 10, fontSize: 13 }}>
                   重置
                 </button>
@@ -1378,28 +1403,30 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
-            {FILTERS.map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                background: filter === f.key ? 'var(--xc-text)' : C.surfaceSoft,
-                color: filter === f.key ? 'var(--xc-bg)' : C.ink2,
-                border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
-                borderRadius: 999, padding: '6px 12px',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
-              }}>
-                {f.label}
-                <span style={{ marginLeft: 6, fontSize: 12, background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.surfaceMuted, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
-                  {searchedProjects.filter(p => matchesProjectFilter(p, f.key)).length}
-                </span>
-              </button>
-            ))}
-          </div>
+          {!showCompletedArea && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 2 }}>
+              {FILTERS.map(f => (
+                <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                  background: filter === f.key ? 'var(--xc-text)' : C.surfaceSoft,
+                  color: filter === f.key ? 'var(--xc-bg)' : C.ink2,
+                  border: `1px solid ${filter === f.key ? 'var(--xc-text)' : C.line}`,
+                  borderRadius: 999, padding: '6px 12px',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  transition: 'all 0.15s', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
+                }}>
+                  {f.label}
+                  <span style={{ marginLeft: 6, fontSize: 12, background: filter === f.key ? 'rgba(128,128,128,0.25)' : C.surfaceMuted, color: filter === f.key ? 'var(--xc-bg)' : C.ink4, borderRadius: 999, padding: '1px 7px' }}>
+                    {searchedProjects.filter(p => matchesProjectFilter(p, f.key)).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* ── 操作焦點：先處理最急的專案 ── */}
-      {!loading && attentionProjects.length > 0 && (
+      {!loading && !showCompletedArea && attentionProjects.length > 0 && (
         <div style={{ padding: isMobile ? '10px 14px' : '12px 24px', background: C.bg, borderBottom: `1px solid ${C.line}`, flexShrink: 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '150px repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'stretch' }}>
             <div style={{ background: C.surface, border: `1px solid ${C.line}`, borderRadius: 14, padding: '11px 12px', boxShadow: C.shadow }}>
@@ -1420,6 +1447,18 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 完成區 ── */}
+      {showCompletedArea && (
+        <div style={{ background: 'var(--xc-success-soft)', borderBottom: '1px solid #BBF7D0', flexShrink: 0 }}>
+          <div style={{ padding: isMobile ? '12px 16px' : '14px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 18 }}>✓</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: '#15803D' }}>完成區</span>
+            <span style={{ fontSize: 13, color: '#166534' }}>（集中放置已完成 {stats.completed} 個專案）</span>
+            <button onClick={toggleCompletedArea} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#15803D' }}>✕</button>
           </div>
         </div>
       )}
@@ -1506,7 +1545,13 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
           <div style={{ padding: '80px', textAlign: 'center' }}>
             <div style={{ fontSize: '50px', marginBottom: '14px' }}>📭</div>
             <div style={{ fontSize: '17px', fontWeight: '700', color: C.ink, marginBottom: '8px' }}>
-              {projects.length === 0 ? '還沒有任何專案' : '沒有符合條件的專案'}
+              {projects.length === 0
+                ? '還沒有任何專案'
+                : showCompletedArea
+                  ? '完成區目前沒有專案'
+                  : activeProjects.length === 0
+                    ? '目前沒有未完成專案'
+                    : '沒有符合條件的專案'}
             </div>
             {projects.length === 0 && canCreateProject ? (
               <>
@@ -1515,12 +1560,25 @@ export default function ProjectsPage({ initialFilter = 'all', pageTitle = '專�
                 </div>
                 <button onClick={() => setSelectedTpl({ id: 'blank', name: '', color: 'blue', sections: [] })} style={btnP}>＋ 新增專案</button>
               </>
+            ) : !showCompletedArea && activeProjects.length === 0 && completedProjects.length > 0 ? (
+              <>
+                <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
+                  已完成的專案已移到完成區，不會顯示在一般專案管理列表。
+                </div>
+                <button type="button" onClick={toggleCompletedArea} style={btnP}>前往完成區</button>
+              </>
             ) : (
               <>
                 <div style={{ fontSize: '15px', color: C.ink4, marginBottom: '18px' }}>
-                  目前搜尋、快捷篩選或狀態篩選沒有符合結果。
+                  {showCompletedArea ? '目前完成區搜尋條件沒有符合結果。' : '目前搜尋、快捷篩選或狀態篩選沒有符合結果。'}
                 </div>
-                <button type="button" onClick={resetFilters} style={btnP}>清除所有條件</button>
+                <button
+                  type="button"
+                  onClick={showCompletedArea ? () => { setSearch(''); setSortBy('updated'); } : resetFilters}
+                  style={btnP}
+                >
+                  {showCompletedArea ? '清除完成區搜尋' : '清除所有條件'}
+                </button>
               </>
             )}
           </div>

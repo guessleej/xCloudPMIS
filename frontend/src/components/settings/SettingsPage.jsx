@@ -1394,7 +1394,7 @@ function NotificationsTab() {
       {/* 通知類型開關 */}
       <Card title="事件通知">
         <p style={{ margin: '0 0 16px', fontSize: 15, color: T.textMuted }}>
-          選擇哪些事件要觸發系統內通知（收件匣），每日進度提醒預設於系統時間 14:00 發送。
+          選擇哪些事件要觸發提醒；每日進度提醒預設於系統時間 14:00 發送，會依下方通知管道分別送到收件匣或 Email。
         </p>
         {NOTIFICATION_TYPES.map((nt, i) => (
           <div key={nt.key} style={{
@@ -1458,7 +1458,7 @@ function NotificationsTab() {
       {/* 通知管道 */}
       <Card title="通知管道">
         <p style={{ margin: '0 0 16px', fontSize: 15, color: T.textMuted }}>
-          設定透過哪些管道接收通知
+          設定透過哪些管道接收通知。Email 通知可獨立開啟，不需要同時開啟應用程式通知。
         </p>
 
         <div style={{

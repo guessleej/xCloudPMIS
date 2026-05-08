@@ -936,7 +936,9 @@ async function generateDailyProgressReminderNotifications(prisma) {
           ? (user.settings.notificationSettings || {})
           : {}),
       };
-      if (!settings.dailyProgressReminder || !settings.pushNotifications) continue;
+      const wantsInAppNotification = !!settings.pushNotifications;
+      const wantsEmailNotification = !!settings.emailNotifications;
+      if (!settings.dailyProgressReminder || (!wantsInAppNotification && !wantsEmailNotification)) continue;
       if (minutes < parseReminderTime(settings.dailyProgressReminderTime)) continue;
 
       const alreadySent = await prisma.notification.findFirst({
@@ -958,19 +960,37 @@ async function generateDailyProgressReminderNotifications(prisma) {
         },
       });
 
+      const title = '每日專案任務更新進度提醒';
+      const message = activityCount > 0
+        ? `今天已記錄 ${activityCount} 筆專案 / 任務進度更新，記得確認每日進度頁是否完整。`
+        : '今天尚未偵測到你的專案 / 任務進度更新，請記得更新今日工作進度。';
+      const sentAt = new Date();
+
       await prisma.notification.create({
         data: {
           recipientId: user.id,
           type: 'system_digest',
-          title: '每日專案任務更新進度提醒',
-          message: activityCount > 0
-            ? `今天已記錄 ${activityCount} 筆專案 / 任務進度更新，記得確認每日進度頁是否完整。`
-            : '今天尚未偵測到你的專案 / 任務進度更新，請記得更新今日工作進度。',
+          title,
+          message,
           resourceType: 'daily_progress_reminder',
           resourceId: user.id,
-          isRead: false,
+          isRead: !wantsInAppNotification,
+          readAt: wantsInAppNotification ? null : sentAt,
+          deletedAt: wantsInAppNotification ? null : sentAt,
         },
       });
+
+      if (wantsEmailNotification) {
+        dispatchEmailNotifications({
+          prisma,
+          recipientIds: [user.id],
+          type: 'system_digest',
+          title,
+          message,
+          resourceType: 'daily_progress_reminder',
+          resourceId: user.id,
+        });
+      }
       created++;
     }
     return created;
