@@ -109,11 +109,13 @@ const PRIORITY_LABEL = {
 };
 
 const TASK_STATUSES = new Set(['todo', 'in_progress', 'review', 'done', 'completed']);
+const DONE_TASK_STATUSES = new Set(['done', 'completed']);
 const normalizeTaskStatus = (status, fallback = 'todo') => {
   if (!status) return fallback;
   if (!TASK_STATUSES.has(status)) return fallback;
   return status === 'completed' ? 'done' : status;
 };
+const isDoneTaskStatus = (status) => DONE_TASK_STATUSES.has(status);
 
 const TASK_FIELD_LABELS = {
   title: '任務標題',
@@ -425,10 +427,10 @@ router.get('/', async (req, res) => {
         },
         tasks: {
           where:  { deletedAt: null },
-          select: { id: true, status: true, dueDate: true },
+          select: { id: true, status: true, dueDate: true, parentTaskId: true },
         },
         taskProjects: {
-          include: { task: { select: { id: true, status: true, dueDate: true, deletedAt: true } } },
+          include: { task: { select: { id: true, status: true, dueDate: true, deletedAt: true, parentTaskId: true } } },
         },
         milestones: {
           select: { id: true, name: true, isAchieved: true, dueDate: true },
@@ -444,11 +446,11 @@ router.get('/', async (req, res) => {
       (p.taskProjects || []).forEach(tp => {
         if (!tp.task.deletedAt && !taskMap.has(tp.task.id)) taskMap.set(tp.task.id, tp.task);
       });
-      const allTasks = [...taskMap.values()];
-      const total    = allTasks.length;
-      const done     = allTasks.filter(t => t.status === 'done').length;
-      const overdue  = allTasks.filter(t =>
-        t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()
+      const visibleTasks = [...taskMap.values()].filter(task => !task.parentTaskId);
+      const total    = visibleTasks.length;
+      const done     = visibleTasks.filter(task => isDoneTaskStatus(task.status)).length;
+      const overdue  = visibleTasks.filter(task =>
+        !isDoneTaskStatus(task.status) && task.dueDate && new Date(task.dueDate) < new Date()
       ).length;
 
       return {
@@ -773,8 +775,10 @@ router.get('/:id', async (req, res) => {
       todo:        topLevelTasks.filter(t => t.status === 'todo'),
       in_progress: topLevelTasks.filter(t => t.status === 'in_progress'),
       review:      topLevelTasks.filter(t => t.status === 'review'),
-      done:        topLevelTasks.filter(t => t.status === 'done'),
+      done:        topLevelTasks.filter(t => isDoneTaskStatus(t.status)),
     };
+    const visibleTaskTotal = topLevelTasks.length;
+    const visibleDoneTotal = kanban.done.length;
 
     // 格式化自訂欄位值
     const customFieldValues = (project.customFieldValues || []).map(cfv => ({
@@ -809,13 +813,13 @@ router.get('/:id', async (req, res) => {
       tasks,
       kanban,
       stats: {
-        total:      tasks.length,
+        total:      visibleTaskTotal,
         todo:       kanban.todo.length,
         in_progress: kanban.in_progress.length,
         review:     kanban.review.length,
-        done:       kanban.done.length,
-        completion: tasks.length > 0
-          ? Math.round((kanban.done.length / tasks.length) * 100) : 0,
+        done:       visibleDoneTotal,
+        completion: visibleTaskTotal > 0
+          ? Math.round((visibleDoneTotal / visibleTaskTotal) * 100) : 0,
       },
     });
   } catch (e) {
