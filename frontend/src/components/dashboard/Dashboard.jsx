@@ -130,13 +130,44 @@ const ALL_NAV_IDS = [
   'time','team','settings','user-management','profile',
 ];
 
-function readHashNav() {
-  const hash = window.location.hash.replace(/^#\/?/, '');
-  return ALL_NAV_IDS.includes(hash) ? hash : 'home';
+function toPositiveInt(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
-function writeHashNav(id) {
-  const newHash = id === 'home' ? '' : id;
-  window.history.pushState({ nav: id }, '', newHash ? `#${newHash}` : window.location.pathname);
+
+function readHashRoute() {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  const [rawNav, rawQuery = ''] = hash.split('?');
+  const nav = ALL_NAV_IDS.includes(rawNav) ? rawNav : 'home';
+  const params = new URLSearchParams(rawQuery);
+  const state = {};
+
+  if (nav === 'project-detail') {
+    const projectId = toPositiveInt(params.get('projectId'));
+    if (!projectId) return { nav: 'projects', state: null };
+    state.projectId = projectId;
+  }
+
+  if (nav === 'tasks') {
+    const taskId = toPositiveInt(params.get('taskId'));
+    const projectId = toPositiveInt(params.get('projectId'));
+    if (taskId) state.taskId = taskId;
+    if (projectId) state.projectId = projectId;
+  }
+
+  return { nav, state: Object.keys(state).length ? state : null };
+}
+
+function writeHashNav(id, state = null) {
+  const params = new URLSearchParams();
+  if (id === 'project-detail' && state?.projectId) params.set('projectId', String(state.projectId));
+  if (id === 'tasks') {
+    if (state?.taskId) params.set('taskId', String(state.taskId));
+    if (state?.projectId) params.set('projectId', String(state.projectId));
+  }
+  const query = params.toString();
+  const newHash = id === 'home' ? '' : `${id}${query ? `?${query}` : ''}`;
+  window.history.pushState({ nav: id, state: state || null }, '', newHash ? `#${newHash}` : window.location.pathname);
 }
 
 const PANEL_MODE_OPTIONS = [
@@ -2499,8 +2530,8 @@ export default function Dashboard() {
   const isDark = themeMode === 'dark';
   const { isMobile } = useResponsive();
 
-  const [activeNav,       setActiveNav]       = useState(readHashNav);
-  const [navState,        setNavState]        = useState(null);
+  const [activeNav,       setActiveNav]       = useState(() => readHashRoute().nav);
+  const [navState,        setNavState]        = useState(() => readHashRoute().state);
   const [navResetKey,     setNavResetKey]     = useState(0);
   const [settingsState,   setSettingsState]   = useState(null);
   const [inboxCount,      setInboxCount]      = useState(0);
@@ -2550,8 +2581,18 @@ export default function Dashboard() {
       desktopNotification.onclick = () => {
         window.focus();
         if (notification.resourceType === 'task') {
-          writeHashNav('tasks');
+          const state = notification.resourceId ? { taskId: notification.resourceId } : null;
+          setActiveNav('tasks');
+          setNavState(state);
+          writeHashNav('tasks', state);
+        } else if (notification.resourceType === 'project' && notification.resourceId) {
+          const state = { projectId: notification.resourceId };
+          setActiveNav('project-detail');
+          setNavState(state);
+          writeHashNav('project-detail', state);
         } else {
+          setActiveNav('inbox');
+          setNavState(null);
           writeHashNav('inbox');
         }
       };
@@ -2568,7 +2609,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     const sync = () => {
-      setActiveNav(readHashNav());
+      const route = readHashRoute();
+      setActiveNav(route.nav);
+      setNavState(route.state);
       setNavResetKey((key) => key + 1);
     };
     window.addEventListener('popstate',   sync);   // pushState 後退/前進
@@ -2585,7 +2628,7 @@ export default function Dashboard() {
     setNavResetKey((key) => key + 1);
     setShowDarkPanel(false);
     setMobileMenuOpen(false);
-    writeHashNav(id);
+    writeHashNav(id, state);
   }, []);
 
   useEffect(() => {

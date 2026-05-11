@@ -75,6 +75,51 @@ const TYPE_TO_EMAIL_SUBJECT_PREFIX = {
   system_digest:        '📊',
 };
 
+function frontendBaseUrl() {
+  return (process.env.FRONTEND_URL || 'http://localhost:3838').replace(/\/+$/, '');
+}
+
+function buildAppHashUrl(nav, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+  });
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return `${frontendBaseUrl()}/#${nav}${suffix}`;
+}
+
+async function resolveNotificationAction(prisma, resourceType, resourceId) {
+  const id = parseInt(String(resourceId || ''), 10);
+  if (resourceType === 'project' && id) {
+    return {
+      url: buildAppHashUrl('project-detail', { projectId: id }),
+      label: '前往專案看板 →',
+    };
+  }
+
+  if (resourceType === 'task' && id) {
+    let projectId = null;
+    try {
+      const task = await prisma.task.findFirst({
+        where: { id, deletedAt: null },
+        select: { projectId: true },
+      });
+      projectId = task?.projectId || null;
+    } catch (error) {
+      console.warn(`[notificationCenter] 產生任務深連結失敗 task=${id}: ${error.message}`);
+    }
+    return {
+      url: buildAppHashUrl('tasks', { taskId: id, projectId }),
+      label: '前往任務清單 →',
+    };
+  }
+
+  return {
+    url: frontendBaseUrl(),
+    label: '前往系統查看 →',
+  };
+}
+
 /**
  * 非同步發送 Email 通知（fire-and-forget，不阻塞通知建立流程）
  * 規則很簡單：使用者開啟 emailNotifications → 系統通知有一封，email 就寄一封
@@ -96,6 +141,7 @@ async function dispatchEmailNotifications(opts = {}) {
     const emailJobs = [];
     const prefix      = TYPE_TO_EMAIL_SUBJECT_PREFIX[type] || '🔔';
     const accentColor = TYPE_TO_EMAIL_COLOR[type] || '#3B82F6';
+    const action = await resolveNotificationAction(prisma, resourceType, resourceId);
 
     for (const user of users) {
       const prefs = {
@@ -130,9 +176,9 @@ async function dispatchEmailNotifications(opts = {}) {
         <table width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td align="center" style="padding:10px 0 8px;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3838'}"
+              <a href="${action.url}"
                  style="display:inline-block;background:${accentColor};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:8px;">
-                前往系統查看 →
+                ${action.label}
               </a>
             </td>
           </tr>

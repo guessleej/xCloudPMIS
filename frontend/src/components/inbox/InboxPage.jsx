@@ -66,8 +66,8 @@ const FILTER_TABS = [
 
 // resourceType → 導航目的地
 const RESOURCE_NAV = {
-  task:    'my-tasks',
-  project: 'projects',
+  task:    'tasks',
+  project: 'project-detail',
   comment: 'tasks',
 };
 // resourceType → 按鈕文字
@@ -206,7 +206,16 @@ export default function InboxPage({ onNavigate }) {
   function goToResource(msg) {
     if (!msg?.resourceType || !onNavigate) return;
     const target = RESOURCE_NAV[msg.resourceType];
-    if (target) onNavigate(target);
+    if (!target) return;
+    if (msg.resourceType === 'project' && msg.resourceId) {
+      onNavigate(target, { projectId: msg.resourceId });
+      return;
+    }
+    if ((msg.resourceType === 'task' || msg.resourceType === 'comment') && msg.resourceId) {
+      onNavigate(target, { taskId: msg.resourceId });
+      return;
+    }
+    onNavigate(target);
   }
 
   async function markAllRead() {
