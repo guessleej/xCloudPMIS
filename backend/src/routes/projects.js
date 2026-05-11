@@ -116,6 +116,13 @@ const normalizeTaskStatus = (status, fallback = 'todo') => {
   return status === 'completed' ? 'done' : status;
 };
 const isDoneTaskStatus = (status) => DONE_TASK_STATUSES.has(status);
+const subtaskProgress = (task) => {
+  const subtasks = Array.isArray(task?.subtasks) ? task.subtasks : [];
+  return {
+    numSubtasks: subtasks.length,
+    completedSubtasks: subtasks.filter(subtask => isDoneTaskStatus(subtask.status)).length,
+  };
+};
 
 const TASK_FIELD_LABELS = {
   title: '任務標題',
@@ -649,8 +656,7 @@ router.get('/tasks', async (req, res) => {
       createdBy:      t.createdBy,
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
-      numSubtasks:    t._count?.subtasks || 0,
-      completedSubtasks: (t.subtasks || []).filter(s => s.status === 'done' || s.status === 'completed').length,
+      ...subtaskProgress(t),
       commentCount:   t._count?.comments || 0,
       depCount:       t._count?.dependencies || 0,
       assignee:       t.assignee,
@@ -761,8 +767,7 @@ router.get('/:id', async (req, res) => {
       dueEndTime:     resolveDueEndTime(t.dueDate, t.dueEndTime),
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
-      numSubtasks:    t._count?.subtasks || 0,
-      completedSubtasks: (t.subtasks || []).filter(s => s.status === 'done' || s.status === 'completed').length,
+      ...subtaskProgress(t),
       assignee:       t.assignee,
       assignees:      (t.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       tags:           t.taskTags.map(tt => tt.tag),
@@ -1072,6 +1077,7 @@ router.get('/:id/tasks', async (req, res) => {
         createdBy: { select: { id: true, name: true } },
         assignee: { select: { id: true, name: true } },
         _count:   { select: { subtasks: true, comments: true } },
+        subtasks: { select: { id: true, status: true }, where: { deletedAt: null } },
         taskTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
       },
     });
@@ -1097,7 +1103,7 @@ router.get('/:id/tasks', async (req, res) => {
       createdBy:      t.createdBy,
       parentTaskId:   t.parentTaskId,
       progressPercent: t.progressPercent || 0,
-      numSubtasks:    t._count?.subtasks || 0,
+      ...subtaskProgress(t),
       commentCount:   t._count?.comments || 0,
       assignee:       t.assignee,
       tags:           t.taskTags.map(tt => tt.tag),
@@ -1222,6 +1228,7 @@ router.post('/:id/tasks', async (req, res) => {
           assignee: { select: { id: true, name: true } },
           taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
           _count:   { select: { subtasks: true } },
+          subtasks: { select: { id: true, status: true }, where: { deletedAt: null } },
         },
       });
     });
@@ -1230,7 +1237,7 @@ router.post('/:id/tasks', async (req, res) => {
       ...task,
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
       progressPercent: task.progressPercent || 0,
-      numSubtasks: task._count?.subtasks || 0,
+      ...subtaskProgress(task),
       assignees: (task.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
     });
 
@@ -1336,6 +1343,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
           assignee: { select: { id: true, name: true } },
           taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
           _count:   { select: { subtasks: true } },
+          subtasks: { select: { id: true, status: true }, where: { deletedAt: null } },
         },
       });
 
@@ -1423,6 +1431,21 @@ router.patch('/tasks/:taskId', async (req, res) => {
         await createActivityLog(tx, { taskId, userId: actorId, ...log });
       }
 
+      if (data.status && isDoneTaskStatus(data.status) && !existingTask.parentTaskId) {
+        await tx.task.updateMany({
+          where: {
+            parentTaskId: taskId,
+            deletedAt: null,
+            status: { notIn: Array.from(DONE_TASK_STATUSES) },
+          },
+          data: {
+            status: 'done',
+            completedAt: new Date(),
+            progressPercent: 100,
+          },
+        });
+      }
+
       // 重新查詢以取得最新的 assigneeLinks
       return tx.task.findUnique({
         where: { id: taskId },
@@ -1430,6 +1453,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
           assignee: { select: { id: true, name: true } },
           taskAssigneeLinks: { include: { user: { select: { id: true, name: true } } }, orderBy: [{ isPrimary: 'desc' }, { assignedAt: 'asc' }] },
           _count: { select: { subtasks: true } },
+          subtasks: { select: { id: true, status: true }, where: { deletedAt: null } },
         },
       });
     });
@@ -1451,7 +1475,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
       ...task,
       estimatedHours: task.estimatedHours ? parseFloat(task.estimatedHours.toString()) : null,
       progressPercent: task.progressPercent || 0,
-      numSubtasks: task._count?.subtasks || 0,
+      ...subtaskProgress(task),
       assignees: (task.taskAssigneeLinks || []).map(l => ({ id: l.user.id, name: l.user.name, isPrimary: l.isPrimary })),
       automation,
     });
@@ -2193,6 +2217,21 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
           _count: { select: { subtasks: true } },
         },
       });
+
+      if (newStatus === 'done' && !task.parentTaskId) {
+        await tx.task.updateMany({
+          where: {
+            parentTaskId: taskId,
+            deletedAt: null,
+            status: { notIn: Array.from(DONE_TASK_STATUSES) },
+          },
+          data: {
+            status: 'done',
+            completedAt: new Date(),
+            progressPercent: 100,
+          },
+        });
+      }
 
       // 記錄審核評論
       const commentText = comment
