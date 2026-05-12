@@ -10,6 +10,17 @@ const getUserOutlookService = () => require('./userOutlookService');
 // 行事曆 ICS 連結產生器（郵件「加入行事曆」按鈕用）
 const getCalendarAddUrl = () => require('../routes/calendar').getCalendarAddUrl;
 
+const DEFAULT_DAILY_PROGRESS_REMINDER_DAYS = [1, 2, 3, 4, 5, 6, 0];
+const WEEKDAY_PART_TO_VALUE = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
 // 預設通知設定（使用者未自訂時回傳）
 const DEFAULT_NOTIFICATION_SETTINGS = {
   taskAssigned:        true,
@@ -20,11 +31,40 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
   projectUpdate:       true,
   dailyProgressReminder: true,
   dailyProgressReminderTime: '14:00',
+  dailyProgressReminderDays: [...DEFAULT_DAILY_PROGRESS_REMINDER_DAYS],
   weeklyDigest:        true,
   emailNotifications:  false,
   pushNotifications:   true,
   digestFrequency:     'weekly',
 };
+
+function normalizeDailyProgressReminderDays(value, fallback = DEFAULT_DAILY_PROGRESS_REMINDER_DAYS) {
+  const source = Array.isArray(value) ? value : fallback;
+  const days = [];
+
+  for (const day of source) {
+    const parsed = Number(day);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 6 && !days.includes(parsed)) {
+      days.push(parsed);
+    }
+  }
+
+  return days.length
+    ? DEFAULT_DAILY_PROGRESS_REMINDER_DAYS.filter(day => days.includes(day))
+    : [...fallback];
+}
+
+function normalizeNotificationSettings(settings = {}) {
+  const merged = {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...((settings && typeof settings === 'object') ? settings : {}),
+  };
+
+  return {
+    ...merged,
+    dailyProgressReminderDays: normalizeDailyProgressReminderDays(merged.dailyProgressReminderDays),
+  };
+}
 
 /**
  * 通知 type → 使用者偏好設定 key 的映射
@@ -144,12 +184,9 @@ async function dispatchEmailNotifications(opts = {}) {
     const action = await resolveNotificationAction(prisma, resourceType, resourceId);
 
     for (const user of users) {
-      const prefs = {
-        ...DEFAULT_NOTIFICATION_SETTINGS,
-        ...((user.settings && typeof user.settings === 'object')
-          ? (user.settings.notificationSettings || {})
-          : {}),
-      };
+      const prefs = normalizeNotificationSettings((user.settings && typeof user.settings === 'object')
+        ? (user.settings.notificationSettings || {})
+        : {});
       if (!prefs.emailNotifications || !user.email) continue;
 
       const subject = `${prefix} ${title}`;
@@ -296,16 +333,16 @@ async function getUserNotificationSettings(prisma, userId) {
       select: { settings: true },
     });
     const saved = user?.settings?.notificationSettings || {};
-    return { ...DEFAULT_NOTIFICATION_SETTINGS, ...saved };
+    return normalizeNotificationSettings(saved);
   } catch (e) {
     console.warn('[notificationCenter] 讀取設定失敗:', e.message);
-    return { ...DEFAULT_NOTIFICATION_SETTINGS };
+    return normalizeNotificationSettings();
   }
 }
 
 async function updateUserNotificationSettings(prisma, userId, updates = {}) {
   const current = await getUserNotificationSettings(prisma, userId);
-  const merged  = { ...current, ...updates };
+  const merged  = normalizeNotificationSettings({ ...current, ...updates });
 
   // 讀取現有 settings JSON，僅更新 notificationSettings key
   const user = await prisma.user.findUnique({
@@ -327,7 +364,7 @@ async function updateUserNotificationSettings(prisma, userId, updates = {}) {
   if (!saved) {
     throw new Error('通知設定寫入後無法讀回，請檢查資料庫欄位');
   }
-  return saved;
+  return normalizeNotificationSettings(saved);
 }
 
 /**
@@ -745,12 +782,9 @@ async function generateDigestNotifications(prisma) {
     });
 
     for (const user of users) {
-      const settings = {
-        ...DEFAULT_NOTIFICATION_SETTINGS,
-        ...((user.settings && typeof user.settings === 'object')
-          ? (user.settings.notificationSettings || {})
-          : {}),
-      };
+      const settings = normalizeNotificationSettings((user.settings && typeof user.settings === 'object')
+        ? (user.settings.notificationSettings || {})
+        : {});
 
       // 使用者關閉了摘要
       if (!settings.weeklyDigest) continue;
@@ -943,14 +977,18 @@ async function generateDigestNotifications(prisma) {
 }
 
 function taipeiDateParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Taipei',
+    weekday: 'short',
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(date).reduce((acc, part) => ({ ...acc, [part.type]: part.value }), {});
+  const dateKey = `${parts.year}-${parts.month}-${parts.day}`;
+
   return {
-    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
+    dateKey,
     minutes: (parseInt(parts.hour, 10) * 60) + parseInt(parts.minute, 10),
+    weekday: WEEKDAY_PART_TO_VALUE[parts.weekday] ?? new Date(`${dateKey}T12:00:00+08:00`).getUTCDay(),
   };
 }
 
@@ -964,7 +1002,7 @@ function parseReminderTime(value) {
 
 async function generateDailyProgressReminderNotifications(prisma) {
   const now = new Date();
-  const { dateKey, minutes } = taipeiDateParts(now);
+  const { dateKey, minutes, weekday } = taipeiDateParts(now);
   const start = new Date(`${dateKey}T00:00:00+08:00`);
   const end = new Date(`${dateKey}T23:59:59.999+08:00`);
 
@@ -976,15 +1014,13 @@ async function generateDailyProgressReminderNotifications(prisma) {
 
     let created = 0;
     for (const user of users) {
-      const settings = {
-        ...DEFAULT_NOTIFICATION_SETTINGS,
-        ...((user.settings && typeof user.settings === 'object')
-          ? (user.settings.notificationSettings || {})
-          : {}),
-      };
+      const settings = normalizeNotificationSettings((user.settings && typeof user.settings === 'object')
+        ? (user.settings.notificationSettings || {})
+        : {});
       const wantsInAppNotification = !!settings.pushNotifications;
       const wantsEmailNotification = !!settings.emailNotifications;
       if (!settings.dailyProgressReminder || (!wantsInAppNotification && !wantsEmailNotification)) continue;
+      if (!settings.dailyProgressReminderDays.includes(weekday)) continue;
       if (minutes < parseReminderTime(settings.dailyProgressReminderTime)) continue;
 
       const alreadySent = await prisma.notification.findFirst({

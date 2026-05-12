@@ -1294,6 +1294,16 @@ const DIGEST_OPTIONS = [
   { value: 'monthly', label: '每月' },
 ];
 
+const DAILY_PROGRESS_DAY_OPTIONS = [
+  { value: 1, label: '一', fullLabel: '星期一' },
+  { value: 2, label: '二', fullLabel: '星期二' },
+  { value: 3, label: '三', fullLabel: '星期三' },
+  { value: 4, label: '四', fullLabel: '星期四' },
+  { value: 5, label: '五', fullLabel: '星期五' },
+  { value: 6, label: '六', fullLabel: '星期六' },
+  { value: 0, label: '日', fullLabel: '星期日' },
+];
+
 /** 切換開關元件 */
 function ToggleSwitch({ checked, onChange, disabled }) {
   return (
@@ -1384,8 +1394,31 @@ function NotificationsTab() {
     await handleToggle('digestFrequency', freq);
   };
 
+  const handleDailyProgressDayToggle = async (dayValue) => {
+    const currentDays = Array.isArray(settings.dailyProgressReminderDays) && settings.dailyProgressReminderDays.length > 0
+      ? settings.dailyProgressReminderDays.map((v) => Number(v)).filter((v) => Number.isInteger(v))
+      : DAILY_PROGRESS_DAY_OPTIONS.map((opt) => opt.value);
+    const nextDays = currentDays.includes(dayValue)
+      ? currentDays.filter((v) => v !== dayValue)
+      : [...currentDays, dayValue];
+
+    if (nextDays.length === 0) {
+      setBanner({ type: 'error', message: '每日進度提醒至少要選擇一個通知星期' });
+      return;
+    }
+
+    const orderedDays = DAILY_PROGRESS_DAY_OPTIONS
+      .map((opt) => opt.value)
+      .filter((value) => nextDays.includes(value));
+    await handleToggle('dailyProgressReminderDays', orderedDays);
+  };
+
   if (loading) return <p style={{ color: T.textMuted, fontSize: 16 }}>載入中…</p>;
   if (!settings) return <p style={{ color: T.danger, fontSize: 16 }}>無法載入通知設定</p>;
+
+  const selectedReminderDays = Array.isArray(settings.dailyProgressReminderDays) && settings.dailyProgressReminderDays.length > 0
+    ? settings.dailyProgressReminderDays.map((v) => Number(v)).filter((v) => Number.isInteger(v))
+    : DAILY_PROGRESS_DAY_OPTIONS.map((opt) => opt.value);
 
   return (
     <div>
@@ -1425,32 +1458,75 @@ function NotificationsTab() {
             background: T.infoSoft,
             border: `1px solid ${T.border}`,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
+            alignItems: 'stretch',
             gap: 14,
-            flexWrap: 'wrap',
           }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 14,
+              flexWrap: 'wrap',
+            }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>每日進度提醒時間</div>
+                <div style={{ fontSize: 14, color: T.textMuted, marginTop: 3 }}>
+                  系統會檢查你今天是否已有專案 / 任務進度更新，未更新時提醒補上。
+                </div>
+              </div>
+              <input
+                type="time"
+                value={settings.dailyProgressReminderTime || '14:00'}
+                onChange={(e) => handleToggle('dailyProgressReminderTime', e.target.value || '14:00')}
+                disabled={saving}
+                style={{
+                  padding: '8px 12px',
+                  border: `1px solid ${T.borderStrong}`,
+                  borderRadius: 10,
+                  background: T.surface,
+                  color: T.text,
+                  fontSize: 16,
+                  fontWeight: 700,
+                }}
+              />
+            </div>
+
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>每日進度提醒時間</div>
-              <div style={{ fontSize: 14, color: T.textMuted, marginTop: 3 }}>
-                系統會檢查你今天是否已有專案 / 任務進度更新，未更新時提醒補上。
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 8 }}>通知星期</div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(38px, 1fr))',
+                gap: 8,
+              }}>
+                {DAILY_PROGRESS_DAY_OPTIONS.map((opt) => {
+                  const selected = selectedReminderDays.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      aria-label={opt.fullLabel}
+                      aria-pressed={selected}
+                      onClick={() => handleDailyProgressDayToggle(opt.value)}
+                      disabled={saving}
+                      title={opt.fullLabel}
+                      style={{
+                        minHeight: 38,
+                        borderRadius: 10,
+                        border: `1px solid ${selected ? T.info : T.borderStrong}`,
+                        background: selected ? T.info : T.surface,
+                        color: selected ? '#fff' : T.textSoft,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <input
-              type="time"
-              value={settings.dailyProgressReminderTime || '14:00'}
-              onChange={(e) => handleToggle('dailyProgressReminderTime', e.target.value || '14:00')}
-              disabled={saving}
-              style={{
-                padding: '8px 12px',
-                border: `1px solid ${T.borderStrong}`,
-                borderRadius: 10,
-                background: T.surface,
-                color: T.text,
-                fontSize: 16,
-                fontWeight: 700,
-              }}
-            />
           </div>
         )}
       </Card>

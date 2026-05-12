@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
  *   ① 事件通知：taskAssigned / taskDueReminder / taskOverdue / taskCompleted / mentioned / projectUpdate
  *   ② 通知管道：pushNotifications / emailNotifications
  *   ③ 摘要報告：weeklyDigest / digestFrequency
+ *   ④ 每日進度提醒：dailyProgressReminderDays 單選 / 多選
  *
  * 策略：
  *   用 userId=1 (admin) 去指派任務給 userId=2 (member)
@@ -58,6 +59,9 @@ async function resetSettings() {
     taskCompleted:      true,
     mentioned:          true,
     projectUpdate:      true,
+    dailyProgressReminder: true,
+    dailyProgressReminderTime: '14:00',
+    dailyProgressReminderDays: [1, 2, 3, 4, 5, 6, 0],
     weeklyDigest:       true,
     emailNotifications: false,
     pushNotifications:  true,
@@ -244,8 +248,30 @@ async function testDigestFrequency() {
   }
 }
 
+async function testDailyProgressReminderDays() {
+  await resetSettings();
+
+  await updateUserNotificationSettings(prisma, MEMBER_ID, { dailyProgressReminderDays: [1] });
+  let settings = await getUserNotificationSettings(prisma, MEMBER_ID);
+  assert(
+    '每日進度提醒星期 → 單選星期一',
+    Array.isArray(settings.dailyProgressReminderDays)
+      && settings.dailyProgressReminderDays.length === 1
+      && settings.dailyProgressReminderDays[0] === 1,
+    `實際值: ${JSON.stringify(settings.dailyProgressReminderDays)}`,
+  );
+
+  await updateUserNotificationSettings(prisma, MEMBER_ID, { dailyProgressReminderDays: [1, 3, 5] });
+  settings = await getUserNotificationSettings(prisma, MEMBER_ID);
+  assert(
+    '每日進度提醒星期 → 多選一三五',
+    JSON.stringify(settings.dailyProgressReminderDays) === JSON.stringify([1, 3, 5]),
+    `實際值: ${JSON.stringify(settings.dailyProgressReminderDays)}`,
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
-// 測試群組 4：實際任務指派流程（端到端）
+// 測試群組 5：實際任務指派流程（端到端）
 // ═══════════════════════════════════════════════════════════
 
 async function testRealTaskAssignment() {
@@ -378,12 +404,16 @@ async function main() {
     await testWeeklyDigest();
     await testDigestFrequency();
 
+    // ── 每日進度提醒 ─────────────────────────────
+    console.log('━━ ④ 每日進度提醒 ━━━━━━━━━━━━━━━━━━━━━');
+    await testDailyProgressReminderDays();
+
     // ── 端到端任務指派 ───────────────────────────
-    console.log('━━ ④ 任務指派端到端 ━━━━━━━━━━━━━━━━━━━━');
+    console.log('━━ ⑤ 任務指派端到端 ━━━━━━━━━━━━━━━━━━━━');
     await testRealTaskAssignment();
 
     // ── HTTP API ─────────────────────────────────
-    console.log('━━ ⑤ HTTP API 測試 ━━━━━━━━━━━━━━━━━━━━━');
+    console.log('━━ ⑥ HTTP API 測試 ━━━━━━━━━━━━━━━━━━━━━');
     await testHTTPApi();
 
   } catch (err) {
