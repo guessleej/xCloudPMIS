@@ -110,6 +110,7 @@ const PRIORITY_LABEL = {
 
 const TASK_STATUSES = new Set(['todo', 'in_progress', 'review', 'done', 'completed']);
 const DONE_TASK_STATUSES = new Set(['done', 'completed']);
+const DB_DONE_TASK_STATUSES = ['done'];
 const normalizeTaskStatus = (status, fallback = 'todo') => {
   if (!status) return fallback;
   if (!TASK_STATUSES.has(status)) return fallback;
@@ -1436,7 +1437,7 @@ router.patch('/tasks/:taskId', async (req, res) => {
           where: {
             parentTaskId: taskId,
             deletedAt: null,
-            status: { notIn: Array.from(DONE_TASK_STATUSES) },
+            status: { notIn: DB_DONE_TASK_STATUSES },
           },
           data: {
             status: 'done',
@@ -2223,7 +2224,7 @@ router.post('/tasks/:taskId/approval', async (req, res) => {
           where: {
             parentTaskId: taskId,
             deletedAt: null,
-            status: { notIn: Array.from(DONE_TASK_STATUSES) },
+            status: { notIn: DB_DONE_TASK_STATUSES },
           },
           data: {
             status: 'done',
